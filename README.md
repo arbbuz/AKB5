@@ -24,6 +24,16 @@
 
 Важно: `src/AsutpKnowledgeBase.Core` пока не содержит физически перенесённые исходники. Он использует `Models/*.cs` и `Services/*.cs` как linked files. Это значит, что граница между UI и core уже выстроена концептуально и тестируется, но физическое разделение кода ещё не завершено. Папка `UiServices/` в `Core` не линкуется и остаётся WinForms-слоем.
 
+## Принятые ориентиры
+
+На текущем этапе для проекта зафиксированы такие решения:
+
+- архитектурный курс: прагматичный рефакторинг без переписывания WinForms UI
+- целевое состояние: минимально чистая архитектура, в которой `MainForm` постепенно становится thin shell над UI-facing coordinator/service слоями
+- ближайший приоритет: сначала стабилизировать `build` и `test`, затем продолжать дробление `MainForm`
+- хранилище: локальный JSON остаётся основным и единственным source of truth
+- обмен данными: импорт/экспорт в Excel должен проектироваться отдельно от JSON persistence layer, без смешивания с `JsonStorageService`
+
 ## Структура
 
 - [Program.cs](/Users/home/ASUTP/AKB5/Program.cs) — точка входа
@@ -77,6 +87,7 @@
 - file/session UI workflow всё ещё находится в форме: `Open`, `Reload`, `Save`, `Save As`, prompt before continue, close handling
 - `src/AsutpKnowledgeBase.Core` всё ещё использует linked-file схему вместо физически выделенного core-кода
 - полноценная UI-проверка остаётся Windows-only задачей
+- после последнего рефакторинга требуется переподтверждение `dotnet build` и `dotnet test` в рабочем Windows/.NET окружении
 
 ## Проверка
 
@@ -87,10 +98,18 @@
 
 Важно: в этой среде `dotnet` недоступен, поэтому локально здесь я не переподтверждал `dotnet build` и `dotnet test` после последнего рефакторинга. Полная проверка сборки и тестов должна выполняться в Windows-среде или в окружении с установленным .NET SDK.
 
-## Ближайшие улучшения
+## Актуальный план
 
-1. Вынести из `MainForm` file/session UI workflow в отдельный coordinator: `Open`, `Reload`, `Save`, `Save As`, `Close`, prompt и error messaging.
-2. Стабилизировать границу между WinForms-слоем и core, чтобы `MainForm` осталась thin shell над координаторами.
-3. Физически перенести `Models` и `Services` в `src/AsutpKnowledgeBase.Core`, чтобы уйти от linked-file схемы.
-4. Добавить Windows smoke-checklist или UI automation для базовых пользовательских сценариев.
-5. Отдельно спроектировать импорт/экспорт, не смешивая его с основным JSON persistence layer.
+1. Подтвердить `dotnet build` и `dotnet test` в Windows или другом окружении с установленным .NET SDK.
+2. Исправить только те проблемы, которые всплывут при сборке и тестах после последнего рефакторинга, не расширяя объём изменений.
+3. После стабилизации вынести из `MainForm` file/session UI workflow в отдельный coordinator: `Open`, `Reload`, `Save`, `Save As`, `Close`, prompt и error messaging.
+4. Продолжать держать `MainForm` как thin shell без переписывания UI и без тяжёлого MVP/MVVM-рефакторинга.
+5. Физически перенести `Models` и `Services` в `src/AsutpKnowledgeBase.Core`, когда граница слоёв стабилизируется и сборка станет предсказуемой.
+6. Добавить Windows smoke-checklist или UI automation для базовых пользовательских сценариев.
+7. Спроектировать импорт/экспорт в Excel как отдельный adapter/service слой поверх domain-модели, не смешивая его с основным JSON persistence layer.
+
+## Что сознательно не делаем сейчас
+
+- не переписываем WinForms UI под MVP/MVVM
+- не заменяем JSON другим форматом хранения
+- не смешиваем будущий Excel import/export с текущим JSON storage workflow
