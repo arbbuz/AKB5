@@ -200,7 +200,7 @@ namespace AsutpKnowledgeBase.UiServices
                 return;
             }
 
-            context.ApplySessionView(result.ViewState, clearSearch: true, nodeToSelect: null, expandedNodes: null);
+            context.ApplySessionView(result.ViewState, true, null, null);
             context.UpdateDirtyState();
             context.UpdateUi();
             context.SetStatusText(result.StatusMessage ?? "↩ Выполнена отмена");
@@ -217,7 +217,7 @@ namespace AsutpKnowledgeBase.UiServices
                 return;
             }
 
-            context.ApplySessionView(result.ViewState, clearSearch: true, nodeToSelect: null, expandedNodes: null);
+            context.ApplySessionView(result.ViewState, true, null, null);
             context.UpdateDirtyState();
             context.UpdateUi();
             context.SetStatusText(result.StatusMessage ?? "↪ Выполнен повтор");
@@ -231,7 +231,7 @@ namespace AsutpKnowledgeBase.UiServices
         {
             context.ApplySessionView(
                 _sessionWorkflowService.BuildViewState(),
-                clearSearch: false,
+                false,
                 nodeToSelect,
                 expandedNodes);
             context.RefreshSearchAfterMutation();
