@@ -33,14 +33,14 @@
 - ближайший приоритет: сначала стабилизировать `build` и `test`, затем продолжать дробление `MainForm`
 - хранилище: локальный JSON остаётся основным и единственным source of truth
 - обмен данными: импорт/экспорт в Excel реализуется отдельно от JSON persistence layer, без смешивания с `JsonStorageService`
-- первая реализация Excel exchange сделана в dependency-free формате SpreadsheetML 2003 (`*.xml`), который открывается в Excel и не требует внешних NuGet-пакетов
+- текущая реализация Excel exchange экспортирует dependency-free `*.xlsx` без внешних NuGet-пакетов и сохраняет совместимый листовой контракт `Meta/Levels/Workshops/Nodes`
 
 ## Краткое обновление
 
 - `MainForm` сокращён примерно до `560` строк и теперь ближе к thin-shell роли
 - вынесены отдельные WinForms-coordinator'ы для workshop/config UI и tree-mutation UI
-- Excel exchange больше не живёт в одном крупном классе: фасад сохранён в `KnowledgeBaseExcelExchangeService`, а SpreadsheetML writer, reader и workbook parser разнесены по отдельным сервисам
-- следующая задача: подтвердить `dotnet build/test` и провести Windows/Excel smoke-проверку `export/import`, затем при необходимости корректировать SpreadsheetML contract без ломки `WorkbookFormatVersion = 1`
+- Excel exchange больше не живёт в одном крупном классе: фасад сохранён в `KnowledgeBaseExcelExchangeService`, а writer, reader и workbook parser разнесены по отдельным сервисам
+- следующая задача: подтвердить `dotnet build/test` и провести Windows/Excel smoke-проверку `export/import`, затем при необходимости корректировать xlsx contract без ломки `WorkbookFormatVersion = 1`
 
 ## Структура
 
@@ -61,9 +61,11 @@
 - [Services/KnowledgeBaseConfigurationWorkflowService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseConfigurationWorkflowService.cs) — изменение конфигурации уровней
 - [Services/KnowledgeBaseFormStateService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseFormStateService.cs) — правила состояния формы
 - [Services/JsonStorageService.cs](/Users/home/ASUTP/AKB5/Services/JsonStorageService.cs) — чтение, запись, backup и валидация JSON
-- [Services/KnowledgeBaseExcelExchangeService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseExcelExchangeService.cs) — thin facade для import/export базы в Excel-compatible SpreadsheetML workbook
+- [Services/KnowledgeBaseExcelExchangeService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseExcelExchangeService.cs) — thin facade для import/export базы в Excel workbook формата `xlsx` с fallback-импортом legacy XML
+- [Services/KnowledgeBaseXlsxWriter.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseXlsxWriter.cs) — генерация `xlsx` workbook и числовых/boolean cell types для контракта `Meta/Levels/Workshops/Nodes`
+- [Services/KnowledgeBaseXlsxReader.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseXlsxReader.cs) — чтение `xlsx` workbook, sheet relationships, inline/shared strings и numeric/boolean cells
 - [Services/KnowledgeBaseSpreadsheetMlWriter.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseSpreadsheetMlWriter.cs) — генерация SpreadsheetML workbook и фиксированного контракта листов `Meta/Levels/Workshops/Nodes`
-- [Services/KnowledgeBaseSpreadsheetMlReader.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseSpreadsheetMlReader.cs) — XML-level чтение SpreadsheetML workbook, листов и строк
+- [Services/KnowledgeBaseSpreadsheetMlReader.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseSpreadsheetMlReader.cs) — XML-level чтение legacy SpreadsheetML workbook для обратной совместимости импорта
 - [Services/KnowledgeBaseExcelWorkbookParser.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseExcelWorkbookParser.cs) — валидация Excel workbook contract и сборка `SavedData`
 - [Services/UndoRedoService.cs](/Users/home/ASUTP/AKB5/Services/UndoRedoService.cs) — история undo/redo
 - [UiServices/KnowledgeBaseExcelUiWorkflowService.cs](/Users/home/ASUTP/AKB5/UiServices/KnowledgeBaseExcelUiWorkflowService.cs) — WinForms-специфичные сценарии `Экспорт в Excel...` и `Импорт из Excel...`
@@ -88,7 +90,7 @@
 - file/session UI workflow: `Open`, `Reload`, `Save`, `Save As`, unsaved-changes prompt, close handling и error messaging
 - workshop/config UI workflow
 - node-level UI orchestration для `add/delete/copy/paste/rename/move/undo/redo`
-- Excel import/export contract, SpreadsheetML workbook generation, XML-level reading и workbook parsing
+- Excel import/export contract, `xlsx` workbook generation, `xlsx`/legacy XML reading и workbook parsing
 - UI-команды `Экспорт в Excel...` и `Импорт из Excel...`
 - WinForms-специфичная привязка `TreeView`, восстановление expanded-state и поиск
 - отдельные диалоги `InputDialog` и `SetupForm`
@@ -99,8 +101,8 @@
 - добавлен `KnowledgeBaseWorkshopUiWorkflowService` для screen-level сценариев по цехам и настройке уровней
 - добавлен `KnowledgeBaseTreeMutationUiWorkflowService` для WinForms-диалогов, drag-and-drop feedback и undo/redo orchestration поверх core tree workflow
 - `KnowledgeBaseExcelExchangeService` превращён в thin facade
-- генерация SpreadsheetML workbook вынесена в `KnowledgeBaseSpreadsheetMlWriter`
-- XML-level чтение листов и строк вынесено в `KnowledgeBaseSpreadsheetMlReader`
+- генерация `xlsx` workbook вынесена в `KnowledgeBaseXlsxWriter`
+- чтение `xlsx` workbook вынесено в `KnowledgeBaseXlsxReader`, а legacy XML import оставлен в `KnowledgeBaseSpreadsheetMlReader`
 - валидация workbook contract и сборка `SavedData` вынесены в `KnowledgeBaseExcelWorkbookParser`
 - fixed Excel contract по-прежнему остаётся `Meta`, `Levels`, `Workshops`, `Nodes`, а `WorkbookFormatVersion = 1` не менялся
 
@@ -108,7 +110,7 @@
 
 - `MainForm` всё ещё совмещает layout/bootstrap формы, wiring UI-событий, создание UI-контекстов и часть screen-level glue между сервисами
 - Excel exchange уже декомпозирован на facade/writer/reader/parser, но `KnowledgeBaseExcelWorkbookParser` остаётся сравнительно крупным и требует дальнейшего дробления только при реальной необходимости
-- Excel exchange через SpreadsheetML 2003 (`*.xml`) всё ещё требует подтверждения реальным открытием/сохранением в Excel и Windows smoke-проверкой
+- Excel exchange через `*.xlsx` всё ещё требует подтверждения реальным открытием/сохранением в Excel и Windows smoke-проверкой
 - `src/AsutpKnowledgeBase.Core` всё ещё использует linked-file схему вместо физически выделенного core-кода
 - полноценная UI-проверка остаётся Windows-only задачей
 - после последнего рефакторинга требуется переподтверждение `dotnet build` и `dotnet test` в рабочем Windows/.NET окружении
@@ -128,7 +130,7 @@
 1. Подтвердить `dotnet build` и `dotnet test` в Windows или другом окружении с установленным .NET SDK.
 2. Исправить только те проблемы, которые всплывут при сборке и тестах после последнего рефакторинга, не расширяя объём изменений.
 3. Подтвердить `Excel export/import` в реальном Excel/Windows сценарии: открыть workbook, проверить листы, выполнить import обратно в JSON.
-4. При необходимости скорректировать SpreadsheetML contract под реальные ограничения Excel и сохранить обратную совместимость формата `WorkbookFormatVersion = 1`.
+4. При необходимости скорректировать `xlsx` contract под реальные ограничения Excel и сохранить обратную совместимость формата `WorkbookFormatVersion = 1`.
 5. Если Excel-подсистема продолжит расти, дробить дальше уже `KnowledgeBaseExcelWorkbookParser`, а не возвращать логику в facade.
 6. Добавить Windows smoke-checklist или UI automation для базовых пользовательских сценариев, включая JSON и Excel exchange.
 7. Физически перенести `Models` и `Services` в `src/AsutpKnowledgeBase.Core`, когда граница слоёв стабилизируется и сборка станет предсказуемой.

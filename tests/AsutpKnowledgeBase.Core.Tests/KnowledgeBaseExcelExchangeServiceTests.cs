@@ -1,3 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
+using System.Linq;
 using System.Xml.Linq;
 using AsutpKnowledgeBase.Models;
 using AsutpKnowledgeBase.Services;
@@ -7,14 +12,13 @@ namespace AsutpKnowledgeBase.Core.Tests;
 public class KnowledgeBaseExcelExchangeServiceTests
 {
     [Fact]
-    public void BuildWorkbookXml_CreatesExpectedSheetsAndMetadata()
+    public void BuildWorkbookPackage_CreatesExpectedSheetsAndMetadata()
     {
         var service = new KnowledgeBaseExcelExchangeService();
 
-        string xml = service.BuildWorkbookXml(CreateSampleData());
-        var document = XDocument.Parse(xml);
-        var sheetNames = GetWorksheetNames(document);
-        var metaRows = ReadWorksheetRows(document, "Meta");
+        byte[] packageBytes = service.BuildWorkbookPackage(CreateSampleData());
+        string[] sheetNames = GetWorksheetNames(packageBytes);
+        var metaRows = ReadWorksheetRows(packageBytes, "Meta");
 
         Assert.Equal(new[] { "Meta", "Levels", "Workshops", "Nodes" }, sheetNames);
         Assert.Contains(metaRows, row => row.SequenceEqual(new[] { "FormatId", KnowledgeBaseExcelExchangeService.WorkbookFormatId }));
@@ -24,14 +28,13 @@ public class KnowledgeBaseExcelExchangeServiceTests
     }
 
     [Fact]
-    public void BuildWorkbookXml_PreservesEmptyWorkshopsAndNodeHierarchy()
+    public void BuildWorkbookPackage_PreservesEmptyWorkshopsAndNodeHierarchy()
     {
         var service = new KnowledgeBaseExcelExchangeService();
 
-        string xml = service.BuildWorkbookXml(CreateSampleData());
-        var document = XDocument.Parse(xml);
-        var workshopRows = ReadWorksheetRows(document, "Workshops");
-        var nodeRows = ReadWorksheetRows(document, "Nodes");
+        byte[] packageBytes = service.BuildWorkbookPackage(CreateSampleData());
+        var workshopRows = ReadWorksheetRows(packageBytes, "Workshops");
+        var nodeRows = ReadWorksheetRows(packageBytes, "Nodes");
 
         Assert.Contains(workshopRows, row => row.SequenceEqual(new[] { "2", "Пустой цех", "TRUE" }));
 
@@ -47,13 +50,35 @@ public class KnowledgeBaseExcelExchangeServiceTests
     }
 
     [Fact]
-    public void Export_WritesSpreadsheetXmlFile()
+    public void BuildWorkbookPackage_StoresNumericColumnsAsNumericCells()
+    {
+        var service = new KnowledgeBaseExcelExchangeService();
+
+        byte[] packageBytes = service.BuildWorkbookPackage(CreateSampleData());
+
+        var levelIndexCell = GetCell(packageBytes, "Levels", rowIndex: 2, cellIndex: 1);
+        var workshopOrderCell = GetCell(packageBytes, "Workshops", rowIndex: 2, cellIndex: 1);
+        var selectedWorkshopCell = GetCell(packageBytes, "Workshops", rowIndex: 3, cellIndex: 3);
+        var nodeIdCell = GetCell(packageBytes, "Nodes", rowIndex: 2, cellIndex: 1);
+
+        Assert.Null(levelIndexCell.Type);
+        Assert.Equal("0", levelIndexCell.Value);
+        Assert.Null(workshopOrderCell.Type);
+        Assert.Equal("1", workshopOrderCell.Value);
+        Assert.Equal("b", selectedWorkshopCell.Type);
+        Assert.Equal("1", selectedWorkshopCell.Value);
+        Assert.Null(nodeIdCell.Type);
+        Assert.Equal("1", nodeIdCell.Value);
+    }
+
+    [Fact]
+    public void Export_WritesXlsxFile()
     {
         string tempDirectory = CreateTempDirectory();
 
         try
         {
-            string path = Path.Combine(tempDirectory, "kb-export.xml");
+            string path = Path.Combine(tempDirectory, "kb-export.xlsx");
             var service = new KnowledgeBaseExcelExchangeService();
 
             var result = service.Export(CreateSampleData(), path);
@@ -62,9 +87,10 @@ public class KnowledgeBaseExcelExchangeServiceTests
             Assert.Null(result.ErrorMessage);
             Assert.True(File.Exists(path));
 
-            string xml = File.ReadAllText(path);
-            Assert.Contains("Excel.Sheet", xml);
-            Assert.Contains("Worksheet", xml);
+            using var archive = OpenArchive(File.ReadAllBytes(path));
+            Assert.NotNull(archive.GetEntry("[Content_Types].xml"));
+            Assert.NotNull(archive.GetEntry("xl/workbook.xml"));
+            Assert.NotNull(archive.GetEntry("xl/worksheets/sheet1.xml"));
         }
         finally
         {
@@ -73,12 +99,12 @@ public class KnowledgeBaseExcelExchangeServiceTests
     }
 
     [Fact]
-    public void ImportFromXml_RoundTripsExportedWorkbook()
+    public void ImportFromPackage_RoundTripsExportedWorkbook()
     {
         var service = new KnowledgeBaseExcelExchangeService();
 
-        string xml = service.BuildWorkbookXml(CreateSampleData());
-        var result = service.ImportFromXml(xml);
+        byte[] packageBytes = service.BuildWorkbookPackage(CreateSampleData());
+        var result = service.ImportFromPackage(packageBytes);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Data);
@@ -91,18 +117,20 @@ public class KnowledgeBaseExcelExchangeServiceTests
     }
 
     [Fact]
-    public void ImportFromXml_WhenRequiredSheetMissing_ReturnsReadableError()
+    public void Import_WhenRequiredSheetMissing_ReturnsReadableError()
     {
         var service = new KnowledgeBaseExcelExchangeService();
 
-        string xml = service.BuildWorkbookXml(CreateSampleData());
-        var document = XDocument.Parse(xml);
-        XNamespace ns = "urn:schemas-microsoft-com:office:spreadsheet";
-        document.Descendants(ns + "Worksheet")
-            .Single(worksheet => string.Equals(worksheet.Attribute(ns + "Name")?.Value, "Nodes", StringComparison.Ordinal))
-            .Remove();
+        byte[] packageBytes = service.BuildWorkbookPackage(CreateSampleData());
+        packageBytes = UpdateXmlEntry(packageBytes, "xl/workbook.xml", document =>
+        {
+            XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            document.Descendants(ns + "sheet")
+                .Single(sheet => string.Equals(sheet.Attribute("name")?.Value, "Nodes", StringComparison.Ordinal))
+                .Remove();
+        });
 
-        var result = service.ImportFromXml(document.ToString());
+        var result = service.ImportFromPackage(packageBytes);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.ErrorMessage);
@@ -110,58 +138,267 @@ public class KnowledgeBaseExcelExchangeServiceTests
     }
 
     [Fact]
-    public void ImportFromXml_WhenParentNodeMissing_ReturnsReadableError()
+    public void Import_WhenParentNodeMissing_ReturnsReadableError()
     {
         var service = new KnowledgeBaseExcelExchangeService();
 
-        string xml = service.BuildWorkbookXml(CreateSampleData());
-        var document = XDocument.Parse(xml);
-        SetWorksheetCellValue(document, "Nodes", rowIndex: 3, cellIndex: 3, value: "999");
+        byte[] packageBytes = service.BuildWorkbookPackage(CreateSampleData());
+        packageBytes = UpdateWorksheetCellValue(packageBytes, "Nodes", rowIndex: 3, cellIndex: 3, value: "999", cellType: null);
 
-        var result = service.ImportFromXml(document.ToString());
+        var result = service.ImportFromPackage(packageBytes);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.ErrorMessage);
         Assert.Contains("ParentNodeId", result.ErrorMessage);
     }
 
-    private static string[] GetWorksheetNames(XDocument document)
+    [Fact]
+    public void ImportFromXml_LegacySpreadsheetMlWorkbookStillSupported()
     {
-        XNamespace ns = "urn:schemas-microsoft-com:office:spreadsheet";
-        return document
-            .Descendants(ns + "Worksheet")
-            .Select(worksheet => worksheet.Attribute(ns + "Name")?.Value ?? string.Empty)
+        var service = new KnowledgeBaseExcelExchangeService();
+
+        string xml = service.BuildWorkbookXml(CreateSampleData());
+        var result = service.ImportFromXml(xml);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Data);
+        Assert.Equal("Пустой цех", result.Data!.LastWorkshop);
+    }
+
+    private static string[] GetWorksheetNames(byte[] packageBytes)
+    {
+        XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+        var workbook = GetXmlEntry(packageBytes, "xl/workbook.xml");
+
+        return workbook
+            .Descendants(ns + "sheet")
+            .Select(sheet => sheet.Attribute("name")?.Value ?? string.Empty)
             .ToArray();
     }
 
-    private static List<string[]> ReadWorksheetRows(XDocument document, string worksheetName)
+    private static List<string[]> ReadWorksheetRows(byte[] packageBytes, string worksheetName)
     {
-        XNamespace ns = "urn:schemas-microsoft-com:office:spreadsheet";
-        var worksheet = document
-            .Descendants(ns + "Worksheet")
-            .Single(worksheet => string.Equals(worksheet.Attribute(ns + "Name")?.Value, worksheetName, StringComparison.Ordinal));
+        XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+        var worksheet = GetWorksheetDocument(packageBytes, worksheetName);
 
         return worksheet
-            .Descendants(ns + "Row")
+            .Descendants(ns + "row")
             .Skip(1)
-            .Select(row => row
-                .Elements(ns + "Cell")
-                .Select(cell => cell.Element(ns + "Data")?.Value ?? string.Empty)
-                .ToArray())
+            .Select(ReadRowValues)
             .ToList();
     }
 
-    private static void SetWorksheetCellValue(XDocument document, string worksheetName, int rowIndex, int cellIndex, string value)
+    private static WorksheetCellInfo GetCell(byte[] packageBytes, string worksheetName, int rowIndex, int cellIndex)
     {
-        XNamespace ns = "urn:schemas-microsoft-com:office:spreadsheet";
-        var row = document
-            .Descendants(ns + "Worksheet")
-            .Single(worksheet => string.Equals(worksheet.Attribute(ns + "Name")?.Value, worksheetName, StringComparison.Ordinal))
-            .Descendants(ns + "Row")
-            .ElementAt(rowIndex - 1);
+        XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+        var worksheet = GetWorksheetDocument(packageBytes, worksheetName);
+        var row = worksheet.Descendants(ns + "row").ElementAt(rowIndex - 1);
+        var cell = row.Elements(ns + "c").ElementAt(cellIndex - 1);
 
-        var cell = row.Elements(ns + "Cell").ElementAt(cellIndex - 1);
-        cell.Element(ns + "Data")!.Value = value;
+        return new WorksheetCellInfo(
+            cell.Attribute("t")?.Value,
+            cell.Element(ns + "v")?.Value ?? string.Concat(cell.Descendants(ns + "t").Select(text => text.Value)));
+    }
+
+    private static string[] ReadRowValues(XElement row)
+    {
+        XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+        var values = new List<string>();
+        int currentIndex = 1;
+
+        foreach (var cell in row.Elements(ns + "c"))
+        {
+            string? reference = cell.Attribute("r")?.Value;
+            int requestedIndex = string.IsNullOrWhiteSpace(reference) ? currentIndex : GetColumnIndex(reference);
+
+            while (currentIndex < requestedIndex)
+            {
+                values.Add(string.Empty);
+                currentIndex++;
+            }
+
+            string cellType = cell.Attribute("t")?.Value ?? string.Empty;
+            string value = cellType switch
+            {
+                "b" => (cell.Element(ns + "v")?.Value ?? string.Empty) == "1" ? "TRUE" : "FALSE",
+                "inlineStr" => string.Concat(cell.Descendants(ns + "t").Select(text => text.Value)),
+                _ => cell.Element(ns + "v")?.Value ?? string.Empty
+            };
+
+            values.Add(value);
+            currentIndex++;
+        }
+
+        return TrimTrailingEmptyValues(values.ToArray());
+    }
+
+    private static XDocument GetWorksheetDocument(byte[] packageBytes, string worksheetName)
+    {
+        XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+        XNamespace relNs = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+        XNamespace packageRelNs = "http://schemas.openxmlformats.org/package/2006/relationships";
+
+        using var archive = OpenArchive(packageBytes);
+        var workbook = LoadXml(archive.GetEntry("xl/workbook.xml")!);
+        var relationships = LoadXml(archive.GetEntry("xl/_rels/workbook.xml.rels")!);
+
+        var sheet = workbook
+            .Descendants(ns + "sheet")
+            .Single(item => string.Equals(item.Attribute("name")?.Value, worksheetName, StringComparison.Ordinal));
+        string relationshipId = sheet.Attribute(relNs + "id")?.Value ?? string.Empty;
+        string target = relationships
+            .Descendants(packageRelNs + "Relationship")
+            .Single(item => string.Equals(item.Attribute("Id")?.Value, relationshipId, StringComparison.Ordinal))
+            .Attribute("Target")?.Value ?? string.Empty;
+
+        string path = NormalizePartPath("xl/workbook.xml", target);
+        return LoadXml(archive.GetEntry(path)!);
+    }
+
+    private static XDocument GetXmlEntry(byte[] packageBytes, string entryPath)
+    {
+        using var archive = OpenArchive(packageBytes);
+        return LoadXml(archive.GetEntry(entryPath)!);
+    }
+
+    private static byte[] UpdateXmlEntry(byte[] sourceBytes, string entryPath, Action<XDocument> update)
+    {
+        using var stream = new MemoryStream();
+        stream.Write(sourceBytes, 0, sourceBytes.Length);
+        stream.Position = 0;
+
+        using (var archive = new ZipArchive(stream, ZipArchiveMode.Update, leaveOpen: true))
+        {
+            var entry = archive.GetEntry(entryPath)!;
+            var document = LoadXml(entry);
+            update(document);
+            entry.Delete();
+
+            var replacement = archive.CreateEntry(entryPath, CompressionLevel.Optimal);
+            using var replacementStream = replacement.Open();
+            document.Save(replacementStream);
+        }
+
+        return stream.ToArray();
+    }
+
+    private static byte[] UpdateWorksheetCellValue(
+        byte[] sourceBytes,
+        string worksheetName,
+        int rowIndex,
+        int cellIndex,
+        string value,
+        string? cellType)
+    {
+        string entryPath = GetWorksheetEntryPath(sourceBytes, worksheetName);
+        return UpdateXmlEntry(sourceBytes, entryPath, document =>
+        {
+            XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            var row = document.Descendants(ns + "row").ElementAt(rowIndex - 1);
+            var cell = row.Elements(ns + "c").ElementAt(cellIndex - 1);
+
+            cell.Elements().Remove();
+            cell.Attribute("t")?.Remove();
+
+            if (!string.IsNullOrWhiteSpace(cellType))
+                cell.Add(new XAttribute("t", cellType));
+
+            if (string.Equals(cellType, "inlineStr", StringComparison.Ordinal))
+            {
+                cell.Add(new XElement(ns + "is", new XElement(ns + "t", value)));
+            }
+            else
+            {
+                cell.Add(new XElement(ns + "v", value));
+            }
+        });
+    }
+
+    private static string GetWorksheetEntryPath(byte[] packageBytes, string worksheetName)
+    {
+        XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+        XNamespace relNs = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+        XNamespace packageRelNs = "http://schemas.openxmlformats.org/package/2006/relationships";
+
+        using var archive = OpenArchive(packageBytes);
+        var workbook = LoadXml(archive.GetEntry("xl/workbook.xml")!);
+        var relationships = LoadXml(archive.GetEntry("xl/_rels/workbook.xml.rels")!);
+
+        var sheet = workbook
+            .Descendants(ns + "sheet")
+            .Single(item => string.Equals(item.Attribute("name")?.Value, worksheetName, StringComparison.Ordinal));
+        string relationshipId = sheet.Attribute(relNs + "id")?.Value ?? string.Empty;
+        string target = relationships
+            .Descendants(packageRelNs + "Relationship")
+            .Single(item => string.Equals(item.Attribute("Id")?.Value, relationshipId, StringComparison.Ordinal))
+            .Attribute("Target")?.Value ?? string.Empty;
+
+        return NormalizePartPath("xl/workbook.xml", target);
+    }
+
+    private static int GetColumnIndex(string cellReference)
+    {
+        int index = 0;
+        foreach (char symbol in cellReference)
+        {
+            if (!char.IsLetter(symbol))
+                break;
+
+            index = (index * 26) + (char.ToUpperInvariant(symbol) - 'A' + 1);
+        }
+
+        return index;
+    }
+
+    private static string NormalizePartPath(string basePartPath, string target)
+    {
+        string baseDirectory = Path.GetDirectoryName(basePartPath)?.Replace('\\', '/') ?? string.Empty;
+        string combined = string.IsNullOrWhiteSpace(baseDirectory)
+            ? target
+            : $"{baseDirectory}/{target}";
+
+        var segments = new Stack<string>();
+        foreach (var segment in combined.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (segment == ".")
+                continue;
+
+            if (segment == "..")
+            {
+                if (segments.Count > 0)
+                    segments.Pop();
+
+                continue;
+            }
+
+            segments.Push(segment);
+        }
+
+        return string.Join("/", segments.Reverse());
+    }
+
+    private static string[] TrimTrailingEmptyValues(string[] values)
+    {
+        int lastNonEmptyIndex = values.Length - 1;
+        while (lastNonEmptyIndex >= 0 && string.IsNullOrWhiteSpace(values[lastNonEmptyIndex]))
+            lastNonEmptyIndex--;
+
+        if (lastNonEmptyIndex < 0)
+            return Array.Empty<string>();
+
+        return values.Take(lastNonEmptyIndex + 1).ToArray();
+    }
+
+    private static ZipArchive OpenArchive(byte[] packageBytes)
+    {
+        var stream = new MemoryStream(packageBytes, writable: false);
+        return new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: false);
+    }
+
+    private static XDocument LoadXml(ZipArchiveEntry entry)
+    {
+        using var stream = entry.Open();
+        return XDocument.Load(stream);
     }
 
     private static SavedData CreateSampleData() =>
@@ -207,4 +444,6 @@ public class KnowledgeBaseExcelExchangeServiceTests
         Directory.CreateDirectory(path);
         return path;
     }
+
+    private sealed record WorksheetCellInfo(string? Type, string Value);
 }

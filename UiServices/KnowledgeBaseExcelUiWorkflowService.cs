@@ -21,7 +21,7 @@ namespace AsutpKnowledgeBase.UiServices
 
     /// <summary>
     /// Координирует WinForms-специфичные сценарии импорта и экспорта базы
-    /// в Excel-compatible SpreadsheetML XML.
+    /// в Excel workbook формата xlsx.
     /// </summary>
     public class KnowledgeBaseExcelUiWorkflowService
     {
@@ -40,9 +40,9 @@ namespace AsutpKnowledgeBase.UiServices
         {
             using var dialog = new SaveFileDialog
             {
-                Title = "Экспортировать базу в Excel XML",
-                Filter = "Excel XML 2003 (*.xml)|*.xml|Все файлы (*.*)|*.*",
-                DefaultExt = "xml",
+                Title = "Экспортировать базу в Excel Workbook",
+                Filter = "Excel Workbook (*.xlsx)|*.xlsx|Все файлы (*.*)|*.*",
+                DefaultExt = "xlsx",
                 AddExtension = true,
                 OverwritePrompt = true,
                 FileName = BuildSuggestedFileName(currentDataPath)
@@ -84,8 +84,8 @@ namespace AsutpKnowledgeBase.UiServices
 
             using var dialog = new OpenFileDialog
             {
-                Title = "Импортировать базу из Excel XML",
-                Filter = "Excel XML 2003 (*.xml)|*.xml|Все файлы (*.*)|*.*",
+                Title = "Импортировать базу из Excel Workbook",
+                Filter = "Excel Workbook (*.xlsx)|*.xlsx|Excel XML 2003 (*.xml)|*.xml|Все файлы (*.*)|*.*",
                 CheckFileExists = true
             };
 
@@ -135,9 +135,9 @@ namespace AsutpKnowledgeBase.UiServices
         {
             string fileName = Path.GetFileName(currentDataPath);
             if (string.IsNullOrWhiteSpace(fileName))
-                return "ASUTP_KnowledgeBase.excel.xml";
+                return "ASUTP_KnowledgeBase.xlsx";
 
-            return Path.ChangeExtension(fileName, "excel.xml");
+            return Path.ChangeExtension(fileName, "xlsx");
         }
     }
 }
