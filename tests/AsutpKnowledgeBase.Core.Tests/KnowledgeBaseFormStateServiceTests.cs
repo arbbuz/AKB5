@@ -103,8 +103,12 @@ public class KnowledgeBaseFormStateServiceTests
     [Fact]
     public void CloseDecisions_DistinguishPromptAndSilentSave()
     {
-        Assert.True(_service.RequiresSavePromptBeforeContinue(isDirty: true));
-        Assert.True(_service.RequiresSavePromptOnClose(isDirty: true));
+        Assert.True(_service.RequiresSavePromptBeforeContinue(isDirty: true, requiresSave: false));
+        Assert.True(_service.RequiresSavePromptOnClose(isDirty: true, requiresSave: false));
+        Assert.True(_service.RequiresSavePromptBeforeContinue(isDirty: false, requiresSave: true));
+        Assert.True(_service.RequiresSavePromptOnClose(isDirty: false, requiresSave: true));
+        Assert.False(_service.RequiresSavePromptBeforeContinue(isDirty: false, requiresSave: false));
+        Assert.False(_service.RequiresSavePromptOnClose(isDirty: false, requiresSave: false));
         Assert.True(_service.ShouldSaveSilentlyOnClose("Цех 2", "Цех 1"));
         Assert.False(_service.ShouldSaveSilentlyOnClose("Цех 1", "Цех 1"));
     }

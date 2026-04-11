@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Windows.Forms;
 using AsutpKnowledgeBase.Models;
 using AsutpKnowledgeBase.Services;
@@ -289,8 +288,6 @@ namespace AsutpKnowledgeBase
 
         private string CurrentDataFileName => Path.GetFileName(CurrentDataPath);
 
-        private KnowledgeBaseService CreateKnowledgeBaseService() => new(_config, _workshopsData);
-
         private void RebindTreeController() => _treeController.Bind(_config, _workshopsData);
 
         private bool LoadData(bool createDefaultIfMissing = true, bool fallbackToDefaultOnError = true)
@@ -535,9 +532,6 @@ namespace AsutpKnowledgeBase
         private string SerializeStateSnapshot(bool includeCurrentWorkshop)
             => _session.SerializeSnapshot(GetCurrentTreeData(), includeCurrentWorkshop);
 
-        private void RecordSavedState() =>
-            _session.RecordSavedState(GetCurrentTreeData());
-
         private void UpdateDirtyState() =>
             _session.RefreshDirtyState(GetCurrentTreeData());
 
@@ -703,11 +697,11 @@ namespace AsutpKnowledgeBase
             node.Expand();
         }
 
-        private void SaveState()
-        {
-            _history.SaveState(SerializeStateSnapshot(includeCurrentWorkshop: true));
-            UpdateUI();
-        }
+        private string CaptureHistorySnapshot() =>
+            SerializeStateSnapshot(includeCurrentWorkshop: true);
+
+        private void PushHistorySnapshot(string snapshot) =>
+            _history.SaveState(snapshot);
 
         private void AddNode()
         {
@@ -737,8 +731,9 @@ namespace AsutpKnowledgeBase
                 return;
             }
 
-            SaveState();
+            string historySnapshot = CaptureHistorySnapshot();
             var newNode = _treeController.AddNode(_currentWorkshop, selectedData, dlg.Result);
+            PushHistorySnapshot(historySnapshot);
 
             if (selectedData == null)
             {
@@ -784,8 +779,18 @@ namespace AsutpKnowledgeBase
             var selectedTreeNode = tvTree.SelectedNode!;
             TreeNode? nextSelection = selectedTreeNode.Parent;
 
-            SaveState();
-            _treeController.DeleteNode(_currentWorkshop, node);
+            string historySnapshot = CaptureHistorySnapshot();
+            if (!_treeController.DeleteNode(_currentWorkshop, node))
+            {
+                MessageBox.Show(
+                    "Не удалось удалить выбранный узел.",
+                    "Ошибка удаления",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return;
+            }
+
+            PushHistorySnapshot(historySnapshot);
 
             selectedTreeNode.Remove();
             tvTree.SelectedNode = nextSelection;
@@ -821,8 +826,9 @@ namespace AsutpKnowledgeBase
                 return;
             }
 
-            SaveState();
+            string historySnapshot = CaptureHistorySnapshot();
             var newNode = _treeController.PasteNode(parent);
+            PushHistorySnapshot(historySnapshot);
 
             var newTreeNode = BuildTreeNode(newNode);
             tvTree.SelectedNode.Nodes.Add(newTreeNode);
@@ -848,8 +854,9 @@ namespace AsutpKnowledgeBase
             if (string.Equals(node.Name, newName, StringComparison.CurrentCulture))
                 return;
 
-            SaveState();
+            string historySnapshot = CaptureHistorySnapshot();
             _treeController.RenameNode(node, newName);
+            PushHistorySnapshot(historySnapshot);
             tvTree.SelectedNode.Text = newName;
 
             RefreshSearchAfterMutation();
@@ -898,7 +905,7 @@ namespace AsutpKnowledgeBase
                 return;
             }
 
-            SaveState();
+            string historySnapshot = CaptureHistorySnapshot();
             if (!_treeController.MoveNode(
                 _currentWorkshop,
                 draggedData,
@@ -913,6 +920,7 @@ namespace AsutpKnowledgeBase
                 return;
             }
 
+            PushHistorySnapshot(historySnapshot);
             draggedNode.Remove();
             targetNode.Nodes.Add(draggedNode);
             targetNode.Expand();
@@ -1028,7 +1036,7 @@ namespace AsutpKnowledgeBase
                 return;
 
             string name = dlg.Result.Trim();
-            SaveState();
+            string historySnapshot = CaptureHistorySnapshot();
 
             var addWorkshopResult = _sessionWorkflowService.AddWorkshop(name, GetCurrentTreeData());
             if (!addWorkshopResult.IsSuccess)
@@ -1045,6 +1053,7 @@ namespace AsutpKnowledgeBase
                 return;
             }
 
+            PushHistorySnapshot(historySnapshot);
             ApplySessionView(addWorkshopResult.ViewState, clearSearch: false);
             UpdateDirtyState();
             UpdateUI();
@@ -1068,8 +1077,9 @@ namespace AsutpKnowledgeBase
                 return;
             }
 
-            SaveState();
+            string historySnapshot = CaptureHistorySnapshot();
             _session.UpdateConfig(updateResult.Config);
+            PushHistorySnapshot(historySnapshot);
             RebindTreeController();
             UpdateDirtyState();
             UpdateUI();
@@ -1083,7 +1093,7 @@ namespace AsutpKnowledgeBase
             SaveCurrentWorkshopState();
             UpdateDirtyState();
 
-            if (!_formStateService.RequiresSavePromptBeforeContinue(_isDirty))
+            if (!_formStateService.RequiresSavePromptBeforeContinue(_isDirty, _requiresSave))
                 return true;
 
             var result = MessageBox.Show(
@@ -1106,7 +1116,7 @@ namespace AsutpKnowledgeBase
             SaveCurrentWorkshopState();
             UpdateDirtyState();
 
-            if (_formStateService.RequiresSavePromptOnClose(_isDirty))
+            if (_formStateService.RequiresSavePromptOnClose(_isDirty, _requiresSave))
             {
                 var result = MessageBox.Show(
                     "Есть несохранённые изменения. Сохранить перед закрытием?",

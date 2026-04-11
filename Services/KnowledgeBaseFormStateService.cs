@@ -81,9 +81,11 @@ namespace AsutpKnowledgeBase.Services
             return $"Цех: {currentWorkshop} | Всего узлов: {totalNodes} | Уровней: {config.MaxLevels}";
         }
 
-        public bool RequiresSavePromptBeforeContinue(bool isDirty) => isDirty;
+        public bool RequiresSavePromptBeforeContinue(bool isDirty, bool requiresSave) =>
+            isDirty || requiresSave;
 
-        public bool RequiresSavePromptOnClose(bool isDirty) => isDirty;
+        public bool RequiresSavePromptOnClose(bool isDirty, bool requiresSave) =>
+            isDirty || requiresSave;
 
         public bool ShouldSaveSilentlyOnClose(string currentWorkshop, string lastSavedWorkshop) =>
             !string.Equals(currentWorkshop, lastSavedWorkshop, StringComparison.Ordinal);
