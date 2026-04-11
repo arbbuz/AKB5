@@ -122,24 +122,15 @@ namespace AsutpKnowledgeBase.Services
                 throw new KnowledgeBaseExcelImportException("Лист 'Workshops' содержит более одного выбранного цеха.");
 
             string selectedFromRows = selectedRows.SingleOrDefault()?.WorkshopName ?? string.Empty;
-            string lastWorkshop = metaLastWorkshop;
+            string lastWorkshop = !string.IsNullOrWhiteSpace(selectedFromRows)
+                ? selectedFromRows
+                : metaLastWorkshop;
 
-            if (!string.IsNullOrWhiteSpace(metaLastWorkshop) &&
-                !string.IsNullOrWhiteSpace(selectedFromRows) &&
-                !string.Equals(metaLastWorkshop, selectedFromRows, StringComparison.Ordinal))
+            if (string.IsNullOrWhiteSpace(lastWorkshop) ||
+                !parsedRows.Any(row => string.Equals(row.WorkshopName, lastWorkshop, StringComparison.Ordinal)))
             {
-                throw new KnowledgeBaseExcelImportException(
-                    $"Meta.LastWorkshop ('{metaLastWorkshop}') не совпадает с выбранным цехом на листе 'Workshops' ('{selectedFromRows}').");
-            }
-
-            if (string.IsNullOrWhiteSpace(lastWorkshop))
-                lastWorkshop = selectedFromRows;
-
-            if (string.IsNullOrWhiteSpace(lastWorkshop))
                 lastWorkshop = parsedRows[0].WorkshopName;
-
-            if (!parsedRows.Any(row => string.Equals(row.WorkshopName, lastWorkshop, StringComparison.Ordinal)))
-                throw new KnowledgeBaseExcelImportException($"Выбранный цех '{lastWorkshop}' отсутствует на листе 'Workshops'.");
+            }
 
             return new ParsedWorkshops(parsedRows.Select(row => row.WorkshopName).ToList(), lastWorkshop);
         }
@@ -156,9 +147,7 @@ namespace AsutpKnowledgeBase.Services
                     ParentNodeId: row[2].Trim(),
                     SiblingOrder: ParsePositiveInt(row[3], "Nodes.SiblingOrder"),
                     LevelIndex: ParseNonNegativeInt(row[4], "Nodes.LevelIndex"),
-                    LevelName: RequireValue(row[5], "Nodes", "LevelName"),
-                    NodeName: RequireValue(row[6], "Nodes", "NodeName"),
-                    Path: RequireValue(row[7], "Nodes", "Path")))
+                    NodeName: RequireValue(row[6], "Nodes", "NodeName")))
                 .ToList();
 
             var knownWorkshops = new HashSet<string>(workshops.OrderedWorkshopNames, StringComparer.Ordinal);
@@ -173,13 +162,6 @@ namespace AsutpKnowledgeBase.Services
                 {
                     throw new KnowledgeBaseExcelImportException(
                         $"Узел '{row.NodeName}' имеет LevelIndex {row.LevelIndex}, выходящий за пределы конфигурации уровней.");
-                }
-
-                string expectedLevelName = GetLevelName(config, row.LevelIndex);
-                if (!string.Equals(row.LevelName, expectedLevelName, StringComparison.Ordinal))
-                {
-                    throw new KnowledgeBaseExcelImportException(
-                        $"Узел '{row.NodeName}' имеет LevelName '{row.LevelName}', но ожидалось '{expectedLevelName}'.");
                 }
 
                 if (!parsedById.TryAdd(row.NodeId, row))
@@ -247,7 +229,6 @@ namespace AsutpKnowledgeBase.Services
                     rootsByWorkshop[workshopName].Add(BuildNode(
                         rootRow,
                         workshopName,
-                        $"{workshopName} / {rootRow.NodeName}",
                         childrenByParent,
                         visitedNodeIds,
                         new HashSet<string>(StringComparer.Ordinal)));
@@ -267,19 +248,12 @@ namespace AsutpKnowledgeBase.Services
         private static KbNode BuildNode(
             ParsedNodeRow row,
             string workshopName,
-            string expectedPath,
             IReadOnlyDictionary<string, List<ParsedNodeRow>> childrenByParent,
             ISet<string> visitedNodeIds,
             ISet<string> recursionStack)
         {
             if (!recursionStack.Add(row.NodeId))
                 throw new KnowledgeBaseExcelImportException($"Обнаружен цикл в иерархии узлов около NodeId '{row.NodeId}'.");
-
-            if (!string.Equals(row.Path, expectedPath, StringComparison.Ordinal))
-            {
-                throw new KnowledgeBaseExcelImportException(
-                    $"Узел '{row.NodeName}' имеет некорректный Path '{row.Path}'. Ожидалось '{expectedPath}'.");
-            }
 
             var node = new KbNode
             {
@@ -306,7 +280,6 @@ namespace AsutpKnowledgeBase.Services
                     node.Children.Add(BuildNode(
                         childRow,
                         workshopName,
-                        $"{expectedPath} / {childRow.NodeName}",
                         childrenByParent,
                         visitedNodeIds,
                         recursionStack));
@@ -374,11 +347,6 @@ namespace AsutpKnowledgeBase.Services
             };
         }
 
-        private static string GetLevelName(KbConfig config, int levelIndex) =>
-            config.LevelNames.Count > levelIndex
-                ? config.LevelNames[levelIndex]
-                : $"Ур. {levelIndex + 1}";
-
         private sealed record ParsedMeta(int SchemaVersion, string LastWorkshop);
 
         private sealed record ParsedLevelRow(int LevelIndex, string LevelName);
@@ -393,9 +361,7 @@ namespace AsutpKnowledgeBase.Services
             string ParentNodeId,
             int SiblingOrder,
             int LevelIndex,
-            string LevelName,
-            string NodeName,
-            string Path);
+            string NodeName);
     }
 
     internal sealed class KnowledgeBaseExcelImportException : Exception

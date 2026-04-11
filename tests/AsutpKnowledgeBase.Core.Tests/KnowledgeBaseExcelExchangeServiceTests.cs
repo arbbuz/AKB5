@@ -153,6 +153,52 @@ public class KnowledgeBaseExcelExchangeServiceTests
     }
 
     [Fact]
+    public void Import_WhenNodeNameChangedButPathNotUpdated_StillSucceeds()
+    {
+        var service = new KnowledgeBaseExcelExchangeService();
+
+        byte[] packageBytes = service.BuildWorkbookPackage(CreateSampleData());
+        packageBytes = UpdateWorksheetCellValue(packageBytes, "Nodes", rowIndex: 2, cellIndex: 7, value: "Линия 1 renamed", cellType: "inlineStr");
+
+        var result = service.ImportFromPackage(packageBytes);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Data);
+        Assert.Equal("Линия 1 renamed", result.Data!.Workshops["Цех 1"][0].Name);
+    }
+
+    [Fact]
+    public void Import_WhenLevelNamesChangedButNodeLevelNameColumnIsStale_StillSucceeds()
+    {
+        var service = new KnowledgeBaseExcelExchangeService();
+
+        byte[] packageBytes = service.BuildWorkbookPackage(CreateSampleData());
+        packageBytes = UpdateWorksheetCellValue(packageBytes, "Levels", rowIndex: 2, cellIndex: 2, value: "Производство", cellType: "inlineStr");
+
+        var result = service.ImportFromPackage(packageBytes);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Data);
+        Assert.Equal("Производство", result.Data!.Config.LevelNames[0]);
+        Assert.Equal("Линия 1", result.Data.Workshops["Цех 1"][0].Name);
+    }
+
+    [Fact]
+    public void Import_WhenMetaLastWorkshopIsStale_UsesSelectedWorkshopRow()
+    {
+        var service = new KnowledgeBaseExcelExchangeService();
+
+        byte[] packageBytes = service.BuildWorkbookPackage(CreateSampleData());
+        packageBytes = UpdateWorksheetCellValue(packageBytes, "Meta", rowIndex: 5, cellIndex: 2, value: "Цех 1", cellType: "inlineStr");
+
+        var result = service.ImportFromPackage(packageBytes);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Data);
+        Assert.Equal("Пустой цех", result.Data!.LastWorkshop);
+    }
+
+    [Fact]
     public void Import_WhenXmlFileProvided_ReturnsXlsxOnlyError()
     {
         string tempDirectory = CreateTempDirectory();
