@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
 using System.Windows.Forms;
 using AsutpKnowledgeBase.Models;
 using AsutpKnowledgeBase.Services;
@@ -15,18 +14,15 @@ namespace AsutpKnowledgeBase
     /// </summary>
     public partial class MainForm : Form
     {
-        private KbConfig _config = KnowledgeBaseDataService.CreateDefaultConfig();
-        private Dictionary<string, List<KbNode>> _workshopsData = new();
-        private string _currentWorkshop = string.Empty;
-        private readonly JsonStorageService _storageService;
+        private readonly KnowledgeBaseSessionService _session = new();
+        private readonly KnowledgeBaseFileWorkflowService _fileWorkflowService;
+        private readonly KnowledgeBaseSessionWorkflowService _sessionWorkflowService;
         private readonly KnowledgeBaseTreeController _treeController;
+        private readonly KnowledgeBaseConfigurationWorkflowService _configurationWorkflowService = new();
+        private readonly KnowledgeBaseFormStateService _formStateService = new();
         private readonly UndoRedoService _history = new(50);
 
-        private string _lastSavedDirtySnapshot = string.Empty;
-        private string _lastSavedWorkshop = string.Empty;
-        private bool _isDirty;
         private bool _isBindingWorkshops;
-        private bool _requiresSave;
 
         private readonly List<TreeNode> _searchResults = new();
         private int _currentSearchIndex = -1;
@@ -53,11 +49,21 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem ctxRename = null!;
         private ToolStripMenuItem ctxDelete = null!;
 
+        private KbConfig _config => _session.Config;
+        private Dictionary<string, List<KbNode>> _workshopsData => _session.Workshops;
+        private string _currentWorkshop => _session.CurrentWorkshop;
+        private string _lastSavedWorkshop => _session.LastSavedWorkshop;
+        private bool _isDirty => _session.IsDirty;
+        private bool _requiresSave => _session.RequiresSave;
+
         public MainForm()
         {
             _treeController = new KnowledgeBaseTreeController(_config, _workshopsData);
             InitializeComponent();
-            _storageService = new JsonStorageService(GetDefaultJsonPath());
+            _fileWorkflowService = new KnowledgeBaseFileWorkflowService(
+                _session,
+                new JsonStorageService(GetDefaultJsonPath()));
+            _sessionWorkflowService = new KnowledgeBaseSessionWorkflowService(_session);
             FormClosing += MainForm_FormClosing;
             LoadData();
         }
@@ -279,7 +285,7 @@ namespace AsutpKnowledgeBase
                 Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
                 "ASUTP_KnowledgeBase.json");
 
-        private string CurrentDataPath => _storageService.SavePath;
+        private string CurrentDataPath => _fileWorkflowService.SavePath;
 
         private string CurrentDataFileName => Path.GetFileName(CurrentDataPath);
 
@@ -287,21 +293,13 @@ namespace AsutpKnowledgeBase
 
         private void RebindTreeController() => _treeController.Bind(_config, _workshopsData);
 
-        private void InitializeDefaultData()
-        {
-            ApplyLoadedData(
-                KnowledgeBaseDataService.CreateDefaultData(),
-                recordAsSavedState: false);
-        }
-
         private bool LoadData(bool createDefaultIfMissing = true, bool fallbackToDefaultOnError = true)
         {
-            var loadResult = _storageService.Load();
+            var result = _fileWorkflowService.Load(createDefaultIfMissing, fallbackToDefaultOnError);
 
-            if (loadResult.FileMissing)
+            switch (result.Outcome)
             {
-                if (!createDefaultIfMissing)
-                {
+                case KnowledgeBaseFileLoadOutcome.FileMissingError:
                     MessageBox.Show(
                         $"Файл '{CurrentDataPath}' не найден.",
                         "Файл не найден",
@@ -310,109 +308,83 @@ namespace AsutpKnowledgeBase
                     UpdateUI();
                     lblInfo.Text = "⚠️ Файл базы не найден";
                     return false;
-                }
 
-                _history.Clear();
-                _treeController.ClearClipboard();
-                InitializeDefaultData();
-                if (SaveAllData(showSuccessMessage: false, showErrorMessage: true))
-                {
-                    UpdateUI();
-                    lblInfo.Text = "🆕 Создана новая база данных";
-                }
-                else
-                {
-                    _requiresSave = true;
-                    UpdateUI();
-                    lblInfo.Text = "⚠️ База создана в памяти, но не сохранена на диск";
-                }
-
-                return true;
-            }
-
-            if (!loadResult.IsSuccess)
-            {
-                if (!fallbackToDefaultOnError)
-                {
+                case KnowledgeBaseFileLoadOutcome.LoadError:
                     MessageBox.Show(
-                        BuildLoadFailureMessage(loadResult),
+                        BuildLoadFailureMessage(result),
                         "Ошибка загрузки",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
                     UpdateUI();
                     lblInfo.Text = "❌ Ошибка загрузки базы";
                     return false;
-                }
 
-                _history.Clear();
-                _treeController.ClearClipboard();
-                InitializeDefaultData();
-                RecordSavedState();
-                _requiresSave = true;
-                UpdateUI();
-                MessageBox.Show(
-                    BuildLoadFailureMessage(loadResult),
-                    "Ошибка загрузки",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
-                lblInfo.Text = "⚠️ Загружена пустая база из-за ошибки чтения";
-                return true;
+                case KnowledgeBaseFileLoadOutcome.CreatedDefaultAfterError:
+                    ResetTransientUiStateAfterLoad();
+                    RebuildUiFromSession();
+                    UpdateUI();
+                    MessageBox.Show(
+                        BuildLoadFailureMessage(result),
+                        "Ошибка загрузки",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    lblInfo.Text = "⚠️ Загружена пустая база из-за ошибки чтения";
+                    return true;
+
+                case KnowledgeBaseFileLoadOutcome.CreatedDefaultAndSaved:
+                    ResetTransientUiStateAfterLoad();
+                    RebuildUiFromSession();
+                    UpdateUI();
+                    lblInfo.Text = "🆕 Создана новая база данных";
+                    return true;
+
+                case KnowledgeBaseFileLoadOutcome.CreatedDefaultUnsaved:
+                    ResetTransientUiStateAfterLoad();
+                    RebuildUiFromSession();
+                    UpdateUI();
+                    lblInfo.Text = "⚠️ База создана в памяти, но не сохранена на диск";
+                    if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
+                    {
+                        MessageBox.Show(
+                            $"Ошибка сохранения: {result.ErrorMessage}",
+                            "Ошибка сохранения",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                    }
+
+                    return true;
+
+                case KnowledgeBaseFileLoadOutcome.LoadedBackup:
+                    ResetTransientUiStateAfterLoad();
+                    RebuildUiFromSession();
+                    UpdateUI();
+                    MessageBox.Show(
+                        BuildBackupLoadMessage(result),
+                        "Загружена резервная копия",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    lblInfo.Text = $"⚠️ Загружена резервная копия: {Path.GetFileName(result.SourcePath)}";
+                    return true;
+
+                case KnowledgeBaseFileLoadOutcome.LoadedExisting:
+                    ResetTransientUiStateAfterLoad();
+                    RebuildUiFromSession();
+                    UpdateUI();
+                    lblInfo.Text = $"📂 Загружен цех: {_currentWorkshop}";
+                    return true;
+
+                default:
+                    return false;
             }
-
-            _history.Clear();
-            _treeController.ClearClipboard();
-            ApplyLoadedData(loadResult.Data!, recordAsSavedState: true);
-            _requiresSave = loadResult.LoadedFromBackup;
-            UpdateUI();
-
-            if (loadResult.LoadedFromBackup)
-            {
-                MessageBox.Show(
-                    BuildBackupLoadMessage(loadResult),
-                    "Загружена резервная копия",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                lblInfo.Text = $"⚠️ Загружена резервная копия: {Path.GetFileName(loadResult.SourcePath)}";
-            }
-            else
-            {
-                lblInfo.Text = $"📂 Загружен цех: {_currentWorkshop}";
-            }
-
-            return true;
         }
 
-        private void ApplyLoadedData(SavedData data, bool recordAsSavedState)
-        {
-            _config = KnowledgeBaseDataService.NormalizeConfig(data.Config);
-            _workshopsData = KnowledgeBaseDataService.NormalizeWorkshops(data.Workshops);
-            RebindTreeController();
-
-            var service = CreateKnowledgeBaseService();
-            foreach (var roots in _workshopsData.Values)
-            {
-                foreach (var root in roots)
-                    service.ReindexSubtree(root, 0);
-            }
-
-            _currentWorkshop = KnowledgeBaseDataService.ResolveWorkshop(_workshopsData, data.LastWorkshop);
-            BindWorkshops(_currentWorkshop);
-            LoadCurrentWorkshop();
-            ClearSearch();
-
-            if (recordAsSavedState)
-                RecordSavedState();
-            else
-                UpdateDirtyState();
-        }
-
-        private void BindWorkshops(string selectedWorkshop)
+        private void BindWorkshops(IReadOnlyList<string> workshopNames, string selectedWorkshop)
         {
             _isBindingWorkshops = true;
             cmbWorkshops.BeginUpdate();
             cmbWorkshops.Items.Clear();
 
-            foreach (var workshop in _workshopsData.Keys)
+            foreach (var workshop in workshopNames)
                 cmbWorkshops.Items.Add(workshop);
 
             if (cmbWorkshops.Items.Count > 0)
@@ -422,7 +394,7 @@ namespace AsutpKnowledgeBase
             _isBindingWorkshops = false;
         }
 
-        private string BuildLoadFailureMessage(JsonLoadResult loadResult)
+        private string BuildLoadFailureMessage(KnowledgeBaseFileLoadResult loadResult)
         {
             string message = $"Ошибка загрузки файла '{CurrentDataPath}': {loadResult.ErrorMessage}";
             if (!string.IsNullOrWhiteSpace(loadResult.BackupPath))
@@ -431,11 +403,22 @@ namespace AsutpKnowledgeBase
             return message;
         }
 
-        private string BuildBackupLoadMessage(JsonLoadResult loadResult)
+        private string BuildBackupLoadMessage(KnowledgeBaseFileLoadResult loadResult)
         {
             return
                 $"Основной файл '{CurrentDataPath}' не удалось прочитать: {loadResult.PrimaryErrorMessage}\n" +
                 $"Загружена резервная копия '{loadResult.SourcePath}'. После проверки данных сохраните базу заново.";
+        }
+
+        private void ResetTransientUiStateAfterLoad()
+        {
+            _history.Clear();
+            _treeController.ClearClipboard();
+        }
+
+        private void RebuildUiFromSession()
+        {
+            ApplySessionView(_sessionWorkflowService.BuildViewState(), clearSearch: true);
         }
 
         private void ConfigureJsonDialog(FileDialog dialog)
@@ -467,11 +450,11 @@ namespace AsutpKnowledgeBase
                 return;
 
             string previousPath = CurrentDataPath;
-            _storageService.SavePath = dialog.FileName;
+            _fileWorkflowService.SavePath = dialog.FileName;
 
             if (!LoadData(createDefaultIfMissing: false, fallbackToDefaultOnError: false))
             {
-                _storageService.SavePath = previousPath;
+                _fileWorkflowService.SavePath = previousPath;
                 UpdateUI();
                 return;
             }
@@ -504,11 +487,11 @@ namespace AsutpKnowledgeBase
                 return;
 
             string previousPath = CurrentDataPath;
-            _storageService.SavePath = dialog.FileName;
+            _fileWorkflowService.SavePath = dialog.FileName;
 
             if (!SaveAllData(showSuccessMessage: true, showErrorMessage: true))
             {
-                _storageService.SavePath = previousPath;
+                _fileWorkflowService.SavePath = previousPath;
                 UpdateUI();
                 return;
             }
@@ -518,18 +501,10 @@ namespace AsutpKnowledgeBase
 
         private bool SaveAllData(bool showSuccessMessage, bool showErrorMessage)
         {
-            SaveCurrentWorkshopState();
+            var saveResult = _fileWorkflowService.Save(GetCurrentTreeData());
 
-            var data = new SavedData
+            if (saveResult.IsSuccess)
             {
-                Config = _config,
-                Workshops = _workshopsData,
-                LastWorkshop = _currentWorkshop
-            };
-
-            if (_storageService.Save(data, out var errorMessage))
-            {
-                RecordSavedState();
                 UpdateUI();
 
                 if (showSuccessMessage)
@@ -544,11 +519,11 @@ namespace AsutpKnowledgeBase
                 return true;
             }
 
-            lblInfo.Text = $"❌ Ошибка сохранения: {errorMessage}";
+            lblInfo.Text = $"❌ Ошибка сохранения: {saveResult.ErrorMessage}";
             if (showErrorMessage)
             {
                 MessageBox.Show(
-                    $"Ошибка сохранения: {errorMessage}",
+                    $"Ошибка сохранения: {saveResult.ErrorMessage}",
                     "Ошибка сохранения",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
@@ -558,62 +533,34 @@ namespace AsutpKnowledgeBase
         }
 
         private string SerializeStateSnapshot(bool includeCurrentWorkshop)
+            => _session.SerializeSnapshot(GetCurrentTreeData(), includeCurrentWorkshop);
+
+        private void RecordSavedState() =>
+            _session.RecordSavedState(GetCurrentTreeData());
+
+        private void UpdateDirtyState() =>
+            _session.RefreshDirtyState(GetCurrentTreeData());
+
+        private void ApplySessionView(KnowledgeBaseSessionViewState viewState, bool clearSearch)
         {
-            SaveCurrentWorkshopState();
-
-            var data = new SavedData
-            {
-                Config = _config,
-                Workshops = _workshopsData,
-                LastWorkshop = includeCurrentWorkshop ? _currentWorkshop : string.Empty
-            };
-
-            return KnowledgeBaseDataService.SerializeSnapshot(
-                _config,
-                _workshopsData,
-                _currentWorkshop,
-                includeCurrentWorkshop);
-        }
-
-        private void RecordSavedState()
-        {
-            _lastSavedDirtySnapshot = SerializeStateSnapshot(includeCurrentWorkshop: false);
-            _lastSavedWorkshop = _currentWorkshop;
-            _isDirty = false;
-            _requiresSave = false;
-        }
-
-        private void UpdateDirtyState()
-        {
-            _isDirty = SerializeStateSnapshot(includeCurrentWorkshop: false) != _lastSavedDirtySnapshot;
-        }
-
-        private void LoadCurrentWorkshop()
-        {
-            if (string.IsNullOrWhiteSpace(_currentWorkshop) || !_workshopsData.ContainsKey(_currentWorkshop))
-                _currentWorkshop = KnowledgeBaseDataService.ResolveWorkshop(_workshopsData, null);
-
+            RebindTreeController();
+            BindWorkshops(viewState.WorkshopNames, viewState.CurrentWorkshop);
             tvTree.BeginUpdate();
             tvTree.SelectedNode = null;
             tvTree.Nodes.Clear();
 
-            if (_workshopsData.TryGetValue(_currentWorkshop, out var nodes))
-            {
-                foreach (var node in nodes)
-                    tvTree.Nodes.Add(BuildTreeNode(node));
-            }
+            foreach (var node in viewState.CurrentRoots)
+                tvTree.Nodes.Add(BuildTreeNode(node));
 
             tvTree.EndUpdate();
             ExpandTreeToLevel(1);
+
+            if (clearSearch)
+                ClearSearch();
         }
 
-        private void SaveCurrentWorkshopState()
-        {
-            if (string.IsNullOrWhiteSpace(_currentWorkshop))
-                return;
-
-            _workshopsData[_currentWorkshop] = GetCurrentTreeData();
-        }
+        private void SaveCurrentWorkshopState() =>
+            _session.SyncCurrentWorkshop(GetCurrentTreeData());
 
         private List<KbNode> GetCurrentTreeData()
         {
@@ -1011,38 +958,40 @@ namespace AsutpKnowledgeBase
 
         private void RestoreState(string json, string statusText)
         {
-            try
-            {
-                var data = JsonSerializer.Deserialize<SavedData>(
-                    json,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-                if (data == null)
-                    return;
-
-                ApplyLoadedData(data, recordAsSavedState: false);
-                UpdateDirtyState();
-                UpdateUI();
-                lblInfo.Text = statusText;
-            }
-            catch (Exception ex)
+            var restoreResult = _sessionWorkflowService.RestoreSnapshot(json);
+            if (!restoreResult.IsSuccess)
             {
                 MessageBox.Show(
-                    $"Ошибка восстановления состояния: {ex.Message}",
+                    restoreResult.ErrorMessage,
                     "Undo/Redo",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
+                return;
             }
+
+            ApplySessionView(restoreResult.ViewState, clearSearch: true);
+            UpdateDirtyState();
+            UpdateUI();
+            lblInfo.Text = statusText;
         }
 
         private void UpdateUI()
         {
             var selectedNode = tvTree.SelectedNode?.Tag as KbNode;
             bool hasSelection = selectedNode != null;
+            var formState = _formStateService.Build(
+                _isDirty,
+                _requiresSave,
+                CurrentDataPath,
+                _currentWorkshop,
+                _lastSavedWorkshop,
+                tvTree.GetNodeCount(true),
+                _config,
+                selectedNode);
 
             btnUndo.Enabled = _history.CanUndo;
             btnRedo.Enabled = _history.CanRedo;
-            btnSave.Enabled = _isDirty || _requiresSave || !File.Exists(CurrentDataPath) || _currentWorkshop != _lastSavedWorkshop;
+            btnSave.Enabled = formState.CanSave;
 
             ctxCopy.Enabled = hasSelection;
             ctxRename.Enabled = hasSelection;
@@ -1050,23 +999,9 @@ namespace AsutpKnowledgeBase
             ctxAdd.Enabled = _treeController.CanAddNode(selectedNode);
             ctxPaste.Enabled = hasSelection && _treeController.CanPasteNode(selectedNode!);
 
-            btnSave.ToolTipText = $"Сохранить базу данных ({CurrentDataPath})";
-            Text = _isDirty
-                ? $"* База знаний АСУТП [{CurrentDataFileName}]"
-                : $"База знаний АСУТП [{CurrentDataFileName}]";
-
-            int totalNodes = tvTree.GetNodeCount(true);
-            if (hasSelection)
-            {
-                string levelName = _config.LevelNames.Count > selectedNode!.LevelIndex
-                    ? _config.LevelNames[selectedNode.LevelIndex]
-                    : $"Ур. {selectedNode.LevelIndex + 1}";
-                lblInfo.Text = $"Цех: {_currentWorkshop} | Всего: {totalNodes} | Выбрано: {selectedNode.Name} ({levelName})";
-            }
-            else
-            {
-                lblInfo.Text = $"Цех: {_currentWorkshop} | Всего узлов: {totalNodes} | Уровней: {_config.MaxLevels}";
-            }
+            btnSave.ToolTipText = formState.SaveToolTip;
+            Text = formState.WindowTitle;
+            lblInfo.Text = formState.StatusText;
         }
 
         private void CmbWorkshops_SelectedIndexChanged(object? sender, EventArgs e)
@@ -1074,12 +1009,14 @@ namespace AsutpKnowledgeBase
             if (_isBindingWorkshops)
                 return;
 
-            if (cmbWorkshops.SelectedItem is not string selected || selected == _currentWorkshop)
+            if (cmbWorkshops.SelectedItem is not string selected)
                 return;
 
-            SaveCurrentWorkshopState();
-            _currentWorkshop = selected;
-            LoadCurrentWorkshop();
+            var switchResult = _sessionWorkflowService.SelectWorkshop(selected, GetCurrentTreeData());
+            if (!switchResult.IsSuccess)
+                return;
+
+            ApplySessionView(switchResult.ViewState, clearSearch: false);
             UpdateDirtyState();
             UpdateUI();
         }
@@ -1091,27 +1028,27 @@ namespace AsutpKnowledgeBase
                 return;
 
             string name = dlg.Result.Trim();
-            if (_workshopsData.Keys.Any(existing => string.Equals(existing, name, StringComparison.CurrentCultureIgnoreCase)))
+            SaveState();
+
+            var addWorkshopResult = _sessionWorkflowService.AddWorkshop(name, GetCurrentTreeData());
+            if (!addWorkshopResult.IsSuccess)
             {
-                MessageBox.Show(
-                    "Цех с таким названием уже существует.",
-                    "Ошибка",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
+                if (!string.IsNullOrWhiteSpace(addWorkshopResult.ErrorMessage))
+                {
+                    MessageBox.Show(
+                        addWorkshopResult.ErrorMessage,
+                        "Ошибка",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }
+
                 return;
             }
 
-            SaveState();
-            SaveCurrentWorkshopState();
-
-            _workshopsData[name] = new List<KbNode>();
-            _currentWorkshop = name;
-            BindWorkshops(name);
-            LoadCurrentWorkshop();
-
+            ApplySessionView(addWorkshopResult.ViewState, clearSearch: false);
             UpdateDirtyState();
             UpdateUI();
-            lblInfo.Text = $"🏭 Добавлен цех: {name}";
+            lblInfo.Text = $"🏭 Добавлен цех: {addWorkshopResult.ViewState.CurrentWorkshop}";
         }
 
         private void BtnSetup_Click(object? sender, EventArgs e)
@@ -1120,16 +1057,11 @@ namespace AsutpKnowledgeBase
             if (setup.ShowDialog() != DialogResult.OK)
                 return;
 
-            var newConfig = KnowledgeBaseDataService.NormalizeConfig(setup.Config);
-            var validationService = new KnowledgeBaseService(newConfig, _workshopsData);
-            int maxUsedLevel = -1;
-            foreach (var roots in _workshopsData.Values)
-                maxUsedLevel = Math.Max(maxUsedLevel, validationService.GetMaxLevelIndex(roots));
-
-            if (maxUsedLevel >= newConfig.MaxLevels)
+            var updateResult = _configurationWorkflowService.ValidateAndNormalize(setup.Config, _workshopsData);
+            if (!updateResult.IsSuccess)
             {
                 MessageBox.Show(
-                    $"Нельзя уменьшить количество уровней до {newConfig.MaxLevels}. В базе уже используется уровень {maxUsedLevel + 1}.",
+                    updateResult.ErrorMessage,
                     "Некорректная конфигурация",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
@@ -1137,7 +1069,7 @@ namespace AsutpKnowledgeBase
             }
 
             SaveState();
-            _config = newConfig;
+            _session.UpdateConfig(updateResult.Config);
             RebindTreeController();
             UpdateDirtyState();
             UpdateUI();
@@ -1151,7 +1083,7 @@ namespace AsutpKnowledgeBase
             SaveCurrentWorkshopState();
             UpdateDirtyState();
 
-            if (!_isDirty)
+            if (!_formStateService.RequiresSavePromptBeforeContinue(_isDirty))
                 return true;
 
             var result = MessageBox.Show(
@@ -1174,7 +1106,7 @@ namespace AsutpKnowledgeBase
             SaveCurrentWorkshopState();
             UpdateDirtyState();
 
-            if (_isDirty)
+            if (_formStateService.RequiresSavePromptOnClose(_isDirty))
             {
                 var result = MessageBox.Show(
                     "Есть несохранённые изменения. Сохранить перед закрытием?",
@@ -1198,7 +1130,7 @@ namespace AsutpKnowledgeBase
                 return;
             }
 
-            if (_currentWorkshop != _lastSavedWorkshop &&
+            if (_formStateService.ShouldSaveSilentlyOnClose(_currentWorkshop, _lastSavedWorkshop) &&
                 !SaveAllData(showSuccessMessage: false, showErrorMessage: true))
             {
                 e.Cancel = true;

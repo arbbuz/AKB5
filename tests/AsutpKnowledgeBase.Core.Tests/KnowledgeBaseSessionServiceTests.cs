@@ -1,0 +1,120 @@
+using AsutpKnowledgeBase.Models;
+using AsutpKnowledgeBase.Services;
+
+namespace AsutpKnowledgeBase.Core.Tests;
+
+public class KnowledgeBaseSessionServiceTests
+{
+    [Fact]
+    public void ApplyLoadedData_NormalizesAndReindexesWorkshops()
+    {
+        var session = new KnowledgeBaseSessionService();
+
+        session.ApplyLoadedData(
+            new SavedData
+            {
+                Config = new KbConfig
+                {
+                    MaxLevels = 2,
+                    LevelNames = new List<string> { "  Цех  ", "" }
+                },
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    [" Цех 1 "] =
+                    [
+                        new KbNode
+                        {
+                            Name = "Root",
+                            LevelIndex = 99,
+                            Children =
+                            [
+                                new KbNode { Name = "Child", LevelIndex = 99 }
+                            ]
+                        }
+                    ]
+                },
+                LastWorkshop = "Цех 1"
+            },
+            recordAsSavedState: true);
+
+        Assert.Equal(2, session.Config.MaxLevels);
+        Assert.Equal("Цех", session.Config.LevelNames[0]);
+        Assert.True(session.Workshops.ContainsKey("Цех 1"));
+        Assert.Equal("Цех 1", session.CurrentWorkshop);
+        Assert.False(session.IsDirty);
+        Assert.False(session.RequiresSave);
+        Assert.Equal("Цех 1", session.LastSavedWorkshop);
+
+        var root = session.Workshops["Цех 1"].Single();
+        Assert.Equal(0, root.LevelIndex);
+        Assert.Equal(1, root.Children.Single().LevelIndex);
+    }
+
+    [Fact]
+    public void TrySelectWorkshop_SavesCurrentRootsBeforeSwitch()
+    {
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(
+            new SavedData
+            {
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех 1"] = new(),
+                    ["Цех 2"] = new()
+                },
+                LastWorkshop = "Цех 1"
+            },
+            recordAsSavedState: true);
+
+        var currentRoots = new List<KbNode> { new() { Name = "Линия 1" } };
+
+        Assert.True(session.TrySelectWorkshop("Цех 2", currentRoots));
+        Assert.Equal("Цех 2", session.CurrentWorkshop);
+        Assert.Single(session.Workshops["Цех 1"]);
+        Assert.Equal("Линия 1", session.Workshops["Цех 1"][0].Name);
+    }
+
+    [Fact]
+    public void RefreshDirtyState_IgnoresOnlyCurrentWorkshopSwitch()
+    {
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(
+            new SavedData
+            {
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех 1"] = new(),
+                    ["Цех 2"] = new()
+                },
+                LastWorkshop = "Цех 1"
+            },
+            recordAsSavedState: true);
+
+        Assert.True(session.TrySelectWorkshop("Цех 2", new List<KbNode>()));
+
+        session.RefreshDirtyState(new List<KbNode>());
+
+        Assert.False(session.IsDirty);
+    }
+
+    [Fact]
+    public void TryAddWorkshop_RejectsDuplicateNamesIgnoringCase()
+    {
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(
+            new SavedData
+            {
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех 1"] = new()
+                },
+                LastWorkshop = "Цех 1"
+            },
+            recordAsSavedState: true);
+
+        Assert.False(session.TryAddWorkshop(" цЕх 1 ", new List<KbNode>()));
+        Assert.True(session.TryAddWorkshop("Новый цех", new List<KbNode>()));
+        Assert.Equal("Новый цех", session.CurrentWorkshop);
+        Assert.True(session.Workshops.ContainsKey("Новый цех"));
+    }
+}

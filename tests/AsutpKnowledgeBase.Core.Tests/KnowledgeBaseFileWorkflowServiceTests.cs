@@ -1,0 +1,159 @@
+using System.Text.Json;
+using AsutpKnowledgeBase.Models;
+using AsutpKnowledgeBase.Services;
+
+namespace AsutpKnowledgeBase.Core.Tests;
+
+public class KnowledgeBaseFileWorkflowServiceTests
+{
+    [Fact]
+    public void Load_WhenFileMissing_CreatesDefaultDataAndSavesIt()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "kb.json");
+            var session = new KnowledgeBaseSessionService();
+            var workflow = new KnowledgeBaseFileWorkflowService(session, new JsonStorageService(path));
+
+            var result = workflow.Load();
+
+            Assert.Equal(KnowledgeBaseFileLoadOutcome.CreatedDefaultAndSaved, result.Outcome);
+            Assert.True(File.Exists(path));
+            Assert.Equal("Новый цех", session.CurrentWorkshop);
+            Assert.Equal("Новый цех", session.LastSavedWorkshop);
+            Assert.False(session.IsDirty);
+            Assert.False(session.RequiresSave);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Load_WhenPrimaryFileIsBrokenAndFallbackDisabled_ReturnsLoadError()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "kb.json");
+            File.WriteAllText(path, "{ broken json");
+
+            var session = new KnowledgeBaseSessionService();
+            var workflow = new KnowledgeBaseFileWorkflowService(session, new JsonStorageService(path));
+
+            var result = workflow.Load(createDefaultIfMissing: false, fallbackToDefaultOnError: false);
+
+            Assert.Equal(KnowledgeBaseFileLoadOutcome.LoadError, result.Outcome);
+            Assert.False(result.IsSuccess);
+            Assert.Empty(session.Workshops);
+            Assert.Equal(string.Empty, session.CurrentWorkshop);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Load_WhenPrimaryFileIsBrokenButBackupExists_LoadsBackupAndMarksSessionForSave()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "kb.json");
+            string backupPath = $"{path}.bak";
+            var storage = new JsonStorageService(path);
+            var sample = CreateSampleData(lastWorkshop: "Цех 2");
+
+            Assert.True(storage.Save(sample, out _));
+            File.Copy(path, backupPath, overwrite: true);
+            File.WriteAllText(path, "{ broken json");
+
+            var session = new KnowledgeBaseSessionService();
+            var workflow = new KnowledgeBaseFileWorkflowService(session, storage);
+
+            var result = workflow.Load();
+
+            Assert.Equal(KnowledgeBaseFileLoadOutcome.LoadedBackup, result.Outcome);
+            Assert.Equal(backupPath, result.SourcePath);
+            Assert.True(session.RequiresSave);
+            Assert.Equal("Цех 2", session.CurrentWorkshop);
+            Assert.True(session.Workshops.ContainsKey("Цех 1"));
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Save_PersistsCurrentRootsAndClearsDirtyState()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "kb.json");
+            var session = new KnowledgeBaseSessionService();
+            session.ApplyLoadedData(CreateSampleData(lastWorkshop: "Цех 1"), recordAsSavedState: true);
+
+            var currentRoots = new List<KbNode>
+            {
+                new() { Name = "Новый корень", LevelIndex = 0 }
+            };
+            session.RefreshDirtyState(currentRoots);
+
+            var workflow = new KnowledgeBaseFileWorkflowService(session, new JsonStorageService(path));
+            var result = workflow.Save(currentRoots);
+
+            Assert.True(result.IsSuccess);
+            Assert.False(session.IsDirty);
+            Assert.False(session.RequiresSave);
+
+            var saved = JsonSerializer.Deserialize<SavedData>(File.ReadAllText(path));
+            Assert.NotNull(saved);
+            Assert.Equal("Цех 1", saved!.LastWorkshop);
+            Assert.Equal("Новый корень", saved.Workshops["Цех 1"].Single().Name);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    private static SavedData CreateSampleData(string lastWorkshop) =>
+        new()
+        {
+            SchemaVersion = SavedData.CurrentSchemaVersion,
+            Config = new KbConfig
+            {
+                MaxLevels = 3,
+                LevelNames = new List<string> { "Цех", "Линия", "Щит" }
+            },
+            Workshops = new Dictionary<string, List<KbNode>>
+            {
+                ["Цех 1"] = new List<KbNode>
+                {
+                    new()
+                    {
+                        Name = "Линия 1",
+                        LevelIndex = 0
+                    }
+                },
+                ["Цех 2"] = new List<KbNode>()
+            },
+            LastWorkshop = lastWorkshop
+        };
+
+    private static string CreateTempDirectory()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"asutp-file-workflow-tests-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(path);
+        return path;
+    }
+}
