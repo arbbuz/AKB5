@@ -126,6 +126,48 @@ public class KnowledgeBaseFileWorkflowServiceTests
         }
     }
 
+    [Fact]
+    public void ReplaceAllData_PersistsImportedDataAndUpdatesSession()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "kb.json");
+            var session = new KnowledgeBaseSessionService();
+            var workflow = new KnowledgeBaseFileWorkflowService(session, new JsonStorageService(path));
+
+            Assert.Equal(KnowledgeBaseFileLoadOutcome.CreatedDefaultAndSaved, workflow.Load().Outcome);
+
+            var importedData = CreateSampleData(lastWorkshop: "Цех 2");
+            importedData.Workshops["Цех 2"].Add(new KbNode
+            {
+                Name = "Импортированный корень",
+                LevelIndex = 0
+            });
+
+            var result = workflow.ReplaceAllData(importedData);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal("Цех 2", session.CurrentWorkshop);
+            Assert.Equal("Цех 2", session.LastSavedWorkshop);
+            Assert.False(session.IsDirty);
+            Assert.False(session.RequiresSave);
+            Assert.Equal("Импортированный корень", session.Workshops["Цех 2"].Single().Name);
+
+            string json = File.ReadAllText(path);
+            var saved = JsonSerializer.Deserialize<SavedData>(json);
+            Assert.NotNull(saved);
+            Assert.Equal("Цех 2", saved!.LastWorkshop);
+            Assert.Equal("Импортированный корень", saved.Workshops["Цех 2"].Single().Name);
+            Assert.True(File.Exists($"{path}.bak"));
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
     private static SavedData CreateSampleData(string lastWorkshop) =>
         new()
         {

@@ -15,7 +15,8 @@ namespace AsutpKnowledgeBase
     public partial class MainForm : Form
     {
         private readonly KnowledgeBaseSessionService _session = new();
-        private readonly KnowledgeBaseFileWorkflowService _fileWorkflowService;
+        private readonly KnowledgeBaseExcelUiWorkflowService _excelUiWorkflowService;
+        private readonly KnowledgeBaseFileUiWorkflowService _fileUiWorkflowService;
         private readonly KnowledgeBaseSessionWorkflowService _sessionWorkflowService;
         private readonly KnowledgeBaseTreeController _treeController;
         private readonly KnowledgeBaseTreeMutationWorkflowService _treeMutationWorkflowService;
@@ -59,9 +60,14 @@ namespace AsutpKnowledgeBase
         {
             _treeController = new KnowledgeBaseTreeController(_config, _workshopsData);
             InitializeComponent();
-            _fileWorkflowService = new KnowledgeBaseFileWorkflowService(
+            var fileWorkflowService = new KnowledgeBaseFileWorkflowService(
                 _session,
                 new JsonStorageService(GetDefaultJsonPath()));
+            _excelUiWorkflowService = new KnowledgeBaseExcelUiWorkflowService(
+                new KnowledgeBaseExcelExchangeService());
+            _fileUiWorkflowService = new KnowledgeBaseFileUiWorkflowService(
+                fileWorkflowService,
+                _formStateService);
             _sessionWorkflowService = new KnowledgeBaseSessionWorkflowService(_session);
             _treeMutationWorkflowService = new KnowledgeBaseTreeMutationWorkflowService(
                 _session,
@@ -69,7 +75,7 @@ namespace AsutpKnowledgeBase
                 _treeController,
                 _history);
             FormClosing += MainForm_FormClosing;
-            LoadData();
+            _fileUiWorkflowService.LoadData(CreateFileUiWorkflowContext());
         }
 
         private void InitializeComponent()
@@ -103,6 +109,8 @@ namespace AsutpKnowledgeBase
             var menuOpenDb = new ToolStripMenuItem("📂 Открыть базу...", null, BtnOpen_Click);
             var menuReloadDb = new ToolStripMenuItem("🔄 Перезагрузить текущую базу", null, BtnLoad_Click);
             var menuSaveAs = new ToolStripMenuItem("💾 Сохранить как...", null, BtnSaveAs_Click);
+            var menuImportExcel = new ToolStripMenuItem("📥 Импорт из Excel...", null, BtnImportExcel_Click);
+            var menuExportExcel = new ToolStripMenuItem("📊 Экспорт в Excel...", null, BtnExportExcel_Click);
 
             menuFile.DropDownItems.AddRange(new ToolStripItem[]
             {
@@ -111,7 +119,9 @@ namespace AsutpKnowledgeBase
                 new ToolStripSeparator(),
                 menuOpenDb,
                 menuReloadDb,
-                menuSaveAs
+                menuSaveAs,
+                menuImportExcel,
+                menuExportExcel
             });
             toolStrip.Items.Add(menuFile);
             toolStrip.Items.Add(new ToolStripSeparator());
@@ -289,118 +299,38 @@ namespace AsutpKnowledgeBase
                 Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
                 "ASUTP_KnowledgeBase.json");
 
-        private string CurrentDataPath => _fileWorkflowService.SavePath;
-
-        private string CurrentDataFileName => Path.GetFileName(CurrentDataPath);
+        private string CurrentDataPath => _fileUiWorkflowService.CurrentDataPath;
 
         private void RebindTreeController() => _treeController.Bind(_config, _workshopsData);
 
-        private bool LoadData(bool createDefaultIfMissing = true, bool fallbackToDefaultOnError = true)
-        {
-            var result = _fileWorkflowService.Load(createDefaultIfMissing, fallbackToDefaultOnError);
-
-            switch (result.Outcome)
+        private KnowledgeBaseFileUiWorkflowContext CreateFileUiWorkflowContext() =>
+            new()
             {
-                case KnowledgeBaseFileLoadOutcome.FileMissingError:
-                    MessageBox.Show(
-                        $"Файл '{CurrentDataPath}' не найден.",
-                        "Файл не найден",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
-                    UpdateUI();
-                    lblInfo.Text = "⚠️ Файл базы не найден";
-                    return false;
-
-                case KnowledgeBaseFileLoadOutcome.LoadError:
-                    MessageBox.Show(
-                        BuildLoadFailureMessage(result),
-                        "Ошибка загрузки",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error);
-                    UpdateUI();
-                    lblInfo.Text = "❌ Ошибка загрузки базы";
-                    return false;
-
-                case KnowledgeBaseFileLoadOutcome.CreatedDefaultAfterError:
+                Owner = this,
+                GetCurrentTreeData = GetCurrentTreeData,
+                SaveCurrentWorkshopState = SaveCurrentWorkshopState,
+                UpdateDirtyState = UpdateDirtyState,
+                GetUiState = () => new KnowledgeBaseFileUiState
+                {
+                    IsDirty = _isDirty,
+                    RequiresSave = _requiresSave,
+                    CurrentWorkshop = _currentWorkshop,
+                    LastSavedWorkshop = _lastSavedWorkshop
+                },
+                OnSuccessfulLoad = () =>
+                {
                     ResetTransientUiStateAfterLoad();
                     RebuildUiFromSession();
-                    UpdateUI();
-                    MessageBox.Show(
-                        BuildLoadFailureMessage(result),
-                        "Ошибка загрузки",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error);
-                    lblInfo.Text = "⚠️ Загружена пустая база из-за ошибки чтения";
-                    return true;
-
-                case KnowledgeBaseFileLoadOutcome.CreatedDefaultAndSaved:
-                    ResetTransientUiStateAfterLoad();
-                    RebuildUiFromSession();
-                    UpdateUI();
-                    lblInfo.Text = "🆕 Создана новая база данных";
-                    return true;
-
-                case KnowledgeBaseFileLoadOutcome.CreatedDefaultUnsaved:
-                    ResetTransientUiStateAfterLoad();
-                    RebuildUiFromSession();
-                    UpdateUI();
-                    lblInfo.Text = "⚠️ База создана в памяти, но не сохранена на диск";
-                    if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
-                    {
-                        MessageBox.Show(
-                            $"Ошибка сохранения: {result.ErrorMessage}",
-                            "Ошибка сохранения",
-                            MessageBoxButtons.OK,
-                            MessageBoxIcon.Error);
-                    }
-
-                    return true;
-
-                case KnowledgeBaseFileLoadOutcome.LoadedBackup:
-                    ResetTransientUiStateAfterLoad();
-                    RebuildUiFromSession();
-                    UpdateUI();
-                    MessageBox.Show(
-                        BuildBackupLoadMessage(result),
-                        "Загружена резервная копия",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
-                    lblInfo.Text = $"⚠️ Загружена резервная копия: {Path.GetFileName(result.SourcePath)}";
-                    return true;
-
-                case KnowledgeBaseFileLoadOutcome.LoadedExisting:
-                    ResetTransientUiStateAfterLoad();
-                    RebuildUiFromSession();
-                    UpdateUI();
-                    lblInfo.Text = $"📂 Загружен цех: {_currentWorkshop}";
-                    return true;
-
-                default:
-                    return false;
-            }
-        }
+                },
+                UpdateUi = UpdateUI,
+                SetStatusText = text => lblInfo.Text = text
+            };
 
         private void BindWorkshops(IReadOnlyList<string> workshopNames, string selectedWorkshop)
         {
             _isBindingWorkshops = true;
             _treeViewService.BindWorkshops(cmbWorkshops, workshopNames, selectedWorkshop);
             _isBindingWorkshops = false;
-        }
-
-        private string BuildLoadFailureMessage(KnowledgeBaseFileLoadResult loadResult)
-        {
-            string message = $"Ошибка загрузки файла '{CurrentDataPath}': {loadResult.ErrorMessage}";
-            if (!string.IsNullOrWhiteSpace(loadResult.BackupPath))
-                message += $"\nРезервная копия '{loadResult.BackupPath}' тоже не была загружена.";
-
-            return message;
-        }
-
-        private string BuildBackupLoadMessage(KnowledgeBaseFileLoadResult loadResult)
-        {
-            return
-                $"Основной файл '{CurrentDataPath}' не удалось прочитать: {loadResult.PrimaryErrorMessage}\n" +
-                $"Загружена резервная копия '{loadResult.SourcePath}'. После проверки данных сохраните базу заново.";
         }
 
         private void ResetTransientUiStateAfterLoad()
@@ -414,115 +344,41 @@ namespace AsutpKnowledgeBase
             ApplySessionView(_sessionWorkflowService.BuildViewState(), clearSearch: true);
         }
 
-        private void ConfigureJsonDialog(FileDialog dialog)
-        {
-            dialog.Filter = "JSON (*.json)|*.json|Все файлы (*.*)|*.*";
-            dialog.DefaultExt = "json";
-            dialog.AddExtension = true;
-
-            string? directory = Path.GetDirectoryName(CurrentDataPath);
-            if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
-                dialog.InitialDirectory = directory;
-
-            dialog.FileName = CurrentDataFileName;
-        }
-
         private void BtnOpen_Click(object? sender, EventArgs e)
-        {
-            if (!ConfirmContinueWithUnsavedChanges("открытием другой базы"))
-                return;
-
-            using var dialog = new OpenFileDialog
-            {
-                Title = "Открыть базу знаний",
-                CheckFileExists = true
-            };
-            ConfigureJsonDialog(dialog);
-
-            if (dialog.ShowDialog() != DialogResult.OK)
-                return;
-
-            string previousPath = CurrentDataPath;
-            _fileWorkflowService.SavePath = dialog.FileName;
-
-            if (!LoadData(createDefaultIfMissing: false, fallbackToDefaultOnError: false))
-            {
-                _fileWorkflowService.SavePath = previousPath;
-                UpdateUI();
-                return;
-            }
-        }
+            => _fileUiWorkflowService.OpenDatabase(CreateFileUiWorkflowContext());
 
         private void BtnLoad_Click(object? sender, EventArgs e)
-        {
-            if (!ConfirmContinueWithUnsavedChanges("перезагрузкой базы из файла"))
-                return;
-
-            LoadData();
-        }
+            => _fileUiWorkflowService.ReloadDatabase(CreateFileUiWorkflowContext());
 
         private void BtnSave_Click(object? sender, EventArgs e)
-        {
-            if (SaveAllData(showSuccessMessage: true, showErrorMessage: true))
-                lblInfo.Text = $"✅ Данные сохранены: {CurrentDataFileName}";
-        }
+            => _fileUiWorkflowService.SaveCurrentDatabase(CreateFileUiWorkflowContext());
 
         private void BtnSaveAs_Click(object? sender, EventArgs e)
+            => _fileUiWorkflowService.SaveDatabaseAs(CreateFileUiWorkflowContext());
+
+        private void BtnImportExcel_Click(object? sender, EventArgs e)
         {
-            using var dialog = new SaveFileDialog
+            var fileContext = CreateFileUiWorkflowContext();
+            _excelUiWorkflowService.Import(new KnowledgeBaseExcelImportUiWorkflowContext
             {
-                Title = "Сохранить базу как",
-                OverwritePrompt = true
-            };
-            ConfigureJsonDialog(dialog);
-
-            if (dialog.ShowDialog() != DialogResult.OK)
-                return;
-
-            string previousPath = CurrentDataPath;
-            _fileWorkflowService.SavePath = dialog.FileName;
-
-            if (!SaveAllData(showSuccessMessage: true, showErrorMessage: true))
-            {
-                _fileWorkflowService.SavePath = previousPath;
-                UpdateUI();
-                return;
-            }
-
-            lblInfo.Text = $"✅ База сохранена как: {CurrentDataFileName}";
+                Owner = this,
+                CurrentDataPath = CurrentDataPath,
+                ConfirmContinueBeforeImport = actionDescription =>
+                    _fileUiWorkflowService.ConfirmContinueBeforeReplace(fileContext, actionDescription),
+                ReplaceAllData = data => _fileUiWorkflowService.ReplaceAllData(fileContext, data),
+                SetStatusText = text => lblInfo.Text = text
+            });
         }
 
-        private bool SaveAllData(bool showSuccessMessage, bool showErrorMessage)
+        private void BtnExportExcel_Click(object? sender, EventArgs e)
         {
-            var saveResult = _fileWorkflowService.Save(GetCurrentTreeData());
-
-            if (saveResult.IsSuccess)
-            {
-                UpdateUI();
-
-                if (showSuccessMessage)
-                {
-                    MessageBox.Show(
-                        "Данные сохранены.",
-                        "Сохранение",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Information);
-                }
-
-                return true;
-            }
-
-            lblInfo.Text = $"❌ Ошибка сохранения: {saveResult.ErrorMessage}";
-            if (showErrorMessage)
-            {
-                MessageBox.Show(
-                    $"Ошибка сохранения: {saveResult.ErrorMessage}",
-                    "Ошибка сохранения",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
-            }
-
-            return false;
+            SaveCurrentWorkshopState();
+            var data = _session.CreateSaveData(GetCurrentTreeData());
+            _excelUiWorkflowService.Export(
+                this,
+                data,
+                CurrentDataPath,
+                text => lblInfo.Text = text);
         }
 
         private void UpdateDirtyState() =>
@@ -906,63 +762,7 @@ namespace AsutpKnowledgeBase
 
         private void TvTree_AfterSelect(object? sender, TreeViewEventArgs e) => UpdateUI();
 
-        private bool ConfirmContinueWithUnsavedChanges(string actionDescription)
-        {
-            SaveCurrentWorkshopState();
-            UpdateDirtyState();
-
-            if (!_formStateService.RequiresSavePromptBeforeContinue(_isDirty, _requiresSave))
-                return true;
-
-            var result = MessageBox.Show(
-                $"Есть несохранённые изменения. Сохранить перед {actionDescription}?",
-                "Несохранённые изменения",
-                MessageBoxButtons.YesNoCancel,
-                MessageBoxIcon.Warning);
-
-            if (result == DialogResult.Cancel)
-                return false;
-
-            if (result == DialogResult.Yes)
-                return SaveAllData(showSuccessMessage: false, showErrorMessage: true);
-
-            return true;
-        }
-
         private void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
-        {
-            SaveCurrentWorkshopState();
-            UpdateDirtyState();
-
-            if (_formStateService.RequiresSavePromptOnClose(_isDirty, _requiresSave))
-            {
-                var result = MessageBox.Show(
-                    "Есть несохранённые изменения. Сохранить перед закрытием?",
-                    "Закрытие приложения",
-                    MessageBoxButtons.YesNoCancel,
-                    MessageBoxIcon.Warning);
-
-                if (result == DialogResult.Cancel)
-                {
-                    e.Cancel = true;
-                    return;
-                }
-
-                if (result == DialogResult.Yes &&
-                    !SaveAllData(showSuccessMessage: false, showErrorMessage: true))
-                {
-                    e.Cancel = true;
-                    return;
-                }
-
-                return;
-            }
-
-            if (_formStateService.ShouldSaveSilentlyOnClose(_currentWorkshop, _lastSavedWorkshop) &&
-                !SaveAllData(showSuccessMessage: false, showErrorMessage: true))
-            {
-                e.Cancel = true;
-            }
-        }
+            => _fileUiWorkflowService.HandleFormClosing(CreateFileUiWorkflowContext(), e);
     }
 }

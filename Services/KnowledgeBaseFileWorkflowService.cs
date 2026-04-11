@@ -153,5 +153,32 @@ namespace AsutpKnowledgeBase.Services
                 ErrorMessage = errorMessage
             };
         }
+
+        public KnowledgeBaseFileSaveResult ReplaceAllData(SavedData data)
+        {
+            var normalizedConfig = KnowledgeBaseDataService.NormalizeConfig(data.Config);
+            var normalizedWorkshops = KnowledgeBaseDataService.NormalizeWorkshops(data.Workshops);
+            string lastWorkshop = KnowledgeBaseDataService.ResolveWorkshop(normalizedWorkshops, data.LastWorkshop);
+
+            var normalizedData = new SavedData
+            {
+                SchemaVersion = data.SchemaVersion,
+                Config = normalizedConfig,
+                Workshops = normalizedWorkshops,
+                LastWorkshop = lastWorkshop
+            };
+
+            if (_storage.Save(normalizedData, out var errorMessage))
+            {
+                _session.ApplyLoadedData(normalizedData, recordAsSavedState: true);
+                return new KnowledgeBaseFileSaveResult { IsSuccess = true };
+            }
+
+            return new KnowledgeBaseFileSaveResult
+            {
+                IsSuccess = false,
+                ErrorMessage = errorMessage
+            };
+        }
     }
 }
