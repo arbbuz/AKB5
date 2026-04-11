@@ -18,9 +18,10 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseExcelUiWorkflowService _excelUiWorkflowService;
         private readonly KnowledgeBaseFileUiWorkflowService _fileUiWorkflowService;
         private readonly KnowledgeBaseSessionWorkflowService _sessionWorkflowService;
+        private readonly KnowledgeBaseTreeMutationUiWorkflowService _treeMutationUiWorkflowService;
+        private readonly KnowledgeBaseWorkshopUiWorkflowService _workshopUiWorkflowService;
         private readonly KnowledgeBaseTreeController _treeController;
         private readonly KnowledgeBaseTreeMutationWorkflowService _treeMutationWorkflowService;
-        private readonly KnowledgeBaseConfigurationWorkflowService _configurationWorkflowService = new();
         private readonly KnowledgeBaseFormStateService _formStateService = new();
         private readonly KnowledgeBaseTreeViewService _treeViewService = new();
         private readonly UndoRedoService _history = new(50);
@@ -69,11 +70,19 @@ namespace AsutpKnowledgeBase
                 fileWorkflowService,
                 _formStateService);
             _sessionWorkflowService = new KnowledgeBaseSessionWorkflowService(_session);
+            _workshopUiWorkflowService = new KnowledgeBaseWorkshopUiWorkflowService(
+                _session,
+                _sessionWorkflowService,
+                new KnowledgeBaseConfigurationWorkflowService(),
+                _history);
             _treeMutationWorkflowService = new KnowledgeBaseTreeMutationWorkflowService(
                 _session,
                 _sessionWorkflowService,
                 _treeController,
                 _history);
+            _treeMutationUiWorkflowService = new KnowledgeBaseTreeMutationUiWorkflowService(
+                _treeMutationWorkflowService,
+                _sessionWorkflowService);
             FormClosing += MainForm_FormClosing;
             _fileUiWorkflowService.LoadData(CreateFileUiWorkflowContext());
         }
@@ -326,6 +335,34 @@ namespace AsutpKnowledgeBase
                 SetStatusText = text => lblInfo.Text = text
             };
 
+        private KnowledgeBaseWorkshopUiWorkflowContext CreateWorkshopUiWorkflowContext() =>
+            new()
+            {
+                Owner = this,
+                GetCurrentTreeData = GetCurrentTreeData,
+                ApplySessionView = viewState => ApplySessionView(viewState, clearSearch: false),
+                RefreshSearchAfterMutation = RefreshSearchAfterMutation,
+                RebindTreeController = RebindTreeController,
+                UpdateDirtyState = UpdateDirtyState,
+                UpdateUi = UpdateUI,
+                SetStatusText = text => lblInfo.Text = text
+            };
+
+        private KnowledgeBaseTreeMutationUiWorkflowContext CreateTreeMutationUiWorkflowContext() =>
+            new()
+            {
+                Owner = this,
+                TreeView = tvTree,
+                CurrentWorkshop = _currentWorkshop,
+                GetCurrentTreeData = GetCurrentTreeData,
+                CaptureExpandedNodes = CaptureExpandedNodes,
+                ApplySessionView = ApplySessionView,
+                RefreshSearchAfterMutation = RefreshSearchAfterMutation,
+                UpdateDirtyState = UpdateDirtyState,
+                UpdateUi = UpdateUI,
+                SetStatusText = text => lblInfo.Text = text
+            };
+
         private void BindWorkshops(IReadOnlyList<string> workshopNames, string selectedWorkshop)
         {
             _isBindingWorkshops = true;
@@ -438,153 +475,20 @@ namespace AsutpKnowledgeBase
         private HashSet<KbNode> CaptureExpandedNodes() =>
             _treeViewService.CaptureExpandedNodes(tvTree);
 
-        private void ApplySuccessfulTreeMutation(
-            KnowledgeBaseTreeMutationResult result,
-            KbNode? nodeToSelect,
-            ISet<KbNode> expandedNodes)
-        {
-            ApplySessionView(
-                _sessionWorkflowService.BuildViewState(),
-                clearSearch: false,
-                nodeToSelect,
-                expandedNodes);
-            RefreshSearchAfterMutation();
-            UpdateDirtyState();
-            UpdateUI();
-
-            if (!string.IsNullOrWhiteSpace(result.StatusMessage))
-                lblInfo.Text = result.StatusMessage;
-        }
-
-        private string CaptureCurrentHistorySnapshot() =>
-            _session.SerializeSnapshot(GetCurrentTreeData(), includeCurrentWorkshop: true);
-
-        private void ShowMutationFailure(KnowledgeBaseTreeMutationResult result, string title)
-        {
-            if (string.IsNullOrWhiteSpace(result.ErrorMessage))
-                return;
-
-            MessageBoxIcon icon = result.Failure switch
-            {
-                KnowledgeBaseTreeMutationFailure.DeleteFailed => MessageBoxIcon.Error,
-                KnowledgeBaseTreeMutationFailure.MoveFailed => MessageBoxIcon.Error,
-                KnowledgeBaseTreeMutationFailure.RestoreFailed => MessageBoxIcon.Error,
-                _ => MessageBoxIcon.Warning
-            };
-
-            MessageBox.Show(
-                result.ErrorMessage,
-                title,
-                MessageBoxButtons.OK,
-                icon);
-        }
-
         private void AddNode()
-        {
-            using var dlg = new InputDialog("Введите название нового объекта:");
-            if (dlg.ShowDialog() != DialogResult.OK || string.IsNullOrWhiteSpace(dlg.Result))
-                return;
-
-            var selectedData = tvTree.SelectedNode?.Tag as KbNode;
-            var expandedNodes = CaptureExpandedNodes();
-            var result = _treeMutationWorkflowService.AddNode(
-                _currentWorkshop,
-                selectedData,
-                dlg.Result,
-                GetCurrentTreeData());
-
-            if (!result.IsSuccess)
-            {
-                ShowMutationFailure(result, "Невозможно добавить");
-                return;
-            }
-
-            ApplySuccessfulTreeMutation(result, result.AffectedNode, expandedNodes);
-        }
+            => _treeMutationUiWorkflowService.AddNode(CreateTreeMutationUiWorkflowContext());
 
         private void DeleteNode()
-        {
-            if (tvTree.SelectedNode?.Tag is not KbNode node)
-            {
-                MessageBox.Show(
-                    "Выберите узел для удаления.",
-                    "Внимание",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
-            }
-
-            if (MessageBox.Show(
-                    $"Удалить '{node.Name}' и все вложенные элементы?",
-                    "Подтверждение",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Warning) != DialogResult.Yes)
-            {
-                return;
-            }
-
-            var nextSelectedData = tvTree.SelectedNode?.Parent?.Tag as KbNode;
-            var expandedNodes = CaptureExpandedNodes();
-            var result = _treeMutationWorkflowService.DeleteNode(
-                _currentWorkshop,
-                node,
-                GetCurrentTreeData());
-
-            if (!result.IsSuccess)
-            {
-                ShowMutationFailure(result, "Ошибка удаления");
-                return;
-            }
-
-            ApplySuccessfulTreeMutation(result, nextSelectedData, expandedNodes);
-        }
+            => _treeMutationUiWorkflowService.DeleteNode(CreateTreeMutationUiWorkflowContext());
 
         private void CopyNode()
-        {
-            if (tvTree.SelectedNode?.Tag is not KbNode node)
-                return;
-
-            _treeMutationWorkflowService.CopyNode(node);
-            UpdateUI();
-            lblInfo.Text = $"📋 Скопировано: {node.Name}";
-        }
+            => _treeMutationUiWorkflowService.CopyNode(CreateTreeMutationUiWorkflowContext());
 
         private void PasteNode()
-        {
-            if (!_treeMutationWorkflowService.HasClipboardNode || tvTree.SelectedNode?.Tag is not KbNode parent)
-                return;
-
-            var expandedNodes = CaptureExpandedNodes();
-            var result = _treeMutationWorkflowService.PasteNode(parent, GetCurrentTreeData());
-            if (!result.IsSuccess)
-            {
-                ShowMutationFailure(result, "Ошибка вставки");
-                return;
-            }
-
-            ApplySuccessfulTreeMutation(result, result.AffectedNode, expandedNodes);
-        }
+            => _treeMutationUiWorkflowService.PasteNode(CreateTreeMutationUiWorkflowContext());
 
         private void RenameNode()
-        {
-            if (tvTree.SelectedNode?.Tag is not KbNode node)
-                return;
-
-            using var dlg = new InputDialog("Новое название:", node.Name);
-            if (dlg.ShowDialog() != DialogResult.OK || string.IsNullOrWhiteSpace(dlg.Result))
-                return;
-
-            var expandedNodes = CaptureExpandedNodes();
-            var result = _treeMutationWorkflowService.RenameNode(node, dlg.Result, GetCurrentTreeData());
-            if (!result.IsSuccess)
-            {
-                if (result.Failure != KnowledgeBaseTreeMutationFailure.NoChanges)
-                    ShowMutationFailure(result, "Переименование");
-                return;
-            }
-
-            ApplySuccessfulTreeMutation(result, result.AffectedNode, expandedNodes);
-        }
+            => _treeMutationUiWorkflowService.RenameNode(CreateTreeMutationUiWorkflowContext());
 
         private void TvTree_ItemDrag(object? sender, ItemDragEventArgs e)
         {
@@ -595,65 +499,13 @@ namespace AsutpKnowledgeBase
         private void TvTree_DragEnter(object? sender, DragEventArgs e) => e.Effect = DragDropEffects.Move;
 
         private void TvTree_DragDrop(object? sender, DragEventArgs e)
-        {
-            Point pt = tvTree.PointToClient(new Point(e.X, e.Y));
-            TreeNode? targetNode = tvTree.GetNodeAt(pt);
-            TreeNode? draggedNode = e.Data?.GetData(typeof(TreeNode)) as TreeNode;
-
-            if (draggedNode == null || targetNode == null || draggedNode == targetNode)
-                return;
-
-            if (targetNode.Tag is not KbNode targetData || draggedNode.Tag is not KbNode draggedData)
-                return;
-
-            var expandedNodes = CaptureExpandedNodes();
-            var result = _treeMutationWorkflowService.MoveNode(
-                _currentWorkshop,
-                draggedData,
-                draggedNode.Parent?.Tag as KbNode,
-                targetData,
-                GetCurrentTreeData());
-
-            if (!result.IsSuccess)
-            {
-                ShowMutationFailure(result, "Ошибка перемещения");
-                return;
-            }
-
-            ApplySuccessfulTreeMutation(result, result.AffectedNode, expandedNodes);
-        }
+            => _treeMutationUiWorkflowService.HandleDragDrop(CreateTreeMutationUiWorkflowContext(), e);
 
         private void UndoAction()
-        {
-            var result = _treeMutationWorkflowService.Undo(GetCurrentTreeData());
-            if (!result.IsSuccess)
-            {
-                if (result.Failure != KnowledgeBaseTreeMutationFailure.NoChanges)
-                    ShowMutationFailure(result, "Undo/Redo");
-                return;
-            }
-
-            ApplySessionView(result.ViewState, clearSearch: true);
-            UpdateDirtyState();
-            UpdateUI();
-            lblInfo.Text = result.StatusMessage ?? "↩ Выполнена отмена";
-        }
+            => _treeMutationUiWorkflowService.Undo(CreateTreeMutationUiWorkflowContext());
 
         private void RedoAction()
-        {
-            var result = _treeMutationWorkflowService.Redo(GetCurrentTreeData());
-            if (!result.IsSuccess)
-            {
-                if (result.Failure != KnowledgeBaseTreeMutationFailure.NoChanges)
-                    ShowMutationFailure(result, "Undo/Redo");
-                return;
-            }
-
-            ApplySessionView(result.ViewState, clearSearch: true);
-            UpdateDirtyState();
-            UpdateUI();
-            lblInfo.Text = result.StatusMessage ?? "↪ Выполнен повтор";
-        }
+            => _treeMutationUiWorkflowService.Redo(CreateTreeMutationUiWorkflowContext());
 
         private void UpdateUI()
         {
@@ -689,76 +541,16 @@ namespace AsutpKnowledgeBase
             if (_isBindingWorkshops)
                 return;
 
-            if (cmbWorkshops.SelectedItem is not string selected)
-                return;
-
-            var switchResult = _sessionWorkflowService.SelectWorkshop(selected, GetCurrentTreeData());
-            if (!switchResult.IsSuccess)
-                return;
-
-            ApplySessionView(switchResult.ViewState, clearSearch: false);
-            RefreshSearchAfterMutation();
-            UpdateDirtyState();
-            UpdateUI();
+            _workshopUiWorkflowService.SelectWorkshop(
+                CreateWorkshopUiWorkflowContext(),
+                cmbWorkshops.SelectedItem as string);
         }
 
         private void BtnAddWorkshop_Click(object? sender, EventArgs e)
-        {
-            using var dlg = new InputDialog("Введите название нового цеха:");
-            if (dlg.ShowDialog() != DialogResult.OK || string.IsNullOrWhiteSpace(dlg.Result))
-                return;
-
-            string name = dlg.Result.Trim();
-            string historySnapshot = CaptureCurrentHistorySnapshot();
-
-            var addWorkshopResult = _sessionWorkflowService.AddWorkshop(name, GetCurrentTreeData());
-            if (!addWorkshopResult.IsSuccess)
-            {
-                if (!string.IsNullOrWhiteSpace(addWorkshopResult.ErrorMessage))
-                {
-                    MessageBox.Show(
-                        addWorkshopResult.ErrorMessage,
-                        "Ошибка",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
-                }
-
-                return;
-            }
-
-            _history.SaveState(historySnapshot);
-            ApplySessionView(addWorkshopResult.ViewState, clearSearch: false);
-            RefreshSearchAfterMutation();
-            UpdateDirtyState();
-            UpdateUI();
-            lblInfo.Text = $"🏭 Добавлен цех: {addWorkshopResult.ViewState.CurrentWorkshop}";
-        }
+            => _workshopUiWorkflowService.AddWorkshop(CreateWorkshopUiWorkflowContext());
 
         private void BtnSetup_Click(object? sender, EventArgs e)
-        {
-            using var setup = new SetupForm(_config);
-            if (setup.ShowDialog() != DialogResult.OK)
-                return;
-
-            var updateResult = _configurationWorkflowService.ValidateAndNormalize(setup.Config, _workshopsData);
-            if (!updateResult.IsSuccess)
-            {
-                MessageBox.Show(
-                    updateResult.ErrorMessage,
-                    "Некорректная конфигурация",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
-            }
-
-            string historySnapshot = CaptureCurrentHistorySnapshot();
-            _session.UpdateConfig(updateResult.Config);
-            _history.SaveState(historySnapshot);
-            RebindTreeController();
-            UpdateDirtyState();
-            UpdateUI();
-            lblInfo.Text = $"💡 Уровни: {string.Join(" → ", _config.LevelNames)}";
-        }
+            => _workshopUiWorkflowService.ConfigureLevels(CreateWorkshopUiWorkflowContext());
 
         private void TvTree_AfterSelect(object? sender, TreeViewEventArgs e) => UpdateUI();
 
