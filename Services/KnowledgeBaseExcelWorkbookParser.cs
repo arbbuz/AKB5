@@ -264,29 +264,128 @@ namespace AsutpKnowledgeBase.Services
             if (sourceWorkshopNames.All(targetWorkshopSet.Contains))
                 return parsedRows;
 
-            var mapping = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (var sourceWorkshopName in sourceWorkshopNames)
-            {
-                if (targetWorkshopSet.Contains(sourceWorkshopName))
-                    mapping[sourceWorkshopName] = sourceWorkshopName;
-            }
-
-            var remainingSourceNames = sourceWorkshopNames
-                .Where(name => !mapping.ContainsKey(name))
-                .ToList();
-            var remainingTargetNames = targetWorkshopNames
-                .Where(name => !mapping.Values.Contains(name, StringComparer.Ordinal))
-                .ToList();
-
-            if (remainingSourceNames.Count != remainingTargetNames.Count)
-                return parsedRows;
-
-            for (int index = 0; index < remainingSourceNames.Count; index++)
-                mapping[remainingSourceNames[index]] = remainingTargetNames[index];
+            var anchors = FindWorkshopAnchors(sourceWorkshopNames, targetWorkshopNames);
+            var mapping = BuildWorkshopNameMapping(sourceWorkshopNames, targetWorkshopNames, anchors);
 
             return parsedRows
                 .Select(row => row with { WorkshopName = mapping[row.WorkshopName] })
                 .ToList();
+        }
+
+        private static IReadOnlyList<WorkshopAnchor> FindWorkshopAnchors(
+            IReadOnlyList<string> sourceWorkshopNames,
+            IReadOnlyList<string> targetWorkshopNames)
+        {
+            var lcsLengths = new int[sourceWorkshopNames.Count + 1, targetWorkshopNames.Count + 1];
+            for (int sourceIndex = sourceWorkshopNames.Count - 1; sourceIndex >= 0; sourceIndex--)
+            {
+                for (int targetIndex = targetWorkshopNames.Count - 1; targetIndex >= 0; targetIndex--)
+                {
+                    lcsLengths[sourceIndex, targetIndex] = string.Equals(
+                        sourceWorkshopNames[sourceIndex],
+                        targetWorkshopNames[targetIndex],
+                        StringComparison.Ordinal)
+                        ? lcsLengths[sourceIndex + 1, targetIndex + 1] + 1
+                        : Math.Max(
+                            lcsLengths[sourceIndex + 1, targetIndex],
+                            lcsLengths[sourceIndex, targetIndex + 1]);
+                }
+            }
+
+            var anchors = new List<WorkshopAnchor>();
+            int sourceCursor = 0;
+            int targetCursor = 0;
+            while (sourceCursor < sourceWorkshopNames.Count && targetCursor < targetWorkshopNames.Count)
+            {
+                if (string.Equals(sourceWorkshopNames[sourceCursor], targetWorkshopNames[targetCursor], StringComparison.Ordinal))
+                {
+                    anchors.Add(new WorkshopAnchor(sourceCursor, targetCursor));
+                    sourceCursor++;
+                    targetCursor++;
+                    continue;
+                }
+
+                if (lcsLengths[sourceCursor + 1, targetCursor] >= lcsLengths[sourceCursor, targetCursor + 1])
+                {
+                    sourceCursor++;
+                }
+                else
+                {
+                    targetCursor++;
+                }
+            }
+
+            return anchors;
+        }
+
+        private static Dictionary<string, string> BuildWorkshopNameMapping(
+            IReadOnlyList<string> sourceWorkshopNames,
+            IReadOnlyList<string> targetWorkshopNames,
+            IReadOnlyList<WorkshopAnchor> anchors)
+        {
+            var mapping = new Dictionary<string, string>(StringComparer.Ordinal);
+            int previousSourceIndex = -1;
+            int previousTargetIndex = -1;
+
+            for (int anchorIndex = 0; anchorIndex <= anchors.Count; anchorIndex++)
+            {
+                bool isSentinel = anchorIndex == anchors.Count;
+                int sourceBoundary = isSentinel ? sourceWorkshopNames.Count : anchors[anchorIndex].SourceIndex;
+                int targetBoundary = isSentinel ? targetWorkshopNames.Count : anchors[anchorIndex].TargetIndex;
+
+                int sourceGapStart = previousSourceIndex + 1;
+                int sourceGapCount = sourceBoundary - sourceGapStart;
+                int targetGapStart = previousTargetIndex + 1;
+                int targetGapCount = targetBoundary - targetGapStart;
+
+                if (sourceGapCount > 0)
+                {
+                    if (sourceGapCount != targetGapCount)
+                    {
+                        throw CreateWorkshopRemapException(
+                            sourceWorkshopNames.Skip(sourceGapStart).Take(sourceGapCount),
+                            targetWorkshopNames.Skip(targetGapStart).Take(targetGapCount));
+                    }
+
+                    for (int gapIndex = 0; gapIndex < sourceGapCount; gapIndex++)
+                    {
+                        mapping[sourceWorkshopNames[sourceGapStart + gapIndex]] =
+                            targetWorkshopNames[targetGapStart + gapIndex];
+                    }
+                }
+
+                if (isSentinel)
+                    continue;
+
+                string workshopName = sourceWorkshopNames[anchors[anchorIndex].SourceIndex];
+                mapping[workshopName] = targetWorkshopNames[anchors[anchorIndex].TargetIndex];
+                previousSourceIndex = anchors[anchorIndex].SourceIndex;
+                previousTargetIndex = anchors[anchorIndex].TargetIndex;
+            }
+
+            return mapping;
+        }
+
+        private static KnowledgeBaseExcelImportException CreateWorkshopRemapException(
+            IEnumerable<string> sourceGap,
+            IEnumerable<string> targetGap)
+        {
+            string sourceNames = FormatWorkshopNames(sourceGap);
+            string targetNames = FormatWorkshopNames(targetGap);
+
+            return new KnowledgeBaseExcelImportException(
+                $"Не удалось однозначно сопоставить имена цехов между листами 'Nodes' и 'Workshops'. " +
+                $"Сегмент Nodes: {sourceNames}. Сегмент Workshops: {targetNames}. " +
+                "Проверьте переименования цехов и порядок строк на листе 'Workshops'.");
+        }
+
+        private static string FormatWorkshopNames(IEnumerable<string> workshopNames)
+        {
+            var names = workshopNames.ToList();
+            if (names.Count == 0)
+                return "(пусто)";
+
+            return string.Join(", ", names.Select(name => $"'{name}'"));
         }
 
         private static KbNode BuildNode(
@@ -398,6 +497,8 @@ namespace AsutpKnowledgeBase.Services
         private sealed record ParsedWorkshopRow(int WorkshopOrder, string WorkshopName, bool IsLastSelected);
 
         private sealed record ParsedWorkshops(IReadOnlyList<string> OrderedWorkshopNames, string LastWorkshop);
+
+        private sealed record WorkshopAnchor(int SourceIndex, int TargetIndex);
 
         private sealed record ParsedNodeRow(
             string NodeId,

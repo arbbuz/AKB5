@@ -203,16 +203,120 @@ public class KnowledgeBaseExcelExchangeServiceTests
     {
         var service = new KnowledgeBaseExcelExchangeService();
 
-        byte[] packageBytes = service.BuildWorkbookPackage(CreateSampleData());
-        packageBytes = UpdateWorksheetCellValue(packageBytes, "Workshops", rowIndex: 2, cellIndex: 2, value: "Производство", cellType: "inlineStr");
+        byte[] packageBytes = service.BuildWorkbookPackage(CreateWorkshopRemapSampleData(
+            new TestWorkshop("Цех 1", HasNodes: true),
+            new TestWorkshop("Цех 2", HasNodes: true)));
+        packageBytes = UpdateWorkshopRow(packageBytes, rowIndex: 2, workshopName: "Производство");
 
         var result = service.ImportFromPackage(packageBytes);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Data);
         Assert.Contains("Производство", result.Data!.Workshops.Keys);
-        Assert.Equal("Линия 1", result.Data.Workshops["Производство"][0].Name);
+        Assert.Single(result.Data.Workshops["Производство"]);
+        Assert.Single(result.Data.Workshops["Цех 2"]);
         Assert.DoesNotContain("Цех 1", result.Data.Workshops.Keys);
+    }
+
+    [Fact]
+    public void Import_WhenWorkshopRenamedAndUnusedWorkshopExists_StillSucceeds()
+    {
+        var service = new KnowledgeBaseExcelExchangeService();
+
+        byte[] packageBytes = service.BuildWorkbookPackage(CreateWorkshopRemapSampleData(
+            new TestWorkshop("Цех 1", HasNodes: true),
+            new TestWorkshop("Цех 2", HasNodes: true),
+            new TestWorkshop("Пустой цех", HasNodes: false)));
+        packageBytes = UpdateWorkshopRow(packageBytes, rowIndex: 2, workshopName: "Производство");
+
+        var result = service.ImportFromPackage(packageBytes);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Data);
+        Assert.Contains("Производство", result.Data!.Workshops.Keys);
+        Assert.Contains("Пустой цех", result.Data.Workshops.Keys);
+        Assert.Single(result.Data.Workshops["Производство"]);
+        Assert.Empty(result.Data.Workshops["Пустой цех"]);
+    }
+
+    [Fact]
+    public void Import_WhenMultipleAdjacentWorkshopsRenamedInSameGap_StillSucceeds()
+    {
+        var service = new KnowledgeBaseExcelExchangeService();
+
+        byte[] packageBytes = service.BuildWorkbookPackage(CreateWorkshopRemapSampleData(
+            new TestWorkshop("Цех 1", HasNodes: true),
+            new TestWorkshop("Цех 2", HasNodes: true),
+            new TestWorkshop("Цех 3", HasNodes: true),
+            new TestWorkshop("Цех 4", HasNodes: true)));
+        packageBytes = UpdateWorkshopRow(packageBytes, rowIndex: 3, workshopName: "Производство 2");
+        packageBytes = UpdateWorkshopRow(packageBytes, rowIndex: 4, workshopName: "Производство 3");
+
+        var result = service.ImportFromPackage(packageBytes);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Data);
+        Assert.Contains("Производство 2", result.Data!.Workshops.Keys);
+        Assert.Contains("Производство 3", result.Data.Workshops.Keys);
+        Assert.Single(result.Data.Workshops["Производство 2"]);
+        Assert.Single(result.Data.Workshops["Производство 3"]);
+    }
+
+    [Fact]
+    public void Import_WhenAmbiguousWorkshopRenameMapping_FailsWithClearError()
+    {
+        var service = new KnowledgeBaseExcelExchangeService();
+
+        byte[] packageBytes = service.BuildWorkbookPackage(CreateSampleData());
+        packageBytes = UpdateWorkshopRow(packageBytes, rowIndex: 2, workshopName: "Производство");
+
+        var result = service.ImportFromPackage(packageBytes);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.ErrorMessage);
+        Assert.Contains("Не удалось однозначно сопоставить имена цехов", result.ErrorMessage);
+        Assert.DoesNotContain("неизвестный цех", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Import_WhenGlobalLeftoverCountsMatchButGapAlignmentDoesNot_Fails()
+    {
+        var service = new KnowledgeBaseExcelExchangeService();
+
+        byte[] packageBytes = service.BuildWorkbookPackage(CreateWorkshopRemapSampleData(
+            new TestWorkshop("Цех 1", HasNodes: true),
+            new TestWorkshop("Цех 2", HasNodes: true),
+            new TestWorkshop("Цех 3", HasNodes: true)));
+        packageBytes = UpdateWorkshopRow(packageBytes, rowIndex: 2, workshopOrder: 2, workshopName: "Производство 1");
+        packageBytes = UpdateWorkshopRow(packageBytes, rowIndex: 3, workshopOrder: 1);
+        packageBytes = UpdateWorkshopRow(packageBytes, rowIndex: 4, workshopOrder: 3, workshopName: "Производство 3");
+
+        var result = service.ImportFromPackage(packageBytes);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.ErrorMessage);
+        Assert.Contains("Не удалось однозначно сопоставить имена цехов", result.ErrorMessage);
+        Assert.DoesNotContain("неизвестный цех", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Import_WhenNoRenameButUnusedWorkshopsExist_StillSucceeds()
+    {
+        var service = new KnowledgeBaseExcelExchangeService();
+
+        byte[] packageBytes = service.BuildWorkbookPackage(CreateWorkshopRemapSampleData(
+            new TestWorkshop("Цех 1", HasNodes: true),
+            new TestWorkshop("Цех 2", HasNodes: true),
+            new TestWorkshop("Пустой цех", HasNodes: false)));
+
+        var result = service.ImportFromPackage(packageBytes);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Data);
+        Assert.Contains("Пустой цех", result.Data!.Workshops.Keys);
+        Assert.Empty(result.Data.Workshops["Пустой цех"]);
+        Assert.Single(result.Data.Workshops["Цех 1"]);
+        Assert.Single(result.Data.Workshops["Цех 2"]);
     }
 
     [Fact]
@@ -387,6 +491,51 @@ public class KnowledgeBaseExcelExchangeServiceTests
         });
     }
 
+    private static byte[] UpdateWorkshopRow(
+        byte[] sourceBytes,
+        int rowIndex,
+        int? workshopOrder = null,
+        string? workshopName = null,
+        bool? isLastSelected = null)
+    {
+        byte[] updatedBytes = sourceBytes;
+
+        if (workshopOrder.HasValue)
+        {
+            updatedBytes = UpdateWorksheetCellValue(
+                updatedBytes,
+                "Workshops",
+                rowIndex,
+                cellIndex: 1,
+                value: workshopOrder.Value.ToString(),
+                cellType: null);
+        }
+
+        if (workshopName != null)
+        {
+            updatedBytes = UpdateWorksheetCellValue(
+                updatedBytes,
+                "Workshops",
+                rowIndex,
+                cellIndex: 2,
+                value: workshopName,
+                cellType: "inlineStr");
+        }
+
+        if (isLastSelected.HasValue)
+        {
+            updatedBytes = UpdateWorksheetCellValue(
+                updatedBytes,
+                "Workshops",
+                rowIndex,
+                cellIndex: 3,
+                value: isLastSelected.Value ? "1" : "0",
+                cellType: "b");
+        }
+
+        return updatedBytes;
+    }
+
     private static string GetWorksheetEntryPath(byte[] packageBytes, string worksheetName)
     {
         XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -511,6 +660,40 @@ public class KnowledgeBaseExcelExchangeServiceTests
             LastWorkshop = "Пустой цех"
         };
 
+    private static SavedData CreateWorkshopRemapSampleData(params TestWorkshop[] workshops)
+    {
+        var workshopMap = new Dictionary<string, List<KbNode>>();
+        int nodeIndex = 1;
+
+        foreach (var workshop in workshops)
+        {
+            var roots = new List<KbNode>();
+            if (workshop.HasNodes)
+            {
+                roots.Add(new KbNode
+                {
+                    Name = $"Линия {nodeIndex}",
+                    LevelIndex = 0
+                });
+                nodeIndex++;
+            }
+
+            workshopMap[workshop.Name] = roots;
+        }
+
+        return new SavedData
+        {
+            SchemaVersion = SavedData.CurrentSchemaVersion,
+            Config = new KbConfig
+            {
+                MaxLevels = 2,
+                LevelNames = new List<string> { "Цех", "Линия" }
+            },
+            Workshops = workshopMap,
+            LastWorkshop = workshops.Last().Name
+        };
+    }
+
     private static string CreateTempDirectory()
     {
         string path = Path.Combine(Path.GetTempPath(), $"asutp-tests-{Guid.NewGuid():N}");
@@ -519,4 +702,6 @@ public class KnowledgeBaseExcelExchangeServiceTests
     }
 
     private sealed record WorksheetCellInfo(string? Type, string Value);
+
+    private sealed record TestWorkshop(string Name, bool HasNodes);
 }
