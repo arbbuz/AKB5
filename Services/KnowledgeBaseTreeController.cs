@@ -72,7 +72,11 @@ namespace AsutpKnowledgeBase.Services
             node.Name = newName.Trim();
 
         public bool CanMoveNode(KbNode targetNode, KbNode draggedNode) =>
+            !WouldCreateCycle(targetNode, draggedNode) &&
             CreateKnowledgeBaseService().CanAttachSubtree(targetNode, draggedNode);
+
+        public bool WouldCreateCycle(KbNode targetNode, KbNode draggedNode) =>
+            CreateKnowledgeBaseService().ContainsNode(draggedNode, targetNode);
 
         public bool MoveNode(string workshopName, KbNode draggedNode, KbNode? oldParentNode, KbNode targetNode)
         {

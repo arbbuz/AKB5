@@ -77,6 +77,20 @@ namespace AsutpKnowledgeBase.Services
 
         public bool CanAddChild(KbNode parentNode) => CanAttachSubtree(parentNode, new KbNode());
 
+        public bool ContainsNode(KbNode root, KbNode candidate)
+        {
+            if (ReferenceEquals(root, candidate))
+                return true;
+
+            foreach (var child in root.Children)
+            {
+                if (ContainsNode(child, candidate))
+                    return true;
+            }
+
+            return false;
+        }
+
         public bool CanAttachSubtree(KbNode? parentNode, KbNode subtreeRoot)
         {
             if (_config.MaxLevels <= 0)

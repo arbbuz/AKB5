@@ -5,6 +5,7 @@ using System.IO;
 using System.Windows.Forms;
 using AsutpKnowledgeBase.Models;
 using AsutpKnowledgeBase.Services;
+using AsutpKnowledgeBase.UiServices;
 
 namespace AsutpKnowledgeBase
 {
@@ -17,14 +18,13 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseFileWorkflowService _fileWorkflowService;
         private readonly KnowledgeBaseSessionWorkflowService _sessionWorkflowService;
         private readonly KnowledgeBaseTreeController _treeController;
+        private readonly KnowledgeBaseTreeMutationWorkflowService _treeMutationWorkflowService;
         private readonly KnowledgeBaseConfigurationWorkflowService _configurationWorkflowService = new();
         private readonly KnowledgeBaseFormStateService _formStateService = new();
+        private readonly KnowledgeBaseTreeViewService _treeViewService = new();
         private readonly UndoRedoService _history = new(50);
 
         private bool _isBindingWorkshops;
-
-        private readonly List<TreeNode> _searchResults = new();
-        private int _currentSearchIndex = -1;
 
         private ToolStrip toolStrip = null!;
         private ToolStripButton btnUndo = null!;
@@ -63,6 +63,11 @@ namespace AsutpKnowledgeBase
                 _session,
                 new JsonStorageService(GetDefaultJsonPath()));
             _sessionWorkflowService = new KnowledgeBaseSessionWorkflowService(_session);
+            _treeMutationWorkflowService = new KnowledgeBaseTreeMutationWorkflowService(
+                _session,
+                _sessionWorkflowService,
+                _treeController,
+                _history);
             FormClosing += MainForm_FormClosing;
             LoadData();
         }
@@ -378,16 +383,7 @@ namespace AsutpKnowledgeBase
         private void BindWorkshops(IReadOnlyList<string> workshopNames, string selectedWorkshop)
         {
             _isBindingWorkshops = true;
-            cmbWorkshops.BeginUpdate();
-            cmbWorkshops.Items.Clear();
-
-            foreach (var workshop in workshopNames)
-                cmbWorkshops.Items.Add(workshop);
-
-            if (cmbWorkshops.Items.Count > 0)
-                cmbWorkshops.SelectedItem = selectedWorkshop;
-
-            cmbWorkshops.EndUpdate();
+            _treeViewService.BindWorkshops(cmbWorkshops, workshopNames, selectedWorkshop);
             _isBindingWorkshops = false;
         }
 
@@ -410,7 +406,7 @@ namespace AsutpKnowledgeBase
         private void ResetTransientUiStateAfterLoad()
         {
             _history.Clear();
-            _treeController.ClearClipboard();
+            _treeMutationWorkflowService.ClearClipboard();
         }
 
         private void RebuildUiFromSession()
@@ -529,230 +525,125 @@ namespace AsutpKnowledgeBase
             return false;
         }
 
-        private string SerializeStateSnapshot(bool includeCurrentWorkshop)
-            => _session.SerializeSnapshot(GetCurrentTreeData(), includeCurrentWorkshop);
-
         private void UpdateDirtyState() =>
             _session.RefreshDirtyState(GetCurrentTreeData());
 
-        private void ApplySessionView(KnowledgeBaseSessionViewState viewState, bool clearSearch)
+        private void ApplySessionView(
+            KnowledgeBaseSessionViewState viewState,
+            bool clearSearch,
+            KbNode? nodeToSelect = null,
+            ISet<KbNode>? expandedNodes = null)
         {
             RebindTreeController();
             BindWorkshops(viewState.WorkshopNames, viewState.CurrentWorkshop);
-            tvTree.BeginUpdate();
-            tvTree.SelectedNode = null;
-            tvTree.Nodes.Clear();
-
-            foreach (var node in viewState.CurrentRoots)
-                tvTree.Nodes.Add(BuildTreeNode(node));
-
-            tvTree.EndUpdate();
-            ExpandTreeToLevel(1);
-
-            if (clearSearch)
-                ClearSearch();
+            _treeViewService.ApplySessionView(tvTree, viewState, clearSearch, nodeToSelect, expandedNodes);
+            UpdateSearchButtons();
         }
 
         private void SaveCurrentWorkshopState() =>
             _session.SyncCurrentWorkshop(GetCurrentTreeData());
 
         private List<KbNode> GetCurrentTreeData()
-        {
-            var list = new List<KbNode>();
-            foreach (TreeNode treeNode in tvTree.Nodes)
-            {
-                if (treeNode.Tag is KbNode node)
-                    list.Add(node);
-            }
-
-            return list;
-        }
-
-        private TreeNode BuildTreeNode(KbNode node)
-        {
-            var treeNode = new TreeNode(node.Name) { Tag = node };
-            foreach (var child in node.Children)
-                treeNode.Nodes.Add(BuildTreeNode(child));
-
-            return treeNode;
-        }
-
-        private void ExpandTreeToLevel(int targetLevelIndex)
-        {
-            foreach (TreeNode node in tvTree.Nodes)
-                ExpandNodeRecursive(node, targetLevelIndex);
-        }
-
-        private void ExpandNodeRecursive(TreeNode node, int targetLevelIndex)
-        {
-            if (node.Tag is not KbNode kbNode || kbNode.LevelIndex >= targetLevelIndex)
-                return;
-
-            node.Expand();
-            foreach (TreeNode child in node.Nodes)
-                ExpandNodeRecursive(child, targetLevelIndex);
-        }
+            => _treeViewService.GetCurrentTreeData(tvTree);
 
         private void PerformSearch()
         {
-            string searchText = txtSearch.Text.Trim();
-            if (string.IsNullOrEmpty(searchText))
-            {
-                ClearSearch();
-                UpdateUI();
-                return;
-            }
-
-            _searchResults.Clear();
-            _currentSearchIndex = -1;
-            FindAllMatches(tvTree.Nodes, searchText);
-
-            if (_searchResults.Count == 0)
-            {
-                tvTree.SelectedNode = null;
-                UpdateSearchButtons();
-                lblInfo.Text = $"❌ Не найдено: {searchText}";
-                return;
-            }
-
-            _currentSearchIndex = 0;
-            SelectSearchResult(_currentSearchIndex);
+            lblInfo.Text = _treeViewService.PerformSearch(tvTree, txtSearch.Text);
             UpdateSearchButtons();
-            lblInfo.Text = $"🔍 Найдено: {_searchResults.Count} | Показан 1 из {_searchResults.Count}";
-        }
-
-        private void FindAllMatches(TreeNodeCollection nodes, string searchText)
-        {
-            foreach (TreeNode node in nodes)
-            {
-                if (node.Text.Contains(searchText, StringComparison.CurrentCultureIgnoreCase))
-                    _searchResults.Add(node);
-
-                FindAllMatches(node.Nodes, searchText);
-            }
-        }
-
-        private void SelectSearchResult(int index)
-        {
-            if (index < 0 || index >= _searchResults.Count)
-                return;
-
-            var node = _searchResults[index];
-            ExpandToNode(node);
-            tvTree.SelectedNode = node;
-            tvTree.Focus();
         }
 
         private void NavigateSearch(int direction)
         {
-            if (_searchResults.Count == 0)
-                return;
-
-            _currentSearchIndex += direction;
-            if (_currentSearchIndex >= _searchResults.Count)
-                _currentSearchIndex = 0;
-            if (_currentSearchIndex < 0)
-                _currentSearchIndex = _searchResults.Count - 1;
-
-            SelectSearchResult(_currentSearchIndex);
+            var statusText = _treeViewService.NavigateSearch(tvTree, direction);
             UpdateSearchButtons();
-            lblInfo.Text = $"🔍 Найдено: {_searchResults.Count} | Показан {_currentSearchIndex + 1} из {_searchResults.Count}";
+            if (!string.IsNullOrWhiteSpace(statusText))
+                lblInfo.Text = statusText;
         }
 
         private void UpdateSearchButtons()
         {
-            bool canNavigate = _searchResults.Count > 1;
+            bool canNavigate = _treeViewService.CanNavigateSearch;
             btnSearchPrev.Enabled = canNavigate;
             btnSearchNext.Enabled = canNavigate;
         }
 
         private void ClearSearch()
         {
-            _searchResults.Clear();
-            _currentSearchIndex = -1;
+            lblInfo.Text = _treeViewService.ClearSearch();
             UpdateSearchButtons();
-            lblInfo.Text = "Готово";
         }
 
         private void RefreshSearchAfterMutation()
         {
-            if (string.IsNullOrWhiteSpace(txtSearch.Text))
-            {
-                ClearSearch();
-                return;
-            }
-
-            PerformSearch();
+            _treeViewService.RefreshSearch(tvTree, txtSearch.Text);
+            UpdateSearchButtons();
         }
 
-        private static void ExpandToNode(TreeNode node)
+        private HashSet<KbNode> CaptureExpandedNodes() =>
+            _treeViewService.CaptureExpandedNodes(tvTree);
+
+        private void ApplySuccessfulTreeMutation(
+            KnowledgeBaseTreeMutationResult result,
+            KbNode? nodeToSelect,
+            ISet<KbNode> expandedNodes)
         {
-            TreeNode? current = node.Parent;
-            while (current != null)
-            {
-                current.Expand();
-                current = current.Parent;
-            }
+            ApplySessionView(
+                _sessionWorkflowService.BuildViewState(),
+                clearSearch: false,
+                nodeToSelect,
+                expandedNodes);
+            RefreshSearchAfterMutation();
+            UpdateDirtyState();
+            UpdateUI();
 
-            node.Expand();
+            if (!string.IsNullOrWhiteSpace(result.StatusMessage))
+                lblInfo.Text = result.StatusMessage;
         }
 
-        private string CaptureHistorySnapshot() =>
-            SerializeStateSnapshot(includeCurrentWorkshop: true);
+        private string CaptureCurrentHistorySnapshot() =>
+            _session.SerializeSnapshot(GetCurrentTreeData(), includeCurrentWorkshop: true);
 
-        private void PushHistorySnapshot(string snapshot) =>
-            _history.SaveState(snapshot);
+        private void ShowMutationFailure(KnowledgeBaseTreeMutationResult result, string title)
+        {
+            if (string.IsNullOrWhiteSpace(result.ErrorMessage))
+                return;
+
+            MessageBoxIcon icon = result.Failure switch
+            {
+                KnowledgeBaseTreeMutationFailure.DeleteFailed => MessageBoxIcon.Error,
+                KnowledgeBaseTreeMutationFailure.MoveFailed => MessageBoxIcon.Error,
+                KnowledgeBaseTreeMutationFailure.RestoreFailed => MessageBoxIcon.Error,
+                _ => MessageBoxIcon.Warning
+            };
+
+            MessageBox.Show(
+                result.ErrorMessage,
+                title,
+                MessageBoxButtons.OK,
+                icon);
+        }
 
         private void AddNode()
         {
-            if (_config.MaxLevels <= 0)
-            {
-                MessageBox.Show(
-                    "Сначала настройте уровни.",
-                    "Внимание",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
-            }
-
             using var dlg = new InputDialog("Введите название нового объекта:");
             if (dlg.ShowDialog() != DialogResult.OK || string.IsNullOrWhiteSpace(dlg.Result))
                 return;
 
             var selectedData = tvTree.SelectedNode?.Tag as KbNode;
+            var expandedNodes = CaptureExpandedNodes();
+            var result = _treeMutationWorkflowService.AddNode(
+                _currentWorkshop,
+                selectedData,
+                dlg.Result,
+                GetCurrentTreeData());
 
-            if (!_treeController.CanAddNode(selectedData))
+            if (!result.IsSuccess)
             {
-                MessageBox.Show(
-                    $"Достигнута максимальная глубина ({_config.MaxLevels}).",
-                    "Невозможно добавить",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
+                ShowMutationFailure(result, "Невозможно добавить");
                 return;
             }
 
-            string historySnapshot = CaptureHistorySnapshot();
-            var newNode = _treeController.AddNode(_currentWorkshop, selectedData, dlg.Result);
-            PushHistorySnapshot(historySnapshot);
-
-            if (selectedData == null)
-            {
-                var newTreeNode = BuildTreeNode(newNode);
-                tvTree.Nodes.Add(newTreeNode);
-                tvTree.SelectedNode = newTreeNode;
-            }
-            else
-            {
-                var newTreeNode = BuildTreeNode(newNode);
-                tvTree.SelectedNode!.Nodes.Add(newTreeNode);
-                tvTree.SelectedNode!.Expand();
-                tvTree.SelectedNode = newTreeNode;
-            }
-
-            RefreshSearchAfterMutation();
-            UpdateDirtyState();
-            UpdateUI();
-            lblInfo.Text = $"➕ Добавлено: {newNode.Name}";
+            ApplySuccessfulTreeMutation(result, result.AffectedNode, expandedNodes);
         }
 
         private void DeleteNode()
@@ -776,29 +667,20 @@ namespace AsutpKnowledgeBase
                 return;
             }
 
-            var selectedTreeNode = tvTree.SelectedNode!;
-            TreeNode? nextSelection = selectedTreeNode.Parent;
+            var nextSelectedData = tvTree.SelectedNode?.Parent?.Tag as KbNode;
+            var expandedNodes = CaptureExpandedNodes();
+            var result = _treeMutationWorkflowService.DeleteNode(
+                _currentWorkshop,
+                node,
+                GetCurrentTreeData());
 
-            string historySnapshot = CaptureHistorySnapshot();
-            if (!_treeController.DeleteNode(_currentWorkshop, node))
+            if (!result.IsSuccess)
             {
-                MessageBox.Show(
-                    "Не удалось удалить выбранный узел.",
-                    "Ошибка удаления",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                ShowMutationFailure(result, "Ошибка удаления");
                 return;
             }
 
-            PushHistorySnapshot(historySnapshot);
-
-            selectedTreeNode.Remove();
-            tvTree.SelectedNode = nextSelection;
-
-            RefreshSearchAfterMutation();
-            UpdateDirtyState();
-            UpdateUI();
-            lblInfo.Text = $"🗑 Удалено: {node.Name}";
+            ApplySuccessfulTreeMutation(result, nextSelectedData, expandedNodes);
         }
 
         private void CopyNode()
@@ -806,39 +688,25 @@ namespace AsutpKnowledgeBase
             if (tvTree.SelectedNode?.Tag is not KbNode node)
                 return;
 
-            _treeController.CopyNode(node);
+            _treeMutationWorkflowService.CopyNode(node);
             UpdateUI();
             lblInfo.Text = $"📋 Скопировано: {node.Name}";
         }
 
         private void PasteNode()
         {
-            if (!_treeController.HasClipboardNode || tvTree.SelectedNode?.Tag is not KbNode parent)
+            if (!_treeMutationWorkflowService.HasClipboardNode || tvTree.SelectedNode?.Tag is not KbNode parent)
                 return;
 
-            if (!_treeController.CanPasteNode(parent))
+            var expandedNodes = CaptureExpandedNodes();
+            var result = _treeMutationWorkflowService.PasteNode(parent, GetCurrentTreeData());
+            if (!result.IsSuccess)
             {
-                MessageBox.Show(
-                    $"Поддерево не помещается в глубину {_config.MaxLevels}.",
-                    "Ошибка вставки",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
+                ShowMutationFailure(result, "Ошибка вставки");
                 return;
             }
 
-            string historySnapshot = CaptureHistorySnapshot();
-            var newNode = _treeController.PasteNode(parent);
-            PushHistorySnapshot(historySnapshot);
-
-            var newTreeNode = BuildTreeNode(newNode);
-            tvTree.SelectedNode.Nodes.Add(newTreeNode);
-            tvTree.SelectedNode.Expand();
-            tvTree.SelectedNode = newTreeNode;
-
-            RefreshSearchAfterMutation();
-            UpdateDirtyState();
-            UpdateUI();
-            lblInfo.Text = $"📌 Вставлено: {newNode.Name}";
+            ApplySuccessfulTreeMutation(result, result.AffectedNode, expandedNodes);
         }
 
         private void RenameNode()
@@ -850,19 +718,16 @@ namespace AsutpKnowledgeBase
             if (dlg.ShowDialog() != DialogResult.OK || string.IsNullOrWhiteSpace(dlg.Result))
                 return;
 
-            string newName = dlg.Result.Trim();
-            if (string.Equals(node.Name, newName, StringComparison.CurrentCulture))
+            var expandedNodes = CaptureExpandedNodes();
+            var result = _treeMutationWorkflowService.RenameNode(node, dlg.Result, GetCurrentTreeData());
+            if (!result.IsSuccess)
+            {
+                if (result.Failure != KnowledgeBaseTreeMutationFailure.NoChanges)
+                    ShowMutationFailure(result, "Переименование");
                 return;
+            }
 
-            string historySnapshot = CaptureHistorySnapshot();
-            _treeController.RenameNode(node, newName);
-            PushHistorySnapshot(historySnapshot);
-            tvTree.SelectedNode.Text = newName;
-
-            RefreshSearchAfterMutation();
-            UpdateDirtyState();
-            UpdateUI();
-            lblInfo.Text = $"✏️ Переименовано в: {newName}";
+            ApplySuccessfulTreeMutation(result, result.AffectedNode, expandedNodes);
         }
 
         private void TvTree_ItemDrag(object? sender, ItemDragEventArgs e)
@@ -882,105 +747,56 @@ namespace AsutpKnowledgeBase
             if (draggedNode == null || targetNode == null || draggedNode == targetNode)
                 return;
 
-            if (IsDescendant(draggedNode, targetNode))
-            {
-                MessageBox.Show(
-                    "Нельзя переместить узел внутрь его потомка.",
-                    "Ошибка",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
-            }
-
             if (targetNode.Tag is not KbNode targetData || draggedNode.Tag is not KbNode draggedData)
                 return;
 
-            if (!_treeController.CanMoveNode(targetData, draggedData))
-            {
-                MessageBox.Show(
-                    $"Поддерево не помещается в глубину {_config.MaxLevels}.",
-                    "Внимание",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
-            }
-
-            string historySnapshot = CaptureHistorySnapshot();
-            if (!_treeController.MoveNode(
+            var expandedNodes = CaptureExpandedNodes();
+            var result = _treeMutationWorkflowService.MoveNode(
                 _currentWorkshop,
                 draggedData,
                 draggedNode.Parent?.Tag as KbNode,
-                targetData))
+                targetData,
+                GetCurrentTreeData());
+
+            if (!result.IsSuccess)
             {
-                MessageBox.Show(
-                    "Не удалось переместить узел в новую позицию.",
-                    "Ошибка перемещения",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                ShowMutationFailure(result, "Ошибка перемещения");
                 return;
             }
 
-            PushHistorySnapshot(historySnapshot);
-            draggedNode.Remove();
-            targetNode.Nodes.Add(draggedNode);
-            targetNode.Expand();
-            tvTree.SelectedNode = draggedNode;
-
-            RefreshSearchAfterMutation();
-            UpdateDirtyState();
-            UpdateUI();
-            lblInfo.Text = $"↕ Перемещено: {draggedData.Name}";
-        }
-
-        private static bool IsDescendant(TreeNode node, TreeNode potentialDescendant)
-        {
-            TreeNode? current = potentialDescendant;
-            while (current != null)
-            {
-                if (current == node)
-                    return true;
-
-                current = current.Parent;
-            }
-
-            return false;
+            ApplySuccessfulTreeMutation(result, result.AffectedNode, expandedNodes);
         }
 
         private void UndoAction()
         {
-            var snapshot = _history.Undo(SerializeStateSnapshot(includeCurrentWorkshop: true));
-            if (snapshot == null)
+            var result = _treeMutationWorkflowService.Undo(GetCurrentTreeData());
+            if (!result.IsSuccess)
+            {
+                if (result.Failure != KnowledgeBaseTreeMutationFailure.NoChanges)
+                    ShowMutationFailure(result, "Undo/Redo");
                 return;
+            }
 
-            RestoreState(snapshot, "↩ Выполнена отмена");
+            ApplySessionView(result.ViewState, clearSearch: true);
+            UpdateDirtyState();
+            UpdateUI();
+            lblInfo.Text = result.StatusMessage ?? "↩ Выполнена отмена";
         }
 
         private void RedoAction()
         {
-            var snapshot = _history.Redo(SerializeStateSnapshot(includeCurrentWorkshop: true));
-            if (snapshot == null)
-                return;
-
-            RestoreState(snapshot, "↪ Выполнен повтор");
-        }
-
-        private void RestoreState(string json, string statusText)
-        {
-            var restoreResult = _sessionWorkflowService.RestoreSnapshot(json);
-            if (!restoreResult.IsSuccess)
+            var result = _treeMutationWorkflowService.Redo(GetCurrentTreeData());
+            if (!result.IsSuccess)
             {
-                MessageBox.Show(
-                    restoreResult.ErrorMessage,
-                    "Undo/Redo",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                if (result.Failure != KnowledgeBaseTreeMutationFailure.NoChanges)
+                    ShowMutationFailure(result, "Undo/Redo");
                 return;
             }
 
-            ApplySessionView(restoreResult.ViewState, clearSearch: true);
+            ApplySessionView(result.ViewState, clearSearch: true);
             UpdateDirtyState();
             UpdateUI();
-            lblInfo.Text = statusText;
+            lblInfo.Text = result.StatusMessage ?? "↪ Выполнен повтор";
         }
 
         private void UpdateUI()
@@ -997,15 +813,15 @@ namespace AsutpKnowledgeBase
                 _config,
                 selectedNode);
 
-            btnUndo.Enabled = _history.CanUndo;
-            btnRedo.Enabled = _history.CanRedo;
+            btnUndo.Enabled = _treeMutationWorkflowService.CanUndo;
+            btnRedo.Enabled = _treeMutationWorkflowService.CanRedo;
             btnSave.Enabled = formState.CanSave;
 
             ctxCopy.Enabled = hasSelection;
             ctxRename.Enabled = hasSelection;
             ctxDelete.Enabled = hasSelection;
-            ctxAdd.Enabled = _treeController.CanAddNode(selectedNode);
-            ctxPaste.Enabled = hasSelection && _treeController.CanPasteNode(selectedNode!);
+            ctxAdd.Enabled = _treeMutationWorkflowService.CanAddNode(selectedNode);
+            ctxPaste.Enabled = hasSelection && _treeMutationWorkflowService.CanPasteNode(selectedNode!);
 
             btnSave.ToolTipText = formState.SaveToolTip;
             Text = formState.WindowTitle;
@@ -1025,6 +841,7 @@ namespace AsutpKnowledgeBase
                 return;
 
             ApplySessionView(switchResult.ViewState, clearSearch: false);
+            RefreshSearchAfterMutation();
             UpdateDirtyState();
             UpdateUI();
         }
@@ -1036,7 +853,7 @@ namespace AsutpKnowledgeBase
                 return;
 
             string name = dlg.Result.Trim();
-            string historySnapshot = CaptureHistorySnapshot();
+            string historySnapshot = CaptureCurrentHistorySnapshot();
 
             var addWorkshopResult = _sessionWorkflowService.AddWorkshop(name, GetCurrentTreeData());
             if (!addWorkshopResult.IsSuccess)
@@ -1053,8 +870,9 @@ namespace AsutpKnowledgeBase
                 return;
             }
 
-            PushHistorySnapshot(historySnapshot);
+            _history.SaveState(historySnapshot);
             ApplySessionView(addWorkshopResult.ViewState, clearSearch: false);
+            RefreshSearchAfterMutation();
             UpdateDirtyState();
             UpdateUI();
             lblInfo.Text = $"🏭 Добавлен цех: {addWorkshopResult.ViewState.CurrentWorkshop}";
@@ -1077,9 +895,9 @@ namespace AsutpKnowledgeBase
                 return;
             }
 
-            string historySnapshot = CaptureHistorySnapshot();
+            string historySnapshot = CaptureCurrentHistorySnapshot();
             _session.UpdateConfig(updateResult.Config);
-            PushHistorySnapshot(historySnapshot);
+            _history.SaveState(historySnapshot);
             RebindTreeController();
             UpdateDirtyState();
             UpdateUI();

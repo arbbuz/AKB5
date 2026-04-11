@@ -114,6 +114,34 @@ public class KnowledgeBaseTreeControllerTests
         Assert.Equal(2, dragged.Children[0].LevelIndex);
     }
 
+    [Fact]
+    public void CanMoveNode_ReturnsFalseWhenTargetIsDescendantOfDraggedNode()
+    {
+        var grandChild = new KbNode { Name = "Модуль", LevelIndex = 2 };
+        var dragged = new KbNode
+        {
+            Name = "Щит 1",
+            LevelIndex = 1,
+            Children = { grandChild }
+        };
+        var root = new KbNode
+        {
+            Name = "Линия 1",
+            LevelIndex = 0,
+            Children = { dragged }
+        };
+
+        var workshops = new Dictionary<string, List<KbNode>>
+        {
+            ["Цех 1"] = new List<KbNode> { root }
+        };
+
+        var controller = CreateController(workshops, maxLevels: 4);
+
+        Assert.False(controller.CanMoveNode(grandChild, dragged));
+        Assert.True(controller.WouldCreateCycle(grandChild, dragged));
+    }
+
     private static KnowledgeBaseTreeController CreateController(
         Dictionary<string, List<KbNode>> workshops,
         int maxLevels)

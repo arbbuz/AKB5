@@ -12,27 +12,31 @@
 
 ## Текущее состояние проекта
 
-Сейчас проект уже приведён к рабочему инженерному минимуму:
+Проект уже доведён до рабочего инженерного минимума:
 
 - приложение собирается как `net8.0-windows` в [asutpKB.csproj](/Users/home/ASUTP/AKB5/asutpKB.csproj)
-- не-UI логика вынесена в сервисы и покрыта отдельным тестовым проектом
-- для сборки и тестов есть Windows CI workflow
-- `Program.cs` содержит только bootstrap, основная проблема теперь не в `Main`, а в крупном `MainForm`
-- `Forms/MainForm.cs` остаётся большим orchestration-классом: диалоги, привязка `TreeView`, поиск, drag-and-drop, undo/redo coordination
+- большая часть не-UI логики вынесена из формы в отдельные сервисы
+- есть отдельный тестовый проект для core-логики
+- есть Windows CI workflow для `build` и `test`
+- `Program.cs` остаётся чистым bootstrap-файлом
 
-Важно: `src/AsutpKnowledgeBase.Core` пока не содержит физически перенесённые исходники. Он использует `Models/*.cs` и `Services/*.cs` как linked files. Логика уже отделена от UI концептуально и тестируется отдельно, но физическое разделение кода ещё не завершено.
+Главная архитектурная проблема теперь локализована в `Forms/MainForm.cs`: форма стала тоньше, но всё ещё остаётся крупным UI orchestration-классом. После последнего рефакторинга из неё уже вынесены tree-mutation workflow, undo/redo coordination для дерева, привязка `TreeView` и поиск, но в форме по-прежнему остаются file/session dialogs, `MessageBox`-сценарии, wiring событий и часть screen-level orchestration.
+
+Важно: `src/AsutpKnowledgeBase.Core` пока не содержит физически перенесённые исходники. Он использует `Models/*.cs` и `Services/*.cs` как linked files. Это значит, что граница между UI и core уже выстроена концептуально и тестируется, но физическое разделение кода ещё не завершено. Папка `UiServices/` в `Core` не линкуется и остаётся WinForms-слоем.
 
 ## Структура
 
 - [Program.cs](/Users/home/ASUTP/AKB5/Program.cs) — точка входа
-- [Forms/MainForm.cs](/Users/home/ASUTP/AKB5/Forms/MainForm.cs) — главная форма и UI orchestration
+- [Forms/MainForm.cs](/Users/home/ASUTP/AKB5/Forms/MainForm.cs) — главная форма и оставшийся UI orchestration
 - [Forms/InputDialog.cs](/Users/home/ASUTP/AKB5/Forms/InputDialog.cs) — строковый диалог ввода
 - [Forms/SetupForm.cs](/Users/home/ASUTP/AKB5/Forms/SetupForm.cs) — настройка уровней
 - [Models/KbConfig.cs](/Users/home/ASUTP/AKB5/Models/KbConfig.cs) — конфигурация уровней
 - [Models/KbNode.cs](/Users/home/ASUTP/AKB5/Models/KbNode.cs) — узел дерева
 - [Models/SavedData.cs](/Users/home/ASUTP/AKB5/Models/SavedData.cs) — корневая модель сохранения
-- [Services/KnowledgeBaseService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseService.cs) — операции над деревом знаний
+- [Services/KnowledgeBaseDataService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseDataService.cs) — нормализация конфигурации, цехов и snapshot serialization
+- [Services/KnowledgeBaseService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseService.cs) — базовые операции над деревом знаний
 - [Services/KnowledgeBaseTreeController.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseTreeController.cs) — прикладные tree-операции без UI
+- [Services/KnowledgeBaseTreeMutationWorkflowService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseTreeMutationWorkflowService.cs) — mutating tree-workflow и undo/redo coordination без WinForms
 - [Services/KnowledgeBaseSessionService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseSessionService.cs) — session-state приложения
 - [Services/KnowledgeBaseSessionWorkflowService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseSessionWorkflowService.cs) — переходы session-state
 - [Services/KnowledgeBaseFileWorkflowService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseFileWorkflowService.cs) — файловый workflow `load/save`
@@ -40,49 +44,53 @@
 - [Services/KnowledgeBaseFormStateService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseFormStateService.cs) — правила состояния формы
 - [Services/JsonStorageService.cs](/Users/home/ASUTP/AKB5/Services/JsonStorageService.cs) — чтение, запись, backup и валидация JSON
 - [Services/UndoRedoService.cs](/Users/home/ASUTP/AKB5/Services/UndoRedoService.cs) — история undo/redo
+- [UiServices/KnowledgeBaseTreeViewService.cs](/Users/home/ASUTP/AKB5/UiServices/KnowledgeBaseTreeViewService.cs) — WinForms-специфичная привязка дерева, expanded-state и поиск
 - [src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj](/Users/home/ASUTP/AKB5/src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj) — библиотека для тестируемой не-UI логики
 - [tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj](/Users/home/ASUTP/AKB5/tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj) — unit-тесты
 - [.github/workflows/windows-build.yml](/Users/home/ASUTP/AKB5/.github/workflows/windows-build.yml) — Windows CI
 
-## Что уже сделано
+## Что уже вынесено из MainForm
 
-- вынесена большая часть бизнес-логики из `MainForm` в сервисы
-- добавлен session-state слой для текущего цеха, dirty-state и last-saved snapshot
-- вынесены отдельные workflow для:
-  - загрузки и сохранения базы
-  - переключения цеха и восстановления snapshot
-  - изменения конфигурации уровней
-  - вычисления состояния формы
-- добавлены backup-сценарии и структурная валидация JSON
-- исправлены операции `paste` и `drag-and-drop` для поддеревьев и глубины
-- добавлены `Open`, `Reload`, `Save`, `Save As`
-- `InputDialog` и `SetupForm` вынесены из `MainForm`
-- добавлен тестовый проект под `net8.0`
-- добавлен Windows CI для `build` и `test`
+- session-state, dirty-state и snapshot bookkeeping
+- file workflow: `load`, `save`, backup/fallback, default-data paths
+- session workflow: смена цеха, добавление цеха, восстановление snapshot
+- валидация и нормализация конфигурации уровней
+- вычисление состояния формы
+- чистые tree-операции над моделью
+- mutating tree-workflow для `add/delete/paste/rename/move`
+- undo/redo orchestration для tree-сценариев
+- WinForms-специфичная привязка `TreeView`, восстановление expanded-state и поиск
+- отдельные диалоги `InputDialog` и `SetupForm`
 
-## Что сделано в текущем review
+## Что сделано в последнем рефакторинге
 
-- подтверждено, что `Program.Main` уже чистый и не дублирует вынесенную логику
-- убраны мёртвые хвосты рефакторинга из `MainForm`
-- исправлен сценарий, при котором база, загруженная из backup или созданная после ошибки чтения, могла потеряться без prompt при `Open`, `Reload` или `Close`
-- `DeleteNode()` теперь не удаляет узел из UI, если модель не подтвердила удаление
-- undo-история больше не засоряется no-op снапшотами при неуспешных операциях
-- обновлены тесты `KnowledgeBaseFormStateService`
+- `MainForm` сокращён примерно до `968` строк, из неё убрана значимая часть tree/search orchestration
+- добавлен `KnowledgeBaseTreeMutationWorkflowService` для tree-mutation сценариев и undo/redo
+- добавлен `KnowledgeBaseTreeViewService` для работы с `TreeView`, поиском и expanded-state
+- проверка циклического `drag-and-drop` перемещения перенесена из формы в core-слой
+- добавлены unit-тесты на новый tree-mutation workflow
+- расширены unit-тесты `KnowledgeBaseTreeController` проверкой циклического move
+
+## Основные хвосты
+
+- `MainForm` всё ещё совмещает screen-level orchestration, file dialogs, `MessageBox`-решения и wiring UI-событий
+- file/session UI workflow всё ещё находится в форме: `Open`, `Reload`, `Save`, `Save As`, prompt before continue, close handling
+- `src/AsutpKnowledgeBase.Core` всё ещё использует linked-file схему вместо физически выделенного core-кода
+- полноценная UI-проверка остаётся Windows-only задачей
 
 ## Проверка
 
-В этой рабочей копии подтверждено:
+По структуре проекта сейчас:
 
-- сборка приложения проходит: `dotnet build asutpKB.csproj`
-- тесты проходят: `dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj`
-- зелёных тестов: `46`
+- в тестовом проекте `tests/AsutpKnowledgeBase.Core.Tests` — `51` unit-тест
+- `git diff --check` по текущему рефакторингу чистый
 
-Проверка UI остаётся Windows-only задачей. На macOS можно собирать проект, но полноценный smoke WinForms-интерфейса нужно делать в Windows-среде.
+Важно: в этой среде `dotnet` недоступен, поэтому локально здесь я не переподтверждал `dotnet build` и `dotnet test` после последнего рефакторинга. Полная проверка сборки и тестов должна выполняться в Windows-среде или в окружении с установленным .NET SDK.
 
-## Краткий план улучшений
+## Ближайшие улучшения
 
-1. Дробить `MainForm` дальше: вынести orchestration для дерева, поиска и file-dialog сценариев в отдельные UI-facing компоненты.
-2. Добавить тесты на сценарии `RequiresSave`, чтобы backup/default-after-error путь был защищён не только косвенно через форму.
-3. Физически перенести общие исходники в `src/AsutpKnowledgeBase.Core`, чтобы уйти от linked-file схемы.
+1. Вынести из `MainForm` file/session UI workflow в отдельный coordinator: `Open`, `Reload`, `Save`, `Save As`, `Close`, prompt и error messaging.
+2. Стабилизировать границу между WinForms-слоем и core, чтобы `MainForm` осталась thin shell над координаторами.
+3. Физически перенести `Models` и `Services` в `src/AsutpKnowledgeBase.Core`, чтобы уйти от linked-file схемы.
 4. Добавить Windows smoke-checklist или UI automation для базовых пользовательских сценариев.
-5. Рассматривать импорт/экспорт отдельно от основного хранилища, не смешивая его с текущим JSON persistence layer.
+5. Отдельно спроектировать импорт/экспорт, не смешивая его с основным JSON persistence layer.
