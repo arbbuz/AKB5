@@ -85,7 +85,7 @@ namespace AsutpKnowledgeBase.UiServices
             using var dialog = new OpenFileDialog
             {
                 Title = "Импортировать базу из Excel Workbook",
-                Filter = "Excel Workbook (*.xlsx)|*.xlsx|Excel XML 2003 (*.xml)|*.xml|Все файлы (*.*)|*.*",
+                Filter = "Excel Workbook (*.xlsx)|*.xlsx|Все файлы (*.*)|*.*",
                 CheckFileExists = true
             };
 

@@ -153,16 +153,26 @@ public class KnowledgeBaseExcelExchangeServiceTests
     }
 
     [Fact]
-    public void ImportFromXml_LegacySpreadsheetMlWorkbookStillSupported()
+    public void Import_WhenXmlFileProvided_ReturnsXlsxOnlyError()
     {
-        var service = new KnowledgeBaseExcelExchangeService();
+        string tempDirectory = CreateTempDirectory();
 
-        string xml = service.BuildWorkbookXml(CreateSampleData());
-        var result = service.ImportFromXml(xml);
+        try
+        {
+            string path = Path.Combine(tempDirectory, "legacy.xml");
+            File.WriteAllText(path, "<xml />");
 
-        Assert.True(result.IsSuccess);
-        Assert.NotNull(result.Data);
-        Assert.Equal("Пустой цех", result.Data!.LastWorkshop);
+            var service = new KnowledgeBaseExcelExchangeService();
+            var result = service.Import(path);
+
+            Assert.False(result.IsSuccess);
+            Assert.NotNull(result.ErrorMessage);
+            Assert.Contains("*.xlsx", result.ErrorMessage);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
     }
 
     private static string[] GetWorksheetNames(byte[] packageBytes)

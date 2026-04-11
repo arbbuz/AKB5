@@ -61,11 +61,9 @@
 - [Services/KnowledgeBaseConfigurationWorkflowService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseConfigurationWorkflowService.cs) — изменение конфигурации уровней
 - [Services/KnowledgeBaseFormStateService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseFormStateService.cs) — правила состояния формы
 - [Services/JsonStorageService.cs](/Users/home/ASUTP/AKB5/Services/JsonStorageService.cs) — чтение, запись, backup и валидация JSON
-- [Services/KnowledgeBaseExcelExchangeService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseExcelExchangeService.cs) — thin facade для import/export базы в Excel workbook формата `xlsx` с fallback-импортом legacy XML
+- [Services/KnowledgeBaseExcelExchangeService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseExcelExchangeService.cs) — thin facade для import/export базы в Excel workbook формата `xlsx`
 - [Services/KnowledgeBaseXlsxWriter.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseXlsxWriter.cs) — генерация `xlsx` workbook и числовых/boolean cell types для контракта `Meta/Levels/Workshops/Nodes`
 - [Services/KnowledgeBaseXlsxReader.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseXlsxReader.cs) — чтение `xlsx` workbook, sheet relationships, inline/shared strings и numeric/boolean cells
-- [Services/KnowledgeBaseSpreadsheetMlWriter.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseSpreadsheetMlWriter.cs) — генерация SpreadsheetML workbook и фиксированного контракта листов `Meta/Levels/Workshops/Nodes`
-- [Services/KnowledgeBaseSpreadsheetMlReader.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseSpreadsheetMlReader.cs) — XML-level чтение legacy SpreadsheetML workbook для обратной совместимости импорта
 - [Services/KnowledgeBaseExcelWorkbookParser.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseExcelWorkbookParser.cs) — валидация Excel workbook contract и сборка `SavedData`
 - [Services/UndoRedoService.cs](/Users/home/ASUTP/AKB5/Services/UndoRedoService.cs) — история undo/redo
 - [UiServices/KnowledgeBaseExcelUiWorkflowService.cs](/Users/home/ASUTP/AKB5/UiServices/KnowledgeBaseExcelUiWorkflowService.cs) — WinForms-специфичные сценарии `Экспорт в Excel...` и `Импорт из Excel...`
@@ -90,7 +88,7 @@
 - file/session UI workflow: `Open`, `Reload`, `Save`, `Save As`, unsaved-changes prompt, close handling и error messaging
 - workshop/config UI workflow
 - node-level UI orchestration для `add/delete/copy/paste/rename/move/undo/redo`
-- Excel import/export contract, `xlsx` workbook generation, `xlsx`/legacy XML reading и workbook parsing
+- Excel import/export contract, `xlsx` workbook generation, reading и workbook parsing
 - UI-команды `Экспорт в Excel...` и `Импорт из Excel...`
 - WinForms-специфичная привязка `TreeView`, восстановление expanded-state и поиск
 - отдельные диалоги `InputDialog` и `SetupForm`
@@ -102,7 +100,7 @@
 - добавлен `KnowledgeBaseTreeMutationUiWorkflowService` для WinForms-диалогов, drag-and-drop feedback и undo/redo orchestration поверх core tree workflow
 - `KnowledgeBaseExcelExchangeService` превращён в thin facade
 - генерация `xlsx` workbook вынесена в `KnowledgeBaseXlsxWriter`
-- чтение `xlsx` workbook вынесено в `KnowledgeBaseXlsxReader`, а legacy XML import оставлен в `KnowledgeBaseSpreadsheetMlReader`
+- чтение `xlsx` workbook вынесено в `KnowledgeBaseXlsxReader`
 - валидация workbook contract и сборка `SavedData` вынесены в `KnowledgeBaseExcelWorkbookParser`
 - fixed Excel contract по-прежнему остаётся `Meta`, `Levels`, `Workshops`, `Nodes`, а `WorkbookFormatVersion = 1` не менялся
 

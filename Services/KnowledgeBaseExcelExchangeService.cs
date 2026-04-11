@@ -21,8 +21,7 @@ namespace AsutpKnowledgeBase.Services
     }
 
     /// <summary>
-    /// Экспортирует базу знаний в xlsx workbook без внешних зависимостей.
-    /// Для импорта поддерживает как текущий xlsx, так и legacy SpreadsheetML XML.
+    /// Экспортирует и импортирует базу знаний в xlsx workbook без внешних зависимостей.
     /// Контракт книги фиксирован: листы Meta, Levels, Workshops и Nodes.
     /// </summary>
     public class KnowledgeBaseExcelExchangeService
@@ -32,12 +31,8 @@ namespace AsutpKnowledgeBase.Services
 
         private readonly KnowledgeBaseXlsxWriter _writer = new();
         private readonly KnowledgeBaseXlsxReader _reader = new();
-        private readonly KnowledgeBaseSpreadsheetMlWriter _legacyXmlWriter = new();
-        private readonly KnowledgeBaseSpreadsheetMlReader _legacyXmlReader = new();
 
         public byte[] BuildWorkbookPackage(SavedData data) => _writer.BuildWorkbookPackage(data);
-
-        public string BuildWorkbookXml(SavedData data) => _legacyXmlWriter.BuildWorkbookXml(data);
 
         public KnowledgeBaseExcelExportResult Export(SavedData data, string path)
         {
@@ -93,9 +88,16 @@ namespace AsutpKnowledgeBase.Services
             try
             {
                 byte[] fileBytes = File.ReadAllBytes(path);
-                return IsZipArchive(fileBytes)
-                    ? ImportFromPackage(fileBytes)
-                    : ImportFromXml(File.ReadAllText(path));
+                if (!IsZipArchive(fileBytes))
+                {
+                    return new KnowledgeBaseExcelImportResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "Поддерживается только формат Excel Workbook (*.xlsx)."
+                    };
+                }
+
+                return ImportFromPackage(fileBytes);
             }
             catch (Exception ex)
             {
@@ -124,43 +126,6 @@ namespace AsutpKnowledgeBase.Services
                 {
                     IsSuccess = true,
                     Data = _reader.ParseWorkbookPackage(packageBytes)
-                };
-            }
-            catch (KnowledgeBaseExcelImportException ex)
-            {
-                return new KnowledgeBaseExcelImportResult
-                {
-                    IsSuccess = false,
-                    ErrorMessage = ex.Message
-                };
-            }
-            catch (Exception ex)
-            {
-                return new KnowledgeBaseExcelImportResult
-                {
-                    IsSuccess = false,
-                    ErrorMessage = $"Ошибка разбора Excel-файла: {ex.Message}"
-                };
-            }
-        }
-
-        public KnowledgeBaseExcelImportResult ImportFromXml(string xml)
-        {
-            if (string.IsNullOrWhiteSpace(xml))
-            {
-                return new KnowledgeBaseExcelImportResult
-                {
-                    IsSuccess = false,
-                    ErrorMessage = "Файл импорта пустой."
-                };
-            }
-
-            try
-            {
-                return new KnowledgeBaseExcelImportResult
-                {
-                    IsSuccess = true,
-                    Data = _legacyXmlReader.ParseWorkbookXml(xml)
                 };
             }
             catch (KnowledgeBaseExcelImportException ex)
