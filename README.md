@@ -15,6 +15,7 @@
 Проект уже доведён до рабочего инженерного минимума:
 
 - приложение собирается как `net8.0-windows` в [asutpKB.csproj](/Users/home/ASUTP/AKB5/asutpKB.csproj)
+- в корне репозитория снова один root-проект, поэтому `dotnet clean` и `dotnet build` из корня не должны быть неоднозначными
 - большая часть не-UI логики вынесена из формы в отдельные сервисы
 - есть отдельный тестовый проект для core-логики
 - есть Windows CI workflow для `build` и `test`
@@ -33,14 +34,18 @@
 - ближайший приоритет: сначала стабилизировать `build` и `test`, затем продолжать дробление `MainForm`
 - хранилище: локальный JSON остаётся основным и единственным source of truth
 - обмен данными: импорт/экспорт в Excel реализуется отдельно от JSON persistence layer, без смешивания с `JsonStorageService`
-- текущая реализация Excel exchange экспортирует dependency-free `*.xlsx` без внешних NuGet-пакетов и сохраняет совместимый листовой контракт `Meta/Levels/Workshops/Nodes`
+- Excel exchange работает только с `*.xlsx`, без legacy XML fallback
+- текущая реализация Excel exchange экспортирует dependency-free `*.xlsx` без внешних NuGet-пакетов и сохраняет контракт листов `Meta/Levels/Workshops/Nodes`
+- import ориентирован на реальные правки в Excel и не требует ручной синхронизации производных колонок вроде `Path`, `Nodes.LevelName` или `Meta.LastWorkshop`
 
 ## Краткое обновление
 
 - `MainForm` сокращён примерно до `560` строк и теперь ближе к thin-shell роли
 - вынесены отдельные WinForms-coordinator'ы для workshop/config UI и tree-mutation UI
-- Excel exchange больше не живёт в одном крупном классе: фасад сохранён в `KnowledgeBaseExcelExchangeService`, а writer, reader и workbook parser разнесены по отдельным сервисам
-- следующая задача: подтвердить `dotnet build/test` и провести Windows/Excel smoke-проверку `export/import`, затем при необходимости корректировать xlsx contract без ломки `WorkbookFormatVersion = 1`
+- Excel exchange больше не живёт в одном крупном классе: фасад сохранён в `KnowledgeBaseExcelExchangeService`, а writer, reader, workbook-data model и parser разнесены по отдельным сервисам
+- экспорт пишет реальные numeric/boolean cells в `xlsx`, а не строковые значения в Excel-совместимой XML-обёртке
+- import уже переживает типовые ручные правки workbook: rename узлов, rename уровней, stale `Meta.LastWorkshop` и rename цехов без ручной правки каждой строки `Nodes`
+- ближайшая практическая задача: подтвердить `dotnet build/test` и провести Windows/Excel smoke-проверку `export/import` на реальном Excel
 
 ## Структура
 
@@ -64,6 +69,7 @@
 - [Services/KnowledgeBaseExcelExchangeService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseExcelExchangeService.cs) — thin facade для import/export базы в Excel workbook формата `xlsx`
 - [Services/KnowledgeBaseXlsxWriter.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseXlsxWriter.cs) — генерация `xlsx` workbook и числовых/boolean cell types для контракта `Meta/Levels/Workshops/Nodes`
 - [Services/KnowledgeBaseXlsxReader.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseXlsxReader.cs) — чтение `xlsx` workbook, sheet relationships, inline/shared strings и numeric/boolean cells
+- [Services/KnowledgeBaseSpreadsheetWorkbookData.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseSpreadsheetWorkbookData.cs) — общий transport-тип workbook-таблиц между reader и parser
 - [Services/KnowledgeBaseExcelWorkbookParser.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseExcelWorkbookParser.cs) — валидация Excel workbook contract и сборка `SavedData`
 - [Services/UndoRedoService.cs](/Users/home/ASUTP/AKB5/Services/UndoRedoService.cs) — история undo/redo
 - [UiServices/KnowledgeBaseExcelUiWorkflowService.cs](/Users/home/ASUTP/AKB5/UiServices/KnowledgeBaseExcelUiWorkflowService.cs) — WinForms-специфичные сценарии `Экспорт в Excel...` и `Импорт из Excel...`
@@ -88,7 +94,7 @@
 - file/session UI workflow: `Open`, `Reload`, `Save`, `Save As`, unsaved-changes prompt, close handling и error messaging
 - workshop/config UI workflow
 - node-level UI orchestration для `add/delete/copy/paste/rename/move/undo/redo`
-- Excel import/export contract, `xlsx` workbook generation, reading и workbook parsing
+- Excel import/export contract, `xlsx` workbook generation, tolerant reading и workbook parsing
 - UI-команды `Экспорт в Excel...` и `Импорт из Excel...`
 - WinForms-специфичная привязка `TreeView`, восстановление expanded-state и поиск
 - отдельные диалоги `InputDialog` и `SetupForm`
@@ -101,6 +107,7 @@
 - `KnowledgeBaseExcelExchangeService` превращён в thin facade
 - генерация `xlsx` workbook вынесена в `KnowledgeBaseXlsxWriter`
 - чтение `xlsx` workbook вынесено в `KnowledgeBaseXlsxReader`
+- общий transport-тип workbook-таблиц выделен в `KnowledgeBaseSpreadsheetWorkbookData`
 - валидация workbook contract и сборка `SavedData` вынесены в `KnowledgeBaseExcelWorkbookParser`
 - fixed Excel contract по-прежнему остаётся `Meta`, `Levels`, `Workshops`, `Nodes`, а `WorkbookFormatVersion = 1` не менялся
 
@@ -108,7 +115,7 @@
 
 - `MainForm` всё ещё совмещает layout/bootstrap формы, wiring UI-событий, создание UI-контекстов и часть screen-level glue между сервисами
 - Excel exchange уже декомпозирован на facade/writer/reader/parser, но `KnowledgeBaseExcelWorkbookParser` остаётся сравнительно крупным и требует дальнейшего дробления только при реальной необходимости
-- Excel exchange через `*.xlsx` всё ещё требует подтверждения реальным открытием/сохранением в Excel и Windows smoke-проверкой
+- Excel exchange через `*.xlsx` всё ещё требует подтверждения реальным открытием/сохранением в Excel и Windows smoke-проверкой, особенно для сценариев с ручным редактированием workbook
 - `src/AsutpKnowledgeBase.Core` всё ещё использует linked-file схему вместо физически выделенного core-кода
 - полноценная UI-проверка остаётся Windows-only задачей
 - после последнего рефакторинга требуется переподтверждение `dotnet build` и `dotnet test` в рабочем Windows/.NET окружении
@@ -117,7 +124,7 @@
 
 По структуре проекта сейчас:
 
-- в тестовом проекте `tests/AsutpKnowledgeBase.Core.Tests` — `58` unit-тестов
+- в тестовом проекте `tests/AsutpKnowledgeBase.Core.Tests` — `64` unit-теста
 - добавлены unit-тесты на Excel import/export, но здесь они не запускались из-за отсутствия `dotnet`
 - `git diff --check` по текущему рефакторингу чистый
 
@@ -126,12 +133,11 @@
 ## Актуальный план
 
 1. Подтвердить `dotnet build` и `dotnet test` в Windows или другом окружении с установленным .NET SDK.
-2. Исправить только те проблемы, которые всплывут при сборке и тестах после последнего рефакторинга, не расширяя объём изменений.
-3. Подтвердить `Excel export/import` в реальном Excel/Windows сценарии: открыть workbook, проверить листы, выполнить import обратно в JSON.
-4. При необходимости скорректировать `xlsx` contract под реальные ограничения Excel и сохранить обратную совместимость формата `WorkbookFormatVersion = 1`.
-5. Если Excel-подсистема продолжит расти, дробить дальше уже `KnowledgeBaseExcelWorkbookParser`, а не возвращать логику в facade.
-6. Добавить Windows smoke-checklist или UI automation для базовых пользовательских сценариев, включая JSON и Excel exchange.
-7. Физически перенести `Models` и `Services` в `src/AsutpKnowledgeBase.Core`, когда граница слоёв стабилизируется и сборка станет предсказуемой.
+2. Подтвердить `Excel export/import` в реальном Excel/Windows сценарии: открыть workbook, переименовать узлы/цеха/уровни, сохранить и выполнить import обратно в JSON.
+3. Исправить только те проблемы, которые всплывут при сборке, тестах и Excel smoke-проверке, не расширяя объём изменений.
+4. Если xlsx-подсистема продолжит расти, дробить дальше уже `KnowledgeBaseExcelWorkbookParser`, а не возвращать логику в facade.
+5. Добавить Windows smoke-checklist или UI automation для базовых пользовательских сценариев, включая JSON и Excel exchange.
+6. Физически перенести `Models` и `Services` в `src/AsutpKnowledgeBase.Core`, когда граница слоёв стабилизируется и сборка станет предсказуемой.
 
 ## Что сознательно не делаем сейчас
 
