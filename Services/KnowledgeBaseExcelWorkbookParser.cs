@@ -150,6 +150,8 @@ namespace AsutpKnowledgeBase.Services
                     NodeName: RequireValue(row[6], "Nodes", "NodeName")))
                 .ToList();
 
+            parsedRows = RemapNodeWorkshopNames(workshops, parsedRows);
+
             var knownWorkshops = new HashSet<string>(workshops.OrderedWorkshopNames, StringComparer.Ordinal);
             var parsedById = new Dictionary<string, ParsedNodeRow>(StringComparer.Ordinal);
 
@@ -243,6 +245,48 @@ namespace AsutpKnowledgeBase.Services
             }
 
             return rootsByWorkshop;
+        }
+
+        private static List<ParsedNodeRow> RemapNodeWorkshopNames(
+            ParsedWorkshops workshops,
+            List<ParsedNodeRow> parsedRows)
+        {
+            var sourceWorkshopNames = parsedRows
+                .Select(row => row.WorkshopName)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            if (sourceWorkshopNames.Count == 0)
+                return parsedRows;
+
+            var targetWorkshopNames = workshops.OrderedWorkshopNames.ToList();
+            var targetWorkshopSet = new HashSet<string>(targetWorkshopNames, StringComparer.Ordinal);
+            if (sourceWorkshopNames.All(targetWorkshopSet.Contains))
+                return parsedRows;
+
+            var mapping = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var sourceWorkshopName in sourceWorkshopNames)
+            {
+                if (targetWorkshopSet.Contains(sourceWorkshopName))
+                    mapping[sourceWorkshopName] = sourceWorkshopName;
+            }
+
+            var remainingSourceNames = sourceWorkshopNames
+                .Where(name => !mapping.ContainsKey(name))
+                .ToList();
+            var remainingTargetNames = targetWorkshopNames
+                .Where(name => !mapping.Values.Contains(name, StringComparer.Ordinal))
+                .ToList();
+
+            if (remainingSourceNames.Count != remainingTargetNames.Count)
+                return parsedRows;
+
+            for (int index = 0; index < remainingSourceNames.Count; index++)
+                mapping[remainingSourceNames[index]] = remainingTargetNames[index];
+
+            return parsedRows
+                .Select(row => row with { WorkshopName = mapping[row.WorkshopName] })
+                .ToList();
         }
 
         private static KbNode BuildNode(

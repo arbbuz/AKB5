@@ -199,6 +199,23 @@ public class KnowledgeBaseExcelExchangeServiceTests
     }
 
     [Fact]
+    public void Import_WhenWorkshopRenamedButNodeWorkshopColumnIsStale_StillSucceeds()
+    {
+        var service = new KnowledgeBaseExcelExchangeService();
+
+        byte[] packageBytes = service.BuildWorkbookPackage(CreateSampleData());
+        packageBytes = UpdateWorksheetCellValue(packageBytes, "Workshops", rowIndex: 2, cellIndex: 2, value: "Производство", cellType: "inlineStr");
+
+        var result = service.ImportFromPackage(packageBytes);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Data);
+        Assert.Contains("Производство", result.Data!.Workshops.Keys);
+        Assert.Equal("Линия 1", result.Data.Workshops["Производство"][0].Name);
+        Assert.DoesNotContain("Цех 1", result.Data.Workshops.Keys);
+    }
+
+    [Fact]
     public void Import_WhenXmlFileProvided_ReturnsXlsxOnlyError()
     {
         string tempDirectory = CreateTempDirectory();
