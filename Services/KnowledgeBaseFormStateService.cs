@@ -15,6 +15,18 @@ namespace AsutpKnowledgeBase.Services
         public string FullPath { get; init; } = string.Empty;
 
         public string ChildrenCountText { get; init; } = string.Empty;
+
+        public string Description { get; init; } = string.Empty;
+
+        public string Location { get; init; } = string.Empty;
+
+        public string PhotoPath { get; init; } = string.Empty;
+
+        public string IpAddress { get; init; } = string.Empty;
+
+        public string SchemaLink { get; init; } = string.Empty;
+
+        public bool ShowTechnicalFields { get; init; }
     }
 
     public class KnowledgeBaseFormState
@@ -168,7 +180,13 @@ namespace AsutpKnowledgeBase.Services
                 Name = selectedNode.Name,
                 LevelName = _nodePresentationService.GetLevelName(config, selectedNode.LevelIndex),
                 FullPath = _nodePresentationService.BuildNodePath(currentRoots, selectedNode),
-                ChildrenCountText = selectedNode.Children.Count.ToString()
+                ChildrenCountText = selectedNode.Children.Count.ToString(),
+                Description = selectedNode.Details?.Description ?? string.Empty,
+                Location = selectedNode.Details?.Location ?? string.Empty,
+                PhotoPath = selectedNode.Details?.PhotoPath ?? string.Empty,
+                IpAddress = selectedNode.LevelIndex >= 2 ? selectedNode.Details?.IpAddress ?? string.Empty : string.Empty,
+                SchemaLink = selectedNode.LevelIndex >= 2 ? selectedNode.Details?.SchemaLink ?? string.Empty : string.Empty,
+                ShowTechnicalFields = selectedNode.LevelIndex >= 2
             };
         }
     }

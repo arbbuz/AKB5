@@ -110,7 +110,21 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
     [Fact]
     public void Undo_RestoresPreviousSnapshot()
     {
-        var session = CreateSessionWithDefaultData();
+        var root = new KbNode
+        {
+            Name = "Линия 1",
+            LevelIndex = 0,
+            Details = new KbNodeDetails
+            {
+                Description = "Исходная линия",
+                Location = "Цех 1"
+            }
+        };
+        var session = CreateSession(
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Цех 1"] = new List<KbNode> { root }
+            });
         var history = new UndoRedoService();
         var controller = new KnowledgeBaseTreeController(session);
         var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
@@ -119,14 +133,16 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
         var addResult = workflow.AddNode(
             session.CurrentWorkshop,
             parentNode: null,
-            nodeName: "Линия 1",
+            nodeName: "Линия 2",
             currentRoots: session.GetCurrentWorkshopNodes());
         Assert.True(addResult.IsSuccess);
 
         var undoResult = workflow.Undo(session.GetCurrentWorkshopNodes());
 
         Assert.True(undoResult.IsSuccess);
-        Assert.Empty(undoResult.ViewState.CurrentRoots);
+        var restoredRoot = Assert.Single(undoResult.ViewState.CurrentRoots);
+        Assert.Equal("Линия 1", restoredRoot.Name);
+        Assert.Equal("Исходная линия", restoredRoot.Details.Description);
         Assert.True(workflow.CanRedo);
     }
 

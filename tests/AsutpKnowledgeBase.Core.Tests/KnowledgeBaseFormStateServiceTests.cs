@@ -59,7 +59,19 @@ public class KnowledgeBaseFormStateServiceTests
             MaxLevels = 3,
             LevelNames = new List<string> { "Цех", "Отделение", "Оборудование" }
         };
-        var selectedNode = new KbNode { Name = "Насос", LevelIndex = 2 };
+        var selectedNode = new KbNode
+        {
+            Name = "Насос",
+            LevelIndex = 2,
+            Details = new KbNodeDetails
+            {
+                Description = "Основной насос",
+                Location = "Участок 4",
+                PhotoPath = @"\\server\photos\pump.jpg",
+                IpAddress = "10.0.0.12",
+                SchemaLink = "https://intra/schemes/pump"
+            }
+        };
 
         var state = _service.Build(
             isDirty: true,
@@ -79,6 +91,9 @@ public class KnowledgeBaseFormStateServiceTests
         Assert.Equal("Выбор: Насос | Уровень: Оборудование | Дочерних: 0", state.SelectionStatusText);
         Assert.Equal("Есть несохранённые изменения", state.SaveStateText);
         Assert.Equal("Насос", state.SelectedNode.FullPath);
+        Assert.Equal("Основной насос", state.SelectedNode.Description);
+        Assert.Equal("10.0.0.12", state.SelectedNode.IpAddress);
+        Assert.True(state.SelectedNode.ShowTechnicalFields);
     }
 
     [Fact]
@@ -118,6 +133,40 @@ public class KnowledgeBaseFormStateServiceTests
         Assert.Equal("Выбранный узел: нет", state.SelectionStatusText);
         Assert.Equal("Ничего не выбрано. Выберите узел в дереве слева.", state.SelectedNode.EmptyStateText);
         Assert.Equal("Файл отсутствует на диске", state.SaveStateText);
+        Assert.False(state.SelectedNode.ShowTechnicalFields);
+        Assert.Equal(string.Empty, state.SelectedNode.Description);
+    }
+
+    [Fact]
+    public void Build_HidesTechnicalFieldsForUpperLevels()
+    {
+        var selectedNode = new KbNode
+        {
+            Name = "Линия 1",
+            LevelIndex = 1,
+            Details = new KbNodeDetails
+            {
+                Description = "Производственная линия",
+                IpAddress = "10.10.10.10",
+                SchemaLink = "https://intra/line-1"
+            }
+        };
+
+        var state = _service.Build(
+            isDirty: false,
+            requiresSave: false,
+            currentDataPath: "/tmp/line.json",
+            currentWorkshop: "Цех 1",
+            lastSavedWorkshop: "Цех 1",
+            totalNodes: 1,
+            config: new KbConfig { MaxLevels = 3, LevelNames = new List<string> { "Цех", "Линия", "Щит" } },
+            currentRoots: new List<KbNode> { selectedNode },
+            selectedNode: selectedNode);
+
+        Assert.False(state.SelectedNode.ShowTechnicalFields);
+        Assert.Equal(string.Empty, state.SelectedNode.IpAddress);
+        Assert.Equal(string.Empty, state.SelectedNode.SchemaLink);
+        Assert.Equal("Производственная линия", state.SelectedNode.Description);
     }
 
     [Fact]

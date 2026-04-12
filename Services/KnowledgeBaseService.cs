@@ -127,10 +127,19 @@ namespace AsutpKnowledgeBase.Services
 
         public KbNode CloneNode(KbNode node)
         {
+            var details = node.Details ?? new KbNodeDetails();
             var clone = new KbNode
             {
                 Name = node.Name,
-                LevelIndex = node.LevelIndex
+                LevelIndex = node.LevelIndex,
+                Details = new KbNodeDetails
+                {
+                    Description = details.Description,
+                    Location = details.Location,
+                    PhotoPath = details.PhotoPath,
+                    IpAddress = details.IpAddress,
+                    SchemaLink = details.SchemaLink
+                }
             };
 
             foreach (var child in node.Children)

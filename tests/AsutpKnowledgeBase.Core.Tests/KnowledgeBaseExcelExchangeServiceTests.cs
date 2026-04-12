@@ -13,7 +13,7 @@ public class KnowledgeBaseExcelExchangeServiceTests
 {
     private static readonly string[] NonNodeSheetNames = { "Инструкция", "Meta", "Levels", "Workshops" };
 
-    private static readonly string[] NodeHeadersV3 =
+    private static readonly string[] RequiredNodeHeadersV3 =
     {
         "NodeId",
         "ParentNodeId",
@@ -21,6 +21,22 @@ public class KnowledgeBaseExcelExchangeServiceTests
         "LevelIndex",
         "LevelName",
         "NodeName",
+        "Path"
+    };
+
+    private static readonly string[] ExportedNodeHeadersV3 =
+    {
+        "NodeId",
+        "ParentNodeId",
+        "SiblingOrder",
+        "LevelIndex",
+        "LevelName",
+        "NodeName",
+        "Description",
+        "Location",
+        "PhotoPath",
+        "IpAddress",
+        "SchemaLink",
         "Path"
     };
 
@@ -39,7 +55,11 @@ public class KnowledgeBaseExcelExchangeServiceTests
         Assert.Equal("Инструкция", sheetNames[0]);
         Assert.Equal(new[] { "Meta", "Levels", "Workshops" }, sheetNames.Skip(1).Take(3).ToArray());
         Assert.DoesNotContain("Nodes", sheetNames);
-        Assert.Contains(instructionRows, row => row.SequenceEqual(new[] { "Можно редактировать", "Levels.LevelName, Workshops.WorkshopName, Workshops.IsLastSelected и Nodes.NodeName." }));
+        Assert.Contains(instructionRows, row => row.SequenceEqual(new[]
+        {
+            "Можно редактировать",
+            "Levels.LevelName, Workshops.WorkshopName, Workshops.IsLastSelected и поля узлов NodeName, Description, Location, PhotoPath, IpAddress, SchemaLink."
+        }));
         Assert.Contains(metaRows, row => row.SequenceEqual(new[] { "FormatId", KnowledgeBaseExcelExchangeService.WorkbookFormatId }));
         Assert.Contains(metaRows, row => row.SequenceEqual(new[] { "FormatVersion", KnowledgeBaseExcelExchangeService.WorkbookFormatVersion.ToString() }));
         Assert.Contains(metaRows, row => row.SequenceEqual(new[] { "SchemaVersion", SavedData.CurrentSchemaVersion.ToString() }));
@@ -81,6 +101,9 @@ public class KnowledgeBaseExcelExchangeServiceTests
         Assert.Equal(ReadColumn(rootRow, headerMap, "NodeId"), ReadColumn(childRow, headerMap, "ParentNodeId"));
         Assert.Equal("1", ReadColumn(childRow, headerMap, "SiblingOrder"));
         Assert.Equal("2", ReadColumn(secondRootRow, headerMap, "SiblingOrder"));
+        Assert.Equal("Главная линия печи", ReadColumn(rootRow, headerMap, "Description"));
+        Assert.Equal("Корпус А", ReadColumn(rootRow, headerMap, "Location"));
+        Assert.Equal(@"\\server\photos\line-1.jpg", ReadColumn(rootRow, headerMap, "PhotoPath"));
         Assert.Equal("Линия 1 / Щит 1", ReadColumn(childRow, headerMap, "Path"));
     }
 
@@ -133,6 +156,8 @@ public class KnowledgeBaseExcelExchangeServiceTests
         Assert.False(IsCellLocked(packageBytes, "Workshops", rowIndex: 2, cellIndex: 3));
         Assert.False(IsCellLocked(packageBytes, "Workshops", rowIndex: 2, cellIndex: 4));
         Assert.False(IsWorkshopNodeCellLocked(packageBytes, "W1", rowIndex: 2, cellIndex: 6));
+        Assert.False(IsWorkshopNodeCellLocked(packageBytes, "W1", rowIndex: 2, cellIndex: 7));
+        Assert.False(IsWorkshopNodeCellLocked(packageBytes, "W1", rowIndex: 2, cellIndex: 8));
         Assert.True(IsCellLocked(packageBytes, "Levels", rowIndex: 2, cellIndex: 1));
         Assert.True(IsWorkshopNodeCellLocked(packageBytes, "W1", rowIndex: 2, cellIndex: 1));
     }
@@ -262,9 +287,45 @@ public class KnowledgeBaseExcelExchangeServiceTests
         byte[] packageBytes = service.BuildWorkbookPackage(CreateSampleData());
         packageBytes = ReorderWorksheetColumnsWithOpenXml(packageBytes, "Levels", "LevelName", "LevelIndex");
         packageBytes = ReorderWorksheetColumnsWithOpenXml(packageBytes, "Workshops", "WorkshopName", "NodesSheetKey", "IsLastSelected", "WorkshopId", "WorkshopOrder");
-        packageBytes = ReorderWorkshopNodeColumnsWithOpenXml(packageBytes, "W1", "NodeName", "Path", "ParentNodeId", "NodeId", "LevelName", "SiblingOrder", "LevelIndex");
+        packageBytes = ReorderWorkshopNodeColumnsWithOpenXml(
+            packageBytes,
+            "W1",
+            "NodeName",
+            "Description",
+            "Path",
+            "ParentNodeId",
+            "Location",
+            "NodeId",
+            "LevelName",
+            "PhotoPath",
+            "SchemaLink",
+            "SiblingOrder",
+            "IpAddress",
+            "LevelIndex");
 
         AssertSuccessfulImportMatches(CreateSampleData(), service.ImportFromPackage(packageBytes));
+    }
+
+    [Fact]
+    public void Import_WhenOlderV3WorkbookDoesNotContainNodeDetailColumns_TreatsThemAsEmpty()
+    {
+        var service = new KnowledgeBaseExcelExchangeService();
+        var sourceData = CreateSampleData();
+        var expectedData = ClearNodeDetails(sourceData);
+
+        byte[] packageBytes = service.BuildWorkbookPackage(sourceData);
+        packageBytes = ReorderWorkshopNodeColumnsWithOpenXml(
+            packageBytes,
+            "W1",
+            "NodeName",
+            "Path",
+            "ParentNodeId",
+            "NodeId",
+            "LevelName",
+            "SiblingOrder",
+            "LevelIndex");
+
+        AssertSuccessfulImportMatches(expectedData, service.ImportFromPackage(packageBytes));
     }
 
     [Fact]
@@ -782,7 +843,7 @@ public class KnowledgeBaseExcelExchangeServiceTests
     {
         int headerIndex = rows
             .Select((row, index) => new { row, index })
-            .Single(item => HasRequiredHeaders(item.row, NodeHeadersV3))
+            .Single(item => HasRequiredHeaders(item.row, RequiredNodeHeadersV3))
             .index;
 
         return headerIndex + 1;
@@ -1538,7 +1599,7 @@ public class KnowledgeBaseExcelExchangeServiceTests
                 new[] { "WorkshopId", workshopId },
                 new[] { "NodesSheetKey", nodesSheetKey },
                 Array.Empty<string>(),
-                NodeHeadersV3);
+                ExportedNodeHeadersV3);
         });
     }
 
@@ -1841,19 +1902,35 @@ public class KnowledgeBaseExcelExchangeServiceTests
                     {
                         Name = "Линия 1",
                         LevelIndex = 0,
+                        Details = new KbNodeDetails
+                        {
+                            Description = "Главная линия печи",
+                            Location = "Корпус А",
+                            PhotoPath = @"\\server\photos\line-1.jpg"
+                        },
                         Children = new List<KbNode>
                         {
                             new()
                             {
                                 Name = "Щит 1",
-                                LevelIndex = 1
+                                LevelIndex = 1,
+                                Details = new KbNodeDetails
+                                {
+                                    Description = "Локальный щит",
+                                    Location = "Площадка 3",
+                                    PhotoPath = @"\\server\photos\shield-1.jpg"
+                                }
                             }
                         }
                     },
                     new()
                     {
                         Name = "Линия 2",
-                        LevelIndex = 0
+                        LevelIndex = 0,
+                        Details = new KbNodeDetails
+                        {
+                            Description = "Резервная линия"
+                        }
                     }
                 },
                 ["Пустой цех"] = new List<KbNode>()
@@ -1918,12 +1995,26 @@ public class KnowledgeBaseExcelExchangeServiceTests
                             {
                                 Name = "Участок 1.1.1",
                                 LevelIndex = 1,
+                                Details = new KbNodeDetails
+                                {
+                                    Description = "Основной участок",
+                                    Location = "Южная галерея",
+                                    PhotoPath = @"\\server\photos\section-111.jpg"
+                                },
                                 Children = new List<KbNode>
                                 {
                                     new()
                                     {
                                         Name = "Шкаф 1.1.1.1",
-                                        LevelIndex = 2
+                                        LevelIndex = 2,
+                                        Details = new KbNodeDetails
+                                        {
+                                            Description = "Силовой шкаф",
+                                            Location = "Ось 5-6",
+                                            PhotoPath = @"\\server\photos\cabinet-1111.jpg",
+                                            IpAddress = "10.20.30.40",
+                                            SchemaLink = "https://intra/schemes/cabinet-1111"
+                                        }
                                     }
                                 }
                             },
@@ -1951,7 +2042,12 @@ public class KnowledgeBaseExcelExchangeServiceTests
                             new()
                             {
                                 Name = "Участок 2.1.1",
-                                LevelIndex = 1
+                                LevelIndex = 1,
+                                Details = new KbNodeDetails
+                                {
+                                    Description = "Резервный участок",
+                                    Location = "Северная зона"
+                                }
                             }
                         }
                     },
@@ -2015,6 +2111,24 @@ public class KnowledgeBaseExcelExchangeServiceTests
         var clone = CloneSavedData(source);
         clone.Workshops.Add(workshopName, new List<KbNode>());
         return clone;
+    }
+
+    private static SavedData ClearNodeDetails(SavedData source)
+    {
+        var clone = CloneSavedData(source);
+        foreach (var workshop in clone.Workshops.Values)
+            ClearNodeDetails(workshop);
+
+        return clone;
+    }
+
+    private static void ClearNodeDetails(IEnumerable<KbNode> nodes)
+    {
+        foreach (var node in nodes)
+        {
+            node.Details = new KbNodeDetails();
+            ClearNodeDetails(node.Children);
+        }
     }
 
     private static KbNode FindNodeByName(IEnumerable<KbNode> nodes, string nodeName)
@@ -2097,6 +2211,14 @@ public class KnowledgeBaseExcelExchangeServiceTests
         {
             Name = source.Name,
             LevelIndex = source.LevelIndex,
+            Details = new KbNodeDetails
+            {
+                Description = source.Details.Description,
+                Location = source.Details.Location,
+                PhotoPath = source.Details.PhotoPath,
+                IpAddress = source.Details.IpAddress,
+                SchemaLink = source.Details.SchemaLink
+            },
             Children = source.Children.Select(CloneNode).ToList()
         };
 
@@ -2148,6 +2270,11 @@ public class KnowledgeBaseExcelExchangeServiceTests
         {
             Assert.Equal(expected[index].Name, actual[index].Name);
             Assert.Equal(expected[index].LevelIndex, actual[index].LevelIndex);
+            Assert.Equal(expected[index].Details.Description, actual[index].Details.Description);
+            Assert.Equal(expected[index].Details.Location, actual[index].Details.Location);
+            Assert.Equal(expected[index].Details.PhotoPath, actual[index].Details.PhotoPath);
+            Assert.Equal(expected[index].Details.IpAddress, actual[index].Details.IpAddress);
+            Assert.Equal(expected[index].Details.SchemaLink, actual[index].Details.SchemaLink);
             AssertNodesEquivalent(expected[index].Children, actual[index].Children);
         }
     }

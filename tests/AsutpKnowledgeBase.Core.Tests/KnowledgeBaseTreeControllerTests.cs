@@ -28,6 +28,12 @@ public class KnowledgeBaseTreeControllerTests
         {
             Name = "Щит",
             LevelIndex = 1,
+            Details = new KbNodeDetails
+            {
+                Description = "Основной щит",
+                Location = "Печь А1",
+                PhotoPath = @"\\server\photos\shield.jpg"
+            },
             Children = { new KbNode { Name = "Модуль", LevelIndex = 2 } }
         };
         root.Children.Add(source);
@@ -47,6 +53,8 @@ public class KnowledgeBaseTreeControllerTests
         Assert.True(controller.HasClipboardNode);
         Assert.Equal("Щит", pasted.Name);
         Assert.Equal(1, pasted.LevelIndex);
+        Assert.Equal("Основной щит", pasted.Details.Description);
+        Assert.Equal(@"\\server\photos\shield.jpg", pasted.Details.PhotoPath);
         Assert.Equal(2, pasted.Children[0].LevelIndex);
         Assert.NotSame(source, pasted);
         Assert.NotSame(source.Children[0], pasted.Children[0]);

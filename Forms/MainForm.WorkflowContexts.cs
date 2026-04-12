@@ -22,7 +22,7 @@ namespace AsutpKnowledgeBase
                 },
                 ResetTransientUiStateAfterLoad = ResetTransientUiStateAfterLoad,
                 ApplyLoadedSessionView = viewState => ApplySessionView(viewState, clearSearch: true),
-                UpdateUi = UpdateUI,
+                UpdateUi = () => UpdateUI(),
                 SetStatusText = SetLastActionText
             };
 
@@ -34,7 +34,7 @@ namespace AsutpKnowledgeBase
                 ApplySessionView = viewState => ApplySessionView(viewState, clearSearch: false),
                 RefreshSearchAfterMutation = RefreshSearchAfterMutation,
                 UpdateDirtyState = UpdateDirtyState,
-                UpdateUi = UpdateUI,
+                UpdateUi = () => UpdateUI(),
                 SetStatusText = SetLastActionText
             };
 
@@ -49,7 +49,7 @@ namespace AsutpKnowledgeBase
                 ApplySessionView = ApplySessionView,
                 RefreshSearchAfterMutation = RefreshSearchAfterMutation,
                 UpdateDirtyState = UpdateDirtyState,
-                UpdateUi = UpdateUI,
+                UpdateUi = () => UpdateUI(),
                 SetStatusText = SetLastActionText
             };
 

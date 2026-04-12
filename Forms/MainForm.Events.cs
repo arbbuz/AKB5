@@ -15,9 +15,19 @@ namespace AsutpKnowledgeBase
             btnSearch.Click += (s, e) => PerformSearch();
             btnSearchPrev.Click += (s, e) => NavigateSearch(-1);
             btnSearchNext.Click += (s, e) => NavigateSearch(1);
+            btnBrowsePhoto.Click += BtnBrowsePhoto_Click;
+            btnOpenPhoto.Click += BtnOpenPhoto_Click;
 
             btnUndo.Click += (s, e) => UndoAction();
             btnRedo.Click += (s, e) => RedoAction();
+
+            txtNodeDescription.TextChanged += (s, e) => HandleNodeDetailsChanged(details => details.Description = txtNodeDescription.Text);
+            txtNodeLocation.TextChanged += (s, e) => HandleNodeDetailsChanged(details => details.Location = txtNodeLocation.Text);
+            txtNodePhotoPath.TextChanged += (s, e) => HandleNodeDetailsChanged(
+                details => details.PhotoPath = txtNodePhotoPath.Text,
+                refreshPhotoPreview: true);
+            txtNodeIpAddress.TextChanged += (s, e) => HandleNodeDetailsChanged(details => details.IpAddress = txtNodeIpAddress.Text);
+            txtNodeSchemaLink.TextChanged += (s, e) => HandleNodeDetailsChanged(details => details.SchemaLink = txtNodeSchemaLink.Text);
 
             KeyPreview = true;
             KeyDown += (s, e) =>

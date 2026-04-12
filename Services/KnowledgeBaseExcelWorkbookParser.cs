@@ -21,7 +21,7 @@ namespace AsutpKnowledgeBase.Services
         private static readonly string[] PropertyValueHeaders = { "Property", "Value" };
         private static readonly string[] LevelHeaders = { "LevelIndex", "LevelName" };
         private static readonly string[] WorkshopHeaders = { "WorkshopOrder", "WorkshopId", "WorkshopName", "IsLastSelected", "NodesSheetKey" };
-        private static readonly string[] NodeHeaders =
+        private static readonly string[] RequiredNodeHeaders =
         {
             "NodeId",
             "ParentNodeId",
@@ -305,7 +305,7 @@ namespace AsutpKnowledgeBase.Services
             {
                 var row = rows[index];
                 Dictionary<string, int>? nodeHeaderMap = TryBuildHeaderMap(row.Values);
-                if (nodeHeaderMap != null && ContainsRequiredHeaders(nodeHeaderMap, NodeHeaders))
+                if (nodeHeaderMap != null && ContainsRequiredHeaders(nodeHeaderMap, RequiredNodeHeaders))
                 {
                     nodeTable = new WorksheetTable(
                         worksheet.SheetName,
@@ -345,7 +345,7 @@ namespace AsutpKnowledgeBase.Services
                     $"Лист '{worksheet.SheetName}' не содержит табличную часть узлов с обязательными заголовками AKB5.");
             }
 
-            EnsureRequiredHeaders(nodeTable.HeaderMap, NodeHeaders, worksheet.SheetName, rows[0].RowNumber);
+            EnsureRequiredHeaders(nodeTable.HeaderMap, RequiredNodeHeaders, worksheet.SheetName, rows[0].RowNumber);
             return new ParsedWorkshopNodeSheet(worksheet.SheetName, workshopId, nodesSheetKey, nodeTable);
         }
 
@@ -360,7 +360,12 @@ namespace AsutpKnowledgeBase.Services
                     ParentNodeId: ReadOptionalCell(row, nodeTable, "ParentNodeId"),
                     SiblingOrder: ParsePositiveInt(ReadRequiredCell(row, nodeTable, "SiblingOrder"), "Nodes.SiblingOrder"),
                     LevelIndex: ParseNonNegativeInt(ReadRequiredCell(row, nodeTable, "LevelIndex"), "Nodes.LevelIndex"),
-                    NodeName: ReadRequiredCell(row, nodeTable, "NodeName"));
+                    NodeName: ReadRequiredCell(row, nodeTable, "NodeName"),
+                    Description: ReadOptionalCell(row, nodeTable, "Description"),
+                    Location: ReadOptionalCell(row, nodeTable, "Location"),
+                    PhotoPath: ReadOptionalCell(row, nodeTable, "PhotoPath"),
+                    IpAddress: ReadOptionalCell(row, nodeTable, "IpAddress"),
+                    SchemaLink: ReadOptionalCell(row, nodeTable, "SchemaLink"));
 
                 _ = ReadOptionalCell(row, nodeTable, "LevelName");
                 _ = ReadOptionalCell(row, nodeTable, "Path");
@@ -545,7 +550,15 @@ namespace AsutpKnowledgeBase.Services
             var node = new KbNode
             {
                 Name = row.NodeName,
-                LevelIndex = row.LevelIndex
+                LevelIndex = row.LevelIndex,
+                Details = new KbNodeDetails
+                {
+                    Description = row.Description,
+                    Location = row.Location,
+                    PhotoPath = row.PhotoPath,
+                    IpAddress = row.LevelIndex >= 2 ? row.IpAddress : string.Empty,
+                    SchemaLink = row.LevelIndex >= 2 ? row.SchemaLink : string.Empty
+                }
             };
 
             if (childrenByParent.TryGetValue(row.NodeId, out var children))
@@ -911,7 +924,12 @@ namespace AsutpKnowledgeBase.Services
             string ParentNodeId,
             int SiblingOrder,
             int LevelIndex,
-            string NodeName);
+            string NodeName,
+            string Description,
+            string Location,
+            string PhotoPath,
+            string IpAddress,
+            string SchemaLink);
 
         private sealed record WorksheetTable(
             string SheetName,

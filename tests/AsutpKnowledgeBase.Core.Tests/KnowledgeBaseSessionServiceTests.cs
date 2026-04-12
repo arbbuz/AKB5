@@ -47,7 +47,10 @@ public class KnowledgeBaseSessionServiceTests
 
         var root = session.Workshops["Цех 1"].Single();
         Assert.Equal(0, root.LevelIndex);
+        Assert.NotNull(root.Details);
+        Assert.Equal(string.Empty, root.Details.Description);
         Assert.Equal(1, root.Children.Single().LevelIndex);
+        Assert.NotNull(root.Children.Single().Details);
     }
 
     [Fact]

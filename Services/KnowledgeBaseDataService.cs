@@ -79,7 +79,11 @@ namespace AsutpKnowledgeBase.Services
 
                     string workshopName = pair.Key.Trim();
                     if (!normalized.ContainsKey(workshopName))
-                        normalized[workshopName] = pair.Value ?? new List<KbNode>();
+                    {
+                        var workshopNodes = pair.Value ?? new List<KbNode>();
+                        NormalizeNodes(workshopNodes);
+                        normalized[workshopName] = workshopNodes;
+                    }
                 }
             }
 
@@ -116,5 +120,29 @@ namespace AsutpKnowledgeBase.Services
 
             return JsonSerializer.Serialize(data, SnapshotOptions);
         }
+
+        private static void NormalizeNodes(IEnumerable<KbNode> nodes)
+        {
+            foreach (var node in nodes)
+                NormalizeNode(node);
+        }
+
+        private static void NormalizeNode(KbNode node)
+        {
+            node.Name ??= string.Empty;
+            node.Details = NormalizeDetails(node.Details, node.LevelIndex);
+            node.Children ??= new List<KbNode>();
+            NormalizeNodes(node.Children);
+        }
+
+        private static KbNodeDetails NormalizeDetails(KbNodeDetails? details, int levelIndex) =>
+            new()
+            {
+                Description = details?.Description ?? string.Empty,
+                Location = details?.Location ?? string.Empty,
+                PhotoPath = details?.PhotoPath ?? string.Empty,
+                IpAddress = levelIndex >= 2 ? details?.IpAddress ?? string.Empty : string.Empty,
+                SchemaLink = levelIndex >= 2 ? details?.SchemaLink ?? string.Empty : string.Empty
+            };
     }
 }

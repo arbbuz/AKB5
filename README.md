@@ -6,10 +6,15 @@
 
 Базовый source of truth приложения — локальный JSON-файл с:
 
-- `SchemaVersion`
+- `SchemaVersion` (`2`)
 - `Config`
 - `Workshops`
 - `LastWorkshop`
+
+У каждого узла дерева теперь есть вложенная карточка `Details` с полями:
+
+- общие для всех узлов: `Description`, `Location`, `PhotoPath`
+- технические для уровней `2+`: `IpAddress`, `SchemaLink`
 
 Excel нужен как редактируемый exchange-формат для выгрузки, ручной правки и обратного импорта.
 
@@ -41,11 +46,16 @@ Workbook состоит из:
 
 Коротко по редактированию:
 
-- редактируемые поля: `Levels.LevelName`, `Workshops.WorkshopName`, `Workshops.IsLastSelected`, `Nodes.NodeName`
+- редактируемые поля: `Levels.LevelName`, `Workshops.WorkshopName`, `Workshops.IsLastSelected`, `Nodes.NodeName`, `Nodes.Description`, `Nodes.Location`, `Nodes.PhotoPath`, `Nodes.IpAddress`, `Nodes.SchemaLink`
 - технические поля: `WorkshopOrder`, `WorkshopId`, `NodesSheetKey`, `NodeId`, `ParentNodeId`, `SiblingOrder`, `LevelIndex`
 - производные/display-only поля: `Meta.LastWorkshop`, `Nodes.LevelName`, `Nodes.Path`
-- поддерживаемые ручные изменения: rename уровней, rename цехов, rename узлов, смена выбранного цеха, перестановка колонок, добавление лишних пользовательских колонок, rename tab у листа узлов без поломки sheet metadata
+- поддерживаемые ручные изменения: rename уровней, rename цехов, rename узлов, правка карточки узла, смена выбранного цеха, перестановка колонок, добавление лишних пользовательских колонок, rename tab у листа узлов без поломки sheet metadata
 - не поддерживаются: правки `FormatId/FormatVersion`, ручная коррекция технических идентификаторов и порядков, удаление обязательных листов/колонок, поломка связи `WorkshopId`/`NodesSheetKey`, возврат к legacy `v1/v2`
+
+Совместимость:
+
+- старый JSON `SchemaVersion = 1` загружается и нормализуется в память с пустыми `Details`
+- старые workbook `v3` без новых detail-колонок импортируются, недостающие поля считаются пустыми
 
 Примеры пользовательских ошибок, которые import должен ловить явно:
 

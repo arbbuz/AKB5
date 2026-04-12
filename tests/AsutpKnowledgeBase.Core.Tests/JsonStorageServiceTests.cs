@@ -26,6 +26,8 @@ public class JsonStorageServiceTests
             Assert.Equal(path, loaded.SourcePath);
             Assert.Equal("Цех 2", loaded.Data!.LastWorkshop);
             Assert.Single(loaded.Data.Workshops["Цех 1"]);
+            Assert.Equal("Схема 1", loaded.Data.Workshops["Цех 1"][0].Details.Description);
+            Assert.Equal(@"\\server\photos\shield-1.jpg", loaded.Data.Workshops["Цех 1"][0].Children[0].Details.PhotoPath);
         }
         finally
         {
@@ -129,6 +131,52 @@ public class JsonStorageServiceTests
         }
     }
 
+    [Fact]
+    public void Load_WhenSchema1JsonDoesNotContainDetails_NormalizesEmptyNodeDetails()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "kb.json");
+            var service = new JsonStorageService(path);
+            File.WriteAllText(path, """
+            {
+              "SchemaVersion": 1,
+              "Config": {
+                "MaxLevels": 2,
+                "LevelNames": ["Цех", "Щит"]
+              },
+              "Workshops": {
+                "Цех 1": [
+                  {
+                    "Name": "Щит 1",
+                    "LevelIndex": 0,
+                    "Children": []
+                  }
+                ]
+              },
+              "LastWorkshop": "Цех 1"
+            }
+            """);
+
+            var result = service.Load();
+
+            Assert.True(result.IsSuccess);
+            var node = Assert.Single(result.Data!.Workshops["Цех 1"]);
+            Assert.NotNull(node.Details);
+            Assert.Equal(string.Empty, node.Details.Description);
+            Assert.Equal(string.Empty, node.Details.Location);
+            Assert.Equal(string.Empty, node.Details.PhotoPath);
+            Assert.Equal(string.Empty, node.Details.IpAddress);
+            Assert.Equal(string.Empty, node.Details.SchemaLink);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
     private static SavedData CreateSampleData(string lastWorkshop) =>
         new()
         {
@@ -146,12 +194,23 @@ public class JsonStorageServiceTests
                     {
                         Name = "Линия 1",
                         LevelIndex = 0,
+                        Details = new KbNodeDetails
+                        {
+                            Description = "Схема 1",
+                            Location = "Корпус А"
+                        },
                         Children =
                         {
                             new KbNode
                             {
                                 Name = "Щит 1",
-                                LevelIndex = 1
+                                LevelIndex = 1,
+                                Details = new KbNodeDetails
+                                {
+                                    PhotoPath = @"\\server\photos\shield-1.jpg",
+                                    IpAddress = "10.10.0.15",
+                                    SchemaLink = "https://intra/schemes/shield-1"
+                                }
                             }
                         }
                     }

@@ -23,14 +23,20 @@ namespace AsutpKnowledgeBase
         private readonly UndoRedoService _history = new(50);
 
         private bool _isBindingWorkshops;
+        private bool _isApplyingSelectedNodeState;
+        private Image? _photoPreviewImage;
 
         private ToolStrip toolStrip = null!;
         private ToolStripButton btnUndo = null!;
         private ToolStripButton btnRedo = null!;
         private ToolStripButton btnSave = null!;
+        private ToolStripLabel lblToolbarFileValue = null!;
+        private ToolStripLabel lblToolbarSaveStateValue = null!;
+        private ToolStripLabel lblToolbarWorkshopValue = null!;
         private ToolStripMenuItem menuFile = null!;
         private ToolStripMenuItem menuNewWorkshop = null!;
 
+        private SplitContainer splitMain = null!;
         private ComboBox cmbWorkshops = null!;
         private TreeView tvTree = null!;
         private TextBox txtSearch = null!;
@@ -47,15 +53,22 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem ctxPaste = null!;
         private ToolStripMenuItem ctxRename = null!;
         private ToolStripMenuItem ctxDelete = null!;
-        private Label lblCurrentFileNameValue = null!;
-        private TextBox txtCurrentFilePath = null!;
-        private Label lblSaveStateValue = null!;
         private Label lblSelectedNodeEmptyState = null!;
-        private TableLayoutPanel tblSelectedNodeDetails = null!;
+        private TableLayoutPanel tblSelectedNodeCard = null!;
         private Label lblSelectedNodeNameValue = null!;
         private Label lblSelectedNodeLevelValue = null!;
         private TextBox txtSelectedNodePath = null!;
         private Label lblSelectedNodeChildrenValue = null!;
+        private TextBox txtNodeDescription = null!;
+        private TextBox txtNodeLocation = null!;
+        private TextBox txtNodePhotoPath = null!;
+        private TextBox txtNodeIpAddress = null!;
+        private TextBox txtNodeSchemaLink = null!;
+        private GroupBox grpTechnicalFields = null!;
+        private PictureBox picNodePhotoPreview = null!;
+        private Label lblPhotoPreviewState = null!;
+        private Button btnBrowsePhoto = null!;
+        private Button btnOpenPhoto = null!;
 
         private KbConfig _config => _session.Config;
         private string _currentWorkshop => _session.CurrentWorkshop;
@@ -107,12 +120,53 @@ namespace AsutpKnowledgeBase
 
         private string CurrentDataPath => _fileUiWorkflowService.CurrentDataPath;
 
-        private void UpdateUI()
+        private void UpdateUI(bool refreshSelectedNodeState = true)
+        {
+            var formState = BuildFormState();
+            ApplyFormState(formState, refreshSelectedNodeState);
+        }
+
+        private void ApplySelectedNodeState(KnowledgeBaseSelectedNodeState selectedNodeState)
+        {
+            _isApplyingSelectedNodeState = true;
+            try
+            {
+                bool hasSelection = selectedNodeState.HasSelection;
+                lblSelectedNodeEmptyState.Visible = !hasSelection;
+                tblSelectedNodeCard.Visible = hasSelection;
+
+                lblSelectedNodeEmptyState.Text = selectedNodeState.EmptyStateText;
+                lblSelectedNodeNameValue.Text = selectedNodeState.Name;
+                lblSelectedNodeLevelValue.Text = selectedNodeState.LevelName;
+                txtSelectedNodePath.Text = selectedNodeState.FullPath;
+                lblSelectedNodeChildrenValue.Text = selectedNodeState.ChildrenCountText;
+                txtNodeDescription.Text = selectedNodeState.Description;
+                txtNodeLocation.Text = selectedNodeState.Location;
+                txtNodePhotoPath.Text = selectedNodeState.PhotoPath;
+                txtNodeIpAddress.Text = selectedNodeState.IpAddress;
+                txtNodeSchemaLink.Text = selectedNodeState.SchemaLink;
+                grpTechnicalFields.Visible = hasSelection && selectedNodeState.ShowTechnicalFields;
+
+                UpdatePhotoPreview(selectedNodeState.PhotoPath, hasSelection);
+            }
+            finally
+            {
+                _isApplyingSelectedNodeState = false;
+            }
+        }
+
+        private void SetLastActionText(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return;
+
+            lblLastAction.Text = $"{DateTime.Now:HH:mm} | {text}";
+        }
+
+        private KnowledgeBaseFormState BuildFormState()
         {
             var currentRoots = GetCurrentTreeData();
-            var selectedNode = tvTree.SelectedNode?.Tag as KbNode;
-            bool hasSelection = selectedNode != null;
-            var formState = _formStateService.Build(
+            return _formStateService.Build(
                 _isDirty,
                 _requiresSave,
                 CurrentDataPath,
@@ -121,7 +175,13 @@ namespace AsutpKnowledgeBase
                 tvTree.GetNodeCount(true),
                 _config,
                 currentRoots,
-                selectedNode);
+                tvTree.SelectedNode?.Tag as KbNode);
+        }
+
+        private void ApplyFormState(KnowledgeBaseFormState formState, bool refreshSelectedNodeState)
+        {
+            var selectedNode = tvTree.SelectedNode?.Tag as KbNode;
+            bool hasSelection = selectedNode != null;
 
             btnUndo.Enabled = _treeMutationWorkflowService.CanUndo;
             btnRedo.Enabled = _treeMutationWorkflowService.CanRedo;
@@ -137,31 +197,13 @@ namespace AsutpKnowledgeBase
             Text = formState.WindowTitle;
             lblSessionInfo.Text = formState.SessionStatusText;
             lblSelectionInfo.Text = formState.SelectionStatusText;
-            lblCurrentFileNameValue.Text = formState.FileNameText;
-            txtCurrentFilePath.Text = formState.FilePathText;
-            lblSaveStateValue.Text = formState.SaveStateText;
-            ApplySelectedNodeState(formState.SelectedNode);
-        }
+            lblToolbarFileValue.Text = $"Файл: {formState.FileNameText}";
+            lblToolbarFileValue.ToolTipText = formState.FilePathText;
+            lblToolbarSaveStateValue.Text = formState.SaveStateText;
+            lblToolbarWorkshopValue.Text = $"Цех: {formState.WorkshopText}";
 
-        private void ApplySelectedNodeState(KnowledgeBaseSelectedNodeState selectedNodeState)
-        {
-            bool hasSelection = selectedNodeState.HasSelection;
-            lblSelectedNodeEmptyState.Visible = !hasSelection;
-            tblSelectedNodeDetails.Visible = hasSelection;
-
-            lblSelectedNodeEmptyState.Text = selectedNodeState.EmptyStateText;
-            lblSelectedNodeNameValue.Text = selectedNodeState.Name;
-            lblSelectedNodeLevelValue.Text = selectedNodeState.LevelName;
-            txtSelectedNodePath.Text = selectedNodeState.FullPath;
-            lblSelectedNodeChildrenValue.Text = selectedNodeState.ChildrenCountText;
-        }
-
-        private void SetLastActionText(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text))
-                return;
-
-            lblLastAction.Text = $"{DateTime.Now:HH:mm} | {text}";
+            if (refreshSelectedNodeState)
+                ApplySelectedNodeState(formState.SelectedNode);
         }
     }
 }

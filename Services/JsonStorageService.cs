@@ -298,6 +298,8 @@ namespace AsutpKnowledgeBase.Services
             if (node == null)
                 return $"Обнаружен пустой узел по пути '{string.Join(" -> ", path)}'.";
 
+            node.Details ??= new KbNodeDetails();
+
             if (string.IsNullOrWhiteSpace(node.Name))
                 return $"Обнаружен узел с пустым именем по пути '{string.Join(" -> ", path)}'.";
 

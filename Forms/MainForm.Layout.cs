@@ -5,17 +5,19 @@ namespace AsutpKnowledgeBase
         private void InitializeComponent()
         {
             Text = "База знаний АСУТП";
-            Size = new Size(1120, 760);
+            Size = new Size(1320, 820);
             StartPosition = FormStartPosition.CenterScreen;
-            MinimumSize = new Size(920, 580);
+            MinimumSize = new Size(1080, 640);
 
             toolTip = new ToolTip();
             InitializeToolbar();
-            InitializeLeftPanel();
-            InitializeRightPanel();
+            InitializeMainLayout();
             InitializeStatusBar();
             InitializeContextMenu();
             InitializeEvents();
+
+            Controls.Add(splitMain);
+            Controls.Add(ssStatus);
             Controls.Add(toolStrip);
         }
 
@@ -24,7 +26,8 @@ namespace AsutpKnowledgeBase
             toolStrip = new ToolStrip
             {
                 Dock = DockStyle.Top,
-                GripStyle = ToolStripGripStyle.Hidden
+                GripStyle = ToolStripGripStyle.Hidden,
+                ImageScalingSize = new Size(18, 18)
             };
 
             menuFile = new ToolStripMenuItem("📁 Файл");
@@ -59,192 +62,322 @@ namespace AsutpKnowledgeBase
             btnUndo = new ToolStripButton("↩ Отменить") { Enabled = false, ToolTipText = "Отменить (Ctrl+Z)" };
             btnRedo = new ToolStripButton("↪ Повторить") { Enabled = false, ToolTipText = "Повторить (Ctrl+Y)" };
             toolStrip.Items.AddRange(new ToolStripItem[] { btnUndo, btnRedo });
+
+            toolStrip.Items.Add(new ToolStripSeparator());
+
+            lblToolbarFileValue = new ToolStripLabel("Файл: —")
+            {
+                AutoSize = false,
+                Width = 220,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            lblToolbarSaveStateValue = new ToolStripLabel("Состояние: —")
+            {
+                AutoSize = false,
+                Width = 210,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            lblToolbarWorkshopValue = new ToolStripLabel("Цех: —")
+            {
+                AutoSize = false,
+                Width = 220,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            toolStrip.Items.Add(lblToolbarFileValue);
+            toolStrip.Items.Add(new ToolStripSeparator());
+            toolStrip.Items.Add(lblToolbarSaveStateValue);
+            toolStrip.Items.Add(new ToolStripSeparator());
+            toolStrip.Items.Add(lblToolbarWorkshopValue);
+        }
+
+        private void InitializeMainLayout()
+        {
+            splitMain = new SplitContainer
+            {
+                Dock = DockStyle.Fill,
+                FixedPanel = FixedPanel.Panel1,
+                Panel1MinSize = 260,
+                Panel2MinSize = 480,
+                SplitterDistance = 340,
+                BackColor = Color.FromArgb(230, 230, 230)
+            };
+
+            InitializeLeftPanel();
+            InitializeRightPanel();
         }
 
         private void InitializeLeftPanel()
         {
-            var pnlLeft = new Panel { Dock = DockStyle.Fill };
-            tvTree = new TreeView
+            var pnlLeft = new Panel
             {
                 Dock = DockStyle.Fill,
-                CheckBoxes = false,
-                Margin = new Padding(0),
-                Font = new Font("Microsoft Sans Serif", 10),
-                AllowDrop = true
-            };
-
-            toolTip.SetToolTip(tvTree, "Drag & Drop для перемещения, ПКМ для меню");
-            pnlLeft.Controls.Add(tvTree);
-            Controls.Add(pnlLeft);
-        }
-
-        private void InitializeRightPanel()
-        {
-            var pnlRight = new Panel
-            {
-                Dock = DockStyle.Right,
-                Width = 320,
-                AutoScroll = true,
                 BackColor = Color.FromArgb(245, 245, 245)
             };
 
-            int y = 15;
-
-            var grpSession = new GroupBox
+            var leftLayout = new TableLayoutPanel
             {
-                Text = "Сеанс",
-                Location = new Point(15, y),
-                Size = new Size(285, 215),
-                Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top
+                Dock = DockStyle.Fill,
+                Padding = new Padding(12),
+                ColumnCount = 1,
+                RowCount = 6
             };
+            leftLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            leftLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            leftLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            leftLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            leftLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            leftLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            leftLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-            int groupY = 24;
-            grpSession.Controls.Add(CreateFieldCaption("Файл", 12, groupY));
-            groupY += 18;
-
-            lblCurrentFileNameValue = CreateValueLabel(12, groupY, 257);
-            grpSession.Controls.Add(lblCurrentFileNameValue);
-            groupY += 24;
-
-            grpSession.Controls.Add(CreateFieldCaption("Полный путь к JSON", 12, groupY));
-            groupY += 18;
-
-            txtCurrentFilePath = new TextBox
-            {
-                Location = new Point(12, groupY),
-                Size = new Size(257, 48),
-                Multiline = true,
-                ReadOnly = true,
-                BorderStyle = BorderStyle.FixedSingle,
-                BackColor = Color.White,
-                ScrollBars = ScrollBars.Vertical,
-                TabStop = false,
-                Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top
-            };
-            grpSession.Controls.Add(txtCurrentFilePath);
-            groupY += 58;
-
-            grpSession.Controls.Add(CreateFieldCaption("Состояние", 12, groupY));
-            groupY += 18;
-
-            lblSaveStateValue = CreateValueLabel(12, groupY, 257);
-            grpSession.Controls.Add(lblSaveStateValue);
-            groupY += 28;
-
-            grpSession.Controls.Add(CreateFieldCaption("Текущий цех", 12, groupY));
-            groupY += 18;
+            leftLayout.Controls.Add(CreateSectionLabel("Текущий цех"), 0, 0);
 
             cmbWorkshops = new ComboBox
             {
-                Location = new Point(12, groupY),
-                Size = new Size(257, 25),
+                Dock = DockStyle.Top,
                 DropDownStyle = ComboBoxStyle.DropDownList,
-                Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top
+                Margin = new Padding(0, 0, 0, 12)
             };
-            grpSession.Controls.Add(cmbWorkshops);
+            leftLayout.Controls.Add(cmbWorkshops, 0, 1);
 
-            pnlRight.Controls.Add(grpSession);
-            y += grpSession.Height + 15;
-
-            var lblSearch = new Label
-            {
-                Text = "Поиск по имени, пути и уровню",
-                AutoSize = true,
-                Location = new Point(15, y)
-            };
-            pnlRight.Controls.Add(lblSearch);
-            y += 22;
+            leftLayout.Controls.Add(CreateSectionLabel("Поиск по имени, пути и уровню"), 0, 2);
 
             txtSearch = new TextBox
             {
-                Location = new Point(15, y),
-                Size = new Size(285, 25),
-                Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top
+                Dock = DockStyle.Top,
+                Margin = new Padding(0, 0, 0, 8)
             };
-            pnlRight.Controls.Add(txtSearch);
-            y += 35;
+            leftLayout.Controls.Add(txtSearch, 0, 3);
 
             var pnlSearchNav = new TableLayoutPanel
             {
-                Location = new Point(15, y),
-                Size = new Size(285, 30),
+                Dock = DockStyle.Top,
                 ColumnCount = 3,
                 RowCount = 1,
-                Padding = new Padding(0),
-                Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top
+                Margin = new Padding(0, 0, 0, 12)
             };
-            pnlSearchNav.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
-            pnlSearchNav.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
-            pnlSearchNav.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
+            pnlSearchNav.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34F));
+            pnlSearchNav.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34F));
+            pnlSearchNav.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32F));
 
             btnSearchPrev = new Button
             {
                 Text = "◀ Пред.",
                 Dock = DockStyle.Fill,
                 Enabled = false,
-                Margin = new Padding(0, 0, 2, 0)
+                Margin = new Padding(0, 0, 4, 0)
             };
             btnSearchNext = new Button
             {
                 Text = "След. ▶",
                 Dock = DockStyle.Fill,
                 Enabled = false,
-                Margin = new Padding(2, 0, 2, 0)
+                Margin = new Padding(0, 0, 4, 0)
             };
             btnSearch = new Button
             {
-                Text = "🔍",
+                Text = "🔍 Найти",
                 Dock = DockStyle.Fill,
-                Margin = new Padding(2, 0, 0, 0)
+                Margin = new Padding(0)
             };
 
             pnlSearchNav.Controls.Add(btnSearchPrev, 0, 0);
             pnlSearchNav.Controls.Add(btnSearchNext, 1, 0);
             pnlSearchNav.Controls.Add(btnSearch, 2, 0);
-            pnlRight.Controls.Add(pnlSearchNav);
-            y += 42;
+            leftLayout.Controls.Add(pnlSearchNav, 0, 4);
 
-            var grpSelectedNode = new GroupBox
+            var grpTree = new GroupBox
             {
-                Text = "Выбранный узел",
-                Location = new Point(15, y),
-                Size = new Size(285, 210),
-                Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top
+                Text = "Дерево объектов",
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10)
+            };
+
+            tvTree = new TreeView
+            {
+                Dock = DockStyle.Fill,
+                CheckBoxes = false,
+                Margin = new Padding(0),
+                Font = new Font("Microsoft Sans Serif", 10),
+                AllowDrop = true,
+                HideSelection = false
+            };
+
+            toolTip.SetToolTip(tvTree, "Drag & Drop для перемещения, ПКМ для меню");
+            grpTree.Controls.Add(tvTree);
+            leftLayout.Controls.Add(grpTree, 0, 5);
+
+            pnlLeft.Controls.Add(leftLayout);
+            splitMain.Panel1.Controls.Add(pnlLeft);
+        }
+
+        private void InitializeRightPanel()
+        {
+            var pnlRight = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White
             };
 
             lblSelectedNodeEmptyState = new Label
             {
-                Location = new Point(12, 28),
-                Size = new Size(257, 42),
-                Text = "Ничего не выбрано. Выберите узел в дереве слева.",
+                Dock = DockStyle.Fill,
+                Text = "Ничего не выбрано. Выберите объект в дереве слева.",
+                TextAlign = ContentAlignment.MiddleCenter,
+                ForeColor = Color.DimGray,
+                Font = new Font("Segoe UI", 14F, FontStyle.Regular),
+                Padding = new Padding(24)
+            };
+
+            tblSelectedNodeCard = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(16),
+                ColumnCount = 1,
+                RowCount = 2,
+                Visible = false
+            };
+            tblSelectedNodeCard.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            tblSelectedNodeCard.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            tblSelectedNodeCard.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            var pnlHeader = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 0, 0, 12),
+                Padding = new Padding(0, 0, 0, 8)
+            };
+
+            lblSelectedNodeNameValue = new Label
+            {
+                Dock = DockStyle.Top,
+                Height = 38,
+                Font = new Font("Segoe UI Semibold", 18F, FontStyle.Bold),
                 AutoEllipsis = true
             };
-            grpSelectedNode.Controls.Add(lblSelectedNodeEmptyState);
-
-            tblSelectedNodeDetails = new TableLayoutPanel
+            lblSelectedNodeLevelValue = new Label
             {
-                Location = new Point(12, 24),
-                Size = new Size(257, 172),
-                ColumnCount = 2,
-                RowCount = 4,
-                Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top
+                Dock = DockStyle.Top,
+                Height = 24,
+                ForeColor = Color.DimGray,
+                Font = new Font("Segoe UI", 10F, FontStyle.Regular)
             };
-            tblSelectedNodeDetails.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 92F));
-            tblSelectedNodeDetails.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            tblSelectedNodeDetails.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
-            tblSelectedNodeDetails.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
-            tblSelectedNodeDetails.RowStyles.Add(new RowStyle(SizeType.Absolute, 70F));
-            tblSelectedNodeDetails.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
 
-            tblSelectedNodeDetails.Controls.Add(CreateFieldCaption("Имя", 0, 0), 0, 0);
-            lblSelectedNodeNameValue = CreateTableValueLabel();
-            tblSelectedNodeDetails.Controls.Add(lblSelectedNodeNameValue, 1, 0);
+            pnlHeader.Controls.Add(lblSelectedNodeLevelValue);
+            pnlHeader.Controls.Add(lblSelectedNodeNameValue);
+            tblSelectedNodeCard.Controls.Add(pnlHeader, 0, 0);
 
-            tblSelectedNodeDetails.Controls.Add(CreateFieldCaption("Уровень", 0, 0), 0, 1);
-            lblSelectedNodeLevelValue = CreateTableValueLabel();
-            tblSelectedNodeDetails.Controls.Add(lblSelectedNodeLevelValue, 1, 1);
+            var bodySplit = new SplitContainer
+            {
+                Dock = DockStyle.Fill,
+                FixedPanel = FixedPanel.Panel2,
+                Panel2MinSize = 280,
+                SplitterDistance = 660,
+                Margin = new Padding(0)
+            };
 
-            tblSelectedNodeDetails.Controls.Add(CreateFieldCaption("Полный путь", 0, 0), 0, 2);
+            var leftCardLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 3,
+                Margin = new Padding(0)
+            };
+            leftCardLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            leftCardLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 144F));
+            leftCardLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            leftCardLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 150F));
+
+            var grpSummary = new GroupBox
+            {
+                Text = "Сводка",
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 0, 0, 12)
+            };
+            grpSummary.Controls.Add(CreateSummaryLayout());
+            leftCardLayout.Controls.Add(grpSummary, 0, 0);
+
+            var grpCommonFields = new GroupBox
+            {
+                Text = "Карточка объекта",
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 0, 0, 12)
+            };
+            grpCommonFields.Controls.Add(CreateCommonFieldsLayout());
+            leftCardLayout.Controls.Add(grpCommonFields, 0, 1);
+
+            grpTechnicalFields = new GroupBox
+            {
+                Text = "Технические поля",
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0),
+                Visible = false
+            };
+            grpTechnicalFields.Controls.Add(CreateTechnicalFieldsLayout());
+            leftCardLayout.Controls.Add(grpTechnicalFields, 0, 2);
+
+            bodySplit.Panel1.Controls.Add(leftCardLayout);
+
+            var grpPhotoPreview = new GroupBox
+            {
+                Text = "Превью фото",
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0)
+            };
+
+            var previewLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2,
+                Padding = new Padding(10)
+            };
+            previewLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            previewLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            previewLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            picNodePhotoPreview = new PictureBox
+            {
+                Dock = DockStyle.Fill,
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.FromArgb(247, 247, 247),
+                SizeMode = PictureBoxSizeMode.Zoom
+            };
+            lblPhotoPreviewState = new Label
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                ForeColor = Color.DimGray,
+                Padding = new Padding(0, 8, 0, 0)
+            };
+
+            previewLayout.Controls.Add(picNodePhotoPreview, 0, 0);
+            previewLayout.Controls.Add(lblPhotoPreviewState, 0, 1);
+            grpPhotoPreview.Controls.Add(previewLayout);
+            bodySplit.Panel2.Controls.Add(grpPhotoPreview);
+
+            tblSelectedNodeCard.Controls.Add(bodySplit, 0, 1);
+
+            pnlRight.Controls.Add(tblSelectedNodeCard);
+            pnlRight.Controls.Add(lblSelectedNodeEmptyState);
+            splitMain.Panel2.Controls.Add(pnlRight);
+        }
+
+        private TableLayoutPanel CreateSummaryLayout()
+        {
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 2,
+                Padding = new Padding(10, 8, 10, 10)
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 78F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
+
+            layout.Controls.Add(CreateFormLabel("Полный путь"), 0, 0);
             txtSelectedNodePath = new TextBox
             {
                 Dock = DockStyle.Fill,
@@ -255,16 +388,93 @@ namespace AsutpKnowledgeBase
                 ScrollBars = ScrollBars.Vertical,
                 TabStop = false
             };
-            tblSelectedNodeDetails.Controls.Add(txtSelectedNodePath, 1, 2);
+            layout.Controls.Add(txtSelectedNodePath, 1, 0);
 
-            tblSelectedNodeDetails.Controls.Add(CreateFieldCaption("Дочерних", 0, 0), 0, 3);
-            lblSelectedNodeChildrenValue = CreateTableValueLabel();
-            tblSelectedNodeDetails.Controls.Add(lblSelectedNodeChildrenValue, 1, 3);
+            layout.Controls.Add(CreateFormLabel("Дочерних"), 0, 1);
+            lblSelectedNodeChildrenValue = CreateReadOnlyValueLabel();
+            layout.Controls.Add(lblSelectedNodeChildrenValue, 1, 1);
 
-            grpSelectedNode.Controls.Add(tblSelectedNodeDetails);
-            pnlRight.Controls.Add(grpSelectedNode);
+            return layout;
+        }
 
-            Controls.Add(pnlRight);
+        private TableLayoutPanel CreateCommonFieldsLayout()
+        {
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 7,
+                Padding = new Padding(10, 8, 10, 10)
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 118F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
+
+            layout.Controls.Add(CreateFormLabel("Описание"), 0, 0);
+            txtNodeDescription = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Multiline = true,
+                ScrollBars = ScrollBars.Vertical
+            };
+            layout.Controls.Add(txtNodeDescription, 1, 0);
+            layout.SetRowSpan(txtNodeDescription, 2);
+
+            layout.Controls.Add(CreateFormLabel("Местоположение"), 0, 2);
+            txtNodeLocation = new TextBox { Dock = DockStyle.Fill };
+            layout.Controls.Add(txtNodeLocation, 1, 3);
+
+            layout.Controls.Add(CreateFormLabel("Фото"), 0, 4);
+            txtNodePhotoPath = new TextBox { Dock = DockStyle.Fill };
+            layout.Controls.Add(txtNodePhotoPath, 1, 5);
+
+            var buttonPanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Margin = new Padding(0)
+            };
+            btnBrowsePhoto = new Button { Text = "Выбрать фото...", AutoSize = true };
+            btnOpenPhoto = new Button { Text = "Открыть фото", AutoSize = true, Enabled = false };
+            buttonPanel.Controls.Add(btnBrowsePhoto);
+            buttonPanel.Controls.Add(btnOpenPhoto);
+            layout.Controls.Add(buttonPanel, 1, 6);
+
+            return layout;
+        }
+
+        private TableLayoutPanel CreateTechnicalFieldsLayout()
+        {
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 4,
+                Padding = new Padding(10, 8, 10, 10)
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+
+            layout.Controls.Add(CreateFormLabel("IP-адрес"), 0, 0);
+            txtNodeIpAddress = new TextBox { Dock = DockStyle.Fill };
+            layout.Controls.Add(txtNodeIpAddress, 1, 1);
+
+            layout.Controls.Add(CreateFormLabel("Ссылка на схему"), 0, 2);
+            txtNodeSchemaLink = new TextBox { Dock = DockStyle.Fill };
+            layout.Controls.Add(txtNodeSchemaLink, 1, 3);
+
+            return layout;
         }
 
         private void InitializeStatusBar()
@@ -274,7 +484,7 @@ namespace AsutpKnowledgeBase
                 Text = "Файл: —",
                 BorderSides = ToolStripStatusLabelBorderSides.Right,
                 AutoSize = false,
-                Width = 360,
+                Width = 430,
                 TextAlign = ContentAlignment.MiddleLeft
             };
             lblSelectionInfo = new ToolStripStatusLabel
@@ -282,7 +492,7 @@ namespace AsutpKnowledgeBase
                 Text = "Выбранный узел: нет",
                 BorderSides = ToolStripStatusLabelBorderSides.Right,
                 AutoSize = false,
-                Width = 300,
+                Width = 360,
                 TextAlign = ContentAlignment.MiddleLeft
             };
             lblLastAction = new ToolStripStatusLabel
@@ -294,7 +504,6 @@ namespace AsutpKnowledgeBase
 
             ssStatus = new StatusStrip();
             ssStatus.Items.AddRange(new ToolStripItem[] { lblSessionInfo, lblSelectionInfo, lblLastAction });
-            Controls.Add(ssStatus);
         }
 
         private void InitializeContextMenu()
@@ -318,28 +527,31 @@ namespace AsutpKnowledgeBase
             tvTree.ContextMenuStrip = ctxMenu;
         }
 
-        private static Label CreateFieldCaption(string text, int x, int y) =>
+        private static Label CreateSectionLabel(string text) =>
             new()
             {
                 Text = text,
+                Dock = DockStyle.Top,
                 AutoSize = true,
-                Location = new Point(x, y)
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Margin = new Padding(0, 0, 0, 6)
             };
 
-        private static Label CreateValueLabel(int x, int y, int width) =>
+        private static Label CreateFormLabel(string text) =>
             new()
             {
-                Location = new Point(x, y),
-                Size = new Size(width, 18),
-                AutoEllipsis = true
-            };
-
-        private static Label CreateTableValueLabel() =>
-            new()
-            {
-                AutoEllipsis = true,
+                Text = text,
                 Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft
+                TextAlign = ContentAlignment.MiddleLeft,
+                Margin = new Padding(0, 0, 8, 0)
+            };
+
+        private static Label CreateReadOnlyValueLabel() =>
+            new()
+            {
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                AutoEllipsis = true
             };
     }
 }

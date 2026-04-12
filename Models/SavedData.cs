@@ -2,7 +2,7 @@ namespace AsutpKnowledgeBase.Models
 {
     public class SavedData
     {
-        public const int CurrentSchemaVersion = 1;
+        public const int CurrentSchemaVersion = 2;
 
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
         public KbConfig Config { get; set; } = new();

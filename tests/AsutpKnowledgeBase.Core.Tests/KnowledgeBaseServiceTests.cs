@@ -106,15 +106,22 @@ public class KnowledgeBaseServiceTests
         {
             Name = "Источник",
             LevelIndex = 0,
+            Details = new KbNodeDetails
+            {
+                Description = "Исходное описание",
+                PhotoPath = @"\\server\images\source.jpg"
+            },
             Children = { new KbNode { Name = "Ребенок", LevelIndex = 1 } }
         };
 
         var clone = service.CloneNode(source);
         clone.Name = "Копия";
+        clone.Details.Description = "Измененное описание";
         clone.Children[0].Name = "Измененный ребенок";
 
         Assert.NotSame(source, clone);
         Assert.Equal("Источник", source.Name);
+        Assert.Equal("Исходное описание", source.Details.Description);
         Assert.Equal("Ребенок", source.Children[0].Name);
     }
 }

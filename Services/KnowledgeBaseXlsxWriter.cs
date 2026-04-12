@@ -156,7 +156,9 @@ namespace AsutpKnowledgeBase.Services
             yield return new[]
             {
                 WorksheetCell.String("Можно редактировать", ReadOnlyStyleIndex),
-                WorksheetCell.String("Levels.LevelName, Workshops.WorkshopName, Workshops.IsLastSelected и Nodes.NodeName.", WrappedReadOnlyStyleIndex)
+                WorksheetCell.String(
+                    "Levels.LevelName, Workshops.WorkshopName, Workshops.IsLastSelected и поля узлов NodeName, Description, Location, PhotoPath, IpAddress, SchemaLink.",
+                    WrappedReadOnlyStyleIndex)
             };
             yield return new[]
             {
@@ -167,6 +169,11 @@ namespace AsutpKnowledgeBase.Services
             {
                 WorksheetCell.String("Read-only колонки", ReadOnlyStyleIndex),
                 WorksheetCell.String("Meta.*, Nodes.LevelName и Nodes.Path нужны для контекста и не редактируются.", WrappedReadOnlyStyleIndex)
+            };
+            yield return new[]
+            {
+                WorksheetCell.String("Фото объекта", ReadOnlyStyleIndex),
+                WorksheetCell.String("PhotoPath хранит локальный или сетевой путь к изображению. Приложение пытается показать превью, если файл доступен.", WrappedReadOnlyStyleIndex)
             };
             yield return new[]
             {
@@ -239,6 +246,11 @@ namespace AsutpKnowledgeBase.Services
                     WorksheetCell.String("LevelIndex", HeaderStyleIndex),
                     WorksheetCell.String("LevelName", HeaderStyleIndex),
                     WorksheetCell.String("NodeName", HeaderStyleIndex),
+                    WorksheetCell.String("Description", HeaderStyleIndex),
+                    WorksheetCell.String("Location", HeaderStyleIndex),
+                    WorksheetCell.String("PhotoPath", HeaderStyleIndex),
+                    WorksheetCell.String("IpAddress", HeaderStyleIndex),
+                    WorksheetCell.String("SchemaLink", HeaderStyleIndex),
                     WorksheetCell.String("Path", HeaderStyleIndex)
                 }
             };
@@ -269,6 +281,9 @@ namespace AsutpKnowledgeBase.Services
         {
             int nodeId = nextNodeId;
             nextNodeId++;
+            var details = node.Details ?? new KbNodeDetails();
+            string ipAddress = node.LevelIndex >= 2 ? details.IpAddress : string.Empty;
+            string schemaLink = node.LevelIndex >= 2 ? details.SchemaLink : string.Empty;
 
             rows.Add(new[]
             {
@@ -280,6 +295,11 @@ namespace AsutpKnowledgeBase.Services
                 WorksheetCell.Number(node.LevelIndex, ReadOnlyStyleIndex),
                 WorksheetCell.String(GetLevelName(config, node.LevelIndex), ReadOnlyStyleIndex),
                 WorksheetCell.String(node.Name, EditableStyleIndex),
+                WorksheetCell.String(details.Description, EditableStyleIndex),
+                WorksheetCell.String(details.Location, EditableStyleIndex),
+                WorksheetCell.String(details.PhotoPath, EditableStyleIndex),
+                WorksheetCell.String(ipAddress, EditableStyleIndex),
+                WorksheetCell.String(schemaLink, EditableStyleIndex),
                 WorksheetCell.String(currentPath, WrappedReadOnlyStyleIndex)
             });
 
@@ -618,7 +638,12 @@ namespace AsutpKnowledgeBase.Services
                 new WorksheetColumnDefinition(4U, 4U, 12D, true),
                 new WorksheetColumnDefinition(5U, 5U, 18D, false),
                 new WorksheetColumnDefinition(6U, 6U, 30D, false),
-                new WorksheetColumnDefinition(7U, 7U, 48D, false)
+                new WorksheetColumnDefinition(7U, 7U, 42D, false),
+                new WorksheetColumnDefinition(8U, 8U, 28D, false),
+                new WorksheetColumnDefinition(9U, 9U, 38D, false),
+                new WorksheetColumnDefinition(10U, 10U, 20D, false),
+                new WorksheetColumnDefinition(11U, 11U, 28D, false),
+                new WorksheetColumnDefinition(12U, 12U, 48D, false)
             };
 
         private static string GetLevelName(KbConfig config, int levelIndex) =>
