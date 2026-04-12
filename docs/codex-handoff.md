@@ -1,8 +1,8 @@
 # Current objective
 
-- Интегрировать бывшую ветку `codex/main-ux-pass` в `development` и сделать `development` единственной рабочей веткой для обычных задач.
+- Бывшая ветка `codex/main-ux-pass` уже интегрирована в `development`, и `development` теперь является единственной рабочей веткой для обычных задач Codex.
 - Сохранить правило: `main` обновляется только отдельным PR `development -> main` по явному запросу пользователя.
-- После интеграции подтвердить объединённое состояние локальными build/test checks и удалить obsolete delivery branch `codex/main-ux-pass`.
+- Поддерживать этот workflow без возврата к delivery через старые task-ветки.
 
 # Current repo state
 
@@ -18,9 +18,9 @@
   - `UiServices/KnowledgeBaseFileUiWorkflowService.cs` применяет loaded session view напрямую, без legacy success callback path
   - regression coverage расширен в `tests/AsutpKnowledgeBase.Core.Tests`
 - Текущие worktree:
-  - `/Users/home/ASUTP/AKB5-development` -> `development`
+  - `/Users/home/ASUTP/AKB5` -> `development`
   - `/Users/home/ASUTP/AKB5-ci-hardening` -> `main`
-  - `/Users/home/ASUTP/AKB5` -> бывшая ветка `codex/main-ux-pass`, которую после интеграции нужно убрать или перепривязать
+- Лишняя ветка `codex/main-ux-pass` уже удалена локально и на `origin`.
 
 # Decisions already made
 
@@ -28,7 +28,7 @@
 - `main` не используется как повседневная рабочая ветка.
 - После завершения задачи Codex пушит изменения в `development`.
 - Только по явному запросу пользователя "push в main" Codex делает PR из `development` в `main`.
-- Бывшую ветку `codex/main-ux-pass` после переноса её коммитов и draft-изменений в `development` нужно удалить.
+- Бывшая ветка `codex/main-ux-pass` уже поглощена `development` и удалена.
 - Publish/CI decisions сохраняются:
   - publish target только `win-x64`
   - output path `artifacts/publish/win-x64`
@@ -63,6 +63,10 @@
 - committed the remaining draft changes on `codex/main-ux-pass`
 - created and pushed `development`
 - merged `codex/main-ux-pass` into `development` with manual conflict resolution only in `docs/codex-handoff.md`
+- pushed finalized integrated `development`
+- closed obsolete PR `#1` from `codex/main-ux-pass` to `main`
+- deleted obsolete branch `codex/main-ux-pass` locally and on `origin`
+- reassigned the main working directory `/Users/home/ASUTP/AKB5` to branch `development`
 - `/Users/home/.dotnet/dotnet restore asutpKB.csproj`
 - `/Users/home/.dotnet/dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj`
 - `/Users/home/.dotnet/dotnet build asutpKB.csproj -c Release --no-restore`
@@ -78,20 +82,17 @@ Observed results:
 
 What still remains after this handoff snapshot:
 
-- push finalized integrated `development`
-- close obsolete PR from `codex/main-ux-pass` to `main`
-- delete obsolete branch `codex/main-ux-pass`
+- keep using `development` for normal work
+- create `development -> main` PR only on explicit user request
 
 # Known risks / open questions
 
-- Old PR `codex/main-ux-pass -> main` becomes obsolete once `development` absorbs this work and should not stay as the delivery path to `main`.
 - Dependabot branches are left intact because they back open bot PRs and are not part of the user's manual draft branches.
 
 # Recommended next step
 
-- Push updated `development`.
-- Close obsolete PR/branch for `codex/main-ux-pass`.
 - Continue ordinary work only from `development`.
+- When the user asks for delivery to `main`, prepare PR `development -> main`.
 
 # Commands to run before finishing future implementation work
 
