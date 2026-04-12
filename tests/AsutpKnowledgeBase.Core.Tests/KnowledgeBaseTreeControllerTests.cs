@@ -8,15 +8,15 @@ public class KnowledgeBaseTreeControllerTests
     [Fact]
     public void AddNode_AddsRootAndChildUsingCurrentStructure()
     {
-        var workshops = new Dictionary<string, List<KbNode>>();
-        var controller = CreateController(workshops, maxLevels: 4);
+        var session = CreateSession(new Dictionary<string, List<KbNode>>(), maxLevels: 4);
+        var controller = CreateController(session);
 
         var root = controller.AddNode("Цех 1", null, "Линия 1");
         var child = controller.AddNode("Цех 1", root, "Щит 1");
 
         Assert.Equal(0, root.LevelIndex);
         Assert.Equal(1, child.LevelIndex);
-        Assert.Single(workshops["Цех 1"]);
+        Assert.Single(session.Workshops["Цех 1"]);
         Assert.Same(child, root.Children[0]);
     }
 
@@ -32,12 +32,14 @@ public class KnowledgeBaseTreeControllerTests
         };
         root.Children.Add(source);
 
-        var workshops = new Dictionary<string, List<KbNode>>
-        {
-            ["Цех 1"] = new List<KbNode> { root }
-        };
+        var session = CreateSession(
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Цех 1"] = new List<KbNode> { root }
+            },
+            maxLevels: 5);
 
-        var controller = CreateController(workshops, maxLevels: 5);
+        var controller = CreateController(session);
         controller.CopyNode(source);
 
         var pasted = controller.PasteNode(root);
@@ -55,9 +57,10 @@ public class KnowledgeBaseTreeControllerTests
     public void CanPasteNode_ReturnsFalseWhenClipboardOrDepthDoNotAllow()
     {
         var root = new KbNode { Name = "Линия", LevelIndex = 0 };
-        var controller = CreateController(
+        var session = CreateSession(
             new Dictionary<string, List<KbNode>> { ["Цех 1"] = new List<KbNode> { root } },
             maxLevels: 2);
+        var controller = CreateController(session);
 
         Assert.False(controller.CanPasteNode(root));
 
@@ -73,7 +76,8 @@ public class KnowledgeBaseTreeControllerTests
     [Fact]
     public void RenameNode_UpdatesNodeName()
     {
-        var controller = CreateController(new Dictionary<string, List<KbNode>>(), maxLevels: 3);
+        var session = CreateSession(new Dictionary<string, List<KbNode>>(), maxLevels: 3);
+        var controller = CreateController(session);
         var node = new KbNode { Name = "Старое" };
 
         controller.RenameNode(node, "  Новое  ");
@@ -98,12 +102,13 @@ public class KnowledgeBaseTreeControllerTests
         };
         var targetParent = new KbNode { Name = "Линия 2", LevelIndex = 0 };
 
-        var workshops = new Dictionary<string, List<KbNode>>
-        {
-            ["Цех 1"] = new List<KbNode> { sourceParent, targetParent }
-        };
-
-        var controller = CreateController(workshops, maxLevels: 4);
+        var session = CreateSession(
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Цех 1"] = new List<KbNode> { sourceParent, targetParent }
+            },
+            maxLevels: 4);
+        var controller = CreateController(session);
 
         bool moved = controller.MoveNode("Цех 1", dragged, sourceParent, targetParent);
 
@@ -131,27 +136,62 @@ public class KnowledgeBaseTreeControllerTests
             Children = { dragged }
         };
 
-        var workshops = new Dictionary<string, List<KbNode>>
-        {
-            ["Цех 1"] = new List<KbNode> { root }
-        };
-
-        var controller = CreateController(workshops, maxLevels: 4);
+        var session = CreateSession(
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Цех 1"] = new List<KbNode> { root }
+            },
+            maxLevels: 4);
+        var controller = CreateController(session);
 
         Assert.False(controller.CanMoveNode(grandChild, dragged));
         Assert.True(controller.WouldCreateCycle(grandChild, dragged));
     }
 
-    private static KnowledgeBaseTreeController CreateController(
+    [Fact]
+    public void CanAddNode_UsesUpdatedSessionConfigWithoutRebinding()
+    {
+        var root = new KbNode { Name = "Линия", LevelIndex = 0 };
+        var session = CreateSession(
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Цех 1"] = new List<KbNode> { root }
+            },
+            maxLevels: 1);
+        var controller = CreateController(session);
+
+        Assert.False(controller.CanAddNode(root));
+
+        session.UpdateConfig(new KbConfig
+        {
+            MaxLevels = 2,
+            LevelNames = new List<string> { "Цех", "Линия" }
+        });
+
+        Assert.True(controller.CanAddNode(root));
+    }
+
+    private static KnowledgeBaseTreeController CreateController(KnowledgeBaseSessionService session)
+        => new(session);
+
+    private static KnowledgeBaseSessionService CreateSession(
         Dictionary<string, List<KbNode>> workshops,
         int maxLevels)
     {
-        return new KnowledgeBaseTreeController(
-            new KbConfig
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(
+            new SavedData
             {
-                MaxLevels = maxLevels,
-                LevelNames = new List<string>()
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = new KbConfig
+                {
+                    MaxLevels = maxLevels,
+                    LevelNames = new List<string>()
+                },
+                Workshops = workshops,
+                LastWorkshop = workshops.Keys.FirstOrDefault() ?? string.Empty
             },
-            workshops);
+            recordAsSavedState: true);
+        return session;
     }
 }

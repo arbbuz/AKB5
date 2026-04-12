@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using AsutpKnowledgeBase.Models;
 
 namespace AsutpKnowledgeBase.Services
@@ -9,24 +8,16 @@ namespace AsutpKnowledgeBase.Services
     /// </summary>
     public class KnowledgeBaseTreeController
     {
-        private KbConfig _config;
-        private Dictionary<string, List<KbNode>> _workshops;
+        private readonly KnowledgeBaseSessionService _session;
 
-        public KnowledgeBaseTreeController(KbConfig config, Dictionary<string, List<KbNode>> workshops)
+        public KnowledgeBaseTreeController(KnowledgeBaseSessionService session)
         {
-            _config = config;
-            _workshops = workshops;
+            _session = session;
         }
 
         public bool HasClipboardNode => ClipboardNode != null;
 
         public KbNode? ClipboardNode { get; private set; }
-
-        public void Bind(KbConfig config, Dictionary<string, List<KbNode>> workshops)
-        {
-            _config = config;
-            _workshops = workshops;
-        }
 
         public void ClearClipboard() => ClipboardNode = null;
 
@@ -93,6 +84,6 @@ namespace AsutpKnowledgeBase.Services
             return true;
         }
 
-        private KnowledgeBaseService CreateKnowledgeBaseService() => new(_config, _workshops);
+        private KnowledgeBaseService CreateKnowledgeBaseService() => new(_session.Config, _session.Workshops);
     }
 }

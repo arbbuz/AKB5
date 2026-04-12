@@ -26,6 +26,8 @@ namespace AsutpKnowledgeBase.Services
 
         public string? PrimaryErrorMessage { get; init; }
 
+        public KnowledgeBaseSessionViewState? ViewState { get; init; }
+
         public bool IsSuccess =>
             Outcome == KnowledgeBaseFileLoadOutcome.LoadedExisting ||
             Outcome == KnowledgeBaseFileLoadOutcome.LoadedBackup ||
@@ -39,6 +41,8 @@ namespace AsutpKnowledgeBase.Services
         public bool IsSuccess { get; init; }
 
         public string? ErrorMessage { get; init; }
+
+        public KnowledgeBaseSessionViewState? ViewState { get; init; }
     }
 
     /// <summary>
@@ -48,6 +52,7 @@ namespace AsutpKnowledgeBase.Services
     public class KnowledgeBaseFileWorkflowService
     {
         private readonly KnowledgeBaseSessionService _session;
+        private readonly KnowledgeBaseSessionWorkflowService _sessionWorkflowService;
         private readonly JsonStorageService _storage;
 
         public KnowledgeBaseFileWorkflowService(
@@ -55,6 +60,7 @@ namespace AsutpKnowledgeBase.Services
             JsonStorageService storage)
         {
             _session = session;
+            _sessionWorkflowService = new KnowledgeBaseSessionWorkflowService(session);
             _storage = storage;
         }
 
@@ -90,7 +96,8 @@ namespace AsutpKnowledgeBase.Services
                         ? KnowledgeBaseFileLoadOutcome.CreatedDefaultAndSaved
                         : KnowledgeBaseFileLoadOutcome.CreatedDefaultUnsaved,
                     SourcePath = SavePath,
-                    ErrorMessage = saveResult.ErrorMessage
+                    ErrorMessage = saveResult.ErrorMessage,
+                    ViewState = BuildViewState()
                 };
             }
 
@@ -118,7 +125,8 @@ namespace AsutpKnowledgeBase.Services
                     SourcePath = loadResult.SourcePath,
                     BackupPath = loadResult.BackupPath,
                     ErrorMessage = loadResult.ErrorMessage,
-                    PrimaryErrorMessage = loadResult.PrimaryErrorMessage
+                    PrimaryErrorMessage = loadResult.PrimaryErrorMessage,
+                    ViewState = BuildViewState()
                 };
             }
 
@@ -133,7 +141,8 @@ namespace AsutpKnowledgeBase.Services
                 SourcePath = loadResult.SourcePath,
                 BackupPath = loadResult.BackupPath,
                 ErrorMessage = loadResult.ErrorMessage,
-                PrimaryErrorMessage = loadResult.PrimaryErrorMessage
+                PrimaryErrorMessage = loadResult.PrimaryErrorMessage,
+                ViewState = BuildViewState()
             };
         }
 
@@ -171,7 +180,11 @@ namespace AsutpKnowledgeBase.Services
             if (_storage.Save(normalizedData, out var errorMessage))
             {
                 _session.ApplyLoadedData(normalizedData, recordAsSavedState: true);
-                return new KnowledgeBaseFileSaveResult { IsSuccess = true };
+                return new KnowledgeBaseFileSaveResult
+                {
+                    IsSuccess = true,
+                    ViewState = BuildViewState()
+                };
             }
 
             return new KnowledgeBaseFileSaveResult
@@ -180,5 +193,8 @@ namespace AsutpKnowledgeBase.Services
                 ErrorMessage = errorMessage
             };
         }
+
+        private KnowledgeBaseSessionViewState BuildViewState() =>
+            _sessionWorkflowService.BuildViewState();
     }
 }

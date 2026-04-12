@@ -37,14 +37,11 @@ namespace AsutpKnowledgeBase.UiServices
     public class KnowledgeBaseTreeMutationUiWorkflowService
     {
         private readonly KnowledgeBaseTreeMutationWorkflowService _treeMutationWorkflowService;
-        private readonly KnowledgeBaseSessionWorkflowService _sessionWorkflowService;
 
         public KnowledgeBaseTreeMutationUiWorkflowService(
-            KnowledgeBaseTreeMutationWorkflowService treeMutationWorkflowService,
-            KnowledgeBaseSessionWorkflowService sessionWorkflowService)
+            KnowledgeBaseTreeMutationWorkflowService treeMutationWorkflowService)
         {
             _treeMutationWorkflowService = treeMutationWorkflowService;
-            _sessionWorkflowService = sessionWorkflowService;
         }
 
         public void AddNode(KnowledgeBaseTreeMutationUiWorkflowContext context)
@@ -230,7 +227,7 @@ namespace AsutpKnowledgeBase.UiServices
             ISet<KbNode> expandedNodes)
         {
             context.ApplySessionView(
-                _sessionWorkflowService.BuildViewState(),
+                result.ViewState,
                 false,
                 nodeToSelect,
                 expandedNodes);

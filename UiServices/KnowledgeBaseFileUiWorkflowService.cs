@@ -30,7 +30,9 @@ namespace AsutpKnowledgeBase.UiServices
 
         public Func<KnowledgeBaseFileUiState> GetUiState { get; init; } = null!;
 
-        public Action OnSuccessfulLoad { get; init; } = null!;
+        public Action ResetTransientUiStateAfterLoad { get; init; } = null!;
+
+        public Action<KnowledgeBaseSessionViewState> ApplyLoadedSessionView { get; init; } = null!;
 
         public Action UpdateUi { get; init; } = null!;
 
@@ -58,7 +60,7 @@ namespace AsutpKnowledgeBase.UiServices
 
         public string CurrentDataFileName => Path.GetFileName(CurrentDataPath);
 
-        public bool LoadData(
+        public KnowledgeBaseFileLoadResult LoadData(
             KnowledgeBaseFileUiWorkflowContext context,
             bool createDefaultIfMissing = true,
             bool fallbackToDefaultOnError = true)
@@ -76,7 +78,7 @@ namespace AsutpKnowledgeBase.UiServices
                         MessageBoxIcon.Warning);
                     context.UpdateUi();
                     context.SetStatusText("⚠️ Файл базы не найден");
-                    return false;
+                    return result;
 
                 case KnowledgeBaseFileLoadOutcome.LoadError:
                     MessageBox.Show(
@@ -87,10 +89,10 @@ namespace AsutpKnowledgeBase.UiServices
                         MessageBoxIcon.Error);
                     context.UpdateUi();
                     context.SetStatusText("❌ Ошибка загрузки базы");
-                    return false;
+                    return result;
 
                 case KnowledgeBaseFileLoadOutcome.CreatedDefaultAfterError:
-                    HandleSuccessfulLoad(context);
+                    HandleSuccessfulLoad(context, RequireViewState(result.ViewState));
                     MessageBox.Show(
                         context.Owner,
                         BuildLoadFailureMessage(result),
@@ -98,15 +100,15 @@ namespace AsutpKnowledgeBase.UiServices
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
                     context.SetStatusText("⚠️ Загружена пустая база из-за ошибки чтения");
-                    return true;
+                    return result;
 
                 case KnowledgeBaseFileLoadOutcome.CreatedDefaultAndSaved:
-                    HandleSuccessfulLoad(context);
+                    HandleSuccessfulLoad(context, RequireViewState(result.ViewState));
                     context.SetStatusText("🆕 Создана новая база данных");
-                    return true;
+                    return result;
 
                 case KnowledgeBaseFileLoadOutcome.CreatedDefaultUnsaved:
-                    HandleSuccessfulLoad(context);
+                    HandleSuccessfulLoad(context, RequireViewState(result.ViewState));
                     context.SetStatusText("⚠️ База создана в памяти, но не сохранена на диск");
                     if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
                     {
@@ -118,10 +120,10 @@ namespace AsutpKnowledgeBase.UiServices
                             MessageBoxIcon.Error);
                     }
 
-                    return true;
+                    return result;
 
                 case KnowledgeBaseFileLoadOutcome.LoadedBackup:
-                    HandleSuccessfulLoad(context);
+                    HandleSuccessfulLoad(context, RequireViewState(result.ViewState));
                     MessageBox.Show(
                         context.Owner,
                         BuildBackupLoadMessage(result),
@@ -129,15 +131,16 @@ namespace AsutpKnowledgeBase.UiServices
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
                     context.SetStatusText($"⚠️ Загружена резервная копия: {Path.GetFileName(result.SourcePath)}");
-                    return true;
+                    return result;
 
                 case KnowledgeBaseFileLoadOutcome.LoadedExisting:
-                    HandleSuccessfulLoad(context);
-                    context.SetStatusText($"📂 Загружен цех: {context.GetUiState().CurrentWorkshop}");
-                    return true;
+                    var viewState = RequireViewState(result.ViewState);
+                    HandleSuccessfulLoad(context, viewState);
+                    context.SetStatusText($"📂 Загружен цех: {viewState.CurrentWorkshop}");
+                    return result;
 
                 default:
-                    return false;
+                    return result;
             }
         }
 
@@ -159,7 +162,8 @@ namespace AsutpKnowledgeBase.UiServices
             string previousPath = CurrentDataPath;
             _fileWorkflowService.SavePath = dialog.FileName;
 
-            if (!LoadData(context, createDefaultIfMissing: false, fallbackToDefaultOnError: false))
+            var loadResult = LoadData(context, createDefaultIfMissing: false, fallbackToDefaultOnError: false);
+            if (!loadResult.IsSuccess)
             {
                 _fileWorkflowService.SavePath = previousPath;
                 context.UpdateUi();
@@ -171,7 +175,9 @@ namespace AsutpKnowledgeBase.UiServices
             if (!ConfirmContinueWithUnsavedChanges(context, "перезагрузкой базы из файла"))
                 return;
 
-            LoadData(context);
+            var loadResult = LoadData(context, createDefaultIfMissing: false, fallbackToDefaultOnError: false);
+            if (loadResult.IsSuccess)
+                context.SetStatusText(BuildReloadSuccessMessage(RequireViewState(loadResult.ViewState)));
         }
 
         public void SaveCurrentDatabase(KnowledgeBaseFileUiWorkflowContext context)
@@ -216,7 +222,7 @@ namespace AsutpKnowledgeBase.UiServices
         {
             var result = _fileWorkflowService.ReplaceAllData(data);
             if (result.IsSuccess)
-                HandleSuccessfulLoad(context);
+                HandleSuccessfulLoad(context, RequireViewState(result.ViewState));
 
             return result;
         }
@@ -258,9 +264,12 @@ namespace AsutpKnowledgeBase.UiServices
             }
         }
 
-        private void HandleSuccessfulLoad(KnowledgeBaseFileUiWorkflowContext context)
+        private void HandleSuccessfulLoad(
+            KnowledgeBaseFileUiWorkflowContext context,
+            KnowledgeBaseSessionViewState viewState)
         {
-            context.OnSuccessfulLoad();
+            context.ResetTransientUiStateAfterLoad();
+            context.ApplyLoadedSessionView(viewState);
             context.UpdateUi();
         }
 
@@ -356,6 +365,29 @@ namespace AsutpKnowledgeBase.UiServices
             return
                 $"Основной файл '{CurrentDataPath}' не удалось прочитать: {loadResult.PrimaryErrorMessage}\n" +
                 $"Загружена резервная копия '{loadResult.SourcePath}'. После проверки данных сохраните базу заново.";
+        }
+
+        private string BuildReloadSuccessMessage(KnowledgeBaseSessionViewState viewState)
+        {
+            int totalNodes = CountNodes(viewState.CurrentRoots);
+
+            return
+                $"Файл перечитан с диска: {CurrentDataFileName} | " +
+                $"Цех: {viewState.CurrentWorkshop} | " +
+                $"Узлов: {totalNodes}";
+        }
+
+        private static KnowledgeBaseSessionViewState RequireViewState(KnowledgeBaseSessionViewState? viewState) =>
+            viewState ?? throw new InvalidOperationException(
+                "Successful file workflow result must contain session ViewState.");
+
+        private static int CountNodes(IEnumerable<KbNode> nodes)
+        {
+            int count = 0;
+            foreach (var node in nodes)
+                count += 1 + CountNodes(node.Children);
+
+            return count;
         }
     }
 }

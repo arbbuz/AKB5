@@ -20,11 +20,46 @@ public class KnowledgeBaseFileWorkflowServiceTests
             var result = workflow.Load();
 
             Assert.Equal(KnowledgeBaseFileLoadOutcome.CreatedDefaultAndSaved, result.Outcome);
+            Assert.NotNull(result.ViewState);
+            Assert.Equal("Новый цех", result.ViewState!.CurrentWorkshop);
+            Assert.Equal(new[] { "Новый цех" }, result.ViewState.WorkshopNames);
+            Assert.Empty(result.ViewState.CurrentRoots);
             Assert.True(File.Exists(path));
             Assert.Equal("Новый цех", session.CurrentWorkshop);
             Assert.Equal("Новый цех", session.LastSavedWorkshop);
             Assert.False(session.IsDirty);
             Assert.False(session.RequiresSave);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Load_WhenExistingFileLoaded_ReturnsViewStateWithCurrentWorkshopAndRoots()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "kb.json");
+            var storage = new JsonStorageService(path);
+            var sample = CreateSampleData(lastWorkshop: "Цех 1");
+
+            Assert.True(storage.Save(sample, out _));
+
+            var session = new KnowledgeBaseSessionService();
+            var workflow = new KnowledgeBaseFileWorkflowService(session, storage);
+
+            var result = workflow.Load(createDefaultIfMissing: false, fallbackToDefaultOnError: false);
+
+            Assert.Equal(KnowledgeBaseFileLoadOutcome.LoadedExisting, result.Outcome);
+            Assert.NotNull(result.ViewState);
+            Assert.Equal("Цех 1", result.ViewState!.CurrentWorkshop);
+            Assert.Equal(new[] { "Цех 1", "Цех 2" }, result.ViewState.WorkshopNames);
+            Assert.Single(result.ViewState.CurrentRoots);
+            Assert.Equal("Линия 1", result.ViewState.CurrentRoots[0].Name);
         }
         finally
         {
@@ -139,26 +174,55 @@ public class KnowledgeBaseFileWorkflowServiceTests
 
             Assert.Equal(KnowledgeBaseFileLoadOutcome.CreatedDefaultAndSaved, workflow.Load().Outcome);
 
-            var importedData = CreateSampleData(lastWorkshop: "Цех 2");
-            importedData.Workshops["Цех 2"].Add(new KbNode
+            var importedData = new SavedData
             {
-                Name = "Импортированный корень",
-                LevelIndex = 0
-            });
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = new KbConfig
+                {
+                    MaxLevels = 3,
+                    LevelNames = new List<string> { " Цех ", "Линия", "Щит" }
+                },
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["  Цех 2  "] = new List<KbNode>
+                    {
+                        new()
+                        {
+                            Name = "Импортированный корень",
+                            LevelIndex = 0
+                        }
+                    },
+                    ["   "] = new List<KbNode>
+                    {
+                        new()
+                        {
+                            Name = "Игнорируемый корень",
+                            LevelIndex = 0
+                        }
+                    }
+                },
+                LastWorkshop = "  Цех 2  "
+            };
 
             var result = workflow.ReplaceAllData(importedData);
 
             Assert.True(result.IsSuccess);
+            Assert.NotNull(result.ViewState);
             Assert.Equal("Цех 2", session.CurrentWorkshop);
             Assert.Equal("Цех 2", session.LastSavedWorkshop);
             Assert.False(session.IsDirty);
             Assert.False(session.RequiresSave);
+            Assert.Equal("Цех 2", result.ViewState!.CurrentWorkshop);
+            Assert.Equal(new[] { "Цех 2" }, result.ViewState.WorkshopNames);
+            Assert.Single(result.ViewState.CurrentRoots);
+            Assert.Equal("Импортированный корень", result.ViewState.CurrentRoots[0].Name);
             Assert.Equal("Импортированный корень", session.Workshops["Цех 2"].Single().Name);
 
             string json = File.ReadAllText(path);
             var saved = JsonSerializer.Deserialize<SavedData>(json);
             Assert.NotNull(saved);
             Assert.Equal("Цех 2", saved!.LastWorkshop);
+            Assert.Equal(new[] { "Цех 2" }, saved.Workshops.Keys);
             Assert.Equal("Импортированный корень", saved.Workshops["Цех 2"].Single().Name);
             Assert.True(File.Exists($"{path}.bak"));
         }
