@@ -1,110 +1,93 @@
 # Current objective
 
-- Workbook `v3` является единственным поддерживаемым Excel exchange-форматом.
-- Publish/deployment flow должен оставаться воспроизводимым и завязанным на root-проект `asutpKB.csproj`.
-- Поддерживаемый publish target только один: `win-x64`.
-- CI должен сохранять текущий `build-and-test` path и публиковать отдельный `win-x64` artifact.
+- Выполнить первый UX-pass по главному WinForms-приложению без архитектурного rewrite и без выноса node-операций на toolbar.
+- Закрытый scope этого прохода: strict reload из JSON, разделение persistent status и transient action feedback, видимый session/file context, карточка выбранного узла, поиск по `Name/Path/LevelName`, user-friendly hardening Excel workbook `v3`.
+- JSON остаётся source of truth; Excel exchange-format остаётся только `workbook v3`.
 
 # Current repo state
 
-- `src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj` содержит `PackageReference` на `DocumentFormat.OpenXml`.
-- Excel export/import работает через `KnowledgeBaseXlsxWriter`, `KnowledgeBaseXlsxReader` и `KnowledgeBaseExcelWorkbookParser`.
-- `WorkbookFormatVersion = 3` зафиксирована в `KnowledgeBaseExcelExchangeService`; import `v1/v2` больше не поддерживается.
-- Workbook contract:
-  - `Meta`
-  - `Levels`
-  - `Workshops`
-  - один nodes sheet на каждый цех
-- В repo добавлены:
-  - `scripts/publish.ps1`
-  - `scripts/publish.cmd`
-  - `docs/workbook-v3.md`
-  - `docs/deployment.md`
-- `.github/workflows/windows-build.yml` теперь содержит:
-  - `build-and-test`
-  - `publish-win-x64`
+- `Forms/MainForm.cs`, `Forms/MainForm.Layout.cs`, `Forms/MainForm.Events.cs`, `Forms/MainForm.WorkflowContexts.cs` переключены на multi-zone UX:
+  - отдельные persistent зоны `session` / `selection`
+  - отдельный last-action feedback с timestamp в `StatusStrip`
+  - видимый session block в правой панели: имя файла, полный путь, save-state, текущий цех
+  - read-only карточка `Выбранный узел`
+- Reload menu renamed to `Обновить из файла`; `UiServices/KnowledgeBaseFileUiWorkflowService.cs` делает strict reload с `createDefaultIfMissing=false` и `fallbackToDefaultOnError=false`, не подменяет текущую session-state при ошибке и пишет non-modal success feedback в last-action зону.
+- `Services/KnowledgeBaseFormStateService.cs` теперь строит richer form state для session/selection display; добавлен helper `Services/KnowledgeBaseNodePresentationService.cs`.
+- `UiServices/KnowledgeBaseTreeViewService.cs` больше не ищет только по `TreeNode.Text`; поиск делегирован в `Services/KnowledgeBaseTreeSearchService.cs` и поддерживает `имя узла`, `полный путь`, `имя уровня` с более информативным status text.
+- `Services/KnowledgeBaseXlsxWriter.cs` экспортирует workbook `v3` с доп. листом `Инструкция`, freeze panes, column widths, hidden technical columns, sheet protection и разблокировкой только editable-полей по текущему контракту.
+- Import/parser contract в `Services/KnowledgeBaseExcelWorkbookParser.cs` и `Services/KnowledgeBaseXlsxReader.cs` не менялся; backward-compatible import существующих `v3` workbook остаётся в силе.
 
 # Decisions already made
 
-- Publish идёт только из `asutpKB.csproj`, не из core project.
-- Publish target только `win-x64`; `arm64` / `win-arm64` не добавляются.
-- `SelfContained` и `PublishSingleFile` не включаются глобально для обычного build/debug.
-- Trimming и AOT не включаются.
-- Publish output directory: `artifacts/publish/win-x64`.
-- Expected executable: `artifacts/publish/win-x64/asutpKB.exe`.
+- Никаких rewrite в MVP/MVVM/MAUI/WPF не делалось.
+- Node-операции `Add/Rename/Delete/Copy/Paste` не вынесены на toolbar; сохранена философия `минимальный toolbar + context menu + hotkeys`.
+- WinForms-specific orchestration оставлена в `Forms/` и `UiServices/`; testable presentation/search logic вынесена в `Services/`.
+- Reload intentionally strict: при `reload` нельзя тихо создать новую пустую базу и нельзя тихо fallback'нуться на default-data.
+- Excel hardening не создаёт новый формат `v4`: extra sheet `Инструкция`, hidden columns и protection живут внутри существующего `v3`.
 
 # Files already relevant to the task
 
-- `asutpKB.csproj`
-- `.github/workflows/windows-build.yml`
-- `README.md`
-- `docs/workbook-v3.md`
-- `docs/deployment.md`
-- `scripts/publish.ps1`
-- `scripts/publish.cmd`
-- `Services/KnowledgeBaseExcelExchangeService.cs`
+- `Forms/MainForm.cs`
+- `Forms/MainForm.Layout.cs`
+- `Forms/MainForm.Events.cs`
+- `Forms/MainForm.WorkflowContexts.cs`
+- `UiServices/KnowledgeBaseFileUiWorkflowService.cs`
+- `UiServices/KnowledgeBaseTreeViewService.cs`
+- `UiServices/KnowledgeBaseExcelUiWorkflowService.cs`
+- `Services/KnowledgeBaseFormStateService.cs`
+- `Services/KnowledgeBaseNodePresentationService.cs`
+- `Services/KnowledgeBaseTreeSearchService.cs`
 - `Services/KnowledgeBaseXlsxWriter.cs`
+- `Services/KnowledgeBaseExcelExchangeService.cs`
 - `Services/KnowledgeBaseXlsxReader.cs`
 - `Services/KnowledgeBaseExcelWorkbookParser.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseFormStateServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseTreeSearchServiceTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseExcelExchangeServiceTests.cs`
 
 # Validation performed in this session
 
-Локальный SDK:
+Среда:
 
-- `/Users/home/.dotnet/dotnet`
-- `.NET SDK 8.0.419`
-- host RID `osx-arm64`
+- `dotnet` по-прежнему отсутствует в `PATH`
+- фактически использовался `/Users/home/.dotnet/dotnet`
+- локальная среда: `macOS arm64`
 
-Фактически выполнены и завершились успешно:
+Фактически выполнены:
 
-- `dotnet restore asutpKB.csproj`
-- `dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj`
-- `dotnet build asutpKB.csproj -c Release --no-restore`
-- `dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-build`
-- `dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/publish/win-x64`
+- `/Users/home/.dotnet/dotnet restore asutpKB.csproj`
+- `/Users/home/.dotnet/dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj`
+- `/Users/home/.dotnet/dotnet build asutpKB.csproj --configuration Release --no-restore`
+- `/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore`
 
 Observed results:
 
-- build: success, `0` warnings, `0` errors
-- test: success, `82` passed, `0` failed
-- publish: success, output created in `artifacts/publish/win-x64`
-- published executable verified:
-  - `artifacts/publish/win-x64/asutpKB.exe`
-  - `file` reports `PE32+ executable (GUI) x86-64, for MS Windows`
-
-Observed publish output files:
-
-- `asutpKB.exe`
-- `asutpKB.pdb`
-- `AsutpKnowledgeBase.Core.pdb`
-- `D3DCompiler_47_cor3.dll`
-- `PenImc_cor3.dll`
-- `PresentationNative_cor3.dll`
-- `vcruntime140_cor3.dll`
-- `wpfgfx_cor3.dll`
+- `build`: success, `0` warnings, `0` errors
+- `test`: success, `89` passed, `0` failed
 
 # Known risks / open questions
 
-- Реальный Windows GUI smoke-check и реальный Excel round-trip в этой сессии не выполнялись.
-- Текущая среда — `macOS arm64`; опубликованный артефакт является Windows `PE32+` executable, поэтому локально здесь нельзя подтвердить фактический запуск `asutpKB.exe` и взаимодействие с Excel GUI.
-- Publish output остаётся single-file для managed app payload, но рядом с `exe` присутствуют native desktop/runtime binaries и PDB-файлы; при распространении пользователю нужно переносить всю publish-папку.
+- Реальный Windows GUI smoke-check не выполнялся: layout/status-strip/read-only card/reload UX подтверждены только build + unit tests.
+- Реальный Excel smoke-check в Windows + Excel не выполнялся: не проверялись вручную visual appearance, sheet protection UX, сохранение и обратный import после правок пользователем.
+- `Save` / `Import` / `Export` по-прежнему используют success MessageBox; non-modal feedback гарантирован только для normal reload, как и требовалось в этой задаче.
+- Новые right-panel блоки не проверялись на разных DPI/scale режимах Windows.
 
 # Recommended next step
 
-- Запустить `artifacts/publish/win-x64/asutpKB.exe` на реальном `Windows x64` ПК.
-- Открыть sample data.
-- Выполнить export workbook `v3`.
-- В Excel переименовать уровень, цех и один узел, затем сохранить workbook.
-- Импортировать workbook обратно и подтвердить структуру дерева и корректный selected workshop.
+- На Windows вручную пройти happy/fail UX сценарии:
+  - `reload` при успешном чтении, при missing file и при broken JSON
+  - переключение цехов + selected-node card
+  - поиск по path fragment и level name
+  - export workbook, открыть его в Excel, попробовать редактировать только allowed fields, затем импортировать обратно
+- Если smoke-check зелёный, следующим небольшим шагом можно отдельно улучшить actionable UI-текст Excel import ошибок без переписывания parser'а.
 
 # Commands to run before finishing future implementation work
 
 ```bash
 git status --short
+git diff --check
 /Users/home/.dotnet/dotnet restore asutpKB.csproj
 /Users/home/.dotnet/dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj
-/Users/home/.dotnet/dotnet build asutpKB.csproj -c Release --no-restore
-/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-build
-/Users/home/.dotnet/dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/publish/win-x64
+/Users/home/.dotnet/dotnet build asutpKB.csproj --configuration Release --no-restore
+/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore
 ```

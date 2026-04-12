@@ -12,11 +12,18 @@ namespace AsutpKnowledgeBase.Services
 {
     internal sealed class KnowledgeBaseXlsxWriter
     {
+        private const string InstructionsSheetName = "Инструкция";
         private const string MetaSheetName = "Meta";
         private const string LevelsSheetName = "Levels";
         private const string WorkshopsSheetName = "Workshops";
         private const string WorkshopNodesSheetKind = "WorkshopNodes";
         private const int MaxWorksheetNameLength = 31;
+
+        private const uint DefaultLockedStyleIndex = 0;
+        private const uint HeaderStyleIndex = 1;
+        private const uint EditableStyleIndex = 2;
+        private const uint ReadOnlyStyleIndex = 3;
+        private const uint WrappedReadOnlyStyleIndex = 4;
 
         private static readonly char[] InvalidWorksheetNameCharacters = { ':', '\\', '/', '?', '*', '[', ']' };
 
@@ -33,28 +40,41 @@ namespace AsutpKnowledgeBase.Services
             int nextNodeId = 1;
             var worksheets = new List<WorksheetDefinition>
             {
+                BuildInstructionsWorksheet(),
                 new(
                     MetaSheetName,
                     BuildTabularRows(
                         headers: new[] { "Property", "Value" },
-                        rows: BuildMetaRows(data.SchemaVersion, lastWorkshop, lastWorkshopId))),
+                        rows: BuildMetaRows(data.SchemaVersion, lastWorkshop, lastWorkshopId)),
+                    BuildMetaColumns(),
+                    1,
+                    true),
                 new(
                     LevelsSheetName,
                     BuildTabularRows(
                         headers: new[] { "LevelIndex", "LevelName" },
-                        rows: BuildLevelRows(normalizedConfig))),
+                        rows: BuildLevelRows(normalizedConfig)),
+                    BuildLevelColumns(),
+                    1,
+                    true),
                 new(
                     WorkshopsSheetName,
                     BuildTabularRows(
                         headers: new[] { "WorkshopOrder", "WorkshopId", "WorkshopName", "IsLastSelected", "NodesSheetKey" },
-                        rows: BuildWorkshopRows(workshopExports)))
+                        rows: BuildWorkshopRows(workshopExports)),
+                    BuildWorkshopColumns(),
+                    1,
+                    true)
             };
 
             foreach (var workshop in workshopExports)
             {
                 worksheets.Add(new WorksheetDefinition(
                     workshop.SheetTabName,
-                    BuildWorkshopNodesSheetRows(normalizedConfig, workshop, ref nextNodeId)));
+                    BuildWorkshopNodesSheetRows(normalizedConfig, workshop, ref nextNodeId),
+                    BuildWorkshopNodeColumns(),
+                    6,
+                    true));
             }
 
             using var stream = new MemoryStream();
@@ -62,13 +82,18 @@ namespace AsutpKnowledgeBase.Services
             {
                 var workbookPart = document.AddWorkbookPart();
                 workbookPart.Workbook = new Workbook();
+
+                var stylesPart = workbookPart.AddNewPart<WorkbookStylesPart>();
+                stylesPart.Stylesheet = BuildStylesheet();
+                stylesPart.Stylesheet.Save();
+
                 var sheets = workbookPart.Workbook.AppendChild(new Sheets());
                 uint sheetId = 1;
 
                 foreach (var worksheetDefinition in worksheets)
                 {
                     var worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
-                    worksheetPart.Worksheet = BuildWorksheet(worksheetDefinition.Rows);
+                    worksheetPart.Worksheet = BuildWorksheet(worksheetDefinition);
                     worksheetPart.Worksheet.Save();
 
                     sheets.Append(new Sheet
@@ -85,6 +110,20 @@ namespace AsutpKnowledgeBase.Services
             }
 
             return stream.ToArray();
+        }
+
+        private static WorksheetDefinition BuildInstructionsWorksheet()
+        {
+            var rows = BuildTabularRows(
+                headers: new[] { "Раздел", "Инструкция" },
+                rows: BuildInstructionsRows());
+
+            return new WorksheetDefinition(
+                InstructionsSheetName,
+                rows,
+                BuildInstructionsColumns(),
+                1,
+                true);
         }
 
         private static IReadOnlyList<WorkshopExportRow> BuildWorkshopExports(
@@ -111,36 +150,45 @@ namespace AsutpKnowledgeBase.Services
             return rows;
         }
 
+        private static IEnumerable<IReadOnlyList<WorksheetCell>> BuildInstructionsRows()
+        {
+            yield return new[]
+            {
+                WorksheetCell.String("Workbook v3", ReadOnlyStyleIndex),
+                WorksheetCell.String("Этот workbook нужен для ручной правки обменного формата. JSON остаётся основным source of truth.", WrappedReadOnlyStyleIndex)
+            };
+            yield return new[]
+            {
+                WorksheetCell.String("Можно редактировать", ReadOnlyStyleIndex),
+                WorksheetCell.String("Levels.LevelName, Workshops.WorkshopName, Workshops.IsLastSelected и Nodes.NodeName.", WrappedReadOnlyStyleIndex)
+            };
+            yield return new[]
+            {
+                WorksheetCell.String("Скрытые техполя", ReadOnlyStyleIndex),
+                WorksheetCell.String("WorkshopOrder, WorkshopId, NodesSheetKey, NodeId, ParentNodeId, SiblingOrder и LevelIndex скрыты и защищены от случайной правки.", WrappedReadOnlyStyleIndex)
+            };
+            yield return new[]
+            {
+                WorksheetCell.String("Read-only колонки", ReadOnlyStyleIndex),
+                WorksheetCell.String("Meta.*, Nodes.LevelName и Nodes.Path нужны для контекста и не редактируются.", WrappedReadOnlyStyleIndex)
+            };
+            yield return new[]
+            {
+                WorksheetCell.String("Не ломайте структуру", ReadOnlyStyleIndex),
+                WorksheetCell.String("Не удаляйте обязательные листы и заголовки, не меняйте FormatId/FormatVersion и связи WorkshopId / NodesSheetKey.", WrappedReadOnlyStyleIndex)
+            };
+        }
+
         private static IEnumerable<IReadOnlyList<WorksheetCell>> BuildMetaRows(
             int schemaVersion,
             string lastWorkshop,
             string lastWorkshopId)
         {
-            yield return new[]
-            {
-                WorksheetCell.String("FormatId"),
-                WorksheetCell.String(KnowledgeBaseExcelExchangeService.WorkbookFormatId)
-            };
-            yield return new[]
-            {
-                WorksheetCell.String("FormatVersion"),
-                WorksheetCell.Number(KnowledgeBaseExcelExchangeService.WorkbookFormatVersion)
-            };
-            yield return new[]
-            {
-                WorksheetCell.String("SchemaVersion"),
-                WorksheetCell.Number(schemaVersion)
-            };
-            yield return new[]
-            {
-                WorksheetCell.String("LastWorkshopId"),
-                WorksheetCell.String(lastWorkshopId)
-            };
-            yield return new[]
-            {
-                WorksheetCell.String("LastWorkshop"),
-                WorksheetCell.String(lastWorkshop)
-            };
+            yield return BuildReadOnlyPair("FormatId", KnowledgeBaseExcelExchangeService.WorkbookFormatId);
+            yield return BuildReadOnlyPair("FormatVersion", KnowledgeBaseExcelExchangeService.WorkbookFormatVersion.ToString(CultureInfo.InvariantCulture));
+            yield return BuildReadOnlyPair("SchemaVersion", schemaVersion.ToString(CultureInfo.InvariantCulture));
+            yield return BuildReadOnlyPair("LastWorkshopId", lastWorkshopId);
+            yield return BuildReadOnlyPair("LastWorkshop", lastWorkshop);
         }
 
         private static IEnumerable<IReadOnlyList<WorksheetCell>> BuildLevelRows(KbConfig config)
@@ -149,8 +197,8 @@ namespace AsutpKnowledgeBase.Services
             {
                 yield return new[]
                 {
-                    WorksheetCell.Number(index),
-                    WorksheetCell.String(config.LevelNames[index])
+                    WorksheetCell.Number(index, ReadOnlyStyleIndex),
+                    WorksheetCell.String(config.LevelNames[index], EditableStyleIndex)
                 };
             }
         }
@@ -162,11 +210,11 @@ namespace AsutpKnowledgeBase.Services
             {
                 yield return new[]
                 {
-                    WorksheetCell.Number(workshop.WorkshopOrder),
-                    WorksheetCell.String(workshop.WorkshopId),
-                    WorksheetCell.String(workshop.WorkshopName),
-                    WorksheetCell.Boolean(workshop.IsLastSelected),
-                    WorksheetCell.String(workshop.NodesSheetKey)
+                    WorksheetCell.Number(workshop.WorkshopOrder, ReadOnlyStyleIndex),
+                    WorksheetCell.String(workshop.WorkshopId, ReadOnlyStyleIndex),
+                    WorksheetCell.String(workshop.WorkshopName, EditableStyleIndex),
+                    WorksheetCell.Boolean(workshop.IsLastSelected, EditableStyleIndex),
+                    WorksheetCell.String(workshop.NodesSheetKey, ReadOnlyStyleIndex)
                 };
             }
         }
@@ -180,34 +228,22 @@ namespace AsutpKnowledgeBase.Services
             {
                 new[]
                 {
-                    WorksheetCell.String("Property"),
-                    WorksheetCell.String("Value")
+                    WorksheetCell.String("Property", HeaderStyleIndex),
+                    WorksheetCell.String("Value", HeaderStyleIndex)
                 },
-                new[]
-                {
-                    WorksheetCell.String("SheetKind"),
-                    WorksheetCell.String(WorkshopNodesSheetKind)
-                },
-                new[]
-                {
-                    WorksheetCell.String("WorkshopId"),
-                    WorksheetCell.String(workshop.WorkshopId)
-                },
-                new[]
-                {
-                    WorksheetCell.String("NodesSheetKey"),
-                    WorksheetCell.String(workshop.NodesSheetKey)
-                },
+                BuildReadOnlyPair("SheetKind", WorkshopNodesSheetKind),
+                BuildReadOnlyPair("WorkshopId", workshop.WorkshopId),
+                BuildReadOnlyPair("NodesSheetKey", workshop.NodesSheetKey),
                 Array.Empty<WorksheetCell>(),
                 new[]
                 {
-                    WorksheetCell.String("NodeId"),
-                    WorksheetCell.String("ParentNodeId"),
-                    WorksheetCell.String("SiblingOrder"),
-                    WorksheetCell.String("LevelIndex"),
-                    WorksheetCell.String("LevelName"),
-                    WorksheetCell.String("NodeName"),
-                    WorksheetCell.String("Path")
+                    WorksheetCell.String("NodeId", HeaderStyleIndex),
+                    WorksheetCell.String("ParentNodeId", HeaderStyleIndex),
+                    WorksheetCell.String("SiblingOrder", HeaderStyleIndex),
+                    WorksheetCell.String("LevelIndex", HeaderStyleIndex),
+                    WorksheetCell.String("LevelName", HeaderStyleIndex),
+                    WorksheetCell.String("NodeName", HeaderStyleIndex),
+                    WorksheetCell.String("Path", HeaderStyleIndex)
                 }
             };
 
@@ -240,13 +276,15 @@ namespace AsutpKnowledgeBase.Services
 
             rows.Add(new[]
             {
-                WorksheetCell.Number(nodeId),
-                parentNodeId.HasValue ? WorksheetCell.Number(parentNodeId.Value) : WorksheetCell.String(string.Empty),
-                WorksheetCell.Number(siblingOrder),
-                WorksheetCell.Number(node.LevelIndex),
-                WorksheetCell.String(GetLevelName(config, node.LevelIndex)),
-                WorksheetCell.String(node.Name),
-                WorksheetCell.String(currentPath)
+                WorksheetCell.Number(nodeId, ReadOnlyStyleIndex),
+                parentNodeId.HasValue
+                    ? WorksheetCell.Number(parentNodeId.Value, ReadOnlyStyleIndex)
+                    : WorksheetCell.String(string.Empty, ReadOnlyStyleIndex),
+                WorksheetCell.Number(siblingOrder, ReadOnlyStyleIndex),
+                WorksheetCell.Number(node.LevelIndex, ReadOnlyStyleIndex),
+                WorksheetCell.String(GetLevelName(config, node.LevelIndex), ReadOnlyStyleIndex),
+                WorksheetCell.String(node.Name, EditableStyleIndex),
+                WorksheetCell.String(currentPath, WrappedReadOnlyStyleIndex)
             });
 
             for (int childIndex = 0; childIndex < node.Children.Count; childIndex++)
@@ -263,7 +301,66 @@ namespace AsutpKnowledgeBase.Services
             }
         }
 
-        private static Worksheet BuildWorksheet(IReadOnlyList<IReadOnlyList<WorksheetCell>> rows)
+        private static Worksheet BuildWorksheet(WorksheetDefinition definition)
+        {
+            var worksheet = new Worksheet();
+
+            if (definition.FrozenRowCount > 0)
+                worksheet.Append(CreateSheetViews(definition.FrozenRowCount));
+
+            if (definition.Columns.Count > 0)
+                worksheet.Append(BuildColumns(definition.Columns));
+
+            worksheet.Append(BuildSheetData(definition.Rows));
+
+            if (definition.ProtectSheet)
+                worksheet.Append(CreateSheetProtection());
+
+            return worksheet;
+        }
+
+        private static SheetViews CreateSheetViews(uint frozenRowCount)
+        {
+            string topLeftCell = $"A{frozenRowCount + 1}";
+
+            var sheetView = new SheetView { WorkbookViewId = 0U };
+            sheetView.Append(new Pane
+            {
+                VerticalSplit = frozenRowCount,
+                TopLeftCell = topLeftCell,
+                ActivePane = PaneValues.BottomLeft,
+                State = PaneStateValues.Frozen
+            });
+            sheetView.Append(new Selection
+            {
+                Pane = PaneValues.BottomLeft,
+                ActiveCell = topLeftCell,
+                SequenceOfReferences = new ListValue<StringValue> { InnerText = topLeftCell }
+            });
+
+            return new SheetViews(sheetView);
+        }
+
+        private static Columns BuildColumns(IEnumerable<WorksheetColumnDefinition> columns)
+        {
+            var worksheetColumns = new Columns();
+            foreach (var column in columns)
+            {
+                worksheetColumns.Append(new Column
+                {
+                    Min = column.Min,
+                    Max = column.Max,
+                    Width = column.Width,
+                    Hidden = column.Hidden,
+                    BestFit = !column.Hidden,
+                    CustomWidth = true
+                });
+            }
+
+            return worksheetColumns;
+        }
+
+        private static SheetData BuildSheetData(IReadOnlyList<IReadOnlyList<WorksheetCell>> rows)
         {
             var sheetData = new SheetData();
 
@@ -273,15 +370,160 @@ namespace AsutpKnowledgeBase.Services
                 var cells = rows[rowIndex];
 
                 for (int columnIndex = 0; columnIndex < cells.Count; columnIndex++)
-                {
                     row.Append(CreateCell(cells[columnIndex], rowIndex + 1, columnIndex + 1));
-                }
 
                 sheetData.Append(row);
             }
 
-            return new Worksheet(sheetData);
+            return sheetData;
         }
+
+        private static SheetProtection CreateSheetProtection() =>
+            new()
+            {
+                Sheet = true,
+                Objects = true,
+                Scenarios = true,
+                FormatCells = false,
+                FormatColumns = false,
+                FormatRows = false,
+                InsertColumns = false,
+                InsertRows = false,
+                InsertHyperlinks = false,
+                DeleteColumns = false,
+                DeleteRows = false,
+                Sort = false,
+                AutoFilter = false,
+                PivotTables = false,
+                SelectLockedCells = true,
+                SelectUnlockedCells = true
+            };
+
+        private static Stylesheet BuildStylesheet()
+        {
+            var fonts = new Fonts(
+                new Font(
+                    new FontSize { Val = 11D },
+                    new Color { Theme = 1U },
+                    new FontName { Val = "Calibri" },
+                    new FontFamilyNumbering { Val = 2 },
+                    new FontScheme { Val = FontSchemeValues.Minor }),
+                new Font(
+                    new Bold(),
+                    new FontSize { Val = 11D },
+                    new Color { Theme = 1U },
+                    new FontName { Val = "Calibri" },
+                    new FontFamilyNumbering { Val = 2 },
+                    new FontScheme { Val = FontSchemeValues.Minor }))
+            {
+                Count = 2U
+            };
+
+            var fills = new Fills(
+                new Fill(new PatternFill { PatternType = PatternValues.None }),
+                new Fill(new PatternFill { PatternType = PatternValues.Gray125 }),
+                CreateSolidFill("FFFFF2CC"),
+                CreateSolidFill("FFEDEDED"),
+                CreateSolidFill("FFD9EAF7"))
+            {
+                Count = 5U
+            };
+
+            var borders = new Borders(new Border()) { Count = 1U };
+
+            var cellStyleFormats = new CellStyleFormats(new CellFormat()) { Count = 1U };
+
+            var cellFormats = new CellFormats(
+                new CellFormat
+                {
+                    FontId = 0U,
+                    FillId = 0U,
+                    BorderId = 0U
+                },
+                new CellFormat
+                {
+                    FontId = 1U,
+                    FillId = 4U,
+                    BorderId = 0U,
+                    ApplyFont = true,
+                    ApplyFill = true,
+                    ApplyAlignment = true,
+                    Alignment = new Alignment
+                    {
+                        Horizontal = HorizontalAlignmentValues.Center,
+                        Vertical = VerticalAlignmentValues.Center,
+                        WrapText = true
+                    }
+                },
+                new CellFormat
+                {
+                    FontId = 0U,
+                    FillId = 2U,
+                    BorderId = 0U,
+                    ApplyFill = true,
+                    ApplyAlignment = true,
+                    ApplyProtection = true,
+                    Alignment = new Alignment
+                    {
+                        Vertical = VerticalAlignmentValues.Top
+                    },
+                    Protection = new Protection
+                    {
+                        Locked = false
+                    }
+                },
+                new CellFormat
+                {
+                    FontId = 0U,
+                    FillId = 3U,
+                    BorderId = 0U,
+                    ApplyFill = true,
+                    ApplyAlignment = true,
+                    Alignment = new Alignment
+                    {
+                        Vertical = VerticalAlignmentValues.Top
+                    }
+                },
+                new CellFormat
+                {
+                    FontId = 0U,
+                    FillId = 3U,
+                    BorderId = 0U,
+                    ApplyFill = true,
+                    ApplyAlignment = true,
+                    Alignment = new Alignment
+                    {
+                        Vertical = VerticalAlignmentValues.Top,
+                        WrapText = true
+                    }
+                })
+            {
+                Count = 5U
+            };
+
+            return new Stylesheet(
+                fonts,
+                fills,
+                borders,
+                cellStyleFormats,
+                cellFormats,
+                new CellStyles(new CellStyle { Name = "Normal", FormatId = 0U, BuiltinId = 0U }) { Count = 1U },
+                new DifferentialFormats { Count = 0U },
+                new TableStyles
+                {
+                    Count = 0U,
+                    DefaultTableStyle = "TableStyleMedium2",
+                    DefaultPivotStyle = "PivotStyleLight16"
+                });
+        }
+
+        private static Fill CreateSolidFill(string rgb) =>
+            new(new PatternFill(
+                    new ForegroundColor { Rgb = HexBinaryValue.FromString(rgb) },
+                    new BackgroundColor { Indexed = 64U })
+            {
+                PatternType = PatternValues.Solid
+            });
 
         private static Cell CreateCell(WorksheetCell cell, int rowIndex, int columnIndex)
         {
@@ -292,19 +534,21 @@ namespace AsutpKnowledgeBase.Services
                 WorksheetCellKind.Number => new Cell
                 {
                     CellReference = cellReference,
+                    StyleIndex = cell.StyleIndex,
                     CellValue = new CellValue(cell.Value)
                 },
                 WorksheetCellKind.Boolean => new Cell
                 {
                     CellReference = cellReference,
+                    StyleIndex = cell.StyleIndex,
                     DataType = CellValues.Boolean,
                     CellValue = new CellValue(cell.Value)
                 },
-                _ => CreateInlineStringCell(cellReference, cell.Value)
+                _ => CreateInlineStringCell(cellReference, cell.Value, cell.StyleIndex)
             };
         }
 
-        private static Cell CreateInlineStringCell(string cellReference, string value)
+        private static Cell CreateInlineStringCell(string cellReference, string value, uint styleIndex)
         {
             var text = new Text(value);
             if (value.Length != value.Trim().Length)
@@ -313,6 +557,7 @@ namespace AsutpKnowledgeBase.Services
             return new Cell
             {
                 CellReference = cellReference,
+                StyleIndex = styleIndex,
                 DataType = CellValues.InlineString,
                 InlineString = new InlineString(text)
             };
@@ -324,11 +569,61 @@ namespace AsutpKnowledgeBase.Services
         {
             var allRows = new List<IReadOnlyList<WorksheetCell>>
             {
-                headers.Select(WorksheetCell.String).ToArray()
+                headers.Select(header => WorksheetCell.String(header, HeaderStyleIndex)).ToArray()
             };
             allRows.AddRange(rows);
             return allRows;
         }
+
+        private static IReadOnlyList<WorksheetCell> BuildReadOnlyPair(string propertyName, string value) =>
+            new[]
+            {
+                WorksheetCell.String(propertyName, ReadOnlyStyleIndex),
+                WorksheetCell.String(value, WrappedReadOnlyStyleIndex)
+            };
+
+        private static IReadOnlyList<WorksheetColumnDefinition> BuildInstructionsColumns() =>
+            new[]
+            {
+                new WorksheetColumnDefinition(1U, 1U, 24D, false),
+                new WorksheetColumnDefinition(2U, 2U, 96D, false)
+            };
+
+        private static IReadOnlyList<WorksheetColumnDefinition> BuildMetaColumns() =>
+            new[]
+            {
+                new WorksheetColumnDefinition(1U, 1U, 24D, false),
+                new WorksheetColumnDefinition(2U, 2U, 40D, false)
+            };
+
+        private static IReadOnlyList<WorksheetColumnDefinition> BuildLevelColumns() =>
+            new[]
+            {
+                new WorksheetColumnDefinition(1U, 1U, 12D, true),
+                new WorksheetColumnDefinition(2U, 2U, 28D, false)
+            };
+
+        private static IReadOnlyList<WorksheetColumnDefinition> BuildWorkshopColumns() =>
+            new[]
+            {
+                new WorksheetColumnDefinition(1U, 1U, 12D, true),
+                new WorksheetColumnDefinition(2U, 2U, 12D, true),
+                new WorksheetColumnDefinition(3U, 3U, 30D, false),
+                new WorksheetColumnDefinition(4U, 4U, 18D, false),
+                new WorksheetColumnDefinition(5U, 5U, 14D, true)
+            };
+
+        private static IReadOnlyList<WorksheetColumnDefinition> BuildWorkshopNodeColumns() =>
+            new[]
+            {
+                new WorksheetColumnDefinition(1U, 1U, 12D, true),
+                new WorksheetColumnDefinition(2U, 2U, 14D, true),
+                new WorksheetColumnDefinition(3U, 3U, 12D, true),
+                new WorksheetColumnDefinition(4U, 4U, 12D, true),
+                new WorksheetColumnDefinition(5U, 5U, 18D, false),
+                new WorksheetColumnDefinition(6U, 6U, 30D, false),
+                new WorksheetColumnDefinition(7U, 7U, 48D, false)
+            };
 
         private static string GetLevelName(KbConfig config, int levelIndex) =>
             config.LevelNames.Count > levelIndex
@@ -416,7 +711,16 @@ namespace AsutpKnowledgeBase.Services
 
         private sealed record WorksheetDefinition(
             string Name,
-            IReadOnlyList<IReadOnlyList<WorksheetCell>> Rows);
+            IReadOnlyList<IReadOnlyList<WorksheetCell>> Rows,
+            IReadOnlyList<WorksheetColumnDefinition> Columns,
+            uint FrozenRowCount,
+            bool ProtectSheet);
+
+        private sealed record WorksheetColumnDefinition(
+            uint Min,
+            uint Max,
+            double Width,
+            bool Hidden);
 
         private sealed record WorkshopExportRow(
             int WorkshopOrder,
@@ -434,14 +738,16 @@ namespace AsutpKnowledgeBase.Services
             Boolean
         }
 
-        private readonly record struct WorksheetCell(WorksheetCellKind Kind, string Value)
+        private readonly record struct WorksheetCell(WorksheetCellKind Kind, string Value, uint StyleIndex)
         {
-            public static WorksheetCell String(string value) => new(WorksheetCellKind.String, value);
+            public static WorksheetCell String(string value, uint styleIndex = DefaultLockedStyleIndex) =>
+                new(WorksheetCellKind.String, value, styleIndex);
 
-            public static WorksheetCell Number(int value) =>
-                new(WorksheetCellKind.Number, value.ToString(CultureInfo.InvariantCulture));
+            public static WorksheetCell Number(int value, uint styleIndex = DefaultLockedStyleIndex) =>
+                new(WorksheetCellKind.Number, value.ToString(CultureInfo.InvariantCulture), styleIndex);
 
-            public static WorksheetCell Boolean(bool value) => new(WorksheetCellKind.Boolean, value ? "1" : "0");
+            public static WorksheetCell Boolean(bool value, uint styleIndex = DefaultLockedStyleIndex) =>
+                new(WorksheetCellKind.Boolean, value ? "1" : "0", styleIndex);
         }
     }
 }

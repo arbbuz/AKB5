@@ -171,7 +171,8 @@ namespace AsutpKnowledgeBase.UiServices
             if (!ConfirmContinueWithUnsavedChanges(context, "перезагрузкой базы из файла"))
                 return;
 
-            LoadData(context);
+            if (LoadData(context, createDefaultIfMissing: false, fallbackToDefaultOnError: false))
+                context.SetStatusText(BuildReloadSuccessMessage(context));
         }
 
         public void SaveCurrentDatabase(KnowledgeBaseFileUiWorkflowContext context)
@@ -356,6 +357,26 @@ namespace AsutpKnowledgeBase.UiServices
             return
                 $"Основной файл '{CurrentDataPath}' не удалось прочитать: {loadResult.PrimaryErrorMessage}\n" +
                 $"Загружена резервная копия '{loadResult.SourcePath}'. После проверки данных сохраните базу заново.";
+        }
+
+        private string BuildReloadSuccessMessage(KnowledgeBaseFileUiWorkflowContext context)
+        {
+            var state = context.GetUiState();
+            int totalNodes = CountNodes(context.GetCurrentTreeData());
+
+            return
+                $"Файл перечитан с диска: {CurrentDataFileName} | " +
+                $"Цех: {state.CurrentWorkshop} | " +
+                $"Узлов: {totalNodes}";
+        }
+
+        private static int CountNodes(IEnumerable<KbNode> nodes)
+        {
+            int count = 0;
+            foreach (var node in nodes)
+                count += 1 + CountNodes(node.Children);
+
+            return count;
         }
     }
 }
