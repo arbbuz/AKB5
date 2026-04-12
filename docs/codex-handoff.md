@@ -1,110 +1,93 @@
 # Current objective
 
-- Workbook `v3` является единственным поддерживаемым Excel exchange-форматом.
-- Publish/deployment flow должен оставаться воспроизводимым и завязанным на root-проект `asutpKB.csproj`.
-- Поддерживаемый publish target только один: `win-x64`.
-- CI должен сохранять текущий `build-and-test` path и публиковать отдельный `win-x64` artifact.
+- Минимальный hardening GitHub automation для Windows CI/publish flow выполнен без изменения application code.
+- Риск deprecated Node.js 20 actions снят обновлением first-party actions до актуальных major versions.
+- Поддерживаемый publish target по-прежнему только `win-x64`; `build-and-test` сохранён, publish на `pull_request` отключён, ручной запуск workflow добавлен.
 
 # Current repo state
 
-- `src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj` содержит `PackageReference` на `DocumentFormat.OpenXml`.
-- Excel export/import работает через `KnowledgeBaseXlsxWriter`, `KnowledgeBaseXlsxReader` и `KnowledgeBaseExcelWorkbookParser`.
-- `WorkbookFormatVersion = 3` зафиксирована в `KnowledgeBaseExcelExchangeService`; import `v1/v2` больше не поддерживается.
-- Workbook contract:
-  - `Meta`
-  - `Levels`
-  - `Workshops`
-  - один nodes sheet на каждый цех
-- В repo добавлены:
-  - `scripts/publish.ps1`
-  - `scripts/publish.cmd`
-  - `docs/workbook-v3.md`
-  - `docs/deployment.md`
-- `.github/workflows/windows-build.yml` теперь содержит:
-  - `build-and-test`
-  - `publish-win-x64`
+- `.github/workflows/windows-build.yml` теперь триггерится на:
+  - `pull_request`
+  - `push` в `main/master`
+  - `workflow_dispatch`
+- Workflow-level hardening добавлен:
+  - `permissions: contents: read`
+  - `concurrency` с `cancel-in-progress: true`
+  - `timeout-minutes: 20` для обоих jobs
+- First-party actions обновлены:
+  - `actions/checkout@v5`
+  - `actions/setup-dotnet@v5`
+  - `actions/upload-artifact@v6`
+- `publish-win-x64` теперь запускается только для `push` и `workflow_dispatch`; на `pull_request` job остаётся skipped.
+- `.github/dependabot.yml` добавлен для еженедельных обновлений `github-actions`.
+- `README.md` и `docs/deployment.md` переведены на относительные repo-ссылки и фиксируют новое поведение automation.
+- Publish flow по-прежнему идёт через `scripts/publish.cmd` / `scripts/publish.ps1`, публикует root-проект `asutpKB.csproj` в `artifacts/publish/win-x64` и сохраняет artifact name `asutpkb-win-x64-single-file`.
 
 # Decisions already made
 
-- Publish идёт только из `asutpKB.csproj`, не из core project.
-- Publish target только `win-x64`; `arm64` / `win-arm64` не добавляются.
-- `SelfContained` и `PublishSingleFile` не включаются глобально для обычного build/debug.
+- Application code не менялся в рамках этой задачи.
+- Publish target остаётся только `win-x64`; `arm64` / `win-arm64` не добавляются.
+- Publish output path `artifacts/publish/win-x64` не меняется.
 - Trimming и AOT не включаются.
-- Publish output directory: `artifacts/publish/win-x64`.
-- Expected executable: `artifacts/publish/win-x64/asutpKB.exe`.
+- Artifact name `asutpkb-win-x64-single-file` не меняется.
+- Built-in NuGet cache через `setup-dotnet` пока не включается: в repo не зафиксирована стратегия `packages.lock.json`.
 
 # Files already relevant to the task
 
-- `asutpKB.csproj`
 - `.github/workflows/windows-build.yml`
+- `.github/dependabot.yml`
 - `README.md`
-- `docs/workbook-v3.md`
 - `docs/deployment.md`
+- `docs/codex-handoff.md`
 - `scripts/publish.ps1`
 - `scripts/publish.cmd`
-- `Services/KnowledgeBaseExcelExchangeService.cs`
-- `Services/KnowledgeBaseXlsxWriter.cs`
-- `Services/KnowledgeBaseXlsxReader.cs`
-- `Services/KnowledgeBaseExcelWorkbookParser.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseExcelExchangeServiceTests.cs`
+- `asutpKB.csproj`
 
 # Validation performed in this session
 
-Локальный SDK:
+Локально выполнено и завершилось успешно:
 
-- `/Users/home/.dotnet/dotnet`
-- `.NET SDK 8.0.419`
-- host RID `osx-arm64`
-
-Фактически выполнены и завершились успешно:
-
-- `dotnet restore asutpKB.csproj`
-- `dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj`
-- `dotnet build asutpKB.csproj -c Release --no-restore`
-- `dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-build`
-- `dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/publish/win-x64`
+- `/Users/home/.dotnet/dotnet restore asutpKB.csproj`
+- `/Users/home/.dotnet/dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj`
+- `/Users/home/.dotnet/dotnet build asutpKB.csproj -c Release --no-restore`
+- `/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-restore`
+- `/Users/home/.dotnet/dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/publish/win-x64`
 
 Observed results:
 
 - build: success, `0` warnings, `0` errors
 - test: success, `82` passed, `0` failed
 - publish: success, output created in `artifacts/publish/win-x64`
-- published executable verified:
-  - `artifacts/publish/win-x64/asutpKB.exe`
-  - `file` reports `PE32+ executable (GUI) x86-64, for MS Windows`
+- published executable verified: `artifacts/publish/win-x64/asutpKB.exe` is `PE32+ executable (GUI) x86-64, for MS Windows`
 
-Observed publish output files:
+GitHub Actions verified:
 
-- `asutpKB.exe`
-- `asutpKB.pdb`
-- `AsutpKnowledgeBase.Core.pdb`
-- `D3DCompiler_47_cor3.dll`
-- `PenImc_cor3.dll`
-- `PresentationNative_cor3.dll`
-- `vcruntime140_cor3.dll`
-- `wpfgfx_cor3.dll`
+- PR `#2` (`codex/ci-hardening-bundle` -> `main`) created for this change
+- `pull_request` run `Windows Build` `#24313453840` completed `success`
+- run shape confirmed:
+  - `build-and-test` executed
+  - `publish-win-x64` was skipped on `pull_request`
 
 # Known risks / open questions
 
-- Реальный Windows GUI smoke-check и реальный Excel round-trip в этой сессии не выполнялись.
-- Текущая среда — `macOS arm64`; опубликованный артефакт является Windows `PE32+` executable, поэтому локально здесь нельзя подтвердить фактический запуск `asutpKB.exe` и взаимодействие с Excel GUI.
-- Publish output остаётся single-file для managed app payload, но рядом с `exe` присутствуют native desktop/runtime binaries и PDB-файлы; при распространении пользователю нужно переносить всю publish-папку.
+- Отдельный release/tag workflow всё ещё отсутствует; это отдельная задача.
+- Dependabot теперь сможет обновлять actions, но policy обработки таких PR ещё не описана отдельным документом.
+- NuGet cache по-прежнему отложен до отдельного решения по lock files.
 
 # Recommended next step
 
-- Запустить `artifacts/publish/win-x64/asutpKB.exe` на реальном `Windows x64` ПК.
-- Открыть sample data.
-- Выполнить export workbook `v3`.
-- В Excel переименовать уровень, цех и один узел, затем сохранить workbook.
-- Импортировать workbook обратно и подтвердить структуру дерева и корректный selected workshop.
+- После merge проверить operational path на `push` в `main` и на manual `workflow_dispatch`, чтобы подтвердить publish artifact уже в целевой ветке.
+- Если позже понадобится release automation, делать её отдельным workflow, не перегружая текущий Windows CI.
 
 # Commands to run before finishing future implementation work
 
 ```bash
 git status --short
+git diff --check
 /Users/home/.dotnet/dotnet restore asutpKB.csproj
 /Users/home/.dotnet/dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj
 /Users/home/.dotnet/dotnet build asutpKB.csproj -c Release --no-restore
-/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-build
+/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-restore
 /Users/home/.dotnet/dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/publish/win-x64
+gh run list --workflow "Windows Build" --limit 5
 ```
