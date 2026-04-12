@@ -23,11 +23,8 @@ namespace AsutpKnowledgeBase
                     CurrentWorkshop = _currentWorkshop,
                     LastSavedWorkshop = _lastSavedWorkshop
                 },
-                OnSuccessfulLoad = () =>
-                {
-                    ResetTransientUiStateAfterLoad();
-                    RebuildUiFromSession();
-                },
+                ResetTransientUiStateAfterLoad = ResetTransientUiStateAfterLoad,
+                ApplyLoadedSessionView = viewState => ApplySessionView(viewState, clearSearch: true),
                 UpdateUi = UpdateUI,
                 SetStatusText = SetLastActionText
             };
@@ -70,11 +67,6 @@ namespace AsutpKnowledgeBase
         {
             _history.Clear();
             _treeMutationWorkflowService.ClearClipboard();
-        }
-
-        private void RebuildUiFromSession()
-        {
-            ApplySessionView(_sessionWorkflowService.BuildViewState(), clearSearch: true);
         }
 
         private void UpdateDirtyState() =>

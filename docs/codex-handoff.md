@@ -1,93 +1,107 @@
 # Current objective
 
-- Выполнить первый UX-pass по главному WinForms-приложению без архитектурного rewrite и без выноса node-операций на toolbar.
-- Закрытый scope этого прохода: strict reload из JSON, разделение persistent status и transient action feedback, видимый session/file context, карточка выбранного узла, поиск по `Name/Path/LevelName`, user-friendly hardening Excel workbook `v3`.
-- JSON остаётся source of truth; Excel exchange-format остаётся только `workbook v3`.
+- Milestone 4 завершён в локальном working tree `AKB5`: legacy special-case load/rebuild callback path убран, а file/load/import replace success path теперь применяет `KnowledgeBaseSessionViewState` напрямую из workflow result.
+- Следующая практическая цель: подтвердить это поведение ручным Windows smoke-check для `Open` / `Reload` / `Excel Import`, особенно reset transient UI state и `clearSearch=true` после rebuild session view.
 
 # Current repo state
 
-- `Forms/MainForm.cs`, `Forms/MainForm.Layout.cs`, `Forms/MainForm.Events.cs`, `Forms/MainForm.WorkflowContexts.cs` переключены на multi-zone UX:
-  - отдельные persistent зоны `session` / `selection`
-  - отдельный last-action feedback с timestamp в `StatusStrip`
-  - видимый session block в правой панели: имя файла, полный путь, save-state, текущий цех
-  - read-only карточка `Выбранный узел`
-- Reload menu renamed to `Обновить из файла`; `UiServices/KnowledgeBaseFileUiWorkflowService.cs` делает strict reload с `createDefaultIfMissing=false` и `fallbackToDefaultOnError=false`, не подменяет текущую session-state при ошибке и пишет non-modal success feedback в last-action зону.
-- `Services/KnowledgeBaseFormStateService.cs` теперь строит richer form state для session/selection display; добавлен helper `Services/KnowledgeBaseNodePresentationService.cs`.
-- `UiServices/KnowledgeBaseTreeViewService.cs` больше не ищет только по `TreeNode.Text`; поиск делегирован в `Services/KnowledgeBaseTreeSearchService.cs` и поддерживает `имя узла`, `полный путь`, `имя уровня` с более информативным status text.
-- `Services/KnowledgeBaseXlsxWriter.cs` экспортирует workbook `v3` с доп. листом `Инструкция`, freeze panes, column widths, hidden technical columns, sheet protection и разблокировкой только editable-полей по текущему контракту.
-- Import/parser contract в `Services/KnowledgeBaseExcelWorkbookParser.cs` и `Services/KnowledgeBaseXlsxReader.cs` не менялся; backward-compatible import существующих `v3` workbook остаётся в силе.
+- `Services/KnowledgeBaseFileWorkflowService.cs` теперь возвращает `KnowledgeBaseSessionViewState` во всех successful load outcomes:
+  - `LoadedExisting`
+  - `LoadedBackup`
+  - `CreatedDefaultAndSaved`
+  - `CreatedDefaultUnsaved`
+  - `CreatedDefaultAfterError`
+- `Services/KnowledgeBaseFileWorkflowService.cs` также кладёт `ViewState` в successful `KnowledgeBaseFileSaveResult` для `ReplaceAllData(...)`; обычный `Save(...)` semantics не менялись.
+- `UiServices/KnowledgeBaseFileUiWorkflowService.cs` больше не использует legacy success callback; вместо этого context принимает:
+  - `ResetTransientUiStateAfterLoad`
+  - `ApplyLoadedSessionView`
+- `UiServices/KnowledgeBaseFileUiWorkflowService.cs` для успешных `Load` и `ReplaceAllData` идёт по одному и тому же direct success path:
+  - reset transient UI state
+  - apply loaded `KnowledgeBaseSessionViewState`
+  - `UpdateUi()`
+- `Forms/MainForm.WorkflowContexts.cs` больше не содержит отдельный helper для rebuild session view после load/replace; `MainForm` применяет загруженный session view напрямую через `ApplySessionView(viewState, clearSearch: true)`.
+- `UiServices/KnowledgeBaseExcelUiWorkflowService.cs` contract не менялся, но его `ReplaceAllData` callback теперь получает result с populated `ViewState`, а application path использует тот же direct success flow, что и normal file load.
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseFileWorkflowServiceTests.cs` расширен regression coverage для direct `ViewState` path.
 
 # Decisions already made
 
-- Никаких rewrite в MVP/MVVM/MAUI/WPF не делалось.
-- Node-операции `Add/Rename/Delete/Copy/Paste` не вынесены на toolbar; сохранена философия `минимальный toolbar + context menu + hotkeys`.
-- WinForms-specific orchestration оставлена в `Forms/` и `UiServices/`; testable presentation/search logic вынесена в `Services/`.
-- Reload intentionally strict: при `reload` нельзя тихо создать новую пустую базу и нельзя тихо fallback'нуться на default-data.
-- Excel hardening не создаёт новый формат `v4`: extra sheet `Инструкция`, hidden columns и protection живут внутри существующего `v3`.
+- Diff сохранён минимальным: новый DI/container или общий session-architecture rewrite не делались.
+- `KnowledgeBaseFileLoadResult` получил `ViewState`, а для `ReplaceAllData(...)` выбран smallest coherent diff: `ViewState` добавлен в существующий `KnowledgeBaseFileSaveResult`, без введения отдельного result type.
+- Для построения `ViewState` в file workflow reuse'ится уже существующий `KnowledgeBaseSessionWorkflowService.BuildViewState()` через приватный helper внутри `KnowledgeBaseFileWorkflowService`.
+- JSON storage semantics, backup fallback behavior, ordinary save semantics, Excel workbook `v3` contract и dialog/prompt behavior не менялись.
+- `clearSearch=true` после successful file/load/import replace сохранён на уровне `MainForm` callback wiring.
+- Reset history/clipboard после successful load/replace сохранён через `ResetTransientUiStateAfterLoad()`.
 
 # Files already relevant to the task
 
 - `Forms/MainForm.cs`
-- `Forms/MainForm.Layout.cs`
-- `Forms/MainForm.Events.cs`
 - `Forms/MainForm.WorkflowContexts.cs`
+- `Forms/MainForm.Events.cs`
 - `UiServices/KnowledgeBaseFileUiWorkflowService.cs`
-- `UiServices/KnowledgeBaseTreeViewService.cs`
 - `UiServices/KnowledgeBaseExcelUiWorkflowService.cs`
-- `Services/KnowledgeBaseFormStateService.cs`
-- `Services/KnowledgeBaseNodePresentationService.cs`
-- `Services/KnowledgeBaseTreeSearchService.cs`
-- `Services/KnowledgeBaseXlsxWriter.cs`
-- `Services/KnowledgeBaseExcelExchangeService.cs`
-- `Services/KnowledgeBaseXlsxReader.cs`
-- `Services/KnowledgeBaseExcelWorkbookParser.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseFormStateServiceTests.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseTreeSearchServiceTests.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseExcelExchangeServiceTests.cs`
+- `Services/KnowledgeBaseFileWorkflowService.cs`
+- `Services/KnowledgeBaseSessionWorkflowService.cs`
+- `Services/KnowledgeBaseSessionService.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseFileWorkflowServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseSessionWorkflowServiceTests.cs`
 
 # Validation performed in this session
 
 Среда:
 
-- `dotnet` по-прежнему отсутствует в `PATH`
+- `dotnet` отсутствует в `PATH`
 - фактически использовался `/Users/home/.dotnet/dotnet`
 - локальная среда: `macOS arm64`
 
 Фактически выполнены:
 
+- `/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --filter "FullyQualifiedName~KnowledgeBaseFileWorkflowServiceTests"`
+- `/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --filter "FullyQualifiedName~KnowledgeBaseSessionWorkflowServiceTests"`
 - `/Users/home/.dotnet/dotnet restore asutpKB.csproj`
 - `/Users/home/.dotnet/dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj`
-- `/Users/home/.dotnet/dotnet build asutpKB.csproj --configuration Release --no-restore`
-- `/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore`
+- `/Users/home/.dotnet/dotnet build asutpKB.csproj -c Release --no-restore`
+- `/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-build`
+- `/Users/home/.dotnet/dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/publish/win-x64`
+- `git diff --check`
+- `rg "ViewState" Services/KnowledgeBaseFileWorkflowService.cs UiServices/KnowledgeBaseFileUiWorkflowService.cs tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseFileWorkflowServiceTests.cs || true`
 
 Observed results:
 
-- `build`: success, `0` warnings, `0` errors
-- `test`: success, `89` passed, `0` failed
+- targeted file-workflow tests: success, `6` passed
+- targeted session-workflow tests: success, `6` passed
+- release build: success, `0` warnings, `0` errors
+- full core test suite: success, `90` passed, `0` failed
+- publish `win-x64`: success
+- `git diff --check`: clean
+- search for legacy callback identifiers: no matches
+- search for new direct `ViewState` path: expected matches found in file workflow, file UI workflow and file workflow tests
 
 # Known risks / open questions
 
-- Реальный Windows GUI smoke-check не выполнялся: layout/status-strip/read-only card/reload UX подтверждены только build + unit tests.
-- Реальный Excel smoke-check в Windows + Excel не выполнялся: не проверялись вручную visual appearance, sheet protection UX, сохранение и обратный import после правок пользователем.
-- `Save` / `Import` / `Export` по-прежнему используют success MessageBox; non-modal feedback гарантирован только для normal reload, как и требовалось в этой задаче.
-- Новые right-panel блоки не проверялись на разных DPI/scale режимах Windows.
+- Реальный Windows GUI smoke-check не выполнялся: `Open`, `Reload`, `Import` и status/dialog behavior подтверждены только через code inspection + build/tests.
+- Реальный Excel round-trip smoke-check в Windows + Excel не выполнялся после этого M4 refactor.
+- `KnowledgeBaseFileSaveResult.ViewState` intentionally populated only там, где file path реально меняет session-view (`ReplaceAllData`); ordinary `Save(...)` по-прежнему не зависит от него.
+- WinForms-level поведение `clearSearch=true` и reset history/clipboard после load/replace не покрыто unit tests и требует ручной проверки в GUI.
 
 # Recommended next step
 
-- На Windows вручную пройти happy/fail UX сценарии:
-  - `reload` при успешном чтении, при missing file и при broken JSON
-  - переключение цехов + selected-node card
-  - поиск по path fragment и level name
-  - export workbook, открыть его в Excel, попробовать редактировать только allowed fields, затем импортировать обратно
-- Если smoke-check зелёный, следующим небольшим шагом можно отдельно улучшить actionable UI-текст Excel import ошибок без переписывания parser'а.
+- На Windows вручную пройти сценарии:
+  - `Open` существующего JSON и проверить direct rebuild без legacy callback path
+  - `Reload` после локальных изменений, включая reset undo/redo/clipboard и очищенный поиск
+  - `Excel Import` с replace path и проверкой, что UI обновляется сразу из result-carried `ViewState`
+- Если smoke-check зелёный, следующим маленьким шагом можно отдельно почистить screen-level file/status glue или добавить focused tests вокруг `KnowledgeBaseFileUiWorkflowService`, не расширяя scope в rewrite.
 
 # Commands to run before finishing future implementation work
 
 ```bash
 git status --short
 git diff --check
+rg "ViewState" Services/KnowledgeBaseFileWorkflowService.cs UiServices/KnowledgeBaseFileUiWorkflowService.cs tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseFileWorkflowServiceTests.cs || true
+/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --filter "FullyQualifiedName~KnowledgeBaseFileWorkflowServiceTests"
+/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --filter "FullyQualifiedName~KnowledgeBaseSessionWorkflowServiceTests"
 /Users/home/.dotnet/dotnet restore asutpKB.csproj
 /Users/home/.dotnet/dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj
-/Users/home/.dotnet/dotnet build asutpKB.csproj --configuration Release --no-restore
-/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore
+/Users/home/.dotnet/dotnet build asutpKB.csproj -c Release --no-restore
+/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-build
+/Users/home/.dotnet/dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/publish/win-x64
 ```
