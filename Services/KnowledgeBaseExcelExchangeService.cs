@@ -21,21 +21,16 @@ namespace AsutpKnowledgeBase.Services
     }
 
     /// <summary>
-    /// Экспортирует и импортирует базу знаний в xlsx workbook без внешних зависимостей.
-    /// Контракт книги фиксирован: листы Meta, Levels, Workshops и Nodes.
+    /// Экспортирует и импортирует базу знаний в xlsx workbook.
+    /// Актуальный export-контракт: Meta, Levels, Workshops и отдельные листы узлов по цехам.
     /// </summary>
     public class KnowledgeBaseExcelExchangeService
     {
         public const string WorkbookFormatId = "AKB5.ExcelExchange";
-        public const int LegacyWorkbookFormatVersion = 1;
-        public const int WorkbookFormatVersion = 2;
+        public const int WorkbookFormatVersion = 3;
 
         private readonly KnowledgeBaseXlsxWriter _writer = new();
         private readonly KnowledgeBaseXlsxReader _reader = new();
-
-        public static bool IsSupportedWorkbookFormatVersion(int formatVersion) =>
-            formatVersion == LegacyWorkbookFormatVersion ||
-            formatVersion == WorkbookFormatVersion;
 
         public byte[] BuildWorkbookPackage(SavedData data) => _writer.BuildWorkbookPackage(data);
 

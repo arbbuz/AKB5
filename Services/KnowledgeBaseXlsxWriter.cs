@@ -2,19 +2,23 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
-using System.Xml.Linq;
 using AsutpKnowledgeBase.Models;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 
 namespace AsutpKnowledgeBase.Services
 {
     internal sealed class KnowledgeBaseXlsxWriter
     {
-        private static readonly XNamespace SpreadsheetNamespace = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-        private static readonly XNamespace OfficeDocumentRelationshipsNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
-        private static readonly XNamespace PackageRelationshipsNamespace = "http://schemas.openxmlformats.org/package/2006/relationships";
-        private static readonly XNamespace ContentTypesNamespace = "http://schemas.openxmlformats.org/package/2006/content-types";
+        private const string MetaSheetName = "Meta";
+        private const string LevelsSheetName = "Levels";
+        private const string WorkshopsSheetName = "Workshops";
+        private const string WorkshopNodesSheetKind = "WorkshopNodes";
+        private const int MaxWorksheetNameLength = 31;
+
+        private static readonly char[] InvalidWorksheetNameCharacters = { ':', '\\', '/', '?', '*', '[', ']' };
 
         public byte[] BuildWorkbookPackage(SavedData data)
         {
@@ -26,52 +30,58 @@ namespace AsutpKnowledgeBase.Services
                 .Single(workshop => string.Equals(workshop.WorkshopName, lastWorkshop, StringComparison.Ordinal))
                 .WorkshopId;
 
-            var worksheets = new[]
+            int nextNodeId = 1;
+            var worksheets = new List<WorksheetDefinition>
             {
-                new WorksheetDefinition(
-                    "Meta",
-                    new[] { "Property", "Value" },
-                    BuildMetaRows(data.SchemaVersion, lastWorkshop, lastWorkshopId)),
-                new WorksheetDefinition(
-                    "Levels",
-                    new[] { "LevelIndex", "LevelName" },
-                    BuildLevelRows(normalizedConfig)),
-                new WorksheetDefinition(
-                    "Workshops",
-                    new[] { "WorkshopOrder", "WorkshopName", "IsLastSelected", "WorkshopId" },
-                    BuildWorkshopRows(workshopExports)),
-                new WorksheetDefinition(
-                    "Nodes",
-                    new[]
-                    {
-                        "NodeId",
-                        "WorkshopName",
-                        "ParentNodeId",
-                        "SiblingOrder",
-                        "LevelIndex",
-                        "LevelName",
-                        "NodeName",
-                        "Path",
-                        "WorkshopId"
-                    },
-                    BuildNodeRows(normalizedConfig, workshopExports))
+                new(
+                    MetaSheetName,
+                    BuildTabularRows(
+                        headers: new[] { "Property", "Value" },
+                        rows: BuildMetaRows(data.SchemaVersion, lastWorkshop, lastWorkshopId))),
+                new(
+                    LevelsSheetName,
+                    BuildTabularRows(
+                        headers: new[] { "LevelIndex", "LevelName" },
+                        rows: BuildLevelRows(normalizedConfig))),
+                new(
+                    WorkshopsSheetName,
+                    BuildTabularRows(
+                        headers: new[] { "WorkshopOrder", "WorkshopId", "WorkshopName", "IsLastSelected", "NodesSheetKey" },
+                        rows: BuildWorkshopRows(workshopExports)))
             };
 
-            using var stream = new MemoryStream();
-            using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
+            foreach (var workshop in workshopExports)
             {
-                WriteXmlEntry(archive, "[Content_Types].xml", BuildContentTypesXml(worksheets.Length));
-                WriteXmlEntry(archive, "_rels/.rels", BuildRootRelationshipsXml());
-                WriteXmlEntry(archive, "xl/workbook.xml", BuildWorkbookXml(worksheets));
-                WriteXmlEntry(archive, "xl/_rels/workbook.xml.rels", BuildWorkbookRelationshipsXml(worksheets.Length));
+                worksheets.Add(new WorksheetDefinition(
+                    workshop.SheetTabName,
+                    BuildWorkshopNodesSheetRows(normalizedConfig, workshop, ref nextNodeId)));
+            }
 
-                for (int index = 0; index < worksheets.Length; index++)
+            using var stream = new MemoryStream();
+            using (var document = SpreadsheetDocument.Create(stream, SpreadsheetDocumentType.Workbook, autoSave: true))
+            {
+                var workbookPart = document.AddWorkbookPart();
+                workbookPart.Workbook = new Workbook();
+                var sheets = workbookPart.Workbook.AppendChild(new Sheets());
+                uint sheetId = 1;
+
+                foreach (var worksheetDefinition in worksheets)
                 {
-                    WriteXmlEntry(
-                        archive,
-                        $"xl/worksheets/sheet{index + 1}.xml",
-                        BuildWorksheetXml(worksheets[index]));
+                    var worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
+                    worksheetPart.Worksheet = BuildWorksheet(worksheetDefinition.Rows);
+                    worksheetPart.Worksheet.Save();
+
+                    sheets.Append(new Sheet
+                    {
+                        Id = workbookPart.GetIdOfPart(worksheetPart),
+                        SheetId = sheetId,
+                        Name = worksheetDefinition.Name
+                    });
+
+                    sheetId++;
                 }
+
+                workbookPart.Workbook.Save();
             }
 
             return stream.ToArray();
@@ -82,15 +92,18 @@ namespace AsutpKnowledgeBase.Services
             string lastWorkshop)
         {
             var rows = new List<WorkshopExportRow>();
+            var usedSheetNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             int order = 1;
 
             foreach (var workshop in workshops)
             {
                 rows.Add(new WorkshopExportRow(
                     WorkshopOrder: order,
-                    WorkshopName: workshop.Key,
                     WorkshopId: $"W{order}",
+                    WorkshopName: workshop.Key,
                     IsLastSelected: string.Equals(workshop.Key, lastWorkshop, StringComparison.Ordinal),
+                    NodesSheetKey: $"NS{order}",
+                    SheetTabName: CreateUniqueWorkshopSheetName(workshop.Key, usedSheetNames),
                     RootNodes: workshop.Value));
                 order++;
             }
@@ -120,13 +133,13 @@ namespace AsutpKnowledgeBase.Services
             };
             yield return new[]
             {
-                WorksheetCell.String("LastWorkshop"),
-                WorksheetCell.String(lastWorkshop)
+                WorksheetCell.String("LastWorkshopId"),
+                WorksheetCell.String(lastWorkshopId)
             };
             yield return new[]
             {
-                WorksheetCell.String("LastWorkshopId"),
-                WorksheetCell.String(lastWorkshopId)
+                WorksheetCell.String("LastWorkshop"),
+                WorksheetCell.String(lastWorkshop)
             };
         }
 
@@ -150,35 +163,64 @@ namespace AsutpKnowledgeBase.Services
                 yield return new[]
                 {
                     WorksheetCell.Number(workshop.WorkshopOrder),
+                    WorksheetCell.String(workshop.WorkshopId),
                     WorksheetCell.String(workshop.WorkshopName),
                     WorksheetCell.Boolean(workshop.IsLastSelected),
-                    WorksheetCell.String(workshop.WorkshopId)
+                    WorksheetCell.String(workshop.NodesSheetKey)
                 };
             }
         }
 
-        private static IEnumerable<IReadOnlyList<WorksheetCell>> BuildNodeRows(
+        private static IReadOnlyList<IReadOnlyList<WorksheetCell>> BuildWorkshopNodesSheetRows(
             KbConfig config,
-            IEnumerable<WorkshopExportRow> workshops)
+            WorkshopExportRow workshop,
+            ref int nextNodeId)
         {
-            var rows = new List<IReadOnlyList<WorksheetCell>>();
-            int nextNodeId = 1;
-
-            foreach (var workshop in workshops)
+            var rows = new List<IReadOnlyList<WorksheetCell>>
             {
-                for (int index = 0; index < workshop.RootNodes.Count; index++)
+                new[]
                 {
-                    FlattenNode(
-                        rows,
-                        config,
-                        workshop.WorkshopName,
-                        workshop.WorkshopId,
-                        workshop.RootNodes[index],
-                        parentNodeId: null,
-                        siblingOrder: index + 1,
-                        currentPath: workshop.RootNodes[index].Name,
-                        nextNodeId: ref nextNodeId);
+                    WorksheetCell.String("Property"),
+                    WorksheetCell.String("Value")
+                },
+                new[]
+                {
+                    WorksheetCell.String("SheetKind"),
+                    WorksheetCell.String(WorkshopNodesSheetKind)
+                },
+                new[]
+                {
+                    WorksheetCell.String("WorkshopId"),
+                    WorksheetCell.String(workshop.WorkshopId)
+                },
+                new[]
+                {
+                    WorksheetCell.String("NodesSheetKey"),
+                    WorksheetCell.String(workshop.NodesSheetKey)
+                },
+                Array.Empty<WorksheetCell>(),
+                new[]
+                {
+                    WorksheetCell.String("NodeId"),
+                    WorksheetCell.String("ParentNodeId"),
+                    WorksheetCell.String("SiblingOrder"),
+                    WorksheetCell.String("LevelIndex"),
+                    WorksheetCell.String("LevelName"),
+                    WorksheetCell.String("NodeName"),
+                    WorksheetCell.String("Path")
                 }
+            };
+
+            for (int index = 0; index < workshop.RootNodes.Count; index++)
+            {
+                FlattenNode(
+                    rows,
+                    config,
+                    workshop.RootNodes[index],
+                    parentNodeId: null,
+                    siblingOrder: index + 1,
+                    currentPath: workshop.RootNodes[index].Name,
+                    nextNodeId: ref nextNodeId);
             }
 
             return rows;
@@ -187,8 +229,6 @@ namespace AsutpKnowledgeBase.Services
         private static void FlattenNode(
             ICollection<IReadOnlyList<WorksheetCell>> rows,
             KbConfig config,
-            string workshopName,
-            string workshopId,
             KbNode node,
             int? parentNodeId,
             int siblingOrder,
@@ -201,14 +241,12 @@ namespace AsutpKnowledgeBase.Services
             rows.Add(new[]
             {
                 WorksheetCell.Number(nodeId),
-                WorksheetCell.String(workshopName),
                 parentNodeId.HasValue ? WorksheetCell.Number(parentNodeId.Value) : WorksheetCell.String(string.Empty),
                 WorksheetCell.Number(siblingOrder),
                 WorksheetCell.Number(node.LevelIndex),
                 WorksheetCell.String(GetLevelName(config, node.LevelIndex)),
                 WorksheetCell.String(node.Name),
-                WorksheetCell.String($"{workshopName} / {currentPath}"),
-                WorksheetCell.String(workshopId)
+                WorksheetCell.String(currentPath)
             });
 
             for (int childIndex = 0; childIndex < node.Children.Count; childIndex++)
@@ -217,8 +255,6 @@ namespace AsutpKnowledgeBase.Services
                 FlattenNode(
                     rows,
                     config,
-                    workshopName,
-                    workshopId,
                     child,
                     nodeId,
                     childIndex + 1,
@@ -227,137 +263,135 @@ namespace AsutpKnowledgeBase.Services
             }
         }
 
-        private static string GetLevelName(KbConfig config, int levelIndex) =>
-            config.LevelNames.Count > levelIndex
-                ? config.LevelNames[levelIndex]
-                : $"Ур. {levelIndex + 1}";
-
-        private static XDocument BuildContentTypesXml(int worksheetCount)
+        private static Worksheet BuildWorksheet(IReadOnlyList<IReadOnlyList<WorksheetCell>> rows)
         {
-            return new XDocument(
-                new XDeclaration("1.0", "utf-8", null),
-                new XElement(
-                    ContentTypesNamespace + "Types",
-                    new XElement(
-                        ContentTypesNamespace + "Default",
-                        new XAttribute("Extension", "rels"),
-                        new XAttribute("ContentType", "application/vnd.openxmlformats-package.relationships+xml")),
-                    new XElement(
-                        ContentTypesNamespace + "Default",
-                        new XAttribute("Extension", "xml"),
-                        new XAttribute("ContentType", "application/xml")),
-                    new XElement(
-                        ContentTypesNamespace + "Override",
-                        new XAttribute("PartName", "/xl/workbook.xml"),
-                        new XAttribute("ContentType", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml")),
-                    Enumerable.Range(1, worksheetCount).Select(index =>
-                        new XElement(
-                            ContentTypesNamespace + "Override",
-                            new XAttribute("PartName", $"/xl/worksheets/sheet{index}.xml"),
-                            new XAttribute("ContentType", "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml")))));
-        }
+            var sheetData = new SheetData();
 
-        private static XDocument BuildRootRelationshipsXml()
-        {
-            return new XDocument(
-                new XDeclaration("1.0", "utf-8", null),
-                new XElement(
-                    PackageRelationshipsNamespace + "Relationships",
-                    new XElement(
-                        PackageRelationshipsNamespace + "Relationship",
-                        new XAttribute("Id", "rId1"),
-                        new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"),
-                        new XAttribute("Target", "xl/workbook.xml"))));
-        }
-
-        private static XDocument BuildWorkbookXml(IReadOnlyList<WorksheetDefinition> worksheets)
-        {
-            return new XDocument(
-                new XDeclaration("1.0", "utf-8", null),
-                new XElement(
-                    SpreadsheetNamespace + "workbook",
-                    new XAttribute(XNamespace.Xmlns + "r", OfficeDocumentRelationshipsNamespace),
-                    new XElement(
-                        SpreadsheetNamespace + "sheets",
-                        worksheets.Select((worksheet, index) =>
-                            new XElement(
-                                SpreadsheetNamespace + "sheet",
-                                new XAttribute("name", worksheet.Name),
-                                new XAttribute("sheetId", index + 1),
-                                new XAttribute(OfficeDocumentRelationshipsNamespace + "id", $"rId{index + 1}"))))));
-        }
-
-        private static XDocument BuildWorkbookRelationshipsXml(int worksheetCount)
-        {
-            return new XDocument(
-                new XDeclaration("1.0", "utf-8", null),
-                new XElement(
-                    PackageRelationshipsNamespace + "Relationships",
-                    Enumerable.Range(1, worksheetCount).Select(index =>
-                        new XElement(
-                            PackageRelationshipsNamespace + "Relationship",
-                            new XAttribute("Id", $"rId{index}"),
-                            new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"),
-                            new XAttribute("Target", $"worksheets/sheet{index}.xml")))));
-        }
-
-        private static XDocument BuildWorksheetXml(WorksheetDefinition worksheet)
-        {
-            var allRows = new List<IReadOnlyList<WorksheetCell>>
+            for (int rowIndex = 0; rowIndex < rows.Count; rowIndex++)
             {
-                worksheet.Headers.Select(WorksheetCell.String).ToArray()
-            };
-            allRows.AddRange(worksheet.Rows);
+                var row = new Row { RowIndex = (uint)(rowIndex + 1) };
+                var cells = rows[rowIndex];
 
-            return new XDocument(
-                new XDeclaration("1.0", "utf-8", null),
-                new XElement(
-                    SpreadsheetNamespace + "worksheet",
-                    new XElement(
-                        SpreadsheetNamespace + "sheetData",
-                        allRows.Select((row, rowIndex) =>
-                            new XElement(
-                                SpreadsheetNamespace + "row",
-                                new XAttribute("r", rowIndex + 1),
-                                row.Select((cell, columnIndex) => CreateCell(cell, rowIndex + 1, columnIndex + 1)))))));
+                for (int columnIndex = 0; columnIndex < cells.Count; columnIndex++)
+                {
+                    row.Append(CreateCell(cells[columnIndex], rowIndex + 1, columnIndex + 1));
+                }
+
+                sheetData.Append(row);
+            }
+
+            return new Worksheet(sheetData);
         }
 
-        private static XElement CreateCell(WorksheetCell cell, int rowIndex, int columnIndex)
+        private static Cell CreateCell(WorksheetCell cell, int rowIndex, int columnIndex)
         {
             string cellReference = GetCellReference(rowIndex, columnIndex);
 
             return cell.Kind switch
             {
-                WorksheetCellKind.Number => new XElement(
-                    SpreadsheetNamespace + "c",
-                    new XAttribute("r", cellReference),
-                    new XElement(
-                        SpreadsheetNamespace + "v",
-                        cell.Value)),
-                WorksheetCellKind.Boolean => new XElement(
-                    SpreadsheetNamespace + "c",
-                    new XAttribute("r", cellReference),
-                    new XAttribute("t", "b"),
-                    new XElement(
-                        SpreadsheetNamespace + "v",
-                        cell.Value)),
+                WorksheetCellKind.Number => new Cell
+                {
+                    CellReference = cellReference,
+                    CellValue = new CellValue(cell.Value)
+                },
+                WorksheetCellKind.Boolean => new Cell
+                {
+                    CellReference = cellReference,
+                    DataType = CellValues.Boolean,
+                    CellValue = new CellValue(cell.Value)
+                },
                 _ => CreateInlineStringCell(cellReference, cell.Value)
             };
         }
 
-        private static XElement CreateInlineStringCell(string cellReference, string value)
+        private static Cell CreateInlineStringCell(string cellReference, string value)
         {
-            var text = new XElement(SpreadsheetNamespace + "t", value);
+            var text = new Text(value);
             if (value.Length != value.Trim().Length)
-                text.Add(new XAttribute(XNamespace.Xml + "space", "preserve"));
+                text.Space = SpaceProcessingModeValues.Preserve;
 
-            return new XElement(
-                SpreadsheetNamespace + "c",
-                new XAttribute("r", cellReference),
-                new XAttribute("t", "inlineStr"),
-                new XElement(
-                    SpreadsheetNamespace + "is",
-                    text));
+            return new Cell
+            {
+                CellReference = cellReference,
+                DataType = CellValues.InlineString,
+                InlineString = new InlineString(text)
+            };
+        }
+
+        private static List<IReadOnlyList<WorksheetCell>> BuildTabularRows(
+            IReadOnlyList<string> headers,
+            IEnumerable<IReadOnlyList<WorksheetCell>> rows)
+        {
+            var allRows = new List<IReadOnlyList<WorksheetCell>>
+            {
+                headers.Select(WorksheetCell.String).ToArray()
+            };
+            allRows.AddRange(rows);
+            return allRows;
+        }
+
+        private static string GetLevelName(KbConfig config, int levelIndex) =>
+            config.LevelNames.Count > levelIndex
+                ? config.LevelNames[levelIndex]
+                : $"Ур. {levelIndex + 1}";
+
+        private static string CreateUniqueWorkshopSheetName(string workshopName, ISet<string> usedNames)
+        {
+            string baseName = SanitizeWorksheetName($"Узлы - {workshopName}");
+            if (string.IsNullOrWhiteSpace(baseName))
+                baseName = "Узлы";
+
+            if (usedNames.Add(baseName))
+                return baseName;
+
+            for (int attempt = 2; attempt < 1000; attempt++)
+            {
+                string suffix = $" ({attempt})";
+                int maxBaseLength = MaxWorksheetNameLength - suffix.Length;
+                string candidate = $"{TrimToLength(baseName, maxBaseLength)}{suffix}";
+                if (usedNames.Add(candidate))
+                    return candidate;
+            }
+
+            throw new InvalidOperationException("Не удалось подобрать уникальное имя worksheet для цеха.");
+        }
+
+        private static string SanitizeWorksheetName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return string.Empty;
+
+            var chars = value
+                .Select(symbol =>
+                {
+                    if (char.IsControl(symbol) || InvalidWorksheetNameCharacters.Contains(symbol))
+                        return ' ';
+
+                    return symbol;
+                })
+                .ToArray();
+
+            string normalized = string.Join(
+                " ",
+                new string(chars)
+                    .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
+                .Trim();
+
+            normalized = normalized.Trim('\'');
+            if (string.IsNullOrWhiteSpace(normalized))
+                return string.Empty;
+
+            return TrimToLength(normalized, MaxWorksheetNameLength);
+        }
+
+        private static string TrimToLength(string value, int maxLength)
+        {
+            if (maxLength <= 0)
+                return string.Empty;
+
+            return value.Length <= maxLength
+                ? value
+                : value[..maxLength].TrimEnd();
         }
 
         private static string GetCellReference(int rowIndex, int columnIndex) =>
@@ -380,23 +414,17 @@ namespace AsutpKnowledgeBase.Services
             return new string(chars.ToArray());
         }
 
-        private static void WriteXmlEntry(ZipArchive archive, string path, XDocument document)
-        {
-            var entry = archive.CreateEntry(path, CompressionLevel.Optimal);
-            using var stream = entry.Open();
-            document.Save(stream);
-        }
-
         private sealed record WorksheetDefinition(
             string Name,
-            IReadOnlyList<string> Headers,
-            IEnumerable<IReadOnlyList<WorksheetCell>> Rows);
+            IReadOnlyList<IReadOnlyList<WorksheetCell>> Rows);
 
         private sealed record WorkshopExportRow(
             int WorkshopOrder,
-            string WorkshopName,
             string WorkshopId,
+            string WorkshopName,
             bool IsLastSelected,
+            string NodesSheetKey,
+            string SheetTabName,
             List<KbNode> RootNodes);
 
         private enum WorksheetCellKind

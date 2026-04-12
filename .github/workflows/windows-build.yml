@@ -31,3 +31,41 @@ jobs:
 
       - name: Run core tests
         run: dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore
+
+  publish-win-x64:
+    runs-on: windows-latest
+    needs: build-and-test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Publish win-x64 single-file
+        shell: cmd
+        run: scripts\publish.cmd
+
+      - name: Verify publish output
+        shell: pwsh
+        run: |
+          $publishDir = Join-Path $PWD "artifacts/publish/win-x64"
+          $exePath = Join-Path $publishDir "asutpKB.exe"
+
+          if (-not (Test-Path $exePath)) {
+            throw "Expected publish output was not found: $exePath"
+          }
+
+          Get-ChildItem $publishDir |
+            Select-Object Name, Length |
+            Format-Table -AutoSize
+
+      - name: Upload win-x64 publish artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: asutpkb-win-x64-single-file
+          path: artifacts/publish/win-x64
+          if-no-files-found: error

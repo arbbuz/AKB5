@@ -2,263 +2,95 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
-using System.Xml.Linq;
 using AsutpKnowledgeBase.Models;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 
 namespace AsutpKnowledgeBase.Services
 {
     internal sealed class KnowledgeBaseXlsxReader
     {
-        private static readonly XNamespace SpreadsheetNamespace = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-        private static readonly XNamespace OfficeDocumentRelationshipsNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
-        private static readonly XNamespace PackageRelationshipsNamespace = "http://schemas.openxmlformats.org/package/2006/relationships";
-        private static readonly string[] WorkshopHeadersV1 = { "WorkshopOrder", "WorkshopName", "IsLastSelected" };
-        private static readonly string[] WorkshopHeadersV2 = { "WorkshopOrder", "WorkshopName", "IsLastSelected", "WorkshopId" };
-        private static readonly string[] NodeHeadersV1 =
-        {
-            "NodeId",
-            "WorkshopName",
-            "ParentNodeId",
-            "SiblingOrder",
-            "LevelIndex",
-            "LevelName",
-            "NodeName",
-            "Path"
-        };
-        private static readonly string[] NodeHeadersV2 =
-        {
-            "NodeId",
-            "WorkshopName",
-            "ParentNodeId",
-            "SiblingOrder",
-            "LevelIndex",
-            "LevelName",
-            "NodeName",
-            "Path",
-            "WorkshopId"
-        };
-
         private readonly KnowledgeBaseExcelWorkbookParser _parser = new();
 
         public SavedData ParseWorkbookPackage(byte[] packageBytes)
         {
             using var stream = new MemoryStream(packageBytes, writable: false);
-            using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: false);
+            using var document = SpreadsheetDocument.Open(stream, false);
 
-            var workbookEntry = archive.GetEntry("xl/workbook.xml")
-                ?? throw new KnowledgeBaseExcelImportException("Файл XLSX не содержит 'xl/workbook.xml'.");
-            var workbookRelationshipsEntry = archive.GetEntry("xl/_rels/workbook.xml.rels")
-                ?? throw new KnowledgeBaseExcelImportException("Файл XLSX не содержит 'xl/_rels/workbook.xml.rels'.");
+            var workbookPart = document.WorkbookPart
+                ?? throw new KnowledgeBaseExcelImportException("Файл XLSX не содержит workbook part.");
+            var sheets = workbookPart.Workbook.Sheets?.Elements<Sheet>().ToList()
+                ?? new List<Sheet>();
+            if (sheets.Count == 0)
+                throw new KnowledgeBaseExcelImportException("Файл XLSX не содержит листов workbook.");
 
-            var workbookDocument = LoadDocument(workbookEntry);
-            var workbookRelationships = ReadWorkbookRelationships(LoadDocument(workbookRelationshipsEntry));
-            var sharedStrings = ReadSharedStrings(archive);
-            var worksheets = ReadWorksheets(archive, workbookDocument, workbookRelationships, sharedStrings);
-            var metaRows = ReadWorksheetRows(worksheets, "Meta", "Property", "Value");
-            int formatVersion = ReadWorkbookFormatVersion(metaRows);
+            var sharedStrings = ReadSharedStrings(workbookPart.SharedStringTablePart);
+            var worksheets = new List<KnowledgeBaseSpreadsheetWorksheetData>();
 
-            var workbook = new KnowledgeBaseSpreadsheetWorkbookData(
-                MetaRows: metaRows,
-                LevelRows: ReadWorksheetRows(worksheets, "Levels", "LevelIndex", "LevelName"),
-                WorkshopRows: ReadWorksheetRows(worksheets, "Workshops", GetWorkshopHeaders(formatVersion)),
-                NodeRows: ReadWorksheetRows(
-                    worksheets,
-                    "Nodes",
-                    GetNodeHeaders(formatVersion)));
-
-            return _parser.ParseWorkbook(workbook);
-        }
-
-        private static string[] GetWorkshopHeaders(int formatVersion) =>
-            formatVersion == KnowledgeBaseExcelExchangeService.LegacyWorkbookFormatVersion
-                ? WorkshopHeadersV1
-                : WorkshopHeadersV2;
-
-        private static string[] GetNodeHeaders(int formatVersion) =>
-            formatVersion == KnowledgeBaseExcelExchangeService.LegacyWorkbookFormatVersion
-                ? NodeHeadersV1
-                : NodeHeadersV2;
-
-        private static int ReadWorkbookFormatVersion(IEnumerable<string[]> metaRows)
-        {
-            string rawFormatVersion = metaRows
-                .FirstOrDefault(row => row.Length >= 2 && string.Equals(row[0], "FormatVersion", StringComparison.Ordinal))?[1]
-                ?.Trim()
-                ?? throw new KnowledgeBaseExcelImportException("Лист 'Meta' не содержит обязательного свойства 'FormatVersion'.");
-
-            if (!int.TryParse(rawFormatVersion, NumberStyles.Integer, CultureInfo.InvariantCulture, out var formatVersion))
+            foreach (var sheet in sheets)
             {
-                throw new KnowledgeBaseExcelImportException(
-                    $"Не удалось прочитать целое число '{rawFormatVersion}' в 'Meta.FormatVersion'.");
+                string sheetName = sheet.Name?.Value?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(sheetName))
+                    throw new KnowledgeBaseExcelImportException("Обнаружен лист XLSX без имени.");
+
+                string relationshipId = sheet.Id?.Value?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(relationshipId))
+                    throw new KnowledgeBaseExcelImportException($"Для листа '{sheetName}' отсутствует relationship id.");
+
+                if (workbookPart.GetPartById(relationshipId) is not WorksheetPart worksheetPart)
+                {
+                    throw new KnowledgeBaseExcelImportException(
+                        $"Для листа '{sheetName}' отсутствует связанная worksheet part.");
+                }
+
+                worksheets.Add(new KnowledgeBaseSpreadsheetWorksheetData(
+                    sheetName,
+                    ReadWorksheetRows(worksheetPart, sharedStrings)));
             }
 
-            if (!KnowledgeBaseExcelExchangeService.IsSupportedWorkbookFormatVersion(formatVersion))
-            {
-                throw new KnowledgeBaseExcelImportException(
-                    $"Неподдерживаемая версия Excel exchange: {formatVersion}. " +
-                    $"Поддерживаются {KnowledgeBaseExcelExchangeService.LegacyWorkbookFormatVersion} и {KnowledgeBaseExcelExchangeService.WorkbookFormatVersion}.");
-            }
-
-            return formatVersion;
+            return _parser.ParseWorkbook(new KnowledgeBaseSpreadsheetWorkbookData(worksheets));
         }
 
-        private static Dictionary<string, string> ReadWorkbookRelationships(XDocument relationshipsDocument)
+        private static IReadOnlyList<string> ReadSharedStrings(SharedStringTablePart? part)
         {
-            var relationships = new Dictionary<string, string>(StringComparer.Ordinal);
-
-            foreach (var relationship in relationshipsDocument.Root?.Elements(PackageRelationshipsNamespace + "Relationship")
-                         ?? Enumerable.Empty<XElement>())
-            {
-                string id = relationship.Attribute("Id")?.Value?.Trim() ?? string.Empty;
-                string target = relationship.Attribute("Target")?.Value?.Trim() ?? string.Empty;
-
-                if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(target))
-                    continue;
-
-                relationships[id] = NormalizePartPath("xl/workbook.xml", target);
-            }
-
-            return relationships;
-        }
-
-        private static IReadOnlyList<string> ReadSharedStrings(ZipArchive archive)
-        {
-            var entry = archive.GetEntry("xl/sharedStrings.xml");
-            if (entry == null)
+            if (part?.SharedStringTable == null)
                 return Array.Empty<string>();
 
-            var document = LoadDocument(entry);
-            return document
-                .Descendants(SpreadsheetNamespace + "si")
+            return part.SharedStringTable
+                .Elements<SharedStringItem>()
                 .Select(ReadSharedStringItem)
                 .ToList();
         }
 
-        private static string ReadSharedStringItem(XElement item)
-        {
-            var runs = item.Elements(SpreadsheetNamespace + "r").ToList();
-            if (runs.Count > 0)
-            {
-                return string.Concat(runs
-                    .Select(run => run.Element(SpreadsheetNamespace + "t")?.Value ?? string.Empty))
-                    .Trim();
-            }
-
-            return (item.Element(SpreadsheetNamespace + "t")?.Value ?? string.Empty).Trim();
-        }
-
-        private static Dictionary<string, XElement> ReadWorksheets(
-            ZipArchive archive,
-            XDocument workbookDocument,
-            IReadOnlyDictionary<string, string> workbookRelationships,
-            IReadOnlyList<string> sharedStrings)
-        {
-            var worksheets = new Dictionary<string, XElement>(StringComparer.Ordinal);
-
-            foreach (var sheet in workbookDocument.Descendants(SpreadsheetNamespace + "sheet"))
-            {
-                string name = sheet.Attribute("name")?.Value?.Trim() ?? string.Empty;
-                string relationshipId = sheet.Attribute(OfficeDocumentRelationshipsNamespace + "id")?.Value?.Trim() ?? string.Empty;
-
-                if (string.IsNullOrWhiteSpace(name))
-                    throw new KnowledgeBaseExcelImportException("Обнаружен лист XLSX без имени.");
-
-                if (string.IsNullOrWhiteSpace(relationshipId) || !workbookRelationships.TryGetValue(relationshipId, out var partPath))
-                {
-                    throw new KnowledgeBaseExcelImportException(
-                        $"Для листа '{name}' отсутствует связь workbook relationship '{relationshipId}'.");
-                }
-
-                var entry = archive.GetEntry(partPath)
-                    ?? throw new KnowledgeBaseExcelImportException(
-                        $"Лист '{name}' ссылается на отсутствующую часть '{partPath}'.");
-
-                var worksheetDocument = LoadDocument(entry);
-                var worksheetRoot = worksheetDocument.Root
-                    ?? throw new KnowledgeBaseExcelImportException($"Лист '{name}' не содержит XML-корень.");
-
-                if (!worksheets.TryAdd(name, worksheetRoot))
-                    throw new KnowledgeBaseExcelImportException($"Лист '{name}' встречается более одного раза.");
-            }
-
-            if (worksheets.Count == 0)
-                throw new KnowledgeBaseExcelImportException("Файл XLSX не содержит листов workbook.");
-
-            return worksheets.ToDictionary(
-                pair => pair.Key,
-                pair => MaterializeWorksheetRows(pair.Value, sharedStrings),
-                StringComparer.Ordinal);
-        }
-
-        private static XElement MaterializeWorksheetRows(XElement worksheet, IReadOnlyList<string> sharedStrings)
-        {
-            var sheetData = worksheet.Element(SpreadsheetNamespace + "sheetData")
-                ?? throw new KnowledgeBaseExcelImportException("Лист XLSX не содержит 'sheetData'.");
-
-            return new XElement(
-                SpreadsheetNamespace + "worksheet",
-                new XElement(
-                    SpreadsheetNamespace + "sheetData",
-                    sheetData.Elements(SpreadsheetNamespace + "row").Select(row =>
-                        new XElement(
-                            SpreadsheetNamespace + "row",
-                            ReadRowValues(row, sharedStrings).Select(value =>
-                                new XElement(
-                                    SpreadsheetNamespace + "c",
-                                    new XElement(SpreadsheetNamespace + "v", value)))))));
-        }
+        private static string ReadSharedStringItem(SharedStringItem item) =>
+            string.Concat(item.Descendants<Text>().Select(text => text.Text)).Trim();
 
         private static List<string[]> ReadWorksheetRows(
-            IReadOnlyDictionary<string, XElement> worksheets,
-            string worksheetName,
-            params string[] expectedHeaders)
+            WorksheetPart worksheetPart,
+            IReadOnlyList<string> sharedStrings)
         {
-            if (!worksheets.TryGetValue(worksheetName, out var worksheet))
-                throw new KnowledgeBaseExcelImportException($"В Excel-файле отсутствует обязательный лист '{worksheetName}'.");
+            var sheetData = worksheetPart.Worksheet.GetFirstChild<SheetData>()
+                ?? throw new KnowledgeBaseExcelImportException("Лист XLSX не содержит 'sheetData'.");
 
-            var rows = worksheet
-                .Descendants(SpreadsheetNamespace + "row")
-                .Select(row => row
-                    .Elements(SpreadsheetNamespace + "c")
-                    .Select(cell => cell.Element(SpreadsheetNamespace + "v")?.Value ?? string.Empty)
-                    .ToArray())
-                .Select(TrimTrailingEmptyValues)
-                .ToList();
-
-            if (rows.Count == 0)
-                throw new KnowledgeBaseExcelImportException($"Лист '{worksheetName}' не содержит строк.");
-
-            string[] header = NormalizeRow(rows[0], expectedHeaders.Length, worksheetName, rowNumber: 1);
-            if (!header.SequenceEqual(expectedHeaders))
+            var rows = new List<string[]>();
+            foreach (var row in sheetData.Elements<Row>())
             {
-                throw new KnowledgeBaseExcelImportException(
-                    $"Лист '{worksheetName}' имеет неожиданные заголовки. Ожидалось: {string.Join(", ", expectedHeaders)}.");
+                rows.Add(TrimTrailingEmptyValues(ReadRowValues(row, sharedStrings).ToArray()));
             }
 
-            var dataRows = new List<string[]>();
-            for (int index = 1; index < rows.Count; index++)
-            {
-                var row = TrimTrailingEmptyValues(rows[index]);
-                if (row.Length == 0)
-                    continue;
-
-                dataRows.Add(NormalizeRow(row, expectedHeaders.Length, worksheetName, index + 1));
-            }
-
-            return dataRows;
+            return rows;
         }
 
-        private static string[] ReadRowValues(XElement row, IReadOnlyList<string> sharedStrings)
+        private static List<string> ReadRowValues(Row row, IReadOnlyList<string> sharedStrings)
         {
             var values = new List<string>();
             int currentIndex = 1;
 
-            foreach (var cell in row.Elements(SpreadsheetNamespace + "c"))
+            foreach (var cell in row.Elements<Cell>())
             {
                 int requestedIndex = currentIndex;
-                string? reference = cell.Attribute("r")?.Value;
+                string? reference = cell.CellReference?.Value;
                 if (!string.IsNullOrWhiteSpace(reference))
                     requestedIndex = GetColumnIndex(reference);
 
@@ -272,28 +104,31 @@ namespace AsutpKnowledgeBase.Services
                 currentIndex++;
             }
 
-            return values.ToArray();
+            return values;
         }
 
-        private static string ReadCellValue(XElement cell, IReadOnlyList<string> sharedStrings)
+        private static string ReadCellValue(Cell cell, IReadOnlyList<string> sharedStrings)
         {
-            string cellType = cell.Attribute("t")?.Value?.Trim() ?? string.Empty;
+            if (cell.DataType?.Value == CellValues.SharedString)
+                return ReadSharedString(cell, sharedStrings);
 
-            return cellType switch
+            if (cell.DataType?.Value == CellValues.Boolean)
+                return ReadBoolean(cell);
+
+            if (cell.DataType?.Value == CellValues.InlineString)
             {
-                "inlineStr" => string.Concat(
-                    cell.Descendants(SpreadsheetNamespace + "t")
-                        .Select(text => text.Value))
-                    .Trim(),
-                "s" => ReadSharedString(cell, sharedStrings),
-                "b" => ReadBoolean(cell),
-                _ => (cell.Element(SpreadsheetNamespace + "v")?.Value ?? string.Empty).Trim()
-            };
+                return string.Concat(
+                        (cell.InlineString?.Descendants<Text>() ?? Enumerable.Empty<Text>())
+                            .Select(text => text.Text))
+                    .Trim();
+            }
+
+            return (cell.CellValue?.InnerText ?? string.Empty).Trim();
         }
 
-        private static string ReadSharedString(XElement cell, IReadOnlyList<string> sharedStrings)
+        private static string ReadSharedString(Cell cell, IReadOnlyList<string> sharedStrings)
         {
-            string rawIndex = cell.Element(SpreadsheetNamespace + "v")?.Value?.Trim() ?? string.Empty;
+            string rawIndex = cell.CellValue?.InnerText?.Trim() ?? string.Empty;
             if (!int.TryParse(rawIndex, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index))
             {
                 throw new KnowledgeBaseExcelImportException(
@@ -306,9 +141,9 @@ namespace AsutpKnowledgeBase.Services
             return sharedStrings[index];
         }
 
-        private static string ReadBoolean(XElement cell)
+        private static string ReadBoolean(Cell cell)
         {
-            string rawValue = cell.Element(SpreadsheetNamespace + "v")?.Value?.Trim() ?? string.Empty;
+            string rawValue = cell.CellValue?.InnerText?.Trim() ?? string.Empty;
             return rawValue switch
             {
                 "1" => "TRUE",
@@ -334,33 +169,6 @@ namespace AsutpKnowledgeBase.Services
             return index;
         }
 
-        private static string NormalizePartPath(string basePartPath, string target)
-        {
-            string baseDirectory = Path.GetDirectoryName(basePartPath)?.Replace('\\', '/') ?? string.Empty;
-            string combined = string.IsNullOrWhiteSpace(baseDirectory)
-                ? target
-                : $"{baseDirectory}/{target}";
-
-            var segments = new Stack<string>();
-            foreach (var segment in combined.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries))
-            {
-                if (segment == ".")
-                    continue;
-
-                if (segment == "..")
-                {
-                    if (segments.Count > 0)
-                        segments.Pop();
-
-                    continue;
-                }
-
-                segments.Push(segment);
-            }
-
-            return string.Join("/", segments.Reverse());
-        }
-
         private static string[] TrimTrailingEmptyValues(string[] values)
         {
             int lastNonEmptyIndex = values.Length - 1;
@@ -371,31 +179,6 @@ namespace AsutpKnowledgeBase.Services
                 return Array.Empty<string>();
 
             return values.Take(lastNonEmptyIndex + 1).ToArray();
-        }
-
-        private static string[] NormalizeRow(string[] values, int expectedLength, string worksheetName, int rowNumber)
-        {
-            if (values.Length > expectedLength)
-            {
-                throw new KnowledgeBaseExcelImportException(
-                    $"Лист '{worksheetName}', строка {rowNumber}: обнаружены лишние значения после ожидаемых колонок.");
-            }
-
-            if (values.Length == expectedLength)
-                return values;
-
-            var normalized = new string[expectedLength];
-            Array.Copy(values, normalized, values.Length);
-            for (int index = values.Length; index < expectedLength; index++)
-                normalized[index] = string.Empty;
-
-            return normalized;
-        }
-
-        private static XDocument LoadDocument(ZipArchiveEntry entry)
-        {
-            using var stream = entry.Open();
-            return XDocument.Load(stream);
         }
     }
 }

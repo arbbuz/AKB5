@@ -1,5 +1,7 @@
 bin/
 obj/
 TestResults/
+artifacts/
+.DS_Store
 *.user
 *.suo

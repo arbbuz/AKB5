@@ -4,143 +4,108 @@
 
 `AKB5` — WinForms-приложение на C# / .NET 8 для ведения древовидной базы знаний по АСУТП.
 
-Текущая модель хранения:
+Базовый source of truth приложения — локальный JSON-файл с:
 
-- JSON-файл с `SchemaVersion`, `Config`, `Workshops`, `LastWorkshop`
-- несколько цехов в одной базе
-- настраиваемая глубина дерева и названия уровней
+- `SchemaVersion`
+- `Config`
+- `Workshops`
+- `LastWorkshop`
 
-## Текущее состояние проекта
+Excel нужен как редактируемый exchange-формат для выгрузки, ручной правки и обратного импорта.
 
-Проект уже доведён до рабочего инженерного минимума:
+## Структура репозитория
 
-- приложение собирается как `net8.0-windows` в [asutpKB.csproj](/Users/home/ASUTP/AKB5/asutpKB.csproj)
-- в корне репозитория снова один root-проект, поэтому `dotnet clean` и `dotnet build` из корня не должны быть неоднозначными
-- большая часть не-UI логики вынесена из формы в отдельные сервисы
-- есть отдельный тестовый проект для core-логики
-- есть Windows CI workflow для `build` и `test`
-- `Program.cs` остаётся чистым bootstrap-файлом
-
-Главная архитектурная проблема по-прежнему локализована в `Forms/MainForm.cs`, но теперь форма заметно ближе к роли thin shell. После последних рефакторингов из неё вынесены file/session UI workflow, workshop/config UI workflow, node-level tree-mutation UI workflow, drag-and-drop/undo-redo orchestration для дерева, а также привязка `TreeView` и поиск. Сейчас `MainForm` в основном содержит сборку формы, wiring событий, создание UI-контекстов, screen-level glue между сервисами и обновление состояния экрана.
-
-Важно: `src/AsutpKnowledgeBase.Core` пока не содержит физически перенесённые исходники. Он использует `Models/*.cs` и `Services/*.cs` как linked files. Это значит, что граница между UI и core уже выстроена концептуально и тестируется, но физическое разделение кода ещё не завершено. Папка `UiServices/` в `Core` не линкуется и остаётся WinForms-слоем.
-
-## Принятые ориентиры
-
-На текущем этапе для проекта зафиксированы такие решения:
-
-- архитектурный курс: прагматичный рефакторинг без переписывания WinForms UI
-- целевое состояние: минимально чистая архитектура, в которой `MainForm` постепенно становится thin shell над UI-facing coordinator/service слоями
-- ближайший приоритет: сначала стабилизировать `build` и `test`, затем продолжать дробление `MainForm`
-- хранилище: локальный JSON остаётся основным и единственным source of truth
-- обмен данными: импорт/экспорт в Excel реализуется отдельно от JSON persistence layer, без смешивания с `JsonStorageService`
-- Excel exchange работает только с `*.xlsx`, без legacy XML fallback
-- текущая реализация Excel exchange экспортирует dependency-free `*.xlsx` без внешних NuGet-пакетов и сохраняет контракт листов `Meta/Levels/Workshops/Nodes`
-- import ориентирован на реальные правки в Excel и не требует ручной синхронизации производных колонок вроде `Path`, `Nodes.LevelName` или `Meta.LastWorkshop`
-
-## Краткое обновление
-
-- `MainForm` сокращён примерно до `560` строк и теперь ближе к thin-shell роли
-- вынесены отдельные WinForms-coordinator'ы для workshop/config UI и tree-mutation UI
-- Excel exchange больше не живёт в одном крупном классе: фасад сохранён в `KnowledgeBaseExcelExchangeService`, а writer, reader, workbook-data model и parser разнесены по отдельным сервисам
-- экспорт пишет реальные numeric/boolean cells в `xlsx`, а не строковые значения в Excel-совместимой XML-обёртке
-- import уже переживает типовые ручные правки workbook: rename узлов, rename уровней, stale `Meta.LastWorkshop` и rename цехов без ручной правки каждой строки `Nodes`
-- ближайшая практическая задача: подтвердить `dotnet build/test` и провести Windows/Excel smoke-проверку `export/import` на реальном Excel
-
-## Структура
-
+- [asutpKB.csproj](/Users/home/ASUTP/AKB5/asutpKB.csproj) — root WinForms-проект, который нужно `restore/build/publish`
 - [Program.cs](/Users/home/ASUTP/AKB5/Program.cs) — точка входа
-- [Forms/MainForm.cs](/Users/home/ASUTP/AKB5/Forms/MainForm.cs) — главная форма и оставшийся UI orchestration
-- [Forms/InputDialog.cs](/Users/home/ASUTP/AKB5/Forms/InputDialog.cs) — строковый диалог ввода
-- [Forms/SetupForm.cs](/Users/home/ASUTP/AKB5/Forms/SetupForm.cs) — настройка уровней
-- [Models/KbConfig.cs](/Users/home/ASUTP/AKB5/Models/KbConfig.cs) — конфигурация уровней
-- [Models/KbNode.cs](/Users/home/ASUTP/AKB5/Models/KbNode.cs) — узел дерева
-- [Models/SavedData.cs](/Users/home/ASUTP/AKB5/Models/SavedData.cs) — корневая модель сохранения
-- [Services/KnowledgeBaseDataService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseDataService.cs) — нормализация конфигурации, цехов и snapshot serialization
-- [Services/KnowledgeBaseService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseService.cs) — базовые операции над деревом знаний
-- [Services/KnowledgeBaseTreeController.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseTreeController.cs) — прикладные tree-операции без UI
-- [Services/KnowledgeBaseTreeMutationWorkflowService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseTreeMutationWorkflowService.cs) — mutating tree-workflow и undo/redo coordination без WinForms
-- [Services/KnowledgeBaseSessionService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseSessionService.cs) — session-state приложения
-- [Services/KnowledgeBaseSessionWorkflowService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseSessionWorkflowService.cs) — переходы session-state
-- [Services/KnowledgeBaseFileWorkflowService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseFileWorkflowService.cs) — файловый workflow `load/save`
-- [Services/KnowledgeBaseConfigurationWorkflowService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseConfigurationWorkflowService.cs) — изменение конфигурации уровней
-- [Services/KnowledgeBaseFormStateService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseFormStateService.cs) — правила состояния формы
-- [Services/JsonStorageService.cs](/Users/home/ASUTP/AKB5/Services/JsonStorageService.cs) — чтение, запись, backup и валидация JSON
-- [Services/KnowledgeBaseExcelExchangeService.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseExcelExchangeService.cs) — thin facade для import/export базы в Excel workbook формата `xlsx`
-- [Services/KnowledgeBaseXlsxWriter.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseXlsxWriter.cs) — генерация `xlsx` workbook и числовых/boolean cell types для контракта `Meta/Levels/Workshops/Nodes`
-- [Services/KnowledgeBaseXlsxReader.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseXlsxReader.cs) — чтение `xlsx` workbook, sheet relationships, inline/shared strings и numeric/boolean cells
-- [Services/KnowledgeBaseSpreadsheetWorkbookData.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseSpreadsheetWorkbookData.cs) — общий transport-тип workbook-таблиц между reader и parser
-- [Services/KnowledgeBaseExcelWorkbookParser.cs](/Users/home/ASUTP/AKB5/Services/KnowledgeBaseExcelWorkbookParser.cs) — валидация Excel workbook contract и сборка `SavedData`
-- [Services/UndoRedoService.cs](/Users/home/ASUTP/AKB5/Services/UndoRedoService.cs) — история undo/redo
-- [UiServices/KnowledgeBaseExcelUiWorkflowService.cs](/Users/home/ASUTP/AKB5/UiServices/KnowledgeBaseExcelUiWorkflowService.cs) — WinForms-специфичные сценарии `Экспорт в Excel...` и `Импорт из Excel...`
-- [UiServices/KnowledgeBaseFileUiWorkflowService.cs](/Users/home/ASUTP/AKB5/UiServices/KnowledgeBaseFileUiWorkflowService.cs) — WinForms-специфичный coordinator для file/session dialogs, prompt'ов и close handling
-- [UiServices/KnowledgeBaseWorkshopUiWorkflowService.cs](/Users/home/ASUTP/AKB5/UiServices/KnowledgeBaseWorkshopUiWorkflowService.cs) — WinForms-специфичные сценарии переключения/добавления цехов и настройки уровней
-- [UiServices/KnowledgeBaseTreeMutationUiWorkflowService.cs](/Users/home/ASUTP/AKB5/UiServices/KnowledgeBaseTreeMutationUiWorkflowService.cs) — WinForms-специфичные tree-mutation сценарии, drag-and-drop feedback и undo/redo orchestration
-- [UiServices/KnowledgeBaseTreeViewService.cs](/Users/home/ASUTP/AKB5/UiServices/KnowledgeBaseTreeViewService.cs) — WinForms-специфичная привязка дерева, expanded-state и поиск
-- [src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj](/Users/home/ASUTP/AKB5/src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj) — библиотека для тестируемой не-UI логики
-- [tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj](/Users/home/ASUTP/AKB5/tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj) — unit-тесты
+- [Forms/MainForm.cs](/Users/home/ASUTP/AKB5/Forms/MainForm.cs) — главный UI shell
+- [Models](/Users/home/ASUTP/AKB5/Models) — shared domain models
+- [Services](/Users/home/ASUTP/AKB5/Services) — не-UI логика, включая JSON storage и Excel exchange
+- [UiServices](/Users/home/ASUTP/AKB5/UiServices) — WinForms-специфичные workflow/services
+- [src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj](/Users/home/ASUTP/AKB5/src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj) — core library project для тестируемой логики
+- [tests/AsutpKnowledgeBase.Core.Tests](/Users/home/ASUTP/AKB5/tests/AsutpKnowledgeBase.Core.Tests) — regression/unit tests
+- [scripts/publish.ps1](/Users/home/ASUTP/AKB5/scripts/publish.ps1) и [scripts/publish.cmd](/Users/home/ASUTP/AKB5/scripts/publish.cmd) — reproducible publish flow
 - [.github/workflows/windows-build.yml](/Users/home/ASUTP/AKB5/.github/workflows/windows-build.yml) — Windows CI
 
-## Что уже вынесено из MainForm
+## Excel Editable Format v3
 
-- session-state, dirty-state и snapshot bookkeeping
-- file workflow: `load`, `save`, backup/fallback, default-data paths
-- session workflow: смена цеха, добавление цеха, восстановление snapshot
-- валидация и нормализация конфигурации уровней
-- вычисление состояния формы
-- чистые tree-операции над моделью
-- mutating tree-workflow для `add/delete/paste/rename/move`
-- undo/redo orchestration для tree-сценариев
-- file/session UI workflow: `Open`, `Reload`, `Save`, `Save As`, unsaved-changes prompt, close handling и error messaging
-- workshop/config UI workflow
-- node-level UI orchestration для `add/delete/copy/paste/rename/move/undo/redo`
-- Excel import/export contract, `xlsx` workbook generation, tolerant reading и workbook parsing
-- UI-команды `Экспорт в Excel...` и `Импорт из Excel...`
-- WinForms-специфичная привязка `TreeView`, восстановление expanded-state и поиск
-- отдельные диалоги `InputDialog` и `SetupForm`
+Единственный поддерживаемый Excel exchange-формат сейчас — workbook `v3`.
 
-## Что сделано в последнем рефакторинге
+Workbook состоит из:
 
-- `MainForm` сокращён примерно до `560` строк и очищен от workshop/config UI orchestration и от большей части node-level tree-mutation UI-сценариев
-- добавлен `KnowledgeBaseWorkshopUiWorkflowService` для screen-level сценариев по цехам и настройке уровней
-- добавлен `KnowledgeBaseTreeMutationUiWorkflowService` для WinForms-диалогов, drag-and-drop feedback и undo/redo orchestration поверх core tree workflow
-- `KnowledgeBaseExcelExchangeService` превращён в thin facade
-- генерация `xlsx` workbook вынесена в `KnowledgeBaseXlsxWriter`
-- чтение `xlsx` workbook вынесено в `KnowledgeBaseXlsxReader`
-- общий transport-тип workbook-таблиц выделен в `KnowledgeBaseSpreadsheetWorkbookData`
-- валидация workbook contract и сборка `SavedData` вынесены в `KnowledgeBaseExcelWorkbookParser`
-- fixed Excel contract по-прежнему остаётся `Meta`, `Levels`, `Workshops`, `Nodes`, а `WorkbookFormatVersion = 1` не менялся
+- `Meta`
+- `Levels`
+- `Workshops`
+- отдельного листа узлов для каждого цеха
 
-## Основные хвосты
+Подробный контракт описан в [docs/workbook-v3.md](/Users/home/ASUTP/AKB5/docs/workbook-v3.md).
 
-- `MainForm` всё ещё совмещает layout/bootstrap формы, wiring UI-событий, создание UI-контекстов и часть screen-level glue между сервисами
-- Excel exchange уже декомпозирован на facade/writer/reader/parser, но `KnowledgeBaseExcelWorkbookParser` остаётся сравнительно крупным и требует дальнейшего дробления только при реальной необходимости
-- Excel exchange через `*.xlsx` всё ещё требует подтверждения реальным открытием/сохранением в Excel и Windows smoke-проверкой, особенно для сценариев с ручным редактированием workbook
-- `src/AsutpKnowledgeBase.Core` всё ещё использует linked-file схему вместо физически выделенного core-кода
-- полноценная UI-проверка остаётся Windows-only задачей
-- после последнего рефакторинга требуется переподтверждение `dotnet build` и `dotnet test` в рабочем Windows/.NET окружении
+Коротко по редактированию:
 
-## Проверка
+- редактируемые поля: `Levels.LevelName`, `Workshops.WorkshopName`, `Workshops.IsLastSelected`, `Nodes.NodeName`
+- технические поля: `WorkshopOrder`, `WorkshopId`, `NodesSheetKey`, `NodeId`, `ParentNodeId`, `SiblingOrder`, `LevelIndex`
+- производные/display-only поля: `Meta.LastWorkshop`, `Nodes.LevelName`, `Nodes.Path`
+- поддерживаемые ручные изменения: rename уровней, rename цехов, rename узлов, смена выбранного цеха, перестановка колонок, добавление лишних пользовательских колонок, rename tab у листа узлов без поломки sheet metadata
+- не поддерживаются: правки `FormatId/FormatVersion`, ручная коррекция технических идентификаторов и порядков, удаление обязательных листов/колонок, поломка связи `WorkshopId`/`NodesSheetKey`, возврат к legacy `v1/v2`
 
-По структуре проекта сейчас:
+Примеры пользовательских ошибок, которые import должен ловить явно:
 
-- в тестовом проекте `tests/AsutpKnowledgeBase.Core.Tests` — `64` unit-теста
-- добавлены unit-тесты на Excel import/export, но здесь они не запускались из-за отсутствия `dotnet`
-- `git diff --check` по текущему рефакторингу чистый
+- `FormatVersion = 2` или другой неподдерживаемый формат
+- duplicate `WorkshopName`, `WorkshopId` или `NodesSheetKey`
+- невалидный `WorkshopOrder` / `LevelIndex`
+- missing sheet узлов для строки из `Workshops`
+- неизвестный `ParentNodeId` или broken node-sheet metadata
 
-Важно: в этой среде `dotnet` недоступен, поэтому локально здесь я не переподтверждал `dotnet build` и `dotnet test` после последнего рефакторинга. Полная проверка сборки и тестов должна выполняться в Windows-среде или в окружении с установленным .NET SDK.
+## Publish / Deployment
 
-## Актуальный план
+Поддерживаемый publish target только один:
 
-1. Подтвердить `dotnet build` и `dotnet test` в Windows или другом окружении с установленным .NET SDK.
-2. Подтвердить `Excel export/import` в реальном Excel/Windows сценарии: открыть workbook, переименовать узлы/цеха/уровни, сохранить и выполнить import обратно в JSON.
-3. Исправить только те проблемы, которые всплывут при сборке, тестах и Excel smoke-проверке, не расширяя объём изменений.
-4. Если xlsx-подсистема продолжит расти, дробить дальше уже `KnowledgeBaseExcelWorkbookParser`, а не возвращать логику в facade.
-5. Добавить Windows smoke-checklist или UI automation для базовых пользовательских сценариев, включая JSON и Excel exchange.
-6. Физически перенести `Models` и `Services` в `src/AsutpKnowledgeBase.Core`, когда граница слоёв стабилизируется и сборка станет предсказуемой.
+- `win-x64`
 
-## Что сознательно не делаем сейчас
+`arm64` / `win-arm64` publish flow в проекте не поддерживается и не документируется.
 
-- не переписываем WinForms UI под MVP/MVVM
-- не заменяем JSON другим форматом хранения
-- не смешиваем будущий Excel import/export с текущим JSON storage workflow
+Собрать self-contained single-file publish можно так:
+
+```powershell
+scripts\publish.cmd
+```
+
+или напрямую:
+
+```bash
+dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/publish/win-x64
+```
+
+Дополнительные правила publish:
+
+- publish идёт из root-проекта [asutpKB.csproj](/Users/home/ASUTP/AKB5/asutpKB.csproj), не из core project
+- output лежит в `artifacts/publish/win-x64`
+- основной исполняемый файл: `artifacts/publish/win-x64/asutpKB.exe`
+- trimming и AOT намеренно не включаются
+- обычный `build/debug` не становится global self-contained
+
+Как запускать на пользовательском ПК:
+
+1. Собрать publish flow на машине разработчика или взять CI artifact `win-x64`.
+2. Скопировать содержимое `artifacts/publish/win-x64` на 64-битный Windows ПК.
+3. Запустить `asutpKB.exe`.
+4. Дополнительная установка .NET runtime на пользовательском ПК не требуется, потому что publish self-contained.
+
+Детали по deployment и CI artifact собраны в [docs/deployment.md](/Users/home/ASUTP/AKB5/docs/deployment.md).
+
+## Build / Test
+
+Минимальная локальная верификация перед завершением изменений:
+
+```bash
+dotnet restore asutpKB.csproj
+dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj
+dotnet build asutpKB.csproj -c Release --no-restore
+dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-build
+dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/publish/win-x64
+```
+
+## AI Handoff
+
+- persistent guide для новой AI-сессии: [AGENTS.md](/Users/home/ASUTP/AKB5/AGENTS.md)
+- текущее состояние задачи: [docs/codex-handoff.md](/Users/home/ASUTP/AKB5/docs/codex-handoff.md)
+- reusable стартовый prompt для чистого диалога: [docs/codex-start-prompt.md](/Users/home/ASUTP/AKB5/docs/codex-start-prompt.md)
