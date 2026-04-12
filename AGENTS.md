@@ -70,6 +70,16 @@ Publish:
 - Supported publish target is only `win-x64`; do not add `arm64` / `win-arm64` flows unless the task explicitly changes that decision.
 - Keep `SelfContained`, `PublishSingleFile`, trimming, and AOT scoped to publish only; do not enable them globally for ordinary build/debug.
 
+## Git branch workflow
+
+- `main` is the stable branch. Do not use it as the default working branch for ordinary task implementation.
+- `development` is the default integration branch for ongoing Codex work in this repository.
+- For new tasks, prefer the clean worktree on `development` and keep `main` clean for verification and release-oriented checks.
+- After completing a task, push the resulting changes to `development`.
+- Only when the user explicitly asks to "push to main" should Codex prepare a PR from `development` to `main`.
+- Do not push task branches directly to `main` unless the user explicitly overrides this workflow.
+- If another local branch/worktree contains unfinished changes, keep them isolated and do not mix them into `development` without the user's approval.
+
 ## Validation policy before completion
 
 - Never claim `build` or `test` passed unless you actually ran the commands or have explicit CI evidence for the exact code under discussion.
