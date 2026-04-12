@@ -93,7 +93,7 @@ dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:Pub
 Automation сейчас работает так:
 
 - `pull_request` запускает только `build-and-test`
-- `push` в `main/master` запускает `build-and-test` и `publish-win-x64`
+- `push` в `development/main` запускает `build-and-test` и `publish-win-x64`
 - ручной запуск через `workflow_dispatch` тоже собирает publish artifact
 - job `build-and-test` теперь дополнительно валидирует форматирование и базовый code style через `dotnet format` + root `.editorconfig` до `dotnet build` и `dotnet test`
 

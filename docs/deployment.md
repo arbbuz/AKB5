@@ -52,7 +52,7 @@ Output directory:
 Windows workflow [windows-build.yml](../.github/workflows/windows-build.yml) сохраняет текущий `build-and-test` path и теперь работает так:
 
 - `pull_request` запускает только `build-and-test`
-- `push` в `main/master` запускает `build-and-test` и publish
+- `push` в `development/main` запускает `build-and-test` и publish
 - manual run через `workflow_dispatch` тоже запускает publish
 
 Publish job при этом:

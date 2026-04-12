@@ -1,90 +1,83 @@
 # Current objective
 
-- Минимальный lint/analyzer baseline для `AKB5` уже внедрён.
-- Дальше нужно сохранять зелёный `dotnet format` gate и не расширять rollout в большой analyzer-cleanup без отдельной задачи.
-- Excel exchange contract `v3`, publish target `win-x64` и существующий publish flow остались без изменений.
+- Keep Windows CI aligned with the repository branch model after the logging rollout.
+- Limit the current GitHub automation/scripts task to a minimal hardening diff: correct `push` branches, set explicit artifact retention, and preserve the existing `win-x64` publish flow.
 
 # Current repo state
 
-- Основной рабочий репозиторий: `/Users/home/ASUTP/AKB5` на ветке `development`.
-- Параллельный worktree `/Users/home/ASUTP/AKB5-ci-hardening` на `main` в этот rollout не входит.
-- В репозитории теперь добавлены:
-  - root `Directory.Build.props` с baseline для встроенных analyzers `.NET 8`
-  - root `.editorconfig` с минимальными formatting/code-style правилами для `*.cs`
-- `.github/workflows/windows-build.yml` теперь запускает три шага `dotnet format --verify-no-changes --severity warn --no-restore` до `dotnet build` и `dotnet test`.
-- `README.md` отражает новый порядок локальной верификации: `restore -> format verify -> build -> test`.
-- Минимальный cleanup под gate выполнен через `dotnet format`; он затронул только low-risk правки:
-  - удаление unused `using`
-  - whitespace/newline cleanup
-  - одна безопасная simplification в тесте (`StartsWith("/")` -> `StartsWith('/')`)
+- Main working repository: `/Users/home/ASUTP/AKB5` on branch `development`.
+- Parallel worktree `/Users/home/ASUTP/AKB5-ci-hardening` still exists, but this rollout was done in the main repository only.
+- The working tree still contains unrelated logging-rollout changes in `Program.cs`, `Forms/MainForm.cs`, several `Services/*` files, related tests, and new logger files. Do not mix or revert them unintentionally while handling this CI/docs diff.
+- This session updated:
+  - `.github/workflows/windows-build.yml`
+  - `README.md`
+  - `docs/deployment.md`
+  - `docs/codex-handoff.md`
+- The Windows workflow now:
+  - keeps `pull_request` for `build-and-test`
+  - listens to `push` on `development` and `main`
+  - keeps `workflow_dispatch`, `permissions`, and `concurrency`
+  - uses `actions/checkout@v6`, `actions/setup-dotnet@v5`, and `actions/upload-artifact@v7`
+  - uploads `asutpkb-win-x64-single-file` from `artifacts/publish/win-x64` with `retention-days: 14`
+- `scripts/publish.cmd` and `scripts/publish.ps1` were inspected only. No changes were required; they still enforce `win-x64` and `artifacts/publish/win-x64`.
 
 # Decisions already made
 
-- Используем только встроенный analyzer baseline SDK .NET 8:
-  - `AnalysisLevel = 8.0-recommended`
-  - `EnforceCodeStyleInBuild = true`
-  - `CodeAnalysisTreatWarningsAsErrors = false`
-- Не добавляем `StyleCop.Analyzers`.
-- Не добавляем `Microsoft.CodeAnalysis.NetAnalyzers` как NuGet package.
-- Не включаем глобально `TreatWarningsAsErrors=true`.
-- Не вводим `.ruleset`.
-- CI должен выполнять `dotnet format --verify-no-changes --severity warn --no-restore` отдельно для:
-  - `asutpKB.csproj`
-  - `src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj`
-  - `tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj`
-- `publish-win-x64` job, publish scripts и publish target `win-x64` не меняются.
-- Новые analyzer diagnostics, появившиеся после `AnalysisLevel = 8.0-recommended`, остаются warnings на этом шаге rollout и не блокируют build/test.
+- `master` support was removed from the workflow trigger because there is no local or `origin/*` `master` branch, while repository rules in `AGENTS.md` explicitly use `development` as the integration branch and `main` as the stable branch.
+- Artifact retention was set to `14` days because no repository-wide alternative standard was found and this is a reasonable CI artifact lifetime.
+- No path filters, build matrix, additional OS targets, or extra runtime targets were added.
+- Documentation was updated only where it directly described the changed workflow behavior. Application code and publish scripts were left untouched.
 
 # Files already relevant to the task
 
-- `Directory.Build.props`
-- `.editorconfig`
+- `AGENTS.md`
 - `.github/workflows/windows-build.yml`
 - `README.md`
+- `docs/deployment.md`
 - `docs/codex-handoff.md`
-- `Services/KnowledgeBaseService.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseExcelExchangeServiceTests.cs`
-- `asutpKB.csproj`
-- `src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj`
-- `tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj`
+- `scripts/publish.cmd`
+- `scripts/publish.ps1`
 
 # Validation performed in this session
 
-Фактически выполнено:
+Actually executed:
 
 - `git status --short`
+- `git branch -a --no-color`
+- `rg -n "\bmaster\b|\bdevelopment\b|\bmain\b" -g '!bin' -g '!obj' -g '!artifacts' .`
+- `sed -n '1,220p' scripts/publish.cmd`
+- `sed -n '1,260p' scripts/publish.ps1`
 - `/Users/home/.dotnet/dotnet restore asutpKB.csproj`
 - `/Users/home/.dotnet/dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj`
-- pre-change dry-run baseline check показал format-нарушение в `Services/KnowledgeBaseService.cs`
-- `/Users/home/.dotnet/dotnet format asutpKB.csproj --severity warn --no-restore`
-- `/Users/home/.dotnet/dotnet format src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj --severity warn --no-restore`
-- `/Users/home/.dotnet/dotnet format tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --severity warn --no-restore`
 - `/Users/home/.dotnet/dotnet format asutpKB.csproj --verify-no-changes --severity warn --no-restore`
 - `/Users/home/.dotnet/dotnet format src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity warn --no-restore`
 - `/Users/home/.dotnet/dotnet format tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity warn --no-restore`
-- `/Users/home/.dotnet/dotnet build asutpKB.csproj -c Release --no-restore`
-- `/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-restore`
+- `/Users/home/.dotnet/dotnet build asutpKB.csproj --configuration Release --no-restore`
+- `/Users/home/.dotnet/dotnet build tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore`
+- `/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore`
+- `/Users/home/.dotnet/dotnet publish asutpKB.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/publish/win-x64`
+- verified `artifacts/publish/win-x64/asutpKB.exe`
 - `git diff --check`
 
 Observed results:
 
-- все три `dotnet format --verify-no-changes` прошли успешно
-- release build: success, `47` warnings, `0` errors
-- core test suite: success, `90` passed, `0` failed
-- `git diff --check`: clean
-- дополнительный `dotnet publish` не запускался, так как lint baseline не показал признаков влияния на publish path
+- all restore / format / build / test commands succeeded
+- tests: `93` passed, `0` failed
+- direct `dotnet publish` succeeded and produced `artifacts/publish/win-x64/asutpKB.exe`
+- publish still emits the existing analyzer-warning baseline during the publish build step
+- `git diff --check` is clean
+- neither `pwsh` nor `powershell` is installed in this environment, so the wrapper path through `scripts/publish.cmd` / `scripts/publish.ps1` was not executed end-to-end here
 
 # Known risks / open questions
 
-- Build и test теперь показывают analyzer warnings из baseline `.NET 8`:
-  - примеры: `CA1822`, `CA1707`, `CA1305`, `CA1859`, `CA1861`
-  - они не эскалированы в ошибки по дизайну первого rollout
-- Если команда захочет уменьшить warning noise, это стоит делать отдельной задачей, а не внутри минимального lint baseline.
+- The wrapper execution path through `scripts/publish.cmd` / `scripts/publish.ps1` still needs a Windows or PowerShell-capable environment for direct end-to-end confirmation.
+- Unrelated logging-rollout changes remain in the working tree and should stay isolated from this CI/docs diff unless the user explicitly wants them combined.
+- This rollout intentionally did not broaden scope into other CI changes beyond branch alignment, action-version refresh on the touched workflow file, and artifact retention.
 
 # Recommended next step
 
-- Сохранять новый `dotnet format` gate зелёным для всех трёх проектов.
-- При отдельном запросе можно сделать следующий шаг: целевой cleanup analyzer warnings без изменения publish/deployment flow.
+- Let GitHub Actions run on `development` (or use `workflow_dispatch`) to confirm the updated hosted-Windows path for checkout/upload-artifact versions and the new artifact retention setting.
+- If the user wants to ship this diff separately, isolate or commit the CI/docs files apart from the existing logging-rollout changes.
 
 # Commands to run before finishing future implementation work
 
@@ -95,7 +88,9 @@ git status --short
 /Users/home/.dotnet/dotnet format asutpKB.csproj --verify-no-changes --severity warn --no-restore
 /Users/home/.dotnet/dotnet format src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity warn --no-restore
 /Users/home/.dotnet/dotnet format tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity warn --no-restore
-/Users/home/.dotnet/dotnet build asutpKB.csproj -c Release --no-restore
-/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-restore
+/Users/home/.dotnet/dotnet build asutpKB.csproj --configuration Release --no-restore
+/Users/home/.dotnet/dotnet build tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore
+/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore
+/Users/home/.dotnet/dotnet publish asutpKB.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/publish/win-x64
 git diff --check
 ```

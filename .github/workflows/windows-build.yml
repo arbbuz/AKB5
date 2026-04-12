@@ -3,8 +3,8 @@ name: Windows Build
 on:
   push:
     branches:
+      - development
       - main
-      - master
   pull_request:
   workflow_dispatch:
 
@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v5
@@ -58,7 +58,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v5
@@ -84,8 +84,9 @@ jobs:
             Format-Table -AutoSize
 
       - name: Upload win-x64 publish artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: asutpkb-win-x64-single-file
           path: artifacts/publish/win-x64
           if-no-files-found: error
+          retention-days: 14
