@@ -27,10 +27,15 @@ namespace AsutpKnowledgeBase.Services
     public class KnowledgeBaseExcelExchangeService
     {
         public const string WorkbookFormatId = "AKB5.ExcelExchange";
-        public const int WorkbookFormatVersion = 1;
+        public const int LegacyWorkbookFormatVersion = 1;
+        public const int WorkbookFormatVersion = 2;
 
         private readonly KnowledgeBaseXlsxWriter _writer = new();
         private readonly KnowledgeBaseXlsxReader _reader = new();
+
+        public static bool IsSupportedWorkbookFormatVersion(int formatVersion) =>
+            formatVersion == LegacyWorkbookFormatVersion ||
+            formatVersion == WorkbookFormatVersion;
 
         public byte[] BuildWorkbookPackage(SavedData data) => _writer.BuildWorkbookPackage(data);
 

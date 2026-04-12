@@ -12,8 +12,8 @@ namespace AsutpKnowledgeBase.Services
         {
             var meta = ParseMeta(workbook.MetaRows);
             var config = ParseConfig(workbook.LevelRows);
-            var workshops = ParseWorkshops(workbook.WorkshopRows, meta.LastWorkshop);
-            var roots = ParseNodes(config, workshops, workbook.NodeRows);
+            var workshops = ParseWorkshops(meta, workbook.WorkshopRows);
+            var roots = ParseNodes(meta.FormatVersion, config, workshops, workbook.NodeRows);
 
             return new SavedData
             {
@@ -42,10 +42,11 @@ namespace AsutpKnowledgeBase.Services
             }
 
             int formatVersion = ParseInt(RequireMetaValue(values, "FormatVersion"), "Meta.FormatVersion");
-            if (formatVersion != KnowledgeBaseExcelExchangeService.WorkbookFormatVersion)
+            if (!KnowledgeBaseExcelExchangeService.IsSupportedWorkbookFormatVersion(formatVersion))
             {
                 throw new KnowledgeBaseExcelImportException(
-                    $"Неподдерживаемая версия Excel exchange: {formatVersion}. Ожидалось {KnowledgeBaseExcelExchangeService.WorkbookFormatVersion}.");
+                    $"Неподдерживаемая версия Excel exchange: {formatVersion}. " +
+                    $"Поддерживаются {KnowledgeBaseExcelExchangeService.LegacyWorkbookFormatVersion} и {KnowledgeBaseExcelExchangeService.WorkbookFormatVersion}.");
             }
 
             int schemaVersion = ParseInt(RequireMetaValue(values, "SchemaVersion"), "Meta.SchemaVersion");
@@ -55,8 +56,11 @@ namespace AsutpKnowledgeBase.Services
             string lastWorkshop = values.TryGetValue("LastWorkshop", out var storedLastWorkshop)
                 ? storedLastWorkshop.Trim()
                 : string.Empty;
+            string lastWorkshopId = values.TryGetValue("LastWorkshopId", out var storedLastWorkshopId)
+                ? storedLastWorkshopId.Trim()
+                : string.Empty;
 
-            return new ParsedMeta(schemaVersion, lastWorkshop);
+            return new ParsedMeta(formatVersion, schemaVersion, lastWorkshop, lastWorkshopId);
         }
 
         private static KbConfig ParseConfig(IEnumerable<string[]> rows)
@@ -87,13 +91,10 @@ namespace AsutpKnowledgeBase.Services
             };
         }
 
-        private static ParsedWorkshops ParseWorkshops(IEnumerable<string[]> rows, string metaLastWorkshop)
+        private static ParsedWorkshops ParseWorkshops(ParsedMeta meta, IEnumerable<string[]> rows)
         {
             var parsedRows = rows
-                .Select(row => new ParsedWorkshopRow(
-                    ParsePositiveInt(row[0], "Workshops.WorkshopOrder"),
-                    RequireValue(row[1], "Workshops", "WorkshopName"),
-                    ParseBoolean(row[2], "Workshops.IsLastSelected")))
+                .Select(row => ParseWorkshopRow(meta.FormatVersion, row))
                 .OrderBy(row => row.WorkshopOrder)
                 .ToList();
 
@@ -102,6 +103,7 @@ namespace AsutpKnowledgeBase.Services
 
             var workshopNames = new HashSet<string>(StringComparer.CurrentCultureIgnoreCase);
             var workshopOrders = new HashSet<int>();
+            var workshopIds = new HashSet<string>(StringComparer.Ordinal);
             foreach (var row in parsedRows)
             {
                 if (!workshopOrders.Add(row.WorkshopOrder))
@@ -115,42 +117,37 @@ namespace AsutpKnowledgeBase.Services
                     throw new KnowledgeBaseExcelImportException(
                         $"Лист 'Workshops' содержит дублирующий цех '{row.WorkshopName}'.");
                 }
+
+                if (!string.IsNullOrWhiteSpace(row.WorkshopId) && !workshopIds.Add(row.WorkshopId))
+                {
+                    throw new KnowledgeBaseExcelImportException(
+                        $"Лист 'Workshops' содержит дублирующий WorkshopId '{row.WorkshopId}'.");
+                }
             }
 
             var selectedRows = parsedRows.Where(row => row.IsLastSelected).ToList();
             if (selectedRows.Count > 1)
                 throw new KnowledgeBaseExcelImportException("Лист 'Workshops' содержит более одного выбранного цеха.");
 
-            string selectedFromRows = selectedRows.SingleOrDefault()?.WorkshopName ?? string.Empty;
-            string lastWorkshop = !string.IsNullOrWhiteSpace(selectedFromRows)
-                ? selectedFromRows
-                : metaLastWorkshop;
+            string lastWorkshop = ResolveLastWorkshop(parsedRows, meta);
+            var workshopIdToName = parsedRows
+                .Where(row => !string.IsNullOrWhiteSpace(row.WorkshopId))
+                .ToDictionary(row => row.WorkshopId, row => row.WorkshopName, StringComparer.Ordinal);
 
-            if (string.IsNullOrWhiteSpace(lastWorkshop) ||
-                !parsedRows.Any(row => string.Equals(row.WorkshopName, lastWorkshop, StringComparison.Ordinal)))
-            {
-                lastWorkshop = parsedRows[0].WorkshopName;
-            }
-
-            return new ParsedWorkshops(parsedRows.Select(row => row.WorkshopName).ToList(), lastWorkshop);
+            return new ParsedWorkshops(parsedRows.Select(row => row.WorkshopName).ToList(), lastWorkshop, workshopIdToName);
         }
 
         private static Dictionary<string, List<KbNode>> ParseNodes(
+            int formatVersion,
             KbConfig config,
             ParsedWorkshops workshops,
             IEnumerable<string[]> rows)
         {
             var parsedRows = rows
-                .Select(row => new ParsedNodeRow(
-                    NodeId: RequireValue(row[0], "Nodes", "NodeId"),
-                    WorkshopName: RequireValue(row[1], "Nodes", "WorkshopName"),
-                    ParentNodeId: row[2].Trim(),
-                    SiblingOrder: ParsePositiveInt(row[3], "Nodes.SiblingOrder"),
-                    LevelIndex: ParseNonNegativeInt(row[4], "Nodes.LevelIndex"),
-                    NodeName: RequireValue(row[6], "Nodes", "NodeName")))
+                .Select(row => ParseNodeRow(formatVersion, row))
                 .ToList();
 
-            parsedRows = RemapNodeWorkshopNames(workshops, parsedRows);
+            parsedRows = ResolveNodeWorkshopNames(formatVersion, workshops, parsedRows);
 
             var knownWorkshops = new HashSet<string>(workshops.OrderedWorkshopNames, StringComparer.Ordinal);
             var parsedById = new Dictionary<string, ParsedNodeRow>(StringComparer.Ordinal);
@@ -245,6 +242,102 @@ namespace AsutpKnowledgeBase.Services
             }
 
             return rootsByWorkshop;
+        }
+
+        private static ParsedWorkshopRow ParseWorkshopRow(int formatVersion, string[] row)
+        {
+            return formatVersion switch
+            {
+                KnowledgeBaseExcelExchangeService.LegacyWorkbookFormatVersion => new ParsedWorkshopRow(
+                    WorkshopOrder: ParsePositiveInt(row[0], "Workshops.WorkshopOrder"),
+                    WorkshopName: RequireValue(row[1], "Workshops", "WorkshopName"),
+                    IsLastSelected: ParseBoolean(row[2], "Workshops.IsLastSelected"),
+                    WorkshopId: string.Empty),
+                _ => new ParsedWorkshopRow(
+                    WorkshopOrder: ParsePositiveInt(row[0], "Workshops.WorkshopOrder"),
+                    WorkshopName: RequireValue(row[1], "Workshops", "WorkshopName"),
+                    IsLastSelected: ParseBoolean(row[2], "Workshops.IsLastSelected"),
+                    WorkshopId: RequireValue(row[3], "Workshops", "WorkshopId"))
+            };
+        }
+
+        private static string ResolveLastWorkshop(IReadOnlyList<ParsedWorkshopRow> parsedRows, ParsedMeta meta)
+        {
+            string selectedFromRows = parsedRows.SingleOrDefault(row => row.IsLastSelected)?.WorkshopName ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(selectedFromRows))
+                return selectedFromRows;
+
+            if (!string.IsNullOrWhiteSpace(meta.LastWorkshopId))
+            {
+                var lastWorkshopById = parsedRows
+                    .SingleOrDefault(row => string.Equals(row.WorkshopId, meta.LastWorkshopId, StringComparison.Ordinal))
+                    ?.WorkshopName;
+                if (!string.IsNullOrWhiteSpace(lastWorkshopById))
+                    return lastWorkshopById;
+            }
+
+            if (!string.IsNullOrWhiteSpace(meta.LastWorkshop))
+            {
+                var lastWorkshopByName = parsedRows
+                    .SingleOrDefault(row => string.Equals(row.WorkshopName, meta.LastWorkshop, StringComparison.Ordinal))
+                    ?.WorkshopName;
+                if (!string.IsNullOrWhiteSpace(lastWorkshopByName))
+                    return lastWorkshopByName;
+            }
+
+            return parsedRows[0].WorkshopName;
+        }
+
+        private static ParsedNodeRow ParseNodeRow(int formatVersion, string[] row)
+        {
+            return formatVersion switch
+            {
+                KnowledgeBaseExcelExchangeService.LegacyWorkbookFormatVersion => new ParsedNodeRow(
+                    NodeId: RequireValue(row[0], "Nodes", "NodeId"),
+                    WorkshopId: string.Empty,
+                    WorkshopName: RequireValue(row[1], "Nodes", "WorkshopName"),
+                    ParentNodeId: row[2].Trim(),
+                    SiblingOrder: ParsePositiveInt(row[3], "Nodes.SiblingOrder"),
+                    LevelIndex: ParseNonNegativeInt(row[4], "Nodes.LevelIndex"),
+                    NodeName: RequireValue(row[6], "Nodes", "NodeName")),
+                _ => new ParsedNodeRow(
+                    NodeId: RequireValue(row[0], "Nodes", "NodeId"),
+                    WorkshopId: RequireValue(row[8], "Nodes", "WorkshopId"),
+                    WorkshopName: row[1].Trim(),
+                    ParentNodeId: row[2].Trim(),
+                    SiblingOrder: ParsePositiveInt(row[3], "Nodes.SiblingOrder"),
+                    LevelIndex: ParseNonNegativeInt(row[4], "Nodes.LevelIndex"),
+                    NodeName: RequireValue(row[6], "Nodes", "NodeName"))
+            };
+        }
+
+        private static List<ParsedNodeRow> ResolveNodeWorkshopNames(
+            int formatVersion,
+            ParsedWorkshops workshops,
+            List<ParsedNodeRow> parsedRows)
+        {
+            if (formatVersion == KnowledgeBaseExcelExchangeService.LegacyWorkbookFormatVersion)
+                return RemapNodeWorkshopNames(workshops, parsedRows);
+
+            return RemapNodeWorkshopIds(workshops, parsedRows);
+        }
+
+        private static List<ParsedNodeRow> RemapNodeWorkshopIds(
+            ParsedWorkshops workshops,
+            List<ParsedNodeRow> parsedRows)
+        {
+            return parsedRows
+                .Select(row =>
+                {
+                    if (!workshops.WorkshopIdToName.TryGetValue(row.WorkshopId, out var workshopName))
+                    {
+                        throw new KnowledgeBaseExcelImportException(
+                            $"Узел '{row.NodeName}' ссылается на неизвестный WorkshopId '{row.WorkshopId}'.");
+                    }
+
+                    return row with { WorkshopName = workshopName };
+                })
+                .ToList();
         }
 
         private static List<ParsedNodeRow> RemapNodeWorkshopNames(
@@ -490,18 +583,22 @@ namespace AsutpKnowledgeBase.Services
             };
         }
 
-        private sealed record ParsedMeta(int SchemaVersion, string LastWorkshop);
+        private sealed record ParsedMeta(int FormatVersion, int SchemaVersion, string LastWorkshop, string LastWorkshopId);
 
         private sealed record ParsedLevelRow(int LevelIndex, string LevelName);
 
-        private sealed record ParsedWorkshopRow(int WorkshopOrder, string WorkshopName, bool IsLastSelected);
+        private sealed record ParsedWorkshopRow(int WorkshopOrder, string WorkshopName, bool IsLastSelected, string WorkshopId);
 
-        private sealed record ParsedWorkshops(IReadOnlyList<string> OrderedWorkshopNames, string LastWorkshop);
+        private sealed record ParsedWorkshops(
+            IReadOnlyList<string> OrderedWorkshopNames,
+            string LastWorkshop,
+            IReadOnlyDictionary<string, string> WorkshopIdToName);
 
         private sealed record WorkshopAnchor(int SourceIndex, int TargetIndex);
 
         private sealed record ParsedNodeRow(
             string NodeId,
+            string WorkshopId,
             string WorkshopName,
             string ParentNodeId,
             int SiblingOrder,

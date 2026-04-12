@@ -14,6 +14,31 @@ namespace AsutpKnowledgeBase.Services
         private static readonly XNamespace SpreadsheetNamespace = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
         private static readonly XNamespace OfficeDocumentRelationshipsNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
         private static readonly XNamespace PackageRelationshipsNamespace = "http://schemas.openxmlformats.org/package/2006/relationships";
+        private static readonly string[] WorkshopHeadersV1 = { "WorkshopOrder", "WorkshopName", "IsLastSelected" };
+        private static readonly string[] WorkshopHeadersV2 = { "WorkshopOrder", "WorkshopName", "IsLastSelected", "WorkshopId" };
+        private static readonly string[] NodeHeadersV1 =
+        {
+            "NodeId",
+            "WorkshopName",
+            "ParentNodeId",
+            "SiblingOrder",
+            "LevelIndex",
+            "LevelName",
+            "NodeName",
+            "Path"
+        };
+        private static readonly string[] NodeHeadersV2 =
+        {
+            "NodeId",
+            "WorkshopName",
+            "ParentNodeId",
+            "SiblingOrder",
+            "LevelIndex",
+            "LevelName",
+            "NodeName",
+            "Path",
+            "WorkshopId"
+        };
 
         private readonly KnowledgeBaseExcelWorkbookParser _parser = new();
 
@@ -31,24 +56,52 @@ namespace AsutpKnowledgeBase.Services
             var workbookRelationships = ReadWorkbookRelationships(LoadDocument(workbookRelationshipsEntry));
             var sharedStrings = ReadSharedStrings(archive);
             var worksheets = ReadWorksheets(archive, workbookDocument, workbookRelationships, sharedStrings);
+            var metaRows = ReadWorksheetRows(worksheets, "Meta", "Property", "Value");
+            int formatVersion = ReadWorkbookFormatVersion(metaRows);
 
             var workbook = new KnowledgeBaseSpreadsheetWorkbookData(
-                MetaRows: ReadWorksheetRows(worksheets, "Meta", "Property", "Value"),
+                MetaRows: metaRows,
                 LevelRows: ReadWorksheetRows(worksheets, "Levels", "LevelIndex", "LevelName"),
-                WorkshopRows: ReadWorksheetRows(worksheets, "Workshops", "WorkshopOrder", "WorkshopName", "IsLastSelected"),
+                WorkshopRows: ReadWorksheetRows(worksheets, "Workshops", GetWorkshopHeaders(formatVersion)),
                 NodeRows: ReadWorksheetRows(
                     worksheets,
                     "Nodes",
-                    "NodeId",
-                    "WorkshopName",
-                    "ParentNodeId",
-                    "SiblingOrder",
-                    "LevelIndex",
-                    "LevelName",
-                    "NodeName",
-                    "Path"));
+                    GetNodeHeaders(formatVersion)));
 
             return _parser.ParseWorkbook(workbook);
+        }
+
+        private static string[] GetWorkshopHeaders(int formatVersion) =>
+            formatVersion == KnowledgeBaseExcelExchangeService.LegacyWorkbookFormatVersion
+                ? WorkshopHeadersV1
+                : WorkshopHeadersV2;
+
+        private static string[] GetNodeHeaders(int formatVersion) =>
+            formatVersion == KnowledgeBaseExcelExchangeService.LegacyWorkbookFormatVersion
+                ? NodeHeadersV1
+                : NodeHeadersV2;
+
+        private static int ReadWorkbookFormatVersion(IEnumerable<string[]> metaRows)
+        {
+            string rawFormatVersion = metaRows
+                .FirstOrDefault(row => row.Length >= 2 && string.Equals(row[0], "FormatVersion", StringComparison.Ordinal))?[1]
+                ?.Trim()
+                ?? throw new KnowledgeBaseExcelImportException("Лист 'Meta' не содержит обязательного свойства 'FormatVersion'.");
+
+            if (!int.TryParse(rawFormatVersion, NumberStyles.Integer, CultureInfo.InvariantCulture, out var formatVersion))
+            {
+                throw new KnowledgeBaseExcelImportException(
+                    $"Не удалось прочитать целое число '{rawFormatVersion}' в 'Meta.FormatVersion'.");
+            }
+
+            if (!KnowledgeBaseExcelExchangeService.IsSupportedWorkbookFormatVersion(formatVersion))
+            {
+                throw new KnowledgeBaseExcelImportException(
+                    $"Неподдерживаемая версия Excel exchange: {formatVersion}. " +
+                    $"Поддерживаются {KnowledgeBaseExcelExchangeService.LegacyWorkbookFormatVersion} и {KnowledgeBaseExcelExchangeService.WorkbookFormatVersion}.");
+            }
+
+            return formatVersion;
         }
 
         private static Dictionary<string, string> ReadWorkbookRelationships(XDocument relationshipsDocument)

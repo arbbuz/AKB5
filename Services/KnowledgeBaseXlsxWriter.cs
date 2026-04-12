@@ -21,21 +21,25 @@ namespace AsutpKnowledgeBase.Services
             var normalizedConfig = KnowledgeBaseDataService.NormalizeConfig(data.Config);
             var normalizedWorkshops = KnowledgeBaseDataService.NormalizeWorkshops(data.Workshops);
             string lastWorkshop = KnowledgeBaseDataService.ResolveWorkshop(normalizedWorkshops, data.LastWorkshop);
+            var workshopExports = BuildWorkshopExports(normalizedWorkshops, lastWorkshop);
+            string lastWorkshopId = workshopExports
+                .Single(workshop => string.Equals(workshop.WorkshopName, lastWorkshop, StringComparison.Ordinal))
+                .WorkshopId;
 
             var worksheets = new[]
             {
                 new WorksheetDefinition(
                     "Meta",
                     new[] { "Property", "Value" },
-                    BuildMetaRows(data.SchemaVersion, lastWorkshop)),
+                    BuildMetaRows(data.SchemaVersion, lastWorkshop, lastWorkshopId)),
                 new WorksheetDefinition(
                     "Levels",
                     new[] { "LevelIndex", "LevelName" },
                     BuildLevelRows(normalizedConfig)),
                 new WorksheetDefinition(
                     "Workshops",
-                    new[] { "WorkshopOrder", "WorkshopName", "IsLastSelected" },
-                    BuildWorkshopRows(normalizedWorkshops, lastWorkshop)),
+                    new[] { "WorkshopOrder", "WorkshopName", "IsLastSelected", "WorkshopId" },
+                    BuildWorkshopRows(workshopExports)),
                 new WorksheetDefinition(
                     "Nodes",
                     new[]
@@ -47,9 +51,10 @@ namespace AsutpKnowledgeBase.Services
                         "LevelIndex",
                         "LevelName",
                         "NodeName",
-                        "Path"
+                        "Path",
+                        "WorkshopId"
                     },
-                    BuildNodeRows(normalizedConfig, normalizedWorkshops))
+                    BuildNodeRows(normalizedConfig, workshopExports))
             };
 
             using var stream = new MemoryStream();
@@ -72,7 +77,31 @@ namespace AsutpKnowledgeBase.Services
             return stream.ToArray();
         }
 
-        private static IEnumerable<IReadOnlyList<WorksheetCell>> BuildMetaRows(int schemaVersion, string lastWorkshop)
+        private static IReadOnlyList<WorkshopExportRow> BuildWorkshopExports(
+            IReadOnlyDictionary<string, List<KbNode>> workshops,
+            string lastWorkshop)
+        {
+            var rows = new List<WorkshopExportRow>();
+            int order = 1;
+
+            foreach (var workshop in workshops)
+            {
+                rows.Add(new WorkshopExportRow(
+                    WorkshopOrder: order,
+                    WorkshopName: workshop.Key,
+                    WorkshopId: $"W{order}",
+                    IsLastSelected: string.Equals(workshop.Key, lastWorkshop, StringComparison.Ordinal),
+                    RootNodes: workshop.Value));
+                order++;
+            }
+
+            return rows;
+        }
+
+        private static IEnumerable<IReadOnlyList<WorksheetCell>> BuildMetaRows(
+            int schemaVersion,
+            string lastWorkshop,
+            string lastWorkshopId)
         {
             yield return new[]
             {
@@ -94,6 +123,11 @@ namespace AsutpKnowledgeBase.Services
                 WorksheetCell.String("LastWorkshop"),
                 WorksheetCell.String(lastWorkshop)
             };
+            yield return new[]
+            {
+                WorksheetCell.String("LastWorkshopId"),
+                WorksheetCell.String(lastWorkshopId)
+            };
         }
 
         private static IEnumerable<IReadOnlyList<WorksheetCell>> BuildLevelRows(KbConfig config)
@@ -109,41 +143,40 @@ namespace AsutpKnowledgeBase.Services
         }
 
         private static IEnumerable<IReadOnlyList<WorksheetCell>> BuildWorkshopRows(
-            IReadOnlyDictionary<string, List<KbNode>> workshops,
-            string lastWorkshop)
+            IEnumerable<WorkshopExportRow> workshops)
         {
-            int order = 1;
-            foreach (var workshop in workshops.Keys)
+            foreach (var workshop in workshops)
             {
                 yield return new[]
                 {
-                    WorksheetCell.Number(order),
-                    WorksheetCell.String(workshop),
-                    WorksheetCell.Boolean(string.Equals(workshop, lastWorkshop, StringComparison.Ordinal))
+                    WorksheetCell.Number(workshop.WorkshopOrder),
+                    WorksheetCell.String(workshop.WorkshopName),
+                    WorksheetCell.Boolean(workshop.IsLastSelected),
+                    WorksheetCell.String(workshop.WorkshopId)
                 };
-                order++;
             }
         }
 
         private static IEnumerable<IReadOnlyList<WorksheetCell>> BuildNodeRows(
             KbConfig config,
-            IReadOnlyDictionary<string, List<KbNode>> workshops)
+            IEnumerable<WorkshopExportRow> workshops)
         {
             var rows = new List<IReadOnlyList<WorksheetCell>>();
             int nextNodeId = 1;
 
             foreach (var workshop in workshops)
             {
-                for (int index = 0; index < workshop.Value.Count; index++)
+                for (int index = 0; index < workshop.RootNodes.Count; index++)
                 {
                     FlattenNode(
                         rows,
                         config,
-                        workshop.Key,
-                        workshop.Value[index],
+                        workshop.WorkshopName,
+                        workshop.WorkshopId,
+                        workshop.RootNodes[index],
                         parentNodeId: null,
                         siblingOrder: index + 1,
-                        currentPath: workshop.Value[index].Name,
+                        currentPath: workshop.RootNodes[index].Name,
                         nextNodeId: ref nextNodeId);
                 }
             }
@@ -155,6 +188,7 @@ namespace AsutpKnowledgeBase.Services
             ICollection<IReadOnlyList<WorksheetCell>> rows,
             KbConfig config,
             string workshopName,
+            string workshopId,
             KbNode node,
             int? parentNodeId,
             int siblingOrder,
@@ -173,7 +207,8 @@ namespace AsutpKnowledgeBase.Services
                 WorksheetCell.Number(node.LevelIndex),
                 WorksheetCell.String(GetLevelName(config, node.LevelIndex)),
                 WorksheetCell.String(node.Name),
-                WorksheetCell.String($"{workshopName} / {currentPath}")
+                WorksheetCell.String($"{workshopName} / {currentPath}"),
+                WorksheetCell.String(workshopId)
             });
 
             for (int childIndex = 0; childIndex < node.Children.Count; childIndex++)
@@ -183,6 +218,7 @@ namespace AsutpKnowledgeBase.Services
                     rows,
                     config,
                     workshopName,
+                    workshopId,
                     child,
                     nodeId,
                     childIndex + 1,
@@ -355,6 +391,13 @@ namespace AsutpKnowledgeBase.Services
             string Name,
             IReadOnlyList<string> Headers,
             IEnumerable<IReadOnlyList<WorksheetCell>> Rows);
+
+        private sealed record WorkshopExportRow(
+            int WorkshopOrder,
+            string WorkshopName,
+            string WorkshopId,
+            bool IsLastSelected,
+            List<KbNode> RootNodes);
 
         private enum WorksheetCellKind
         {
