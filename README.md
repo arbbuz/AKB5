@@ -15,16 +15,16 @@ Excel нужен как редактируемый exchange-формат для 
 
 ## Структура репозитория
 
-- [asutpKB.csproj](/Users/home/ASUTP/AKB5/asutpKB.csproj) — root WinForms-проект, который нужно `restore/build/publish`
-- [Program.cs](/Users/home/ASUTP/AKB5/Program.cs) — точка входа
-- [Forms/MainForm.cs](/Users/home/ASUTP/AKB5/Forms/MainForm.cs) — главный UI shell
-- [Models](/Users/home/ASUTP/AKB5/Models) — shared domain models
-- [Services](/Users/home/ASUTP/AKB5/Services) — не-UI логика, включая JSON storage и Excel exchange
-- [UiServices](/Users/home/ASUTP/AKB5/UiServices) — WinForms-специфичные workflow/services
-- [src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj](/Users/home/ASUTP/AKB5/src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj) — core library project для тестируемой логики
-- [tests/AsutpKnowledgeBase.Core.Tests](/Users/home/ASUTP/AKB5/tests/AsutpKnowledgeBase.Core.Tests) — regression/unit tests
-- [scripts/publish.ps1](/Users/home/ASUTP/AKB5/scripts/publish.ps1) и [scripts/publish.cmd](/Users/home/ASUTP/AKB5/scripts/publish.cmd) — reproducible publish flow
-- [.github/workflows/windows-build.yml](/Users/home/ASUTP/AKB5/.github/workflows/windows-build.yml) — Windows CI
+- [asutpKB.csproj](./asutpKB.csproj) — root WinForms-проект, который нужно `restore/build/publish`
+- [Program.cs](./Program.cs) — точка входа
+- [Forms/MainForm.cs](./Forms/MainForm.cs) — главный UI shell
+- [Models](./Models) — shared domain models
+- [Services](./Services) — не-UI логика, включая JSON storage и Excel exchange
+- [UiServices](./UiServices) — WinForms-специфичные workflow/services
+- [src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj](./src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj) — core library project для тестируемой логики
+- [tests/AsutpKnowledgeBase.Core.Tests](./tests/AsutpKnowledgeBase.Core.Tests) — regression/unit tests
+- [scripts/publish.ps1](./scripts/publish.ps1) и [scripts/publish.cmd](./scripts/publish.cmd) — reproducible publish flow
+- [.github/workflows/windows-build.yml](./.github/workflows/windows-build.yml) — Windows CI
 
 ## Excel Editable Format v3
 
@@ -37,7 +37,7 @@ Workbook состоит из:
 - `Workshops`
 - отдельного листа узлов для каждого цеха
 
-Подробный контракт описан в [docs/workbook-v3.md](/Users/home/ASUTP/AKB5/docs/workbook-v3.md).
+Подробный контракт описан в [docs/workbook-v3.md](./docs/workbook-v3.md).
 
 Коротко по редактированию:
 
@@ -77,7 +77,7 @@ dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:Pub
 
 Дополнительные правила publish:
 
-- publish идёт из root-проекта [asutpKB.csproj](/Users/home/ASUTP/AKB5/asutpKB.csproj), не из core project
+- publish идёт из root-проекта [asutpKB.csproj](./asutpKB.csproj), не из core project
 - output лежит в `artifacts/publish/win-x64`
 - основной исполняемый файл: `artifacts/publish/win-x64/asutpKB.exe`
 - trimming и AOT намеренно не включаются
@@ -90,7 +90,13 @@ dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:Pub
 3. Запустить `asutpKB.exe`.
 4. Дополнительная установка .NET runtime на пользовательском ПК не требуется, потому что publish self-contained.
 
-Детали по deployment и CI artifact собраны в [docs/deployment.md](/Users/home/ASUTP/AKB5/docs/deployment.md).
+Automation сейчас работает так:
+
+- `pull_request` запускает только `build-and-test`
+- `push` в `main/master` запускает `build-and-test` и `publish-win-x64`
+- ручной запуск через `workflow_dispatch` тоже собирает publish artifact
+
+Детали по deployment и CI artifact собраны в [docs/deployment.md](./docs/deployment.md).
 
 ## Build / Test
 
@@ -106,6 +112,6 @@ dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:Pub
 
 ## AI Handoff
 
-- persistent guide для новой AI-сессии: [AGENTS.md](/Users/home/ASUTP/AKB5/AGENTS.md)
-- текущее состояние задачи: [docs/codex-handoff.md](/Users/home/ASUTP/AKB5/docs/codex-handoff.md)
-- reusable стартовый prompt для чистого диалога: [docs/codex-start-prompt.md](/Users/home/ASUTP/AKB5/docs/codex-start-prompt.md)
+- persistent guide для новой AI-сессии: [AGENTS.md](./AGENTS.md)
+- текущее состояние задачи: [docs/codex-handoff.md](./docs/codex-handoff.md)
+- reusable стартовый prompt для чистого диалога: [docs/codex-start-prompt.md](./docs/codex-start-prompt.md)
