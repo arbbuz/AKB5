@@ -238,13 +238,14 @@ namespace AsutpKnowledgeBase.Services
             };
         }
 
-        private static KnowledgeBaseTreeMutationResult Success(string statusMessage, KbNode? affectedNode = null) =>
+        private KnowledgeBaseTreeMutationResult Success(string statusMessage, KbNode? affectedNode = null) =>
             new()
             {
                 IsSuccess = true,
                 Failure = KnowledgeBaseTreeMutationFailure.None,
                 StatusMessage = statusMessage,
-                AffectedNode = affectedNode
+                AffectedNode = affectedNode,
+                ViewState = _sessionWorkflowService.BuildViewState()
             };
 
         private static KnowledgeBaseTreeMutationResult Failure(

@@ -59,6 +59,7 @@ public class KnowledgeBaseFormStateServiceTests
             MaxLevels = 3,
             LevelNames = new List<string> { "Цех", "Отделение", "Оборудование" }
         };
+        var selectedNode = new KbNode { Name = "Насос", LevelIndex = 2 };
 
         var state = _service.Build(
             isDirty: true,
@@ -68,36 +69,55 @@ public class KnowledgeBaseFormStateServiceTests
             lastSavedWorkshop: "Цех 7",
             totalNodes: 5,
             config: config,
-            selectedNode: new KbNode { Name = "Насос", LevelIndex = 2 });
+            currentRoots: new List<KbNode> { selectedNode },
+            selectedNode: selectedNode);
 
         Assert.True(state.CanSave);
         Assert.Equal("Сохранить базу данных (/tmp/knowledge.json)", state.SaveToolTip);
         Assert.Equal("* База знаний АСУТП [knowledge.json]", state.WindowTitle);
-        Assert.Equal("Цех: Цех 7 | Всего: 5 | Выбрано: Насос (Оборудование)", state.StatusText);
+        Assert.Equal("Файл: knowledge.json | Есть несохранённые изменения | Цех: Цех 7 | Узлов: 5", state.SessionStatusText);
+        Assert.Equal("Выбор: Насос | Уровень: Оборудование | Дочерних: 0", state.SelectionStatusText);
+        Assert.Equal("Есть несохранённые изменения", state.SaveStateText);
+        Assert.Equal("Насос", state.SelectedNode.FullPath);
     }
 
     [Fact]
-    public void BuildStatusText_UsesFallbackLevelNameWhenConfigDoesNotContainIt()
+    public void Build_UsesFallbackLevelNameWhenConfigDoesNotContainIt()
     {
-        var status = _service.BuildStatusText(
+        var node = new KbNode { Name = "Узел", LevelIndex = 4 };
+        var state = _service.Build(
+            isDirty: false,
+            requiresSave: false,
+            currentDataPath: "/tmp/missing-knowledge.json",
             currentWorkshop: "Цех 2",
+            lastSavedWorkshop: "Цех 2",
             totalNodes: 3,
             config: new KbConfig { MaxLevels = 1, LevelNames = new List<string> { "Цех" } },
-            selectedNode: new KbNode { Name = "Узел", LevelIndex = 4 });
+            currentRoots: new List<KbNode> { node },
+            selectedNode: node);
 
-        Assert.Equal("Цех: Цех 2 | Всего: 3 | Выбрано: Узел (Ур. 5)", status);
+        Assert.Equal("Выбор: Узел | Уровень: Ур. 5 | Дочерних: 0", state.SelectionStatusText);
+        Assert.Equal("Узел", state.SelectedNode.FullPath);
     }
 
     [Fact]
-    public void BuildStatusText_ForNoSelectionShowsTotals()
+    public void Build_ForNoSelectionReturnsSessionAndEmptySelectionState()
     {
-        var status = _service.BuildStatusText(
+        var state = _service.Build(
+            isDirty: false,
+            requiresSave: false,
+            currentDataPath: "/tmp/missing-knowledge.json",
             currentWorkshop: "Цех 3",
+            lastSavedWorkshop: "Цех 3",
             totalNodes: 8,
             config: new KbConfig { MaxLevels = 6, LevelNames = new List<string>() },
+            currentRoots: new List<KbNode>(),
             selectedNode: null);
 
-        Assert.Equal("Цех: Цех 3 | Всего узлов: 8 | Уровней: 6", status);
+        Assert.Equal("Файл: missing-knowledge.json | Файл отсутствует на диске | Цех: Цех 3 | Узлов: 8", state.SessionStatusText);
+        Assert.Equal("Выбранный узел: нет", state.SelectionStatusText);
+        Assert.Equal("Ничего не выбрано. Выберите узел в дереве слева.", state.SelectedNode.EmptyStateText);
+        Assert.Equal("Файл отсутствует на диске", state.SaveStateText);
     }
 
     [Fact]

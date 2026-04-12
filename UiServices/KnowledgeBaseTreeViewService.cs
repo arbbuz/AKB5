@@ -8,11 +8,12 @@ namespace AsutpKnowledgeBase.UiServices
 {
     /// <summary>
     /// Инкапсулирует WinForms-специфичную работу с TreeView:
-    /// построение узлов, восстановление expanded-state и поиск.
+    /// построение узлов, восстановление expanded-state и навигацию по search-results.
     /// </summary>
     public class KnowledgeBaseTreeViewService
     {
-        private readonly List<TreeNode> _searchResults = new();
+        private readonly KnowledgeBaseTreeSearchService _treeSearchService = new();
+        private readonly List<SearchNavigationItem> _searchResults = new();
         private int _currentSearchIndex = -1;
 
         public bool CanNavigateSearch => _searchResults.Count > 1;
@@ -83,20 +84,23 @@ namespace AsutpKnowledgeBase.UiServices
             return list;
         }
 
-        public string PerformSearch(TreeView treeView, string searchText)
+        public string PerformSearch(TreeView treeView, KbConfig config, string searchText)
         {
             string normalizedSearch = searchText.Trim();
             if (string.IsNullOrEmpty(normalizedSearch))
                 return ClearSearch();
 
             ResetSearchResults();
-            FindAllMatches(treeView.Nodes, normalizedSearch);
+
+            var matches = _treeSearchService.FindMatches(GetCurrentTreeData(treeView), config, normalizedSearch);
+            foreach (var match in matches)
+            {
+                if (TryFindTreeNode(treeView.Nodes, match.Node, out var treeNode) && treeNode != null)
+                    _searchResults.Add(new SearchNavigationItem(treeNode, match));
+            }
 
             if (_searchResults.Count == 0)
-            {
-                treeView.SelectedNode = null;
-                return $"❌ Не найдено: {normalizedSearch}";
-            }
+                return $"Поиск: \"{normalizedSearch}\" | Совпадений не найдено";
 
             _currentSearchIndex = 0;
             SelectSearchResult(treeView, _currentSearchIndex);
@@ -118,7 +122,7 @@ namespace AsutpKnowledgeBase.UiServices
             return BuildSearchStatus();
         }
 
-        public void RefreshSearch(TreeView treeView, string searchText)
+        public void RefreshSearch(TreeView treeView, KbConfig config, string searchText)
         {
             if (string.IsNullOrWhiteSpace(searchText))
             {
@@ -126,13 +130,13 @@ namespace AsutpKnowledgeBase.UiServices
                 return;
             }
 
-            PerformSearch(treeView, searchText);
+            PerformSearch(treeView, config, searchText);
         }
 
         public string ClearSearch()
         {
             ResetSearchResults();
-            return "Готово";
+            return "Поиск очищен";
         }
 
         private TreeNode BuildTreeNode(
@@ -171,15 +175,22 @@ namespace AsutpKnowledgeBase.UiServices
                 ExpandNodeRecursive(child, targetLevelIndex);
         }
 
-        private void FindAllMatches(TreeNodeCollection nodes, string searchText)
+        private static bool TryFindTreeNode(TreeNodeCollection nodes, KbNode targetNode, out TreeNode? matchedNode)
         {
             foreach (TreeNode node in nodes)
             {
-                if (node.Text.Contains(searchText, StringComparison.CurrentCultureIgnoreCase))
-                    _searchResults.Add(node);
+                if (ReferenceEquals(node.Tag, targetNode))
+                {
+                    matchedNode = node;
+                    return true;
+                }
 
-                FindAllMatches(node.Nodes, searchText);
+                if (TryFindTreeNode(node.Nodes, targetNode, out matchedNode))
+                    return true;
             }
+
+            matchedNode = null;
+            return false;
         }
 
         private static void ExpandToNode(TreeNode node)
@@ -199,7 +210,7 @@ namespace AsutpKnowledgeBase.UiServices
             if (index < 0 || index >= _searchResults.Count)
                 return;
 
-            var node = _searchResults[index];
+            var node = _searchResults[index].TreeNode;
             ExpandToNode(node);
             treeView.SelectedNode = node;
             treeView.Focus();
@@ -216,13 +227,31 @@ namespace AsutpKnowledgeBase.UiServices
             }
         }
 
-        private string BuildSearchStatus() =>
-            $"🔍 Найдено: {_searchResults.Count} | Показан {_currentSearchIndex + 1} из {_searchResults.Count}";
+        private string BuildSearchStatus()
+        {
+            var current = _searchResults[_currentSearchIndex];
+            return
+                $"Поиск: \"{current.Match.SearchText}\" | " +
+                $"Найдено: {_searchResults.Count} | " +
+                $"Показан: {_currentSearchIndex + 1}/{_searchResults.Count} | " +
+                $"Совпадение: {current.Match.MatchFieldLabel} ({TrimForStatus(current.Match.MatchValue)})";
+        }
 
         private void ResetSearchResults()
         {
             _searchResults.Clear();
             _currentSearchIndex = -1;
         }
+
+        private static string TrimForStatus(string value)
+        {
+            const int maxLength = 60;
+            if (value.Length <= maxLength)
+                return value;
+
+            return $"{value[..(maxLength - 3)]}...";
+        }
+
+        private sealed record SearchNavigationItem(TreeNode TreeNode, KnowledgeBaseTreeSearchMatch Match);
     }
 }

@@ -15,6 +15,8 @@ namespace AsutpKnowledgeBase.Core.Tests;
 
 public class KnowledgeBaseExcelExchangeServiceTests
 {
+    private static readonly string[] NonNodeSheetNames = { "Инструкция", "Meta", "Levels", "Workshops" };
+
     private static readonly string[] NodeHeadersV3 =
     {
         "NodeId",
@@ -35,10 +37,13 @@ public class KnowledgeBaseExcelExchangeServiceTests
         string[] sheetNames = GetWorksheetNames(packageBytes);
         var metaRows = ReadWorksheetRows(packageBytes, "Meta");
         var workshopRows = ReadWorksheetRows(packageBytes, "Workshops");
+        var instructionRows = ReadWorksheetRows(packageBytes, "Инструкция");
 
-        Assert.Equal(5, sheetNames.Length);
-        Assert.Equal(new[] { "Meta", "Levels", "Workshops" }, sheetNames.Take(3).ToArray());
+        Assert.Equal(6, sheetNames.Length);
+        Assert.Equal("Инструкция", sheetNames[0]);
+        Assert.Equal(new[] { "Meta", "Levels", "Workshops" }, sheetNames.Skip(1).Take(3).ToArray());
         Assert.DoesNotContain("Nodes", sheetNames);
+        Assert.Contains(instructionRows, row => row.SequenceEqual(new[] { "Можно редактировать", "Levels.LevelName, Workshops.WorkshopName, Workshops.IsLastSelected и Nodes.NodeName." }));
         Assert.Contains(metaRows, row => row.SequenceEqual(new[] { "FormatId", KnowledgeBaseExcelExchangeService.WorkbookFormatId }));
         Assert.Contains(metaRows, row => row.SequenceEqual(new[] { "FormatVersion", KnowledgeBaseExcelExchangeService.WorkbookFormatVersion.ToString() }));
         Assert.Contains(metaRows, row => row.SequenceEqual(new[] { "SchemaVersion", SavedData.CurrentSchemaVersion.ToString() }));
@@ -106,6 +111,37 @@ public class KnowledgeBaseExcelExchangeServiceTests
     }
 
     [Fact]
+    public void BuildWorkbookPackage_HardensWorkbookForManualEditing()
+    {
+        var service = new KnowledgeBaseExcelExchangeService();
+
+        byte[] packageBytes = service.BuildWorkbookPackage(CreateSampleData());
+        string workshopSheetName = GetWorkshopNodesSheetName(packageBytes, "W1");
+
+        Assert.True(IsSheetProtected(packageBytes, "Levels"));
+        Assert.True(IsSheetProtected(packageBytes, "Workshops"));
+        Assert.True(IsSheetProtected(packageBytes, workshopSheetName));
+        Assert.Equal(1U, GetFrozenRowCount(packageBytes, "Инструкция"));
+        Assert.Equal(1U, GetFrozenRowCount(packageBytes, "Levels"));
+        Assert.Equal(1U, GetFrozenRowCount(packageBytes, "Workshops"));
+        Assert.Equal(6U, GetFrozenRowCount(packageBytes, workshopSheetName));
+        Assert.True(IsColumnHidden(packageBytes, "Levels", 1));
+        Assert.True(IsColumnHidden(packageBytes, "Workshops", 1));
+        Assert.True(IsColumnHidden(packageBytes, "Workshops", 2));
+        Assert.True(IsColumnHidden(packageBytes, "Workshops", 5));
+        Assert.True(IsColumnHidden(packageBytes, workshopSheetName, 1));
+        Assert.True(IsColumnHidden(packageBytes, workshopSheetName, 2));
+        Assert.True(IsColumnHidden(packageBytes, workshopSheetName, 3));
+        Assert.True(IsColumnHidden(packageBytes, workshopSheetName, 4));
+        Assert.False(IsCellLocked(packageBytes, "Levels", rowIndex: 2, cellIndex: 2));
+        Assert.False(IsCellLocked(packageBytes, "Workshops", rowIndex: 2, cellIndex: 3));
+        Assert.False(IsCellLocked(packageBytes, "Workshops", rowIndex: 2, cellIndex: 4));
+        Assert.False(IsWorkshopNodeCellLocked(packageBytes, "W1", rowIndex: 2, cellIndex: 6));
+        Assert.True(IsCellLocked(packageBytes, "Levels", rowIndex: 2, cellIndex: 1));
+        Assert.True(IsWorkshopNodeCellLocked(packageBytes, "W1", rowIndex: 2, cellIndex: 1));
+    }
+
+    [Fact]
     public void Export_WritesXlsxFile()
     {
         string tempDirectory = CreateTempDirectory();
@@ -157,7 +193,7 @@ public class KnowledgeBaseExcelExchangeServiceTests
 
             Assert.Equal("WorkshopNodes", nodeSheet.SheetKind);
             Assert.False(string.IsNullOrWhiteSpace(nodeSheet.SheetName));
-            Assert.DoesNotContain(nodeSheet.SheetName, new[] { "Meta", "Levels", "Workshops" });
+            Assert.DoesNotContain(nodeSheet.SheetName, NonNodeSheetNames);
 
             if (sourceData.Workshops[workshopName].Count == 0)
                 Assert.Equal(0, nodeSheet.NodeRowCount);
@@ -716,7 +752,7 @@ public class KnowledgeBaseExcelExchangeServiceTests
     {
         foreach (string sheetName in GetWorksheetNames(packageBytes))
         {
-            if (sheetName is "Meta" or "Levels" or "Workshops")
+            if (IsNonNodeSheet(sheetName))
                 continue;
 
             var rows = GetAllWorksheetRows(GetWorksheetDocument(packageBytes, sheetName));
@@ -1172,7 +1208,7 @@ public class KnowledgeBaseExcelExchangeServiceTests
     private static IReadOnlyList<WorkshopNodeSheetInfo> GetWorkshopNodeSheetInfos(byte[] packageBytes)
     {
         return GetWorksheetNames(packageBytes)
-            .Where(sheetName => sheetName is not "Meta" and not "Levels" and not "Workshops")
+            .Where(sheetName => !IsNonNodeSheet(sheetName))
             .Select(sheetName =>
             {
                 var rows = GetAllWorksheetRows(GetWorksheetDocument(packageBytes, sheetName));
@@ -1192,6 +1228,71 @@ public class KnowledgeBaseExcelExchangeServiceTests
             })
             .ToList();
     }
+
+    private static bool IsSheetProtected(byte[] packageBytes, string worksheetName)
+    {
+        using var stream = new MemoryStream(packageBytes, writable: false);
+        using var document = SpreadsheetDocument.Open(stream, false);
+        return GetWorksheetPart(document, worksheetName).Worksheet.Elements<SheetProtection>().Any();
+    }
+
+    private static uint GetFrozenRowCount(byte[] packageBytes, string worksheetName)
+    {
+        using var stream = new MemoryStream(packageBytes, writable: false);
+        using var document = SpreadsheetDocument.Open(stream, false);
+
+        return GetWorksheetPart(document, worksheetName)
+            .Worksheet
+            .Elements<SheetViews>()
+            .SelectMany(views => views.Elements<SheetView>())
+            .Select(view =>
+            {
+                double? split = view.GetFirstChild<Pane>()?.VerticalSplit?.Value;
+                return split.HasValue ? (uint?)split.Value : null;
+            })
+            .FirstOrDefault(value => value.HasValue) ?? 0U;
+    }
+
+    private static bool IsColumnHidden(byte[] packageBytes, string worksheetName, uint columnIndex)
+    {
+        using var stream = new MemoryStream(packageBytes, writable: false);
+        using var document = SpreadsheetDocument.Open(stream, false);
+
+        var column = GetWorksheetPart(document, worksheetName)
+            .Worksheet
+            .GetFirstChild<Columns>()?
+            .Elements<Column>()
+            .SingleOrDefault(current => current.Min!.Value <= columnIndex && current.Max!.Value >= columnIndex);
+
+        return column?.Hidden?.Value ?? false;
+    }
+
+    private static bool IsCellLocked(byte[] packageBytes, string worksheetName, int rowIndex, int cellIndex)
+    {
+        using var stream = new MemoryStream(packageBytes, writable: false);
+        using var document = SpreadsheetDocument.Open(stream, false);
+
+        var worksheetPart = GetWorksheetPart(document, worksheetName);
+        var sheetData = worksheetPart.Worksheet.GetFirstChild<SheetData>()
+            ?? throw new InvalidOperationException($"Лист '{worksheetName}' не содержит sheetData.");
+        var row = sheetData.Elements<Row>().ElementAt(rowIndex - 1);
+        var cell = row.Elements<Cell>().ElementAt(cellIndex - 1);
+        uint styleIndex = cell.StyleIndex?.Value ?? 0U;
+
+        var cellFormat = (CellFormat)document.WorkbookPart!.WorkbookStylesPart!.Stylesheet.CellFormats!.ElementAt((int)styleIndex);
+        return cellFormat.Protection?.Locked?.Value ?? true;
+    }
+
+    private static bool IsWorkshopNodeCellLocked(byte[] packageBytes, string workshopId, int rowIndex, int cellIndex)
+    {
+        string worksheetName = GetWorkshopNodesSheetName(packageBytes, workshopId);
+        var rows = GetAllWorksheetRows(GetWorksheetDocument(packageBytes, worksheetName));
+        int headerRowIndex = GetWorkshopNodeHeaderRowIndex(rows);
+        return IsCellLocked(packageBytes, worksheetName, headerRowIndex + rowIndex - 1, cellIndex);
+    }
+
+    private static bool IsNonNodeSheet(string sheetName) =>
+        NonNodeSheetNames.Contains(sheetName, StringComparer.Ordinal);
 
     private static string ReadProperty(IEnumerable<string[]> rows, string propertyName)
     {

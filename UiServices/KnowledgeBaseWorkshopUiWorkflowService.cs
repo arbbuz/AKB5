@@ -16,8 +16,6 @@ namespace AsutpKnowledgeBase.UiServices
 
         public Action RefreshSearchAfterMutation { get; init; } = null!;
 
-        public Action RebindTreeController { get; init; } = null!;
-
         public Action UpdateDirtyState { get; init; } = null!;
 
         public Action UpdateUi { get; init; } = null!;
@@ -123,7 +121,6 @@ namespace AsutpKnowledgeBase.UiServices
 
             _session.UpdateConfig(updateResult.Config);
             _history.SaveState(historySnapshot);
-            context.RebindTreeController();
             context.UpdateDirtyState();
             context.UpdateUi();
             context.SetStatusText($"💡 Уровни: {string.Join(" → ", _session.Config.LevelNames)}");

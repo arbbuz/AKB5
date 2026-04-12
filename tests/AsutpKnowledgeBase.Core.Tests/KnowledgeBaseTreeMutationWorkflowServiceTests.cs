@@ -6,11 +6,11 @@ namespace AsutpKnowledgeBase.Core.Tests;
 public class KnowledgeBaseTreeMutationWorkflowServiceTests
 {
     [Fact]
-    public void AddNode_WhenSuccessful_PushesUndoSnapshotAndReturnsCreatedNode()
+    public void AddNode_WhenSuccessful_PushesUndoSnapshotAndReturnsCreatedNodeWithCurrentViewState()
     {
         var session = CreateSessionWithDefaultData();
         var history = new UndoRedoService();
-        var controller = new KnowledgeBaseTreeController(session.Config, session.Workshops);
+        var controller = new KnowledgeBaseTreeController(session);
         var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
         var workflow = new KnowledgeBaseTreeMutationWorkflowService(session, sessionWorkflow, controller, history);
 
@@ -24,6 +24,56 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
         Assert.True(workflow.CanUndo);
         Assert.Equal("Линия 1", result.AffectedNode!.Name);
         Assert.Single(session.GetCurrentWorkshopNodes());
+        Assert.Equal(session.CurrentWorkshop, result.ViewState.CurrentWorkshop);
+        Assert.Same(session.GetCurrentWorkshopNodes(), result.ViewState.CurrentRoots);
+        Assert.Same(result.AffectedNode, result.ViewState.CurrentRoots[0]);
+    }
+
+    [Fact]
+    public void RenameNode_WhenSuccessful_ReturnsViewStateWithRenamedNode()
+    {
+        var root = new KbNode { Name = "Линия 1", LevelIndex = 0 };
+        var session = CreateSession(
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Цех 1"] = new List<KbNode> { root }
+            });
+        var history = new UndoRedoService();
+        var controller = new KnowledgeBaseTreeController(session);
+        var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
+        var workflow = new KnowledgeBaseTreeMutationWorkflowService(session, sessionWorkflow, controller, history);
+
+        var result = workflow.RenameNode(root, "  Линия A  ", session.GetCurrentWorkshopNodes());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Линия A", root.Name);
+        Assert.Equal(session.CurrentWorkshop, result.ViewState.CurrentWorkshop);
+        Assert.Same(session.GetCurrentWorkshopNodes(), result.ViewState.CurrentRoots);
+        Assert.Equal("Линия A", result.ViewState.CurrentRoots[0].Name);
+    }
+
+    [Fact]
+    public void DeleteNode_WhenSuccessful_ReturnsViewStateWithoutDeletedNode()
+    {
+        var root1 = new KbNode { Name = "Линия 1", LevelIndex = 0 };
+        var root2 = new KbNode { Name = "Линия 2", LevelIndex = 0 };
+        var session = CreateSession(
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Цех 1"] = new List<KbNode> { root1, root2 }
+            });
+        var history = new UndoRedoService();
+        var controller = new KnowledgeBaseTreeController(session);
+        var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
+        var workflow = new KnowledgeBaseTreeMutationWorkflowService(session, sessionWorkflow, controller, history);
+
+        var result = workflow.DeleteNode(session.CurrentWorkshop, root1, session.GetCurrentWorkshopNodes());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(session.CurrentWorkshop, result.ViewState.CurrentWorkshop);
+        Assert.Same(session.GetCurrentWorkshopNodes(), result.ViewState.CurrentRoots);
+        Assert.Single(result.ViewState.CurrentRoots);
+        Assert.Equal("Линия 2", result.ViewState.CurrentRoots[0].Name);
     }
 
     [Fact]
@@ -41,7 +91,7 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
                 ["Цех 1"] = new List<KbNode> { root }
             });
         var history = new UndoRedoService();
-        var controller = new KnowledgeBaseTreeController(session.Config, session.Workshops);
+        var controller = new KnowledgeBaseTreeController(session);
         var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
         var workflow = new KnowledgeBaseTreeMutationWorkflowService(session, sessionWorkflow, controller, history);
 
@@ -62,7 +112,7 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
     {
         var session = CreateSessionWithDefaultData();
         var history = new UndoRedoService();
-        var controller = new KnowledgeBaseTreeController(session.Config, session.Workshops);
+        var controller = new KnowledgeBaseTreeController(session);
         var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
         var workflow = new KnowledgeBaseTreeMutationWorkflowService(session, sessionWorkflow, controller, history);
 
@@ -90,7 +140,7 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
                 ["Цех 1"] = new List<KbNode> { root }
             });
         var history = new UndoRedoService();
-        var controller = new KnowledgeBaseTreeController(session.Config, session.Workshops);
+        var controller = new KnowledgeBaseTreeController(session);
         var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
         var workflow = new KnowledgeBaseTreeMutationWorkflowService(session, sessionWorkflow, controller, history);
 

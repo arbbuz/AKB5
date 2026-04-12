@@ -1,9 +1,25 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using AsutpKnowledgeBase.Models;
 
 namespace AsutpKnowledgeBase.Services
 {
+    public class KnowledgeBaseSelectedNodeState
+    {
+        public bool HasSelection { get; init; }
+
+        public string EmptyStateText { get; init; } = string.Empty;
+
+        public string Name { get; init; } = string.Empty;
+
+        public string LevelName { get; init; } = string.Empty;
+
+        public string FullPath { get; init; } = string.Empty;
+
+        public string ChildrenCountText { get; init; } = string.Empty;
+    }
+
     public class KnowledgeBaseFormState
     {
         public bool CanSave { get; init; }
@@ -12,15 +28,29 @@ namespace AsutpKnowledgeBase.Services
 
         public string WindowTitle { get; init; } = string.Empty;
 
-        public string StatusText { get; init; } = string.Empty;
+        public string SessionStatusText { get; init; } = string.Empty;
+
+        public string SelectionStatusText { get; init; } = string.Empty;
+
+        public string FileNameText { get; init; } = string.Empty;
+
+        public string FilePathText { get; init; } = string.Empty;
+
+        public string SaveStateText { get; init; } = string.Empty;
+
+        public string WorkshopText { get; init; } = string.Empty;
+
+        public KnowledgeBaseSelectedNodeState SelectedNode { get; init; } = new();
     }
 
     /// <summary>
     /// Содержит чистые правила вычисления состояния главной формы:
-    /// доступность сохранения, заголовок окна, статусную строку и close/save-решения.
+    /// доступность сохранения, заголовок окна и persistent session/selection контекст.
     /// </summary>
     public class KnowledgeBaseFormStateService
     {
+        private readonly KnowledgeBaseNodePresentationService _nodePresentationService = new();
+
         public KnowledgeBaseFormState Build(
             bool isDirty,
             bool requiresSave,
@@ -29,21 +59,34 @@ namespace AsutpKnowledgeBase.Services
             string lastSavedWorkshop,
             int totalNodes,
             KbConfig config,
+            IReadOnlyList<KbNode> currentRoots,
             KbNode? selectedNode)
         {
+            bool fileExists = File.Exists(currentDataPath);
             string currentDataFileName = Path.GetFileName(currentDataPath);
+            if (string.IsNullOrWhiteSpace(currentDataFileName))
+                currentDataFileName = "(без файла)";
+
+            string saveStateText = BuildSaveStateText(isDirty, requiresSave, fileExists);
+            var selectedNodeState = BuildSelectedNodeState(config, currentRoots, selectedNode);
 
             return new KnowledgeBaseFormState
             {
                 CanSave = ShouldEnableSave(
                     isDirty,
                     requiresSave,
-                    File.Exists(currentDataPath),
+                    fileExists,
                     currentWorkshop,
                     lastSavedWorkshop),
                 SaveToolTip = $"Сохранить базу данных ({currentDataPath})",
                 WindowTitle = BuildWindowTitle(isDirty, currentDataFileName),
-                StatusText = BuildStatusText(currentWorkshop, totalNodes, config, selectedNode)
+                SessionStatusText = BuildSessionStatusText(currentDataFileName, saveStateText, currentWorkshop, totalNodes),
+                SelectionStatusText = BuildSelectionStatusText(selectedNodeState),
+                FileNameText = currentDataFileName,
+                FilePathText = currentDataPath,
+                SaveStateText = saveStateText,
+                WorkshopText = currentWorkshop,
+                SelectedNode = selectedNodeState
             };
         }
 
@@ -63,22 +106,22 @@ namespace AsutpKnowledgeBase.Services
                 ? $"* База знаний АСУТП [{currentDataFileName}]"
                 : $"База знаний АСУТП [{currentDataFileName}]";
 
-        public string BuildStatusText(
+        public string BuildSessionStatusText(
+            string currentDataFileName,
+            string saveStateText,
             string currentWorkshop,
-            int totalNodes,
-            KbConfig config,
-            KbNode? selectedNode)
+            int totalNodes) =>
+            $"Файл: {currentDataFileName} | {saveStateText} | Цех: {currentWorkshop} | Узлов: {totalNodes}";
+
+        public string BuildSelectionStatusText(KnowledgeBaseSelectedNodeState selectedNodeState)
         {
-            if (selectedNode != null)
-            {
-                string levelName = config.LevelNames.Count > selectedNode.LevelIndex
-                    ? config.LevelNames[selectedNode.LevelIndex]
-                    : $"Ур. {selectedNode.LevelIndex + 1}";
+            if (!selectedNodeState.HasSelection)
+                return "Выбранный узел: нет";
 
-                return $"Цех: {currentWorkshop} | Всего: {totalNodes} | Выбрано: {selectedNode.Name} ({levelName})";
-            }
-
-            return $"Цех: {currentWorkshop} | Всего узлов: {totalNodes} | Уровней: {config.MaxLevels}";
+            return
+                $"Выбор: {selectedNodeState.Name} | " +
+                $"Уровень: {selectedNodeState.LevelName} | " +
+                $"Дочерних: {selectedNodeState.ChildrenCountText}";
         }
 
         public bool RequiresSavePromptBeforeContinue(bool isDirty, bool requiresSave) =>
@@ -89,5 +132,47 @@ namespace AsutpKnowledgeBase.Services
 
         public bool ShouldSaveSilentlyOnClose(string currentWorkshop, string lastSavedWorkshop) =>
             !string.Equals(currentWorkshop, lastSavedWorkshop, StringComparison.Ordinal);
+
+        private static string BuildSaveStateText(bool isDirty, bool requiresSave, bool fileExists)
+        {
+            if (isDirty)
+                return "Есть несохранённые изменения";
+
+            if (requiresSave)
+                return "Нужно пересохранить файл";
+
+            if (!fileExists)
+                return "Файл отсутствует на диске";
+
+            return "Сохранено";
+        }
+
+        private KnowledgeBaseSelectedNodeState BuildSelectedNodeState(
+            KbConfig config,
+            IReadOnlyList<KbNode> currentRoots,
+            KbNode? selectedNode)
+        {
+            if (selectedNode == null)
+            {
+                return new KnowledgeBaseSelectedNodeState
+                {
+                    HasSelection = false,
+                    EmptyStateText = "Ничего не выбрано. Выберите узел в дереве слева.",
+                    Name = "—",
+                    LevelName = "—",
+                    FullPath = "—",
+                    ChildrenCountText = "—"
+                };
+            }
+
+            return new KnowledgeBaseSelectedNodeState
+            {
+                HasSelection = true,
+                Name = selectedNode.Name,
+                LevelName = _nodePresentationService.GetLevelName(config, selectedNode.LevelIndex),
+                FullPath = _nodePresentationService.BuildNodePath(currentRoots, selectedNode),
+                ChildrenCountText = selectedNode.Children.Count.ToString()
+            };
+        }
     }
 }

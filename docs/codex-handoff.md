@@ -1,93 +1,109 @@
 # Current objective
 
-- Минимальный hardening GitHub automation для Windows CI/publish flow выполнен без изменения application code.
-- Риск deprecated Node.js 20 actions снят обновлением first-party actions до актуальных major versions.
-- Поддерживаемый publish target по-прежнему только `win-x64`; `build-and-test` сохранён, publish на `pull_request` отключён, ручной запуск workflow добавлен.
+- Бывшая ветка `codex/main-ux-pass` уже интегрирована в `development`, и `development` теперь является единственной рабочей веткой для обычных задач Codex.
+- Сохранить правило: `main` обновляется только отдельным PR `development -> main` по явному запросу пользователя.
+- Поддерживать этот workflow без возврата к delivery через старые task-ветки.
 
 # Current repo state
 
-- `.github/workflows/windows-build.yml` теперь триггерится на:
-  - `pull_request`
-  - `push` в `main/master`
-  - `workflow_dispatch`
-- Workflow-level hardening добавлен:
-  - `permissions: contents: read`
-  - `concurrency` с `cancel-in-progress: true`
-  - `timeout-minutes: 20` для обоих jobs
-- First-party actions обновлены:
-  - `actions/checkout@v5`
-  - `actions/setup-dotnet@v5`
-  - `actions/upload-artifact@v6`
-- `publish-win-x64` теперь запускается только для `push` и `workflow_dispatch`; на `pull_request` job остаётся skipped.
-- `.github/dependabot.yml` добавлен для еженедельных обновлений `github-actions`.
-- `README.md` и `docs/deployment.md` переведены на относительные repo-ссылки и фиксируют новое поведение automation.
-- Publish flow по-прежнему идёт через `scripts/publish.cmd` / `scripts/publish.ps1`, публикует root-проект `asutpKB.csproj` в `artifacts/publish/win-x64` и сохраняет artifact name `asutpkb-win-x64-single-file`.
+- `development` собирает в себе:
+  - CI hardening из коммита `597085e`
+  - branch-workflow policy из коммита `9ef785e`
+  - UX/main-form refactor и direct file-workflow `ViewState` path из бывшей ветки `codex/main-ux-pass`
+- В merged codebase уже присутствуют такие изменения:
+  - `Forms/MainForm.cs`, `Forms/MainForm.Layout.cs`, `Forms/MainForm.Events.cs`, `Forms/MainForm.WorkflowContexts.cs` переключены на более явный screen-level UX и wiring
+  - `Services/KnowledgeBaseFormStateService.cs` и `Services/KnowledgeBaseNodePresentationService.cs` поддерживают richer session/selection display
+  - `Services/KnowledgeBaseTreeSearchService.cs` и `UiServices/KnowledgeBaseTreeViewService.cs` дают расширенный поиск по tree data
+  - `Services/KnowledgeBaseFileWorkflowService.cs` возвращает `KnowledgeBaseSessionViewState` в successful load/replace flows
+  - `UiServices/KnowledgeBaseFileUiWorkflowService.cs` применяет loaded session view напрямую, без legacy success callback path
+  - regression coverage расширен в `tests/AsutpKnowledgeBase.Core.Tests`
+- Текущие worktree:
+  - `/Users/home/ASUTP/AKB5` -> `development`
+  - `/Users/home/ASUTP/AKB5-ci-hardening` -> `main`
+- Лишняя ветка `codex/main-ux-pass` уже удалена локально и на `origin`.
 
 # Decisions already made
 
-- Application code не менялся в рамках этой задачи.
-- Publish target остаётся только `win-x64`; `arm64` / `win-arm64` не добавляются.
-- Publish output path `artifacts/publish/win-x64` не меняется.
-- Trimming и AOT не включаются.
-- Artifact name `asutpkb-win-x64-single-file` не меняется.
-- Built-in NuGet cache через `setup-dotnet` пока не включается: в repo не зафиксирована стратегия `packages.lock.json`.
+- `development` является основной интеграционной веткой для обычной работы Codex.
+- `main` не используется как повседневная рабочая ветка.
+- После завершения задачи Codex пушит изменения в `development`.
+- Только по явному запросу пользователя "push в main" Codex делает PR из `development` в `main`.
+- Бывшая ветка `codex/main-ux-pass` уже поглощена `development` и удалена.
+- Publish/CI decisions сохраняются:
+  - publish target только `win-x64`
+  - output path `artifacts/publish/win-x64`
+  - artifact name `asutpkb-win-x64-single-file`
+  - built-in NuGet cache пока не включается без отдельного решения по lock files
 
 # Files already relevant to the task
 
-- `.github/workflows/windows-build.yml`
-- `.github/dependabot.yml`
-- `README.md`
-- `docs/deployment.md`
+- `AGENTS.md`
 - `docs/codex-handoff.md`
-- `scripts/publish.ps1`
-- `scripts/publish.cmd`
-- `asutpKB.csproj`
+- `Forms/MainForm.cs`
+- `Forms/MainForm.Layout.cs`
+- `Forms/MainForm.Events.cs`
+- `Forms/MainForm.WorkflowContexts.cs`
+- `Services/KnowledgeBaseFormStateService.cs`
+- `Services/KnowledgeBaseNodePresentationService.cs`
+- `Services/KnowledgeBaseTreeSearchService.cs`
+- `Services/KnowledgeBaseFileWorkflowService.cs`
+- `UiServices/KnowledgeBaseFileUiWorkflowService.cs`
+- `UiServices/KnowledgeBaseTreeViewService.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseFileWorkflowServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseTreeSearchServiceTests.cs`
 
 # Validation performed in this session
 
-Локально выполнено и завершилось успешно:
+Фактически выполнено:
 
+- inspected local branches, remote branches, open PRs and worktrees
+- confirmed that `codex/main-ux-pass` contained:
+  - committed UX refactor work
+  - additional local draft changes in file-workflow/view-state area
+- committed the remaining draft changes on `codex/main-ux-pass`
+- created and pushed `development`
+- merged `codex/main-ux-pass` into `development` with manual conflict resolution only in `docs/codex-handoff.md`
+- pushed finalized integrated `development`
+- closed obsolete PR `#1` from `codex/main-ux-pass` to `main`
+- deleted obsolete branch `codex/main-ux-pass` locally and on `origin`
+- reassigned the main working directory `/Users/home/ASUTP/AKB5` to branch `development`
 - `/Users/home/.dotnet/dotnet restore asutpKB.csproj`
 - `/Users/home/.dotnet/dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj`
 - `/Users/home/.dotnet/dotnet build asutpKB.csproj -c Release --no-restore`
 - `/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-restore`
-- `/Users/home/.dotnet/dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/publish/win-x64`
+- `git diff --check`
 
 Observed results:
 
-- build: success, `0` warnings, `0` errors
-- test: success, `82` passed, `0` failed
-- publish: success, output created in `artifacts/publish/win-x64`
-- published executable verified: `artifacts/publish/win-x64/asutpKB.exe` is `PE32+ executable (GUI) x86-64, for MS Windows`
+- release build: success, `0` warnings, `0` errors
+- full core test suite: success, `90` passed, `0` failed
+- merge conflict scope: only `docs/codex-handoff.md`
+- `git diff --check`: clean
 
-GitHub Actions verified:
+What still remains after this handoff snapshot:
 
-- PR `#2` (`codex/ci-hardening-bundle` -> `main`) created for this change
-- `pull_request` run `Windows Build` `#24313453840` completed `success`
-- run shape confirmed:
-  - `build-and-test` executed
-  - `publish-win-x64` was skipped on `pull_request`
+- keep using `development` for normal work
+- create `development -> main` PR only on explicit user request
 
 # Known risks / open questions
 
-- Отдельный release/tag workflow всё ещё отсутствует; это отдельная задача.
-- Dependabot теперь сможет обновлять actions, но policy обработки таких PR ещё не описана отдельным документом.
-- NuGet cache по-прежнему отложен до отдельного решения по lock files.
+- Dependabot branches are left intact because they back open bot PRs and are not part of the user's manual draft branches.
 
 # Recommended next step
 
-- После merge проверить operational path на `push` в `main` и на manual `workflow_dispatch`, чтобы подтвердить publish artifact уже в целевой ветке.
-- Если позже понадобится release automation, делать её отдельным workflow, не перегружая текущий Windows CI.
+- Continue ordinary work only from `development`.
+- When the user asks for delivery to `main`, prepare PR `development -> main`.
 
 # Commands to run before finishing future implementation work
 
 ```bash
 git status --short
 git diff --check
+git fetch --prune origin
+git branch -vv
+git worktree list --porcelain
 /Users/home/.dotnet/dotnet restore asutpKB.csproj
 /Users/home/.dotnet/dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj
 /Users/home/.dotnet/dotnet build asutpKB.csproj -c Release --no-restore
 /Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-restore
-/Users/home/.dotnet/dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/publish/win-x64
-gh run list --workflow "Windows Build" --limit 5
 ```
