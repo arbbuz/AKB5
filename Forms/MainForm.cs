@@ -25,6 +25,7 @@ namespace AsutpKnowledgeBase
         private bool _isBindingWorkshops;
         private bool _isApplyingSelectedNodeState;
         private Image? _photoPreviewImage;
+        private bool _isApplyingDeferredLayout;
 
         private ToolStrip toolStrip = null!;
         private ToolStripButton btnUndo = null!;
@@ -37,6 +38,7 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem menuNewWorkshop = null!;
 
         private SplitContainer splitMain = null!;
+        private SplitContainer splitDetailsBody = null!;
         private ComboBox cmbWorkshops = null!;
         private TreeView tvTree = null!;
         private TextBox txtSearch = null!;
@@ -148,6 +150,7 @@ namespace AsutpKnowledgeBase
                 grpTechnicalFields.Visible = hasSelection && selectedNodeState.ShowTechnicalFields;
 
                 UpdatePhotoPreview(selectedNodeState.PhotoPath, hasSelection);
+                ScheduleDeferredLayout();
             }
             finally
             {
@@ -204,6 +207,57 @@ namespace AsutpKnowledgeBase
 
             if (refreshSelectedNodeState)
                 ApplySelectedNodeState(formState.SelectedNode);
+        }
+
+        private void ScheduleDeferredLayout()
+        {
+            if (!IsHandleCreated || _isApplyingDeferredLayout)
+                return;
+
+            _isApplyingDeferredLayout = true;
+            BeginInvoke((MethodInvoker)(() =>
+            {
+                try
+                {
+                    ApplyDeferredLayout();
+                }
+                finally
+                {
+                    _isApplyingDeferredLayout = false;
+                }
+            }));
+        }
+
+        private void ApplyDeferredLayout()
+        {
+            ApplySplitLayout(splitMain, panel1MinSize: 260, panel2MinSize: 480, desiredDistance: 340);
+
+            if (tblSelectedNodeCard.Visible)
+                ApplySplitLayout(splitDetailsBody, panel1MinSize: 0, panel2MinSize: 280, desiredDistance: 660);
+        }
+
+        private static void ApplySplitLayout(
+            SplitContainer splitContainer,
+            int panel1MinSize,
+            int panel2MinSize,
+            int desiredDistance)
+        {
+            if (splitContainer.Width <= 0 || splitContainer.Height <= 0)
+                return;
+
+            splitContainer.Panel1MinSize = panel1MinSize;
+            splitContainer.Panel2MinSize = panel2MinSize;
+
+            int available = splitContainer.Orientation == Orientation.Vertical
+                ? splitContainer.ClientSize.Width
+                : splitContainer.ClientSize.Height;
+
+            int minimumDistance = panel1MinSize;
+            int maximumDistance = available - splitContainer.SplitterWidth - panel2MinSize;
+            if (maximumDistance < minimumDistance)
+                return;
+
+            splitContainer.SplitterDistance = Math.Clamp(desiredDistance, minimumDistance, maximumDistance);
         }
     }
 }

@@ -19,6 +19,9 @@ namespace AsutpKnowledgeBase
             Controls.Add(splitMain);
             Controls.Add(ssStatus);
             Controls.Add(toolStrip);
+
+            Shown += (_, _) => ScheduleDeferredLayout();
+            Resize += (_, _) => ScheduleDeferredLayout();
         }
 
         private void InitializeToolbar()
@@ -97,9 +100,6 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Fill,
                 FixedPanel = FixedPanel.Panel1,
-                Panel1MinSize = 260,
-                Panel2MinSize = 480,
-                SplitterDistance = 340,
                 BackColor = Color.FromArgb(230, 230, 230)
             };
 
@@ -267,12 +267,10 @@ namespace AsutpKnowledgeBase
             pnlHeader.Controls.Add(lblSelectedNodeNameValue);
             tblSelectedNodeCard.Controls.Add(pnlHeader, 0, 0);
 
-            var bodySplit = new SplitContainer
+            splitDetailsBody = new SplitContainer
             {
                 Dock = DockStyle.Fill,
                 FixedPanel = FixedPanel.Panel2,
-                Panel2MinSize = 280,
-                SplitterDistance = 660,
                 Margin = new Padding(0)
             };
 
@@ -316,7 +314,7 @@ namespace AsutpKnowledgeBase
             grpTechnicalFields.Controls.Add(CreateTechnicalFieldsLayout());
             leftCardLayout.Controls.Add(grpTechnicalFields, 0, 2);
 
-            bodySplit.Panel1.Controls.Add(leftCardLayout);
+            splitDetailsBody.Panel1.Controls.Add(leftCardLayout);
 
             var grpPhotoPreview = new GroupBox
             {
@@ -354,9 +352,9 @@ namespace AsutpKnowledgeBase
             previewLayout.Controls.Add(picNodePhotoPreview, 0, 0);
             previewLayout.Controls.Add(lblPhotoPreviewState, 0, 1);
             grpPhotoPreview.Controls.Add(previewLayout);
-            bodySplit.Panel2.Controls.Add(grpPhotoPreview);
+            splitDetailsBody.Panel2.Controls.Add(grpPhotoPreview);
 
-            tblSelectedNodeCard.Controls.Add(bodySplit, 0, 1);
+            tblSelectedNodeCard.Controls.Add(splitDetailsBody, 0, 1);
 
             pnlRight.Controls.Add(tblSelectedNodeCard);
             pnlRight.Controls.Add(lblSelectedNodeEmptyState);
