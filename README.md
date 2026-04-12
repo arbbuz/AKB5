@@ -95,6 +95,7 @@ Automation сейчас работает так:
 - `pull_request` запускает только `build-and-test`
 - `push` в `main/master` запускает `build-and-test` и `publish-win-x64`
 - ручной запуск через `workflow_dispatch` тоже собирает publish artifact
+- job `build-and-test` теперь дополнительно валидирует форматирование и базовый code style через `dotnet format` + root `.editorconfig` до `dotnet build` и `dotnet test`
 
 Детали по deployment и CI artifact собраны в [docs/deployment.md](./docs/deployment.md).
 
@@ -105,10 +106,19 @@ Automation сейчас работает так:
 ```bash
 dotnet restore asutpKB.csproj
 dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj
+dotnet format asutpKB.csproj --verify-no-changes --severity warn --no-restore
+dotnet format src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity warn --no-restore
+dotnet format tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity warn --no-restore
 dotnet build asutpKB.csproj -c Release --no-restore
-dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-build
+dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-restore
 dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/publish/win-x64
 ```
+
+Lint baseline намеренно минимальный:
+
+- analyzer baseline задаётся через root `Directory.Build.props`
+- formatting/code style baseline задаётся через root `.editorconfig`
+- CI не превращает все analyzer warnings в build errors на этом шаге
 
 ## AI Handoff
 

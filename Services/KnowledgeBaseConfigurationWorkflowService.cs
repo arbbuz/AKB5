@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using AsutpKnowledgeBase.Models;
 
 namespace AsutpKnowledgeBase.Services

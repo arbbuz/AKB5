@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Xml.Linq;
 using AsutpKnowledgeBase.Models;
 using AsutpKnowledgeBase.Services;
@@ -1712,7 +1708,7 @@ public class KnowledgeBaseExcelExchangeServiceTests
 
     private static string NormalizePartPath(string basePartPath, string target)
     {
-        if (target.StartsWith("/", StringComparison.Ordinal))
+        if (target.StartsWith('/'))
             return target.TrimStart('/');
 
         string baseDirectory = Path.GetDirectoryName(basePartPath)?.Replace('\\', '/') ?? string.Empty;

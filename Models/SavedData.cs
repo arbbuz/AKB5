@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace AsutpKnowledgeBase.Models
 {
     public class SavedData

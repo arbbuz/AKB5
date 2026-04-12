@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
 using AsutpKnowledgeBase.Models;
 
 namespace AsutpKnowledgeBase.Services
@@ -15,7 +13,7 @@ namespace AsutpKnowledgeBase.Services
             _workshops = workshops;
         }
 
-        public List<KbNode> GetRootNodes(string workshopName) => 
+        public List<KbNode> GetRootNodes(string workshopName) =>
             _workshops.TryGetValue(workshopName, out var nodes) ? nodes : new List<KbNode>();
 
         public bool CanAddRootNode() => _config.MaxLevels > 0;

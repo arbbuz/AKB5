@@ -1,5 +1,3 @@
-using System;
-using System.IO;
 using AsutpKnowledgeBase.Models;
 
 namespace AsutpKnowledgeBase.Services

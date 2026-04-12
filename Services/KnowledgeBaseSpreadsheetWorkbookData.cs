@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace AsutpKnowledgeBase.Services
 {
     internal sealed record KnowledgeBaseSpreadsheetWorkbookData(
