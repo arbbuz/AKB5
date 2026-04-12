@@ -102,7 +102,8 @@ public class KnowledgeBaseFileWorkflowServiceTests
         {
             string path = Path.Combine(tempDirectory, "kb.json");
             string backupPath = $"{path}.bak";
-            var storage = new JsonStorageService(path);
+            var logger = new InMemoryAppLogger();
+            var storage = new JsonStorageService(path, logger);
             var sample = CreateSampleData(lastWorkshop: "Цех 2");
 
             Assert.True(storage.Save(sample, out _));
@@ -110,7 +111,7 @@ public class KnowledgeBaseFileWorkflowServiceTests
             File.WriteAllText(path, "{ broken json");
 
             var session = new KnowledgeBaseSessionService();
-            var workflow = new KnowledgeBaseFileWorkflowService(session, storage);
+            var workflow = new KnowledgeBaseFileWorkflowService(session, storage, logger);
 
             var result = workflow.Load();
 
@@ -119,6 +120,11 @@ public class KnowledgeBaseFileWorkflowServiceTests
             Assert.True(session.RequiresSave);
             Assert.Equal("Цех 2", session.CurrentWorkshop);
             Assert.True(session.Workshops.ContainsKey("Цех 1"));
+
+            var logEntry = Assert.Single(logger.Entries.Where(entry => entry.EventName == "FileWorkflowLoadBackup"));
+            Assert.Equal(AppLogLevel.Warning, logEntry.Level);
+            Assert.Equal(path, logEntry.Properties["savePath"]);
+            Assert.Equal(backupPath, logEntry.Properties["sourcePath"]);
         }
         finally
         {

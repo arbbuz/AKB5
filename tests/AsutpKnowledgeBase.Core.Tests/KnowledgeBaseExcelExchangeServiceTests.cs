@@ -165,6 +165,34 @@ public class KnowledgeBaseExcelExchangeServiceTests
     }
 
     [Fact]
+    public void Export_WhenSuccessful_WritesLogEvents()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "kb-export.xlsx");
+            var logger = new InMemoryAppLogger();
+            var service = new KnowledgeBaseExcelExchangeService(logger);
+
+            var result = service.Export(CreateSampleData(), path);
+
+            Assert.True(result.IsSuccess);
+
+            var startedEntry = Assert.Single(logger.Entries.Where(entry => entry.EventName == "ExcelExportStarted"));
+            Assert.Equal(AppLogLevel.Information, startedEntry.Level);
+
+            var succeededEntry = Assert.Single(logger.Entries.Where(entry => entry.EventName == "ExcelExportSucceeded"));
+            Assert.Equal(AppLogLevel.Information, succeededEntry.Level);
+            Assert.Equal(path, succeededEntry.Properties["path"]);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void BuildWorkbookPackage_V3ExportCreatesOneNodeSheetPerWorkshop()
     {
         var service = new KnowledgeBaseExcelExchangeService();
@@ -426,6 +454,28 @@ public class KnowledgeBaseExcelExchangeServiceTests
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.ErrorMessage);
         Assert.Contains("v1/v2", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void ImportFromPackage_WhenWorkbookValidationFails_WritesParseFailureLogEvent()
+    {
+        var logger = new InMemoryAppLogger();
+        var service = new KnowledgeBaseExcelExchangeService(logger);
+
+        byte[] packageBytes = service.BuildWorkbookPackage(CreateSampleData());
+        packageBytes = UpdateMetaPropertyValue(packageBytes, "FormatVersion", "2");
+
+        var result = service.ImportFromPackage(packageBytes);
+
+        Assert.False(result.IsSuccess);
+
+        var startedEntry = Assert.Single(logger.Entries.Where(entry => entry.EventName == "ExcelImportStarted"));
+        Assert.Equal(AppLogLevel.Information, startedEntry.Level);
+
+        var parseFailedEntry = Assert.Single(logger.Entries.Where(entry => entry.EventName == "ExcelImportParseFailed"));
+        Assert.Equal(AppLogLevel.Warning, parseFailedEntry.Level);
+        Assert.NotNull(parseFailedEntry.Exception);
+        Assert.Equal("KnowledgeBaseExcelImportException", parseFailedEntry.Exception!.GetType().Name);
     }
 
     [Fact]

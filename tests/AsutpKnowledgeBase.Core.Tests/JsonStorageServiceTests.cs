@@ -68,7 +68,8 @@ public class JsonStorageServiceTests
         {
             string path = Path.Combine(tempDirectory, "kb.json");
             string backupPath = $"{path}.bak";
-            var service = new JsonStorageService(path);
+            var logger = new InMemoryAppLogger();
+            var service = new JsonStorageService(path, logger);
 
             Assert.True(service.Save(CreateSampleData(lastWorkshop: "Из backup"), out _));
             File.Copy(path, backupPath, overwrite: true);
@@ -81,6 +82,17 @@ public class JsonStorageServiceTests
             Assert.Equal(backupPath, result.SourcePath);
             Assert.Equal("Из backup", result.Data!.LastWorkshop);
             Assert.NotNull(result.PrimaryErrorMessage);
+
+            var fallbackEntry = Assert.Single(logger.Entries.Where(entry => entry.EventName == "JsonLoadFallbackToBackup"));
+            Assert.Equal(AppLogLevel.Warning, fallbackEntry.Level);
+            Assert.Equal(backupPath, fallbackEntry.Properties["backupPath"]);
+
+            var successEntry = Assert.Single(logger.Entries.Where(entry =>
+                entry.EventName == "JsonLoadSucceeded" &&
+                entry.Properties.TryGetValue("usedBackup", out var usedBackup) &&
+                Equals(usedBackup, true)));
+
+            Assert.Equal(AppLogLevel.Information, successEntry.Level);
         }
         finally
         {

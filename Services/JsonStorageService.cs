@@ -11,14 +11,41 @@ namespace AsutpKnowledgeBase.Services
             WriteIndented = true
         };
 
+        private readonly IAppLogger _logger;
+
         public string SavePath { get; set; }
 
-        public JsonStorageService(string savePath) => SavePath = savePath;
+        public JsonStorageService(string savePath, IAppLogger? logger = null)
+        {
+            SavePath = savePath;
+            _logger = logger ?? NullAppLogger.Instance;
+        }
 
         public JsonLoadResult Load()
         {
+            string backupPath = GetBackupPath(SavePath);
+            _logger.Log(
+                "JsonLoadStarted",
+                AppLogLevel.Information,
+                "Starting JSON load.",
+                properties: CreateProperties(
+                    ("path", SavePath),
+                    ("backupPath", backupPath),
+                    ("fileMissing", false),
+                    ("usedBackup", false)));
+
             if (!File.Exists(SavePath))
             {
+                _logger.Log(
+                    "JsonLoadFailed",
+                    AppLogLevel.Warning,
+                    "JSON file was not found.",
+                    properties: CreateProperties(
+                        ("path", SavePath),
+                        ("backupPath", backupPath),
+                        ("fileMissing", true),
+                        ("usedBackup", false)));
+
                 return new JsonLoadResult
                 {
                     FileMissing = true,
@@ -26,8 +53,19 @@ namespace AsutpKnowledgeBase.Services
                 };
             }
 
-            if (TryReadData(SavePath, out var data, out var errorMessage))
+            if (TryReadData(SavePath, out var data, out var errorMessage, out var readException))
             {
+                _logger.Log(
+                    "JsonLoadSucceeded",
+                    AppLogLevel.Information,
+                    "JSON file loaded successfully.",
+                    properties: CreateProperties(
+                        ("path", SavePath),
+                        ("backupPath", backupPath),
+                        ("fileMissing", false),
+                        ("usedBackup", false),
+                        ("schemaVersion", data?.SchemaVersion)));
+
                 return new JsonLoadResult
                 {
                     Data = data,
@@ -35,10 +73,38 @@ namespace AsutpKnowledgeBase.Services
                 };
             }
 
-            string backupPath = GetBackupPath(SavePath);
+            SavedData? backupData = null;
+            string? backupErrorMessage = null;
+            Exception? backupException = null;
+
             if (File.Exists(backupPath) &&
-                TryReadData(backupPath, out var backupData, out var backupErrorMessage))
+                TryReadData(backupPath, out backupData, out backupErrorMessage, out backupException))
             {
+                _logger.Log(
+                    "JsonLoadFallbackToBackup",
+                    AppLogLevel.Warning,
+                    "Primary JSON file failed to load. Falling back to backup.",
+                    readException,
+                    CreateProperties(
+                        ("path", SavePath),
+                        ("backupPath", backupPath),
+                        ("fileMissing", false),
+                        ("usedBackup", true),
+                        ("primaryErrorMessage", errorMessage),
+                        ("primarySchemaVersion", data?.SchemaVersion),
+                        ("schemaVersion", backupData?.SchemaVersion)));
+
+                _logger.Log(
+                    "JsonLoadSucceeded",
+                    AppLogLevel.Information,
+                    "Backup JSON file loaded successfully.",
+                    properties: CreateProperties(
+                        ("path", backupPath),
+                        ("backupPath", backupPath),
+                        ("fileMissing", false),
+                        ("usedBackup", true),
+                        ("schemaVersion", backupData?.SchemaVersion)));
+
                 return new JsonLoadResult
                 {
                     Data = backupData,
@@ -48,6 +114,22 @@ namespace AsutpKnowledgeBase.Services
                     PrimaryErrorMessage = errorMessage
                 };
             }
+
+            _logger.Log(
+                "JsonLoadFailed",
+                readException == null && backupException == null
+                    ? AppLogLevel.Warning
+                    : AppLogLevel.Error,
+                "JSON file failed to load.",
+                readException ?? backupException,
+                CreateProperties(
+                    ("path", SavePath),
+                    ("backupPath", File.Exists(backupPath) ? backupPath : null),
+                    ("fileMissing", false),
+                    ("usedBackup", false),
+                    ("primaryErrorMessage", errorMessage),
+                    ("backupErrorMessage", backupErrorMessage),
+                    ("schemaVersion", data?.SchemaVersion)));
 
             return new JsonLoadResult
             {
@@ -64,6 +146,16 @@ namespace AsutpKnowledgeBase.Services
             string tempPath = $"{SavePath}.tmp";
             string backupPath = GetBackupPath(SavePath);
 
+            _logger.Log(
+                "JsonSaveStarted",
+                AppLogLevel.Information,
+                "Starting JSON save.",
+                properties: CreateProperties(
+                    ("path", SavePath),
+                    ("backupPath", backupPath),
+                    ("tempPath", tempPath),
+                    ("schemaVersion", data.SchemaVersion)));
+
             try
             {
                 string? directory = Path.GetDirectoryName(SavePath);
@@ -77,6 +169,17 @@ namespace AsutpKnowledgeBase.Services
                     File.Copy(SavePath, backupPath, true);
 
                 File.Move(tempPath, SavePath, true);
+
+                _logger.Log(
+                    "JsonSaveSucceeded",
+                    AppLogLevel.Information,
+                    "JSON file saved successfully.",
+                    properties: CreateProperties(
+                        ("path", SavePath),
+                        ("backupPath", backupPath),
+                        ("tempPath", tempPath),
+                        ("schemaVersion", data.SchemaVersion)));
+
                 return true;
             }
             catch (Exception ex)
@@ -91,16 +194,32 @@ namespace AsutpKnowledgeBase.Services
                 {
                 }
 
+                _logger.Log(
+                    "JsonSaveFailed",
+                    AppLogLevel.Error,
+                    "JSON file save failed.",
+                    ex,
+                    CreateProperties(
+                        ("path", SavePath),
+                        ("backupPath", backupPath),
+                        ("tempPath", tempPath),
+                        ("schemaVersion", data.SchemaVersion)));
+
                 return false;
             }
         }
 
         private static string GetBackupPath(string savePath) => $"{savePath}.bak";
 
-        private static bool TryReadData(string path, out SavedData? data, out string? errorMessage)
+        private static bool TryReadData(
+            string path,
+            out SavedData? data,
+            out string? errorMessage,
+            out Exception? exception)
         {
             data = null;
             errorMessage = null;
+            exception = null;
 
             try
             {
@@ -118,8 +237,23 @@ namespace AsutpKnowledgeBase.Services
             catch (Exception ex)
             {
                 errorMessage = ex.Message;
+                exception = ex;
                 return false;
             }
+        }
+
+        private static Dictionary<string, object?> CreateProperties(params (string Key, object? Value)[] values)
+        {
+            var properties = new Dictionary<string, object?>(StringComparer.Ordinal);
+            foreach (var (key, value) in values)
+            {
+                if (string.IsNullOrWhiteSpace(key) || value == null)
+                    continue;
+
+                properties[key] = value;
+            }
+
+            return properties;
         }
 
         private static string? ValidateData(SavedData? data)

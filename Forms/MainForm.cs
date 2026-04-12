@@ -9,6 +9,7 @@ namespace AsutpKnowledgeBase
     /// </summary>
     public partial class MainForm : Form
     {
+        private readonly IAppLogger _appLogger;
         private readonly KnowledgeBaseSessionService _session = new();
         private readonly KnowledgeBaseExcelUiWorkflowService _excelUiWorkflowService;
         private readonly KnowledgeBaseFileUiWorkflowService _fileUiWorkflowService;
@@ -63,14 +64,22 @@ namespace AsutpKnowledgeBase
         private bool _requiresSave => _session.RequiresSave;
 
         public MainForm()
+            : this(NullAppLogger.Instance)
         {
+        }
+
+        public MainForm(IAppLogger appLogger)
+        {
+            _appLogger = appLogger ?? NullAppLogger.Instance;
             _treeController = new KnowledgeBaseTreeController(_session);
             InitializeComponent();
+            var storageService = new JsonStorageService(GetDefaultJsonPath(), _appLogger);
             var fileWorkflowService = new KnowledgeBaseFileWorkflowService(
                 _session,
-                new JsonStorageService(GetDefaultJsonPath()));
+                storageService,
+                _appLogger);
             _excelUiWorkflowService = new KnowledgeBaseExcelUiWorkflowService(
-                new KnowledgeBaseExcelExchangeService());
+                new KnowledgeBaseExcelExchangeService(_appLogger));
             _fileUiWorkflowService = new KnowledgeBaseFileUiWorkflowService(
                 fileWorkflowService,
                 _formStateService);
