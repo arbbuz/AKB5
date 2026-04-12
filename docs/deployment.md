@@ -16,7 +16,7 @@
 scripts\publish.cmd
 ```
 
-Он вызывает [scripts/publish.ps1](/Users/home/ASUTP/AKB5/scripts/publish.ps1), который публикует root-проект [asutpKB.csproj](/Users/home/ASUTP/AKB5/asutpKB.csproj) как:
+Он вызывает [scripts/publish.ps1](../scripts/publish.ps1), который публикует root-проект [asutpKB.csproj](../asutpKB.csproj) как:
 
 - `Release`
 - `win-x64`
@@ -49,7 +49,13 @@ Output directory:
 
 ## CI
 
-Windows workflow [windows-build.yml](/Users/home/ASUTP/AKB5/.github/workflows/windows-build.yml) сохраняет текущий `build-and-test` path и дополнительно запускает publish job, который:
+Windows workflow [windows-build.yml](../.github/workflows/windows-build.yml) сохраняет текущий `build-and-test` path и теперь работает так:
+
+- `pull_request` запускает только `build-and-test`
+- `push` в `main/master` запускает `build-and-test` и publish
+- manual run через `workflow_dispatch` тоже запускает publish
+
+Publish job при этом:
 
 - выполняет `scripts\publish.cmd`
 - проверяет наличие `artifacts/publish/win-x64/asutpKB.exe`
