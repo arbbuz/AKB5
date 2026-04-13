@@ -12,7 +12,8 @@ namespace AsutpKnowledgeBase.Services
 
         public KbConfig Config { get; private set; } = KnowledgeBaseDataService.CreateDefaultConfig();
 
-        public Dictionary<string, List<KbNode>> Workshops { get; private set; } = new();
+        public Dictionary<string, List<KbNode>> Workshops { get; private set; } =
+            new(KnowledgeBaseDataService.WorkshopNameComparer);
 
         public string CurrentWorkshop { get; private set; } = string.Empty;
 
@@ -27,6 +28,14 @@ namespace AsutpKnowledgeBase.Services
 
         public void ApplyLoadedData(SavedData data, bool recordAsSavedState)
         {
+            string? schemaVersionError = KnowledgeBaseDataService.ValidateSupportedSchemaVersion(data.SchemaVersion);
+            if (schemaVersionError != null)
+                throw new InvalidOperationException(schemaVersionError);
+
+            string? workshopValidationError = KnowledgeBaseDataService.ValidateWorkshopNames(data.Workshops);
+            if (workshopValidationError != null)
+                throw new InvalidOperationException(workshopValidationError);
+
             Config = KnowledgeBaseDataService.NormalizeConfig(data.Config);
             Workshops = KnowledgeBaseDataService.NormalizeWorkshops(data.Workshops);
 
@@ -93,28 +102,27 @@ namespace AsutpKnowledgeBase.Services
 
         public bool TrySelectWorkshop(string selectedWorkshop, List<KbNode> currentWorkshopRoots)
         {
-            if (string.IsNullOrWhiteSpace(selectedWorkshop))
+            string? resolvedWorkshop = KnowledgeBaseDataService.FindWorkshopName(Workshops.Keys, selectedWorkshop);
+            if (string.IsNullOrWhiteSpace(resolvedWorkshop))
                 return false;
 
-            string normalizedWorkshop = selectedWorkshop.Trim();
-            if (normalizedWorkshop == CurrentWorkshop || !Workshops.ContainsKey(normalizedWorkshop))
+            if (KnowledgeBaseDataService.WorkshopNamesEqual(resolvedWorkshop, CurrentWorkshop))
                 return false;
 
             SyncCurrentWorkshop(currentWorkshopRoots);
-            CurrentWorkshop = normalizedWorkshop;
+            CurrentWorkshop = resolvedWorkshop;
             return true;
         }
 
         public bool HasWorkshop(string workshopName) =>
-            Workshops.Keys.Any(existing =>
-                string.Equals(existing, workshopName.Trim(), StringComparison.CurrentCultureIgnoreCase));
+            KnowledgeBaseDataService.FindWorkshopName(Workshops.Keys, workshopName) != null;
 
         public bool TryAddWorkshop(string workshopName, List<KbNode> currentWorkshopRoots)
         {
-            if (string.IsNullOrWhiteSpace(workshopName))
+            string normalizedWorkshop = KnowledgeBaseDataService.NormalizeWorkshopName(workshopName);
+            if (string.IsNullOrWhiteSpace(normalizedWorkshop))
                 return false;
 
-            string normalizedWorkshop = workshopName.Trim();
             if (HasWorkshop(normalizedWorkshop))
                 return false;
 

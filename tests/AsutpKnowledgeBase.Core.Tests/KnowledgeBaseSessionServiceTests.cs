@@ -101,7 +101,7 @@ public class KnowledgeBaseSessionServiceTests
     }
 
     [Fact]
-    public void TryAddWorkshop_RejectsDuplicateNamesIgnoringCase()
+    public void TryAddWorkshop_RejectsDuplicateNamesIgnoringTrimAndCase()
     {
         var session = new KnowledgeBaseSessionService();
         session.ApplyLoadedData(
@@ -115,7 +115,8 @@ public class KnowledgeBaseSessionServiceTests
             },
             recordAsSavedState: true);
 
-        Assert.False(session.TryAddWorkshop(" цЕх 1 ", new List<KbNode>()));
+        Assert.False(session.TryAddWorkshop(" Цех 1 ", new List<KbNode>()));
+        Assert.False(session.TryAddWorkshop("цех 1", new List<KbNode>()));
         Assert.True(session.TryAddWorkshop("Новый цех", new List<KbNode>()));
         Assert.Equal("Новый цех", session.CurrentWorkshop);
         Assert.True(session.Workshops.ContainsKey("Новый цех"));

@@ -261,8 +261,9 @@ namespace AsutpKnowledgeBase.Services
             if (data == null)
                 return "Файл не содержит корректную структуру базы.";
 
-            if (data.SchemaVersion < 1)
-                return $"Неподдерживаемая версия схемы: {data.SchemaVersion}.";
+            string? schemaVersionError = KnowledgeBaseDataService.ValidateSupportedSchemaVersion(data.SchemaVersion);
+            if (schemaVersionError != null)
+                return schemaVersionError;
 
             if (data.Config == null)
                 return "Отсутствует раздел Config.";
@@ -280,7 +281,14 @@ namespace AsutpKnowledgeBase.Services
 
                 if (pair.Value == null)
                     return $"У цеха '{pair.Key}' отсутствует список корневых узлов.";
+            }
 
+            string? workshopValidationError = KnowledgeBaseDataService.ValidateWorkshopNames(data.Workshops);
+            if (workshopValidationError != null)
+                return workshopValidationError;
+
+            foreach (var pair in data.Workshops)
+            {
                 var path = new List<string> { pair.Key };
                 foreach (var node in pair.Value)
                 {

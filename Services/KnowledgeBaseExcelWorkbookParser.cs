@@ -81,8 +81,9 @@ namespace AsutpKnowledgeBase.Services
             }
 
             int schemaVersion = ParseInt(RequireMetaValue(values, "SchemaVersion"), "Meta.SchemaVersion");
-            if (schemaVersion < 1)
-                throw new KnowledgeBaseExcelImportException($"Неподдерживаемая SchemaVersion: {schemaVersion}.");
+            string? schemaVersionError = KnowledgeBaseDataService.ValidateSupportedSchemaVersion(schemaVersion);
+            if (schemaVersionError != null)
+                throw new KnowledgeBaseExcelImportException(schemaVersionError);
 
             string lastWorkshopId = values.TryGetValue("LastWorkshopId", out var storedLastWorkshopId)
                 ? storedLastWorkshopId.Trim()
@@ -125,7 +126,7 @@ namespace AsutpKnowledgeBase.Services
         {
             var rows = new List<ParsedWorkshopRow>();
             var workshopIds = new HashSet<string>(StringComparer.Ordinal);
-            var workshopNames = new HashSet<string>(StringComparer.CurrentCultureIgnoreCase);
+            var workshopNames = new HashSet<string>(KnowledgeBaseDataService.WorkshopNameComparer);
             var nodesSheetKeys = new HashSet<string>(StringComparer.Ordinal);
 
             foreach (var row in table.Rows)
@@ -190,7 +191,7 @@ namespace AsutpKnowledgeBase.Services
             if (!string.IsNullOrWhiteSpace(meta.LastWorkshop))
             {
                 string? workshopByName = rows
-                    .SingleOrDefault(row => string.Equals(row.WorkshopName, meta.LastWorkshop, StringComparison.Ordinal))
+                    .SingleOrDefault(row => KnowledgeBaseDataService.WorkshopNamesEqual(row.WorkshopName, meta.LastWorkshop))
                     ?.WorkshopName;
                 if (!string.IsNullOrWhiteSpace(workshopByName))
                     return workshopByName;

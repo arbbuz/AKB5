@@ -1,85 +1,63 @@
 # Current objective
 
-- Реализована карточка объекта в главном окне: дерево осталось слева, справа появился большой editor/details workspace.
-- Узлы получили вложенные `Details`, данные сохраняются в JSON и round-trip через Excel workbook `v3`.
-- Исправлен layout-баг карточки: строка с `Выбрать фото` больше не должна пропадать в обычном окне из-за пустого резерва высоты под скрытые `Технические поля`.
-- Следующий практический шаг: Windows smoke-check формы с реальным открытием/сохранением/Excel import-export и визуальной проверкой photo preview, включая проверку в неразвернутом окне.
+- После фикса data-integrity regressions следующий практический шаг: Windows smoke-check реального UX-потока `open/save JSON` и `export/import Excel`, включая проверку новых fail-fast ошибок для невалидной схемы и конфликтующих имён цехов.
 
 # Current repo state
 
 - Основной рабочий репозиторий: `/Users/home/ASUTP/AKB5`.
-- JSON schema поднята до `2`.
-- `KbNode` теперь содержит `Details`:
-  - общие поля: `Description`, `Location`, `PhotoPath`
-  - технические поля для уровней `2+`: `IpAddress`, `SchemaLink`
-- Старый JSON `SchemaVersion = 1` и старый workbook `v3` без новых detail-колонок по-прежнему импортируются; недостающие поля нормализуются в пустые значения.
-- Excel export/import `v3` расширен новыми колонками на node sheets без смены `WorkbookFormatVersion`.
-- Excel export clone path теперь устойчив к `KbNode.Children = null` и не падает до стадии нормализации входных данных.
-- Левая колонка карточки справа теперь динамически освобождает место, когда блок `Технические поля` скрыт; это должно предотвращать обрезание строки с кнопками фото у верхних уровней.
+- JSON schema приложения: `2`; legacy `SchemaVersion = 1` по-прежнему загружается и сохраняется уже в текущем формате.
+- JSON/XLSX с `SchemaVersion > SavedData.CurrentSchemaVersion` теперь отклоняются на загрузке/импорте явной ошибкой.
+- Имена цехов теперь считаются по единому правилу во всех основных путях: canonical name = `Trim()`, сравнение case-insensitive.
+- Конфликты имён цехов вида `"Цех 1"`, `" Цех 1 "` и `"цех 1"` больше не нормализуются молча и не теряют данные: JSON load, Excel import и `ReplaceAllData` теперь fail-fast.
+- `KbNode.Details` и workbook `v3` остаются активным контрактом; layout-фикс карточки справа остаётся в силе.
 
 # Decisions already made
 
-- Не вводить отдельный Excel sheet под карточку узла: детали идут явными колонками в таблице узлов каждого цеха.
-- Не встраивать бинарные изображения в JSON/Excel: хранится только `PhotoPath`, preview строится best-effort по локальному/сетевому пути.
-- Технические поля `IpAddress` и `SchemaLink` скрыты в UI для уровней `< 2` и нормализуются в пустые значения для верхних уровней.
-- При скрытии `Технических полей` layout должен схлопывать их строку целиком, а не оставлять фиксированный пустой блок.
-- Session/file info вынесены из большой правой панели в toolbar + status bar.
+- Не принимать future schema в read-only режиме и не пытаться сохранять неизвестные поля: policy только reject-on-load/import.
+- Не делать silent merge/rename для конфликтующих имён цехов: policy только explicit error.
+- Единый инвариант для имён цехов: `Trim()` + `StringComparer.OrdinalIgnoreCase`.
+- JSON остаётся source of truth, Excel остаётся exchange-слоем с явной валидацией.
 
 # Files already relevant to the task
 
-- `Models/KbNode.cs`
-- `Models/KbNodeDetails.cs`
 - `Models/SavedData.cs`
 - `Services/KnowledgeBaseDataService.cs`
 - `Services/JsonStorageService.cs`
-- `Services/KnowledgeBaseService.cs`
-- `Services/KnowledgeBaseFormStateService.cs`
+- `Services/KnowledgeBaseSessionService.cs`
+- `Services/KnowledgeBaseFileWorkflowService.cs`
 - `Services/KnowledgeBaseExcelWorkbookParser.cs`
-- `Services/KnowledgeBaseXlsxWriter.cs`
-- `Forms/MainForm.cs`
-- `Forms/MainForm.Layout.cs`
-- `Forms/MainForm.Events.cs`
-- `Forms/MainForm.NodeDetails.cs`
-- `Forms/MainForm.WorkflowContexts.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseExcelExchangeServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseDataServiceTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/JsonStorageServiceTests.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseFormStateServiceTests.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseTreeControllerTests.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseTreeMutationWorkflowServiceTests.cs`
-- `README.md`
-- `docs/workbook-v3.md`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseSessionServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseFileWorkflowServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseExcelExchangeServiceTests.cs`
 
 # Validation performed in this session
 
 Фактически выполнено:
 
-- `/Users/home/.dotnet/dotnet build asutpKB.csproj --configuration Release --no-restore`
-- `/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release`
 - `/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore`
-- `Forms/MainForm.cs`, `Forms/MainForm.Layout.cs`: статически проверен и исправлен layout-баг со скрытым резервом высоты под `Технические поля`
+- `/Users/home/.dotnet/dotnet build asutpKB.csproj --configuration Release --no-restore`
 
 Observed results:
 
-- core test suite: success, `99` passed, `0` failed
+- core test suite: success, `105` passed, `0` failed
 - root WinForms build: success
-- analyzer/style warnings остались существующим non-blocking noise, но новых build blockers после feature rollout нет
+- новых build/test regressions после ужесточения schema gating и workshop validation не обнаружено
 
 # Known risks / open questions
 
-- Не было реального Windows UI smoke-test с кликами по карточке, выбором изображения и проверкой поведения preview на сетевом пути.
-- Не подтверждено руками на Windows, что строка `Выбрать фото` теперь всегда видна в неразвернутом окне на пользовательском DPI/масштабе.
-- Не было ручного Excel smoke-test в настоящем Excel: contract и round-trip покрыты unit/regression тестами, но не пользовательским open-edit-save циклом.
-- Toolbar labels могут потребовать подстройки ширины после реального запуска на пользовательском разрешении.
+- Не было ручного Windows smoke-test, который подтвердил бы UX текста ошибок при открытии/импорте невалидных JSON/XLSX файлов.
+- Не было реального Excel open-edit-save smoke-check в desktop Excel после новых ограничений на schema/workshop names.
+- Если у пользователей уже есть старые JSON с конфликтами имён цехов, они теперь будут корректно отклоняться, но может понадобиться отдельная миграционная инструкция.
 
 # Recommended next step
 
-- На Windows открыть приложение, проверить:
-  - выбор узла и редактирование `Description`, `Location`, `PhotoPath`
-  - видимость `Выбрать фото` / `Открыть фото` в обычном и развернутом окне
-  - скрытие/показ `IpAddress` и `SchemaLink` по уровню
-  - открытие фото и fallback при битом пути
-  - save/reload JSON
-  - export/import workbook `v3` с новыми колонками
+- На Windows проверить пользовательский сценарий:
+  - открыть legacy JSON `SchemaVersion = 1`
+  - убедиться, что future-schema JSON/XLSX отклоняются понятным сообщением
+  - убедиться, что JSON с trim/case-конфликтом имён цехов не загружается частично
+  - прогнать `export/import workbook v3` и обычный `save/reload JSON`
 
 # Commands to run before finishing future implementation work
 

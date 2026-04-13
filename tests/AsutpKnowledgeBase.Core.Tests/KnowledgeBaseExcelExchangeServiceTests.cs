@@ -545,6 +545,21 @@ public class KnowledgeBaseExcelExchangeServiceTests
     }
 
     [Fact]
+    public void Import_WhenWorkbookSchemaVersionIsFromFutureVersion_FailsClearly()
+    {
+        var service = new KnowledgeBaseExcelExchangeService();
+
+        byte[] packageBytes = service.BuildWorkbookPackage(CreateSampleData());
+        packageBytes = UpdateMetaPropertyValue(packageBytes, "SchemaVersion", "3");
+
+        var result = service.ImportFromPackage(packageBytes);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.ErrorMessage);
+        Assert.Contains("более новой версией приложения", result.ErrorMessage);
+    }
+
+    [Fact]
     public void ImportFromPackage_WhenWorkbookValidationFails_WritesParseFailureLogEvent()
     {
         var logger = new InMemoryAppLogger();

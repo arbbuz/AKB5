@@ -7,6 +7,8 @@ namespace AsutpKnowledgeBase.Services
     {
         private static readonly JsonSerializerOptions SnapshotOptions = new() { WriteIndented = false };
 
+        public static StringComparer WorkshopNameComparer { get; } = StringComparer.OrdinalIgnoreCase;
+
         public static KbConfig CreateDefaultConfig() =>
             new()
             {
@@ -27,12 +29,75 @@ namespace AsutpKnowledgeBase.Services
             new()
             {
                 Config = CreateDefaultConfig(),
-                Workshops = new Dictionary<string, List<KbNode>>
+                Workshops = new Dictionary<string, List<KbNode>>(WorkshopNameComparer)
                 {
                     ["Новый цех"] = new List<KbNode>()
                 },
                 LastWorkshop = "Новый цех"
             };
+
+        public static string NormalizeWorkshopName(string? workshopName) =>
+            workshopName?.Trim() ?? string.Empty;
+
+        public static bool WorkshopNamesEqual(string? left, string? right) =>
+            WorkshopNameComparer.Equals(
+                NormalizeWorkshopName(left),
+                NormalizeWorkshopName(right));
+
+        public static string? FindWorkshopName(IEnumerable<string> workshopNames, string? workshopName)
+        {
+            string normalizedWorkshop = NormalizeWorkshopName(workshopName);
+            if (string.IsNullOrWhiteSpace(normalizedWorkshop))
+                return null;
+
+            foreach (string existingWorkshop in workshopNames)
+            {
+                if (WorkshopNameComparer.Equals(existingWorkshop, normalizedWorkshop))
+                    return existingWorkshop;
+            }
+
+            return null;
+        }
+
+        public static string? ValidateSupportedSchemaVersion(int schemaVersion)
+        {
+            if (schemaVersion < 1)
+                return $"Неподдерживаемая версия схемы: {schemaVersion}.";
+
+            if (schemaVersion > SavedData.CurrentSchemaVersion)
+            {
+                return
+                    $"Файл создан более новой версией приложения: SchemaVersion = {schemaVersion}. " +
+                    $"Максимально поддерживаемая версия: {SavedData.CurrentSchemaVersion}.";
+            }
+
+            return null;
+        }
+
+        public static string? ValidateWorkshopNames(Dictionary<string, List<KbNode>>? workshops)
+        {
+            if (workshops == null)
+                return null;
+
+            var seenWorkshopNames = new Dictionary<string, string>(WorkshopNameComparer);
+            foreach (var pair in workshops)
+            {
+                string normalizedWorkshopName = NormalizeWorkshopName(pair.Key);
+                if (string.IsNullOrWhiteSpace(normalizedWorkshopName))
+                    continue;
+
+                if (seenWorkshopNames.TryGetValue(normalizedWorkshopName, out var existingWorkshop))
+                {
+                    return
+                        $"Обнаружены конфликтующие названия цехов '{NormalizeWorkshopName(existingWorkshop)}' " +
+                        $"и '{normalizedWorkshopName}'. Имена цехов сравниваются без учёта регистра и крайних пробелов.";
+                }
+
+                seenWorkshopNames[normalizedWorkshopName] = pair.Key;
+            }
+
+            return null;
+        }
 
         public static KbConfig NormalizeConfig(KbConfig? config)
         {
@@ -68,7 +133,11 @@ namespace AsutpKnowledgeBase.Services
 
         public static Dictionary<string, List<KbNode>> NormalizeWorkshops(Dictionary<string, List<KbNode>>? workshops)
         {
-            var normalized = new Dictionary<string, List<KbNode>>();
+            string? workshopValidationError = ValidateWorkshopNames(workshops);
+            if (workshopValidationError != null)
+                throw new InvalidOperationException(workshopValidationError);
+
+            var normalized = new Dictionary<string, List<KbNode>>(WorkshopNameComparer);
 
             if (workshops != null)
             {
@@ -77,13 +146,10 @@ namespace AsutpKnowledgeBase.Services
                     if (string.IsNullOrWhiteSpace(pair.Key))
                         continue;
 
-                    string workshopName = pair.Key.Trim();
-                    if (!normalized.ContainsKey(workshopName))
-                    {
-                        var workshopNodes = pair.Value ?? new List<KbNode>();
-                        NormalizeNodes(workshopNodes);
-                        normalized[workshopName] = workshopNodes;
-                    }
+                    string workshopName = NormalizeWorkshopName(pair.Key);
+                    var workshopNodes = pair.Value ?? new List<KbNode>();
+                    NormalizeNodes(workshopNodes);
+                    normalized.Add(workshopName, workshopNodes);
                 }
             }
 
@@ -95,12 +161,9 @@ namespace AsutpKnowledgeBase.Services
 
         public static string ResolveWorkshop(Dictionary<string, List<KbNode>> workshops, string? preferredWorkshop)
         {
-            if (!string.IsNullOrWhiteSpace(preferredWorkshop))
-            {
-                string normalizedPreferred = preferredWorkshop.Trim();
-                if (workshops.ContainsKey(normalizedPreferred))
-                    return normalizedPreferred;
-            }
+            string? resolvedWorkshop = FindWorkshopName(workshops.Keys, preferredWorkshop);
+            if (!string.IsNullOrWhiteSpace(resolvedWorkshop))
+                return resolvedWorkshop;
 
             return workshops.Keys.FirstOrDefault() ?? string.Empty;
         }

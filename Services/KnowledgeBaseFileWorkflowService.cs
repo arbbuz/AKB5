@@ -224,6 +224,14 @@ namespace AsutpKnowledgeBase.Services
 
         public KnowledgeBaseFileSaveResult ReplaceAllData(SavedData data)
         {
+            string? schemaVersionError = KnowledgeBaseDataService.ValidateSupportedSchemaVersion(data.SchemaVersion);
+            if (schemaVersionError != null)
+                return BuildReplaceAllDataValidationFailure(schemaVersionError);
+
+            string? workshopValidationError = KnowledgeBaseDataService.ValidateWorkshopNames(data.Workshops);
+            if (workshopValidationError != null)
+                return BuildReplaceAllDataValidationFailure(workshopValidationError);
+
             var normalizedConfig = KnowledgeBaseDataService.NormalizeConfig(data.Config);
             var normalizedWorkshops = KnowledgeBaseDataService.NormalizeWorkshops(data.Workshops);
             string lastWorkshop = KnowledgeBaseDataService.ResolveWorkshop(normalizedWorkshops, data.LastWorkshop);
@@ -255,6 +263,25 @@ namespace AsutpKnowledgeBase.Services
                 return result;
             }
 
+            var failureResult = new KnowledgeBaseFileSaveResult
+            {
+                IsSuccess = false,
+                ErrorMessage = errorMessage
+            };
+
+            Log(
+                "FileWorkflowReplaceAllDataFailed",
+                AppLogLevel.Error,
+                "Knowledge base data replacement failed.",
+                properties: CreateProperties(
+                    ("errorMessage", failureResult.ErrorMessage),
+                    ("requiresSave", _session.RequiresSave)));
+
+            return failureResult;
+        }
+
+        private KnowledgeBaseFileSaveResult BuildReplaceAllDataValidationFailure(string errorMessage)
+        {
             var failureResult = new KnowledgeBaseFileSaveResult
             {
                 IsSuccess = false,

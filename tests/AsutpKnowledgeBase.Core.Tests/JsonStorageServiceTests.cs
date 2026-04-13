@@ -177,6 +177,113 @@ public class JsonStorageServiceTests
         }
     }
 
+    [Fact]
+    public void Load_WhenSchemaVersionIsFromFutureVersion_ReturnsValidationError()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "kb.json");
+            var service = new JsonStorageService(path);
+            File.WriteAllText(path, """
+            {
+              "SchemaVersion": 3,
+              "Config": {
+                "MaxLevels": 1,
+                "LevelNames": ["Цех"]
+              },
+              "Workshops": {
+                "Цех 1": []
+              },
+              "LastWorkshop": "Цех 1"
+            }
+            """);
+
+            var result = service.Load();
+
+            Assert.False(result.IsSuccess);
+            Assert.NotNull(result.ErrorMessage);
+            Assert.Contains("более новой версией приложения", result.ErrorMessage);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Load_WhenWorkshopNamesConflictAfterTrim_ReturnsValidationError()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "kb.json");
+            var service = new JsonStorageService(path);
+            File.WriteAllText(path, """
+            {
+              "SchemaVersion": 2,
+              "Config": {
+                "MaxLevels": 1,
+                "LevelNames": ["Цех"]
+              },
+              "Workshops": {
+                "Цех 1": [],
+                " Цех 1 ": []
+              },
+              "LastWorkshop": "Цех 1"
+            }
+            """);
+
+            var result = service.Load();
+
+            Assert.False(result.IsSuccess);
+            Assert.NotNull(result.ErrorMessage);
+            Assert.Contains("конфликтующие названия цехов", result.ErrorMessage);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Load_WhenWorkshopNamesConflictOnlyByCase_ReturnsValidationError()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "kb.json");
+            var service = new JsonStorageService(path);
+            File.WriteAllText(path, """
+            {
+              "SchemaVersion": 2,
+              "Config": {
+                "MaxLevels": 1,
+                "LevelNames": ["Цех"]
+              },
+              "Workshops": {
+                "Цех 1": [],
+                "цех 1": []
+              },
+              "LastWorkshop": "Цех 1"
+            }
+            """);
+
+            var result = service.Load();
+
+            Assert.False(result.IsSuccess);
+            Assert.NotNull(result.ErrorMessage);
+            Assert.Contains("конфликтующие названия цехов", result.ErrorMessage);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
     private static SavedData CreateSampleData(string lastWorkshop) =>
         new()
         {

@@ -48,6 +48,20 @@ public class KnowledgeBaseDataServiceTests
     }
 
     [Fact]
+    public void NormalizeWorkshops_WhenNamesConflictAfterTrimAndCase_Throws()
+    {
+        var error = Assert.Throws<InvalidOperationException>(() =>
+            KnowledgeBaseDataService.NormalizeWorkshops(
+                new Dictionary<string, List<KbNode>>
+                {
+                    [" Цех 1 "] = new List<KbNode>(),
+                    ["цех 1"] = new List<KbNode>()
+                }));
+
+        Assert.Contains("без учёта регистра", error.Message);
+    }
+
+    [Fact]
     public void ResolveWorkshop_UsesPreferredWorkshopWhenItExists()
     {
         var workshops = new Dictionary<string, List<KbNode>>
@@ -57,6 +71,7 @@ public class KnowledgeBaseDataServiceTests
         };
 
         Assert.Equal("Второй", KnowledgeBaseDataService.ResolveWorkshop(workshops, " Второй "));
+        Assert.Equal("Второй", KnowledgeBaseDataService.ResolveWorkshop(workshops, "второй"));
         Assert.Equal("Первый", KnowledgeBaseDataService.ResolveWorkshop(workshops, "Несуществующий"));
     }
 

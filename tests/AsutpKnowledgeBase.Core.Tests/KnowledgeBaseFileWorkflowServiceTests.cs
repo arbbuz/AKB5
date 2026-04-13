@@ -238,6 +238,52 @@ public class KnowledgeBaseFileWorkflowServiceTests
         }
     }
 
+    [Fact]
+    public void ReplaceAllData_WhenWorkshopNamesConflictAfterNormalization_ReturnsFailureAndDoesNotPersistData()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "kb.json");
+            var session = new KnowledgeBaseSessionService();
+            var workflow = new KnowledgeBaseFileWorkflowService(session, new JsonStorageService(path));
+
+            Assert.Equal(KnowledgeBaseFileLoadOutcome.CreatedDefaultAndSaved, workflow.Load().Outcome);
+
+            var importedData = new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = new KbConfig
+                {
+                    MaxLevels = 1,
+                    LevelNames = new List<string> { "Цех" }
+                },
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех 1"] = new List<KbNode>(),
+                    [" цех 1 "] = new List<KbNode>()
+                },
+                LastWorkshop = "Цех 1"
+            };
+
+            var result = workflow.ReplaceAllData(importedData);
+
+            Assert.False(result.IsSuccess);
+            Assert.NotNull(result.ErrorMessage);
+            Assert.Contains("конфликтующие названия цехов", result.ErrorMessage);
+            Assert.Equal("Новый цех", session.CurrentWorkshop);
+
+            var saved = JsonSerializer.Deserialize<SavedData>(File.ReadAllText(path));
+            Assert.NotNull(saved);
+            Assert.Equal(new[] { "Новый цех" }, saved!.Workshops.Keys);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
     private static SavedData CreateSampleData(string lastWorkshop) =>
         new()
         {
