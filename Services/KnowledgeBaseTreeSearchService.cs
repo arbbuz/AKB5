@@ -16,12 +16,10 @@ namespace AsutpKnowledgeBase.Services
     }
 
     /// <summary>
-    /// Ищет совпадения в дереве по имени узла, полному пути и имени уровня.
+    /// Ищет совпадения в дереве по имени узла.
     /// </summary>
     public class KnowledgeBaseTreeSearchService
     {
-        private readonly KnowledgeBaseNodePresentationService _nodePresentationService = new();
-
         public IReadOnlyList<KnowledgeBaseTreeSearchMatch> FindMatches(
             IReadOnlyList<KbNode> roots,
             KbConfig config,
@@ -49,9 +47,7 @@ namespace AsutpKnowledgeBase.Services
         {
             pathSegments.Add(node.Name);
             string nodePath = string.Join(" / ", pathSegments);
-            string levelName = _nodePresentationService.GetLevelName(config, node.LevelIndex);
-
-            if (TryCreateMatch(node, normalizedSearch, levelName, nodePath, out var match))
+            if (TryCreateMatch(node, normalizedSearch, nodePath, out var match))
                 matches.Add(match);
 
             foreach (var child in node.Children)
@@ -63,25 +59,12 @@ namespace AsutpKnowledgeBase.Services
         private static bool TryCreateMatch(
             KbNode node,
             string searchText,
-            string levelName,
             string nodePath,
             out KnowledgeBaseTreeSearchMatch match)
         {
             if (Contains(node.Name, searchText))
             {
                 match = BuildMatch(node, searchText, "имя узла", node.Name, nodePath);
-                return true;
-            }
-
-            if (Contains(nodePath, searchText))
-            {
-                match = BuildMatch(node, searchText, "полный путь", nodePath, nodePath);
-                return true;
-            }
-
-            if (Contains(levelName, searchText))
-            {
-                match = BuildMatch(node, searchText, "имя уровня", levelName, nodePath);
                 return true;
             }
 

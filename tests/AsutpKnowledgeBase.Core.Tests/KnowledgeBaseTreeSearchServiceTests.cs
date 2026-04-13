@@ -21,29 +21,26 @@ public class KnowledgeBaseTreeSearchServiceTests
     }
 
     [Fact]
-    public void FindMatches_WhenQueryMatchesNodePath_ReturnsPathMatch()
+    public void FindMatches_WhenQueryMatchesAnotherNodeName_ReturnsNameMatch()
+    {
+        var roots = CreateRoots();
+
+        var matches = _service.FindMatches(roots, CreateConfig(), "мод");
+
+        var match = Assert.Single(matches);
+        Assert.Equal("имя узла", match.MatchFieldLabel);
+        Assert.Equal("Модуль AI-01", match.MatchValue);
+        Assert.Equal("Линия аммиака / Шкаф АВР / Модуль AI-01", match.NodePath);
+    }
+
+    [Fact]
+    public void FindMatches_WhenQueryMatchesOnlyPath_ReturnsNoMatches()
     {
         var roots = CreateRoots();
 
         var matches = _service.FindMatches(roots, CreateConfig(), "линия аммиака /");
 
-        Assert.Equal(3, matches.Count);
-        Assert.All(matches, match => Assert.Equal("полный путь", match.MatchFieldLabel));
-        Assert.Contains(matches, match => match.NodePath == "Линия аммиака / Насос подпитки");
-        Assert.Contains(matches, match => match.NodePath == "Линия аммиака / Шкаф АВР / Модуль AI-01");
-    }
-
-    [Fact]
-    public void FindMatches_WhenQueryMatchesLevelName_ReturnsLevelMatch()
-    {
-        var roots = CreateRoots();
-
-        var matches = _service.FindMatches(roots, CreateConfig(), "модули");
-
-        var match = Assert.Single(matches);
-        Assert.Equal("имя уровня", match.MatchFieldLabel);
-        Assert.Equal("Модули", match.MatchValue);
-        Assert.Equal("Линия аммиака / Шкаф АВР / Модуль AI-01", match.NodePath);
+        Assert.Empty(matches);
     }
 
     private static KbConfig CreateConfig() =>
