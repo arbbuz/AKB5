@@ -7,6 +7,7 @@ namespace AsutpKnowledgeBase
         private void InitializeEvents()
         {
             tvTree.ItemDrag += TvTree_ItemDrag;
+            tvTree.MouseDown += TvTree_MouseDown;
             tvTree.DragEnter += TvTree_DragEnter;
             tvTree.DragDrop += TvTree_DragDrop;
             tvTree.AfterSelect += TvTree_AfterSelect;
@@ -129,6 +130,24 @@ namespace AsutpKnowledgeBase
         {
             if (e.Button == MouseButtons.Left && e.Item != null)
                 DoDragDrop(e.Item, DragDropEffects.Move);
+        }
+
+        private void TvTree_MouseDown(object? sender, MouseEventArgs e)
+        {
+            TreeNode? clickedNode = tvTree.GetNodeAt(e.Location);
+            if (clickedNode != null)
+            {
+                if (!ReferenceEquals(tvTree.SelectedNode, clickedNode))
+                    tvTree.SelectedNode = clickedNode;
+
+                return;
+            }
+
+            if (tvTree.SelectedNode != null)
+            {
+                tvTree.SelectedNode = null;
+                UpdateUI();
+            }
         }
 
         private void TvTree_DragEnter(object? sender, DragEventArgs e) => e.Effect = DragDropEffects.Move;

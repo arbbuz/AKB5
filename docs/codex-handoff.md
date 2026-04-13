@@ -1,42 +1,32 @@
 # Current objective
 
-- Починить Windows publish regression: CI artifact назывался `single-file`, но фактически содержал sidecar native DLL, поэтому пользовательский сценарий "скачал только `.exe` из Actions" не работал.
-- После этого остаётся Windows smoke-check реального UX-потока `open/save JSON` и `export/import Excel`, включая проверку новых fail-fast ошибок для невалидной схемы и конфликтующих имён цехов.
+- Подтвердить UX-исправление для дерева объектов: новые "отделения" верхнего видимого уровня должны снова создаваться в цехах со скрытым technical wrapper root.
+- После этого остаётся только ручной smoke-check на Windows: добавление верхнеуровневого узла, добавление дочернего узла, drag-and-drop и обычный open/save/import/export сценарий.
 
 # Current repo state
 
 - Основной рабочий репозиторий: `/Users/home/ASUTP/AKB5`.
-- JSON schema приложения: `2`; legacy `SchemaVersion = 1` по-прежнему загружается и сохраняется уже в текущем формате.
-- JSON/XLSX с `SchemaVersion > SavedData.CurrentSchemaVersion` теперь отклоняются на загрузке/импорте явной ошибкой.
-- Имена цехов теперь считаются по единому правилу во всех основных путях: canonical name = `Trim()`, сравнение case-insensitive.
-- Конфликты имён цехов вида `"Цех 1"`, `" Цех 1 "` и `"цех 1"` больше не нормализуются молча и не теряют данные: JSON load, Excel import и `ReplaceAllData` теперь fail-fast.
-- `KbNode.Details` и workbook `v3` остаются активным контрактом; layout-фикс карточки справа остаётся в силе.
-- GitHub Actions run `24350722372` (`a30bb24`) показал, что artifact `asutpkb-win-x64-single-file` реально загружал `8 files`, включая `D3DCompiler_47_cor3.dll`, `PenImc_cor3.dll`, `PresentationNative_cor3.dll`, `vcruntime140_cor3.dll` и `wpfgfx_cor3.dll`.
+- В модели дерева `LevelIndex = 0` остаётся у технического корня-цеха, если он совпадает с именем workshop и не содержит details; UI скрывает этот wrapper и показывает его детей как видимые корни.
+- В пользовательской терминологии это означает: "отделения" выглядят как верхний видимый уровень, но в модели остаются `LevelIndex = 1`.
+- Domain-логика создания узлов была исправна: `KnowledgeBaseTreeMutationWorkflowService` и `KnowledgeBaseWorkshopTreeProjection` уже умели добавлять новый видимый root через hidden wrapper.
+- Фактическая проблема была в UI-выборе узла: `TreeView` не синхронизировал selection с правым/левым кликом и не снимал selection при клике по пустому месту. Из-за этого команда `Добавить сюда` почти всегда работала от уже выбранного узла и создавала дочерний элемент вместо нового отделения.
+- Исправление внесено в `Forms/MainForm.Events.cs`: клик по узлу теперь выбирает именно его, клик по пустому месту снимает выбор. Это возвращает сценарий "снять выбор -> добавить новое отделение" при активном hidden wrapper.
 
 # Decisions already made
 
-- Не принимать future schema в read-only режиме и не пытаться сохранять неизвестные поля: policy только reject-on-load/import.
-- Не делать silent merge/rename для конфликтующих имён цехов: policy только explicit error.
-- Единый инвариант для имён цехов: `Trim()` + `StringComparer.OrdinalIgnoreCase`.
-- JSON остаётся source of truth, Excel остаётся exchange-слоем с явной валидацией.
-- Publish target остаётся только `win-x64`, но для реального single-file артефакта нужно добавлять `-p:IncludeNativeLibrariesForSelfExtract=true`.
+- Не менять `LevelIndex` и не переписывать model/workflow-логику добавления узлов: проблема была не в структуре данных.
+- Не ломать семантику `Добавить сюда` для выбранного узла: если узел выбран, команда по-прежнему добавляет дочерний объект.
+- Считать корректной модель, где пользовательский "уровень 2" для отделений соответствует `LevelIndex = 1`, потому что `LevelIndex = 0` занят скрытым корнем цеха.
 
 # Files already relevant to the task
 
-- `Models/SavedData.cs`
-- `Services/KnowledgeBaseDataService.cs`
-- `Services/JsonStorageService.cs`
-- `Services/KnowledgeBaseSessionService.cs`
-- `Services/KnowledgeBaseFileWorkflowService.cs`
-- `Services/KnowledgeBaseExcelWorkbookParser.cs`
-- `scripts/publish.ps1`
-- `README.md`
-- `docs/deployment.md`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseDataServiceTests.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/JsonStorageServiceTests.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseSessionServiceTests.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseFileWorkflowServiceTests.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseExcelExchangeServiceTests.cs`
+- `Forms/MainForm.Events.cs`
+- `UiServices/KnowledgeBaseTreeMutationUiWorkflowService.cs`
+- `UiServices/KnowledgeBaseTreeViewService.cs`
+- `Services/KnowledgeBaseWorkshopTreeProjection.cs`
+- `Services/KnowledgeBaseTreeMutationWorkflowService.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseTreeMutationWorkflowServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseWorkshopTreeProjectionTests.cs`
 
 # Validation performed in this session
 
@@ -44,30 +34,25 @@
 
 - `/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore`
 - `/Users/home/.dotnet/dotnet build asutpKB.csproj --configuration Release --no-restore`
-- `/Users/home/.dotnet/dotnet publish asutpKB.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishTrimmed=false -p:PublishAot=false -o artifacts/publish/win-x64`
 
 Observed results:
 
-- core test suite: success, `105` passed, `0` failed
+- core test suite: success, `114` passed, `0` failed
 - root WinForms build: success
-- GitHub Actions publish log подтвердил packaging regression: artifact `asutpkb-win-x64-single-file` содержал `8 files`, а не один standalone `.exe`
-- локальный publish после добавления `IncludeNativeLibrariesForSelfExtract=true`: success; output содержит только `asutpKB.exe`, `asutpKB.pdb`, `AsutpKnowledgeBase.Core.pdb`, sidecar runtime DLL больше не генерируются
-- новых build/test regressions после ужесточения schema gating и workshop validation не обнаружено
+- build/test по-прежнему содержат существующие analyzer warnings, но новых compile/runtime blockers после UI-правки не появилось
 
 # Known risks / open questions
 
-- Не было ручного Windows smoke-test, который подтвердил бы UX текста ошибок при открытии/импорте невалидных JSON/XLSX файлов.
-- Не было реального Excel open-edit-save smoke-check в desktop Excel после новых ограничений на schema/workshop names.
-- Если у пользователей уже есть старые JSON с конфликтами имён цехов, они теперь будут корректно отклоняться, но может понадобиться отдельная миграционная инструкция.
+- Не было ручного WinForms smoke-test на реальном Windows UI, поэтому поведение клика по пустому месту и правого клика подтверждено пока только кодом и сборкой.
+- Контекстное меню всё ещё называется `Добавить сюда`; технически теперь root-level добавление снова возможно, но UX формулировки может оставаться неочевидным для пользователя.
+- Не проверялся отдельный сценарий редактирования дерева при нестандартных legacy-данных без hidden wrapper.
 
 # Recommended next step
 
-- Дождаться нового CI publish artifact с `IncludeNativeLibrariesForSelfExtract=true` и проверить запуск именно из свежего Actions artifact на Windows.
-- На Windows проверить пользовательский сценарий:
-  - открыть legacy JSON `SchemaVersion = 1`
-  - убедиться, что future-schema JSON/XLSX отклоняются понятным сообщением
-  - убедиться, что JSON с trim/case-конфликтом имён цехов не загружается частично
-  - прогнать `export/import workbook v3` и обычный `save/reload JSON`
+- На Windows открыть цех со скрытым wrapper root и проверить два сценария:
+  - клик по пустому месту дерева -> `Добавить сюда` / `Insert` создаёт новое отделение верхнего видимого уровня
+  - правый клик по конкретному узлу сначала выбирает этот узел, затем команды контекстного меню применяются к нему, а не к старому selection
+- Если UX всё ещё кажется неочевидным, следующим минимальным шагом будет разнести команды на `Добавить дочерний объект` и `Добавить отделение`.
 
 # Commands to run before finishing future implementation work
 
@@ -75,5 +60,4 @@ Observed results:
 git status --short
 /Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore
 /Users/home/.dotnet/dotnet build asutpKB.csproj --configuration Release --no-restore
-/Users/home/.dotnet/dotnet publish asutpKB.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/publish/win-x64
 ```
