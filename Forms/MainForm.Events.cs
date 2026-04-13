@@ -32,6 +32,9 @@ namespace AsutpKnowledgeBase
             KeyPreview = true;
             KeyDown += (s, e) =>
             {
+                if (ShouldBypassGlobalShortcutForTextInput(e))
+                    return;
+
                 if (e.Control && e.KeyCode == Keys.Z) { e.SuppressKeyPress = true; UndoAction(); }
                 if (e.Control && e.KeyCode == Keys.Y) { e.SuppressKeyPress = true; RedoAction(); }
                 if (e.Control && e.KeyCode == Keys.C) { e.SuppressKeyPress = true; CopyNode(); }
@@ -42,6 +45,18 @@ namespace AsutpKnowledgeBase
                 if (e.KeyCode == Keys.Enter && txtSearch.Focused) { e.SuppressKeyPress = true; PerformSearch(); }
                 if (e.KeyCode == Keys.Escape && txtSearch.Focused) { e.SuppressKeyPress = true; txtSearch.Clear(); ClearSearch(); UpdateUI(); }
             };
+        }
+
+        private bool ShouldBypassGlobalShortcutForTextInput(KeyEventArgs e)
+        {
+            if (!e.Control || e.KeyCode is not (Keys.C or Keys.V or Keys.Z or Keys.Y))
+                return false;
+
+            Control? focusedControl = ActiveControl;
+            while (focusedControl is ContainerControl container && container.ActiveControl != null)
+                focusedControl = container.ActiveControl;
+
+            return focusedControl is TextBoxBase;
         }
 
         private void BtnOpen_Click(object? sender, EventArgs e)

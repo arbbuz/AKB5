@@ -124,4 +124,45 @@ public class KnowledgeBaseServiceTests
         Assert.Equal("Исходное описание", source.Details.Description);
         Assert.Equal("Ребенок", source.Children[0].Name);
     }
+
+    [Fact]
+    public void ReindexSubtree_ClearsTechnicalFieldsForUpperLevels()
+    {
+        var service = new KnowledgeBaseService(
+            new KbConfig { MaxLevels = 5, LevelNames = new List<string>() },
+            new Dictionary<string, List<KbNode>>());
+
+        var node = new KbNode
+        {
+            Name = "Щит",
+            LevelIndex = 2,
+            Details = new KbNodeDetails
+            {
+                IpAddress = "10.10.0.5",
+                SchemaLink = "https://intra/cabinet"
+            },
+            Children =
+            {
+                new KbNode
+                {
+                    Name = "Модуль",
+                    LevelIndex = 3,
+                    Details = new KbNodeDetails
+                    {
+                        IpAddress = "10.10.0.6",
+                        SchemaLink = "https://intra/module"
+                    }
+                }
+            }
+        };
+
+        service.ReindexSubtree(node, 1);
+
+        Assert.Equal(1, node.LevelIndex);
+        Assert.Equal(string.Empty, node.Details.IpAddress);
+        Assert.Equal(string.Empty, node.Details.SchemaLink);
+        Assert.Equal(2, node.Children[0].LevelIndex);
+        Assert.Equal("10.10.0.6", node.Children[0].Details.IpAddress);
+        Assert.Equal("https://intra/module", node.Children[0].Details.SchemaLink);
+    }
 }

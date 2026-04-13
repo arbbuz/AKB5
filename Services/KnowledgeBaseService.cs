@@ -121,6 +121,13 @@ namespace AsutpKnowledgeBase.Services
         public void ReindexSubtree(KbNode node, int levelIndex)
         {
             node.LevelIndex = levelIndex;
+            node.Details ??= new KbNodeDetails();
+            if (levelIndex < 2)
+            {
+                node.Details.IpAddress = string.Empty;
+                node.Details.SchemaLink = string.Empty;
+            }
+
             foreach (var child in node.Children)
                 ReindexSubtree(child, levelIndex + 1);
         }

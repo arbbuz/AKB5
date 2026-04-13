@@ -26,7 +26,7 @@ namespace AsutpKnowledgeBase.Services
         public byte[] BuildWorkbookPackage(SavedData data)
         {
             var normalizedConfig = KnowledgeBaseDataService.NormalizeConfig(data.Config);
-            var normalizedWorkshops = KnowledgeBaseDataService.NormalizeWorkshops(data.Workshops);
+            var normalizedWorkshops = KnowledgeBaseDataService.NormalizeWorkshops(CloneWorkshops(data.Workshops));
             string lastWorkshop = KnowledgeBaseDataService.ResolveWorkshop(normalizedWorkshops, data.LastWorkshop);
             var workshopExports = BuildWorkshopExports(normalizedWorkshops, lastWorkshop);
             string lastWorkshopId = workshopExports
@@ -144,6 +144,37 @@ namespace AsutpKnowledgeBase.Services
             }
 
             return rows;
+        }
+
+        private static Dictionary<string, List<KbNode>> CloneWorkshops(Dictionary<string, List<KbNode>>? workshops)
+        {
+            var clone = new Dictionary<string, List<KbNode>>();
+            if (workshops == null)
+                return clone;
+
+            foreach (var workshop in workshops)
+                clone[workshop.Key] = (workshop.Value ?? new List<KbNode>()).Select(CloneNode).ToList();
+
+            return clone;
+        }
+
+        private static KbNode CloneNode(KbNode source)
+        {
+            var details = source.Details ?? new KbNodeDetails();
+            return new KbNode
+            {
+                Name = source.Name,
+                LevelIndex = source.LevelIndex,
+                Details = new KbNodeDetails
+                {
+                    Description = details.Description,
+                    Location = details.Location,
+                    PhotoPath = details.PhotoPath,
+                    IpAddress = details.IpAddress,
+                    SchemaLink = details.SchemaLink
+                },
+                Children = source.Children.Select(CloneNode).ToList()
+            };
         }
 
         private static IEnumerable<IReadOnlyList<WorksheetCell>> BuildInstructionsRows()

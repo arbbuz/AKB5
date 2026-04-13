@@ -163,6 +163,20 @@ public class KnowledgeBaseExcelExchangeServiceTests
     }
 
     [Fact]
+    public void BuildWorkbookPackage_DoesNotMutateInputData()
+    {
+        var service = new KnowledgeBaseExcelExchangeService();
+        var sourceData = CreateSampleData();
+        sourceData.Workshops["Цех 1"][0].Details.IpAddress = "10.10.10.10";
+        sourceData.Workshops["Цех 1"][0].Details.SchemaLink = "https://intra/root-panel";
+        var originalSnapshot = CloneSavedData(sourceData);
+
+        _ = service.BuildWorkbookPackage(sourceData);
+
+        AssertSavedDataEquivalent(originalSnapshot, sourceData);
+    }
+
+    [Fact]
     public void Export_WritesXlsxFile()
     {
         string tempDirectory = CreateTempDirectory();
