@@ -18,7 +18,7 @@ namespace AsutpKnowledgeBase.UiServices
     {
         public IWin32Window Owner { get; init; } = null!;
 
-        public Func<List<KbNode>> GetCurrentTreeData { get; init; } = null!;
+        public Func<List<KbNode>> GetPersistedTreeData { get; init; } = null!;
 
         public Action SaveCurrentWorkshopState { get; init; } = null!;
 
@@ -274,7 +274,7 @@ namespace AsutpKnowledgeBase.UiServices
             bool showSuccessMessage,
             bool showErrorMessage)
         {
-            var saveResult = _fileWorkflowService.Save(context.GetCurrentTreeData());
+            var saveResult = _fileWorkflowService.Save(context.GetPersistedTreeData());
 
             if (saveResult.IsSuccess)
             {
@@ -365,7 +365,10 @@ namespace AsutpKnowledgeBase.UiServices
 
         private string BuildReloadSuccessMessage(KnowledgeBaseSessionViewState viewState)
         {
-            int totalNodes = CountNodes(viewState.CurrentRoots);
+            var projection = KnowledgeBaseWorkshopTreeProjection.Create(
+                viewState.CurrentWorkshop,
+                viewState.CurrentRoots);
+            int totalNodes = CountNodes(projection.VisibleRoots);
 
             return
                 $"Файл перечитан с диска: {CurrentDataFileName} | " +

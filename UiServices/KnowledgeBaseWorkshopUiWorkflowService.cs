@@ -7,7 +7,7 @@ namespace AsutpKnowledgeBase.UiServices
     {
         public IWin32Window Owner { get; init; } = null!;
 
-        public Func<List<KbNode>> GetCurrentTreeData { get; init; } = null!;
+        public Func<List<KbNode>> GetPersistedTreeData { get; init; } = null!;
 
         public Action<KnowledgeBaseSessionViewState> ApplySessionView { get; init; } = null!;
 
@@ -50,7 +50,7 @@ namespace AsutpKnowledgeBase.UiServices
 
             var switchResult = _sessionWorkflowService.SelectWorkshop(
                 selectedWorkshop,
-                context.GetCurrentTreeData());
+                context.GetPersistedTreeData());
 
             if (!switchResult.IsSuccess)
                 return;
@@ -67,7 +67,7 @@ namespace AsutpKnowledgeBase.UiServices
             if (dialog.ShowDialog(context.Owner) != DialogResult.OK || string.IsNullOrWhiteSpace(dialog.Result))
                 return;
 
-            var currentRoots = context.GetCurrentTreeData();
+            var currentRoots = context.GetPersistedTreeData();
             string historySnapshot = _session.SerializeSnapshot(currentRoots, includeCurrentWorkshop: true);
             var addResult = _sessionWorkflowService.AddWorkshop(dialog.Result.Trim(), currentRoots);
 
@@ -113,7 +113,7 @@ namespace AsutpKnowledgeBase.UiServices
             }
 
             string historySnapshot = _session.SerializeSnapshot(
-                context.GetCurrentTreeData(),
+                context.GetPersistedTreeData(),
                 includeCurrentWorkshop: true);
 
             _session.UpdateConfig(updateResult.Config);

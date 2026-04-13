@@ -53,6 +53,36 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
     }
 
     [Fact]
+    public void AddNode_WhenUsingHiddenWrapperParent_AddsVisibleChildInsideWorkshopWrapper()
+    {
+        var wrapperRoot = new KbNode { Name = "Цех 1", LevelIndex = 0 };
+        var session = CreateSession(
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Цех 1"] = new List<KbNode> { wrapperRoot }
+            });
+        var history = new UndoRedoService();
+        var controller = new KnowledgeBaseTreeController(session);
+        var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
+        var workflow = new KnowledgeBaseTreeMutationWorkflowService(session, sessionWorkflow, controller, history);
+
+        var result = workflow.AddNode(
+            session.CurrentWorkshop,
+            parentNode: wrapperRoot,
+            nodeName: "Отделение",
+            currentRoots: session.GetCurrentWorkshopNodes());
+
+        Assert.True(result.IsSuccess);
+        var persistedRoot = Assert.Single(session.Workshops["Цех 1"]);
+        var addedNode = Assert.Single(persistedRoot.Children);
+        Assert.Same(wrapperRoot, persistedRoot);
+        Assert.Same(addedNode, result.AffectedNode);
+        Assert.Equal("Отделение", addedNode.Name);
+        Assert.Equal(1, addedNode.LevelIndex);
+        Assert.Same(wrapperRoot, result.ViewState.CurrentRoots[0]);
+    }
+
+    [Fact]
     public void DeleteNode_WhenSuccessful_ReturnsViewStateWithoutDeletedNode()
     {
         var root1 = new KbNode { Name = "Линия 1", LevelIndex = 0 };
@@ -105,6 +135,42 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
         Assert.False(result.IsSuccess);
         Assert.Equal(KnowledgeBaseTreeMutationFailure.MoveWouldCreateCycle, result.Failure);
         Assert.False(workflow.CanUndo);
+    }
+
+    [Fact]
+    public void MoveNode_WhenVisibleRootUsesHiddenWrapperAsOldParent_Succeeds()
+    {
+        var draggedNode = new KbNode { Name = "Отделение 1", LevelIndex = 1 };
+        var targetNode = new KbNode { Name = "Отделение 2", LevelIndex = 1 };
+        var wrapperRoot = new KbNode
+        {
+            Name = "Цех 1",
+            LevelIndex = 0,
+            Children = { draggedNode, targetNode }
+        };
+        var session = CreateSession(
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Цех 1"] = new List<KbNode> { wrapperRoot }
+            });
+        var history = new UndoRedoService();
+        var controller = new KnowledgeBaseTreeController(session);
+        var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
+        var workflow = new KnowledgeBaseTreeMutationWorkflowService(session, sessionWorkflow, controller, history);
+
+        var result = workflow.MoveNode(
+            session.CurrentWorkshop,
+            draggedNode,
+            oldParentNode: wrapperRoot,
+            targetNode,
+            currentRoots: session.GetCurrentWorkshopNodes());
+
+        Assert.True(result.IsSuccess);
+        Assert.Single(wrapperRoot.Children);
+        Assert.Same(targetNode, wrapperRoot.Children[0]);
+        Assert.Single(targetNode.Children);
+        Assert.Same(draggedNode, targetNode.Children[0]);
+        Assert.Equal(2, draggedNode.LevelIndex);
     }
 
     [Fact]

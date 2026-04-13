@@ -11,7 +11,11 @@ namespace AsutpKnowledgeBase.UiServices
 
         public string CurrentWorkshop { get; init; } = string.Empty;
 
-        public Func<List<KbNode>> GetCurrentTreeData { get; init; } = null!;
+        public Func<List<KbNode>> GetPersistedTreeData { get; init; } = null!;
+
+        public Func<KbNode?> GetEffectiveParentForRootOperations { get; init; } = null!;
+
+        public Func<KbNode, KbNode?, KbNode?> ResolveActualParentNode { get; init; } = null!;
 
         public Func<HashSet<KbNode>> CaptureExpandedNodes { get; init; } = null!;
 
@@ -46,13 +50,15 @@ namespace AsutpKnowledgeBase.UiServices
             if (dialog.ShowDialog(context.Owner) != DialogResult.OK || string.IsNullOrWhiteSpace(dialog.Result))
                 return;
 
-            var selectedNode = context.TreeView.SelectedNode?.Tag as KbNode;
+            var selectedNode =
+                context.TreeView.SelectedNode?.Tag as KbNode ??
+                context.GetEffectiveParentForRootOperations();
             var expandedNodes = context.CaptureExpandedNodes();
             var result = _treeMutationWorkflowService.AddNode(
                 context.CurrentWorkshop,
                 selectedNode,
                 dialog.Result,
-                context.GetCurrentTreeData());
+                context.GetPersistedTreeData());
 
             if (!result.IsSuccess)
             {
@@ -91,7 +97,7 @@ namespace AsutpKnowledgeBase.UiServices
             var result = _treeMutationWorkflowService.DeleteNode(
                 context.CurrentWorkshop,
                 node,
-                context.GetCurrentTreeData());
+                context.GetPersistedTreeData());
 
             if (!result.IsSuccess)
             {
@@ -121,7 +127,7 @@ namespace AsutpKnowledgeBase.UiServices
             }
 
             var expandedNodes = context.CaptureExpandedNodes();
-            var result = _treeMutationWorkflowService.PasteNode(parentNode, context.GetCurrentTreeData());
+            var result = _treeMutationWorkflowService.PasteNode(parentNode, context.GetPersistedTreeData());
             if (!result.IsSuccess)
             {
                 ShowMutationFailure(context.Owner, result, "Ошибка вставки");
@@ -141,7 +147,7 @@ namespace AsutpKnowledgeBase.UiServices
                 return;
 
             var expandedNodes = context.CaptureExpandedNodes();
-            var result = _treeMutationWorkflowService.RenameNode(node, dialog.Result, context.GetCurrentTreeData());
+            var result = _treeMutationWorkflowService.RenameNode(node, dialog.Result, context.GetPersistedTreeData());
             if (!result.IsSuccess)
             {
                 if (result.Failure != KnowledgeBaseTreeMutationFailure.NoChanges)
@@ -169,9 +175,9 @@ namespace AsutpKnowledgeBase.UiServices
             var result = _treeMutationWorkflowService.MoveNode(
                 context.CurrentWorkshop,
                 draggedData,
-                draggedNode.Parent?.Tag as KbNode,
+                context.ResolveActualParentNode(draggedData, draggedNode.Parent?.Tag as KbNode),
                 targetData,
-                context.GetCurrentTreeData());
+                context.GetPersistedTreeData());
 
             if (!result.IsSuccess)
             {
@@ -184,7 +190,7 @@ namespace AsutpKnowledgeBase.UiServices
 
         public void Undo(KnowledgeBaseTreeMutationUiWorkflowContext context)
         {
-            var result = _treeMutationWorkflowService.Undo(context.GetCurrentTreeData());
+            var result = _treeMutationWorkflowService.Undo(context.GetPersistedTreeData());
             if (!result.IsSuccess)
             {
                 if (result.Failure != KnowledgeBaseTreeMutationFailure.NoChanges)
@@ -201,7 +207,7 @@ namespace AsutpKnowledgeBase.UiServices
 
         public void Redo(KnowledgeBaseTreeMutationUiWorkflowContext context)
         {
-            var result = _treeMutationWorkflowService.Redo(context.GetCurrentTreeData());
+            var result = _treeMutationWorkflowService.Redo(context.GetPersistedTreeData());
             if (!result.IsSuccess)
             {
                 if (result.Failure != KnowledgeBaseTreeMutationFailure.NoChanges)

@@ -88,7 +88,7 @@ namespace AsutpKnowledgeBase
         private void BtnExportExcel_Click(object? sender, EventArgs e)
         {
             SaveCurrentWorkshopState();
-            var data = _session.CreateSaveData(GetCurrentTreeData());
+            var data = _session.CreateSaveData(GetPersistedTreeData());
             _excelUiWorkflowService.Export(
                 this,
                 data,

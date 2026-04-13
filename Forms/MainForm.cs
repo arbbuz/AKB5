@@ -169,7 +169,7 @@ namespace AsutpKnowledgeBase
 
         private KnowledgeBaseFormState BuildFormState()
         {
-            var currentRoots = GetCurrentTreeData();
+            var currentRoots = GetVisibleTreeData();
             return _formStateService.Build(
                 _isDirty,
                 _requiresSave,
@@ -186,6 +186,7 @@ namespace AsutpKnowledgeBase
         {
             var selectedNode = tvTree.SelectedNode?.Tag as KbNode;
             bool hasSelection = selectedNode != null;
+            var effectiveAddParent = selectedNode ?? GetEffectiveParentForRootOperations();
 
             btnUndo.Enabled = _treeMutationWorkflowService.CanUndo;
             btnRedo.Enabled = _treeMutationWorkflowService.CanRedo;
@@ -194,7 +195,7 @@ namespace AsutpKnowledgeBase
             ctxCopy.Enabled = hasSelection;
             ctxRename.Enabled = hasSelection;
             ctxDelete.Enabled = hasSelection;
-            ctxAdd.Enabled = _treeMutationWorkflowService.CanAddNode(selectedNode);
+            ctxAdd.Enabled = _treeMutationWorkflowService.CanAddNode(effectiveAddParent);
             ctxPaste.Enabled = hasSelection && _treeMutationWorkflowService.CanPasteNode(selectedNode!);
 
             btnSave.ToolTipText = formState.SaveToolTip;

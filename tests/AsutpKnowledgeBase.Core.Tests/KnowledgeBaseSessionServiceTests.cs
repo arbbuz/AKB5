@@ -101,6 +101,35 @@ public class KnowledgeBaseSessionServiceTests
     }
 
     [Fact]
+    public void RefreshDirtyState_HiddenWrapperProjectionDoesNotMarkSessionDirty()
+    {
+        var wrapperRoot = new KbNode
+        {
+            Name = "Цех 1",
+            LevelIndex = 0,
+            Children = { new KbNode { Name = "Отделение", LevelIndex = 1 } }
+        };
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(
+            new SavedData
+            {
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех 1"] = new() { wrapperRoot }
+                },
+                LastWorkshop = "Цех 1"
+            },
+            recordAsSavedState: true);
+        var projection = KnowledgeBaseWorkshopTreeProjection.Create(
+            session.CurrentWorkshop,
+            session.GetCurrentWorkshopNodes());
+
+        session.RefreshDirtyState(projection.CreatePersistedRootsSnapshot(projection.VisibleRoots));
+
+        Assert.False(session.IsDirty);
+    }
+
+    [Fact]
     public void TryAddWorkshop_RejectsDuplicateNamesIgnoringTrimAndCase()
     {
         var session = new KnowledgeBaseSessionService();

@@ -11,6 +11,8 @@ namespace AsutpKnowledgeBase.UiServices
     {
         private readonly KnowledgeBaseTreeSearchService _treeSearchService = new();
         private readonly List<SearchNavigationItem> _searchResults = new();
+        private KnowledgeBaseWorkshopTreeProjection _currentProjection =
+            KnowledgeBaseWorkshopTreeProjection.Create(string.Empty, Array.Empty<KbNode>());
         private int _currentSearchIndex = -1;
 
         public bool CanNavigateSearch => _searchResults.Count > 1;
@@ -37,12 +39,15 @@ namespace AsutpKnowledgeBase.UiServices
             ISet<KbNode>? expandedNodes = null)
         {
             TreeNode? selectedTreeNode = null;
+            _currentProjection = KnowledgeBaseWorkshopTreeProjection.Create(
+                viewState.CurrentWorkshop,
+                viewState.CurrentRoots);
 
             treeView.BeginUpdate();
             treeView.SelectedNode = null;
             treeView.Nodes.Clear();
 
-            foreach (var node in viewState.CurrentRoots)
+            foreach (var node in _currentProjection.VisibleRoots)
                 treeView.Nodes.Add(BuildTreeNode(node, nodeToSelect, expandedNodes, ref selectedTreeNode));
 
             treeView.EndUpdate();
@@ -69,7 +74,7 @@ namespace AsutpKnowledgeBase.UiServices
             return expandedNodes;
         }
 
-        public List<KbNode> GetCurrentTreeData(TreeView treeView)
+        public List<KbNode> GetVisibleTreeData(TreeView treeView)
         {
             var list = new List<KbNode>();
             foreach (TreeNode treeNode in treeView.Nodes)
@@ -81,6 +86,15 @@ namespace AsutpKnowledgeBase.UiServices
             return list;
         }
 
+        public List<KbNode> GetPersistedTreeData(TreeView treeView) =>
+            _currentProjection.CreatePersistedRootsSnapshot(GetVisibleTreeData(treeView));
+
+        public KbNode? GetEffectiveParentForRootOperations() =>
+            _currentProjection.GetEffectiveParentForRootOperations();
+
+        public KbNode? ResolveActualParentNode(KbNode node, KbNode? visibleParentNode) =>
+            _currentProjection.ResolveActualParent(node, visibleParentNode);
+
         public string PerformSearch(TreeView treeView, KbConfig config, string searchText)
         {
             string normalizedSearch = searchText.Trim();
@@ -89,7 +103,7 @@ namespace AsutpKnowledgeBase.UiServices
 
             ResetSearchResults();
 
-            var matches = _treeSearchService.FindMatches(GetCurrentTreeData(treeView), config, normalizedSearch);
+            var matches = _treeSearchService.FindMatches(GetVisibleTreeData(treeView), config, normalizedSearch);
             foreach (var match in matches)
             {
                 if (TryFindTreeNode(treeView.Nodes, match.Node, out var treeNode) && treeNode != null)

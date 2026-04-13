@@ -10,7 +10,7 @@ namespace AsutpKnowledgeBase
             new()
             {
                 Owner = this,
-                GetCurrentTreeData = GetCurrentTreeData,
+                GetPersistedTreeData = GetPersistedTreeData,
                 SaveCurrentWorkshopState = SaveCurrentWorkshopState,
                 UpdateDirtyState = UpdateDirtyState,
                 GetUiState = () => new KnowledgeBaseFileUiState
@@ -30,7 +30,7 @@ namespace AsutpKnowledgeBase
             new()
             {
                 Owner = this,
-                GetCurrentTreeData = GetCurrentTreeData,
+                GetPersistedTreeData = GetPersistedTreeData,
                 ApplySessionView = viewState => ApplySessionView(viewState, clearSearch: false),
                 RefreshSearchAfterMutation = RefreshSearchAfterMutation,
                 UpdateDirtyState = UpdateDirtyState,
@@ -44,7 +44,9 @@ namespace AsutpKnowledgeBase
                 Owner = this,
                 TreeView = tvTree,
                 CurrentWorkshop = _currentWorkshop,
-                GetCurrentTreeData = GetCurrentTreeData,
+                GetPersistedTreeData = GetPersistedTreeData,
+                GetEffectiveParentForRootOperations = GetEffectiveParentForRootOperations,
+                ResolveActualParentNode = ResolveActualParentNode,
                 CaptureExpandedNodes = CaptureExpandedNodes,
                 ApplySessionView = ApplySessionView,
                 RefreshSearchAfterMutation = RefreshSearchAfterMutation,
@@ -67,7 +69,7 @@ namespace AsutpKnowledgeBase
         }
 
         private void UpdateDirtyState() =>
-            _session.RefreshDirtyState(GetCurrentTreeData());
+            _session.RefreshDirtyState(GetPersistedTreeData());
 
         private void ApplySessionView(
             KnowledgeBaseSessionViewState viewState,
@@ -81,10 +83,19 @@ namespace AsutpKnowledgeBase
         }
 
         private void SaveCurrentWorkshopState() =>
-            _session.SyncCurrentWorkshop(GetCurrentTreeData());
+            _session.SyncCurrentWorkshop(GetPersistedTreeData());
 
-        private List<KbNode> GetCurrentTreeData()
-            => _treeViewService.GetCurrentTreeData(tvTree);
+        private List<KbNode> GetVisibleTreeData()
+            => _treeViewService.GetVisibleTreeData(tvTree);
+
+        private List<KbNode> GetPersistedTreeData()
+            => _treeViewService.GetPersistedTreeData(tvTree);
+
+        private KbNode? GetEffectiveParentForRootOperations() =>
+            _treeViewService.GetEffectiveParentForRootOperations();
+
+        private KbNode? ResolveActualParentNode(KbNode node, KbNode? visibleParentNode) =>
+            _treeViewService.ResolveActualParentNode(node, visibleParentNode);
 
         private void UpdateSearchButtons()
         {
