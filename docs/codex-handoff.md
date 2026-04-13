@@ -1,6 +1,7 @@
 # Current objective
 
-- После фикса data-integrity regressions следующий практический шаг: Windows smoke-check реального UX-потока `open/save JSON` и `export/import Excel`, включая проверку новых fail-fast ошибок для невалидной схемы и конфликтующих имён цехов.
+- Починить Windows publish regression: CI artifact назывался `single-file`, но фактически содержал sidecar native DLL, поэтому пользовательский сценарий "скачал только `.exe` из Actions" не работал.
+- После этого остаётся Windows smoke-check реального UX-потока `open/save JSON` и `export/import Excel`, включая проверку новых fail-fast ошибок для невалидной схемы и конфликтующих имён цехов.
 
 # Current repo state
 
@@ -10,6 +11,7 @@
 - Имена цехов теперь считаются по единому правилу во всех основных путях: canonical name = `Trim()`, сравнение case-insensitive.
 - Конфликты имён цехов вида `"Цех 1"`, `" Цех 1 "` и `"цех 1"` больше не нормализуются молча и не теряют данные: JSON load, Excel import и `ReplaceAllData` теперь fail-fast.
 - `KbNode.Details` и workbook `v3` остаются активным контрактом; layout-фикс карточки справа остаётся в силе.
+- GitHub Actions run `24350722372` (`a30bb24`) показал, что artifact `asutpkb-win-x64-single-file` реально загружал `8 files`, включая `D3DCompiler_47_cor3.dll`, `PenImc_cor3.dll`, `PresentationNative_cor3.dll`, `vcruntime140_cor3.dll` и `wpfgfx_cor3.dll`.
 
 # Decisions already made
 
@@ -17,6 +19,7 @@
 - Не делать silent merge/rename для конфликтующих имён цехов: policy только explicit error.
 - Единый инвариант для имён цехов: `Trim()` + `StringComparer.OrdinalIgnoreCase`.
 - JSON остаётся source of truth, Excel остаётся exchange-слоем с явной валидацией.
+- Publish target остаётся только `win-x64`, но для реального single-file артефакта нужно добавлять `-p:IncludeNativeLibrariesForSelfExtract=true`.
 
 # Files already relevant to the task
 
@@ -26,6 +29,9 @@
 - `Services/KnowledgeBaseSessionService.cs`
 - `Services/KnowledgeBaseFileWorkflowService.cs`
 - `Services/KnowledgeBaseExcelWorkbookParser.cs`
+- `scripts/publish.ps1`
+- `README.md`
+- `docs/deployment.md`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseDataServiceTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/JsonStorageServiceTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseSessionServiceTests.cs`
@@ -38,11 +44,14 @@
 
 - `/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore`
 - `/Users/home/.dotnet/dotnet build asutpKB.csproj --configuration Release --no-restore`
+- `/Users/home/.dotnet/dotnet publish asutpKB.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishTrimmed=false -p:PublishAot=false -o artifacts/publish/win-x64`
 
 Observed results:
 
 - core test suite: success, `105` passed, `0` failed
 - root WinForms build: success
+- GitHub Actions publish log подтвердил packaging regression: artifact `asutpkb-win-x64-single-file` содержал `8 files`, а не один standalone `.exe`
+- локальный publish после добавления `IncludeNativeLibrariesForSelfExtract=true`: success; output содержит только `asutpKB.exe`, `asutpKB.pdb`, `AsutpKnowledgeBase.Core.pdb`, sidecar runtime DLL больше не генерируются
 - новых build/test regressions после ужесточения schema gating и workshop validation не обнаружено
 
 # Known risks / open questions
@@ -53,6 +62,7 @@ Observed results:
 
 # Recommended next step
 
+- Дождаться нового CI publish artifact с `IncludeNativeLibrariesForSelfExtract=true` и проверить запуск именно из свежего Actions artifact на Windows.
 - На Windows проверить пользовательский сценарий:
   - открыть legacy JSON `SchemaVersion = 1`
   - убедиться, что future-schema JSON/XLSX отклоняются понятным сообщением
@@ -65,4 +75,5 @@ Observed results:
 git status --short
 /Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore
 /Users/home/.dotnet/dotnet build asutpKB.csproj --configuration Release --no-restore
+/Users/home/.dotnet/dotnet publish asutpKB.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/publish/win-x64
 ```

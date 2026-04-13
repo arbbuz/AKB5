@@ -82,7 +82,7 @@ scripts\publish.cmd
 или напрямую:
 
 ```bash
-dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/publish/win-x64
+dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/publish/win-x64
 ```
 
 Дополнительные правила publish:
@@ -96,7 +96,7 @@ dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:Pub
 Как запускать на пользовательском ПК:
 
 1. Собрать publish flow на машине разработчика или взять CI artifact `win-x64`.
-2. Скопировать содержимое `artifacts/publish/win-x64` на 64-битный Windows ПК.
+2. Скопировать `artifacts/publish/win-x64/asutpKB.exe` на 64-битный Windows ПК.
 3. Запустить `asutpKB.exe`.
 4. Дополнительная установка .NET runtime на пользовательском ПК не требуется, потому что publish self-contained.
 
@@ -121,7 +121,7 @@ dotnet format src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj --verif
 dotnet format tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity warn --no-restore
 dotnet build asutpKB.csproj -c Release --no-restore
 dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-restore
-dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/publish/win-x64
+dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/publish/win-x64
 ```
 
 Lint baseline намеренно минимальный:

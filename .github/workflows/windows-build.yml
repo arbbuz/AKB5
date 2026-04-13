@@ -74,9 +74,23 @@ jobs:
         run: |
           $publishDir = Join-Path $PWD "artifacts/publish/win-x64"
           $exePath = Join-Path $publishDir "asutpKB.exe"
+          $unexpectedSidecarFiles = @(
+            "D3DCompiler_47_cor3.dll",
+            "PenImc_cor3.dll",
+            "PresentationNative_cor3.dll",
+            "vcruntime140_cor3.dll",
+            "wpfgfx_cor3.dll"
+          )
 
           if (-not (Test-Path $exePath)) {
             throw "Expected publish output was not found: $exePath"
+          }
+
+          $presentUnexpectedFiles = $unexpectedSidecarFiles |
+            Where-Object { Test-Path (Join-Path $publishDir $_) }
+
+          if ($presentUnexpectedFiles.Count -gt 0) {
+            throw "Publish output still contains sidecar runtime files: $($presentUnexpectedFiles -join ', ')"
           }
 
           Get-ChildItem $publishDir |
