@@ -274,17 +274,17 @@ namespace AsutpKnowledgeBase
                 Margin = new Padding(0)
             };
 
-            var leftCardLayout = new TableLayoutPanel
+            tblDetailsLeftColumn = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
                 RowCount = 3,
                 Margin = new Padding(0)
             };
-            leftCardLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            leftCardLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 144F));
-            leftCardLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            leftCardLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 150F));
+            tblDetailsLeftColumn.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            tblDetailsLeftColumn.RowStyles.Add(new RowStyle(SizeType.Absolute, 144F));
+            tblDetailsLeftColumn.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            tblDetailsLeftColumn.RowStyles.Add(new RowStyle(SizeType.Absolute, 0F));
 
             var grpSummary = new GroupBox
             {
@@ -293,7 +293,7 @@ namespace AsutpKnowledgeBase
                 Margin = new Padding(0, 0, 0, 12)
             };
             grpSummary.Controls.Add(CreateSummaryLayout());
-            leftCardLayout.Controls.Add(grpSummary, 0, 0);
+            tblDetailsLeftColumn.Controls.Add(grpSummary, 0, 0);
 
             var grpCommonFields = new GroupBox
             {
@@ -302,7 +302,7 @@ namespace AsutpKnowledgeBase
                 Margin = new Padding(0, 0, 0, 12)
             };
             grpCommonFields.Controls.Add(CreateCommonFieldsLayout());
-            leftCardLayout.Controls.Add(grpCommonFields, 0, 1);
+            tblDetailsLeftColumn.Controls.Add(grpCommonFields, 0, 1);
 
             grpTechnicalFields = new GroupBox
             {
@@ -312,9 +312,9 @@ namespace AsutpKnowledgeBase
                 Visible = false
             };
             grpTechnicalFields.Controls.Add(CreateTechnicalFieldsLayout());
-            leftCardLayout.Controls.Add(grpTechnicalFields, 0, 2);
+            tblDetailsLeftColumn.Controls.Add(grpTechnicalFields, 0, 2);
 
-            splitDetailsBody.Panel1.Controls.Add(leftCardLayout);
+            splitDetailsBody.Panel1.Controls.Add(tblDetailsLeftColumn);
 
             var grpPhotoPreview = new GroupBox
             {

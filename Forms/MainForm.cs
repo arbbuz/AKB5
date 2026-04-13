@@ -39,6 +39,7 @@ namespace AsutpKnowledgeBase
 
         private SplitContainer splitMain = null!;
         private SplitContainer splitDetailsBody = null!;
+        private TableLayoutPanel tblDetailsLeftColumn = null!;
         private ComboBox cmbWorkshops = null!;
         private TreeView tvTree = null!;
         private TextBox txtSearch = null!;
@@ -147,7 +148,7 @@ namespace AsutpKnowledgeBase
                 txtNodePhotoPath.Text = selectedNodeState.PhotoPath;
                 txtNodeIpAddress.Text = selectedNodeState.IpAddress;
                 txtNodeSchemaLink.Text = selectedNodeState.SchemaLink;
-                grpTechnicalFields.Visible = hasSelection && selectedNodeState.ShowTechnicalFields;
+                SetTechnicalFieldsVisibility(hasSelection && selectedNodeState.ShowTechnicalFields);
 
                 UpdatePhotoPreview(selectedNodeState.PhotoPath, hasSelection);
                 ScheduleDeferredLayout();
@@ -234,6 +235,17 @@ namespace AsutpKnowledgeBase
 
             if (tblSelectedNodeCard.Visible)
                 ApplySplitLayout(splitDetailsBody, panel1MinSize: 0, panel2MinSize: 280, desiredDistance: 660);
+        }
+
+        private void SetTechnicalFieldsVisibility(bool visible)
+        {
+            grpTechnicalFields.Visible = visible;
+
+            if (tblDetailsLeftColumn.RowStyles.Count <= 2)
+                return;
+
+            tblDetailsLeftColumn.RowStyles[2].Height = visible ? 150F : 0F;
+            tblDetailsLeftColumn.PerformLayout();
         }
 
         private static void ApplySplitLayout(
