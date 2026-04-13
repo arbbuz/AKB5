@@ -66,32 +66,6 @@ namespace AsutpKnowledgeBase
             btnRedo = new ToolStripButton("↪ Повторить") { Enabled = false, ToolTipText = "Повторить (Ctrl+Y)" };
             toolStrip.Items.AddRange(new ToolStripItem[] { btnUndo, btnRedo });
 
-            toolStrip.Items.Add(new ToolStripSeparator());
-
-            lblToolbarFileValue = new ToolStripLabel("Файл: —")
-            {
-                AutoSize = false,
-                Width = 220,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-            lblToolbarSaveStateValue = new ToolStripLabel("Состояние: —")
-            {
-                AutoSize = false,
-                Width = 210,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-            lblToolbarWorkshopValue = new ToolStripLabel("Цех: —")
-            {
-                AutoSize = false,
-                Width = 220,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-
-            toolStrip.Items.Add(lblToolbarFileValue);
-            toolStrip.Items.Add(new ToolStripSeparator());
-            toolStrip.Items.Add(lblToolbarSaveStateValue);
-            toolStrip.Items.Add(new ToolStripSeparator());
-            toolStrip.Items.Add(lblToolbarWorkshopValue);
         }
 
         private void InitializeMainLayout()
@@ -267,13 +241,6 @@ namespace AsutpKnowledgeBase
             pnlHeader.Controls.Add(lblSelectedNodeNameValue);
             tblSelectedNodeCard.Controls.Add(pnlHeader, 0, 0);
 
-            splitDetailsBody = new SplitContainer
-            {
-                Dock = DockStyle.Fill,
-                FixedPanel = FixedPanel.Panel2,
-                Margin = new Padding(0)
-            };
-
             tblDetailsLeftColumn = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -314,47 +281,7 @@ namespace AsutpKnowledgeBase
             grpTechnicalFields.Controls.Add(CreateTechnicalFieldsLayout());
             tblDetailsLeftColumn.Controls.Add(grpTechnicalFields, 0, 2);
 
-            splitDetailsBody.Panel1.Controls.Add(tblDetailsLeftColumn);
-
-            var grpPhotoPreview = new GroupBox
-            {
-                Text = "Превью фото",
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0)
-            };
-
-            var previewLayout = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 1,
-                RowCount = 2,
-                Padding = new Padding(10)
-            };
-            previewLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            previewLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            previewLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-
-            picNodePhotoPreview = new PictureBox
-            {
-                Dock = DockStyle.Fill,
-                BorderStyle = BorderStyle.FixedSingle,
-                BackColor = Color.FromArgb(247, 247, 247),
-                SizeMode = PictureBoxSizeMode.Zoom
-            };
-            lblPhotoPreviewState = new Label
-            {
-                Dock = DockStyle.Top,
-                AutoSize = true,
-                ForeColor = Color.DimGray,
-                Padding = new Padding(0, 8, 0, 0)
-            };
-
-            previewLayout.Controls.Add(picNodePhotoPreview, 0, 0);
-            previewLayout.Controls.Add(lblPhotoPreviewState, 0, 1);
-            grpPhotoPreview.Controls.Add(previewLayout);
-            splitDetailsBody.Panel2.Controls.Add(grpPhotoPreview);
-
-            tblSelectedNodeCard.Controls.Add(splitDetailsBody, 0, 1);
+            tblSelectedNodeCard.Controls.Add(tblDetailsLeftColumn, 0, 1);
 
             pnlRight.Controls.Add(tblSelectedNodeCard);
             pnlRight.Controls.Add(lblSelectedNodeEmptyState);

@@ -5,15 +5,7 @@ namespace AsutpKnowledgeBase
 {
     public partial class MainForm
     {
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-                DisposePhotoPreviewImage();
-
-            base.Dispose(disposing);
-        }
-
-        private void HandleNodeDetailsChanged(Action<KbNodeDetails> updateDetails, bool refreshPhotoPreview = false)
+        private void HandleNodeDetailsChanged(Action<KbNodeDetails> updateDetails)
         {
             if (_isApplyingSelectedNodeState || tvTree.SelectedNode?.Tag is not KbNode selectedNode)
                 return;
@@ -29,9 +21,7 @@ namespace AsutpKnowledgeBase
 
             UpdateDirtyState();
             UpdateUI(refreshSelectedNodeState: false);
-
-            if (refreshPhotoPreview)
-                UpdatePhotoPreview(selectedNode.Details.PhotoPath, hasSelection: true);
+            UpdatePhotoControlsState(selectedNode.Details.PhotoPath);
         }
 
         private void BtnBrowsePhoto_Click(object? sender, EventArgs e)
@@ -71,7 +61,7 @@ namespace AsutpKnowledgeBase
                     FileName = photoPath,
                     UseShellExecute = true
                 });
-                SetLastActionText($"📷 Открыто фото: {Path.GetFileName(photoPath)}");
+                SetLastActionText($"Открыто фото: {Path.GetFileName(photoPath)}");
             }
             catch (Exception ex)
             {
@@ -84,61 +74,9 @@ namespace AsutpKnowledgeBase
             }
         }
 
-        private void UpdatePhotoPreview(string photoPath, bool hasSelection)
-        {
-            if (!hasSelection)
-            {
-                ClearPhotoPreview("Выберите объект, чтобы увидеть превью фото.");
-                return;
-            }
-
-            string normalizedPath = photoPath.Trim();
-            if (string.IsNullOrWhiteSpace(normalizedPath))
-            {
-                ClearPhotoPreview("Путь к фото не указан.");
-                return;
-            }
-
-            btnOpenPhoto.Enabled = File.Exists(normalizedPath);
-            if (!File.Exists(normalizedPath))
-            {
-                ClearPhotoPreview("Файл не найден по указанному пути.");
-                return;
-            }
-
-            try
-            {
-                using var stream = new FileStream(normalizedPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                using var sourceImage = Image.FromStream(stream);
-                var previewImage = new Bitmap(sourceImage);
-
-                DisposePhotoPreviewImage();
-                _photoPreviewImage = previewImage;
-                picNodePhotoPreview.Image = _photoPreviewImage;
-                lblPhotoPreviewState.Text = $"Файл: {Path.GetFileName(normalizedPath)}";
-            }
-            catch (Exception ex)
-            {
-                ClearPhotoPreview($"Не удалось загрузить превью: {ex.Message}");
-            }
-        }
-
-        private void ClearPhotoPreview(string statusText)
-        {
-            DisposePhotoPreviewImage();
-            picNodePhotoPreview.Image = null;
-            lblPhotoPreviewState.Text = statusText;
-            btnOpenPhoto.Enabled = !string.IsNullOrWhiteSpace(txtNodePhotoPath.Text) && File.Exists(txtNodePhotoPath.Text.Trim());
-        }
-
-        private void DisposePhotoPreviewImage()
-        {
-            if (_photoPreviewImage == null)
-                return;
-
-            picNodePhotoPreview.Image = null;
-            _photoPreviewImage.Dispose();
-            _photoPreviewImage = null;
-        }
+        private void UpdatePhotoControlsState(string photoPath) =>
+            btnOpenPhoto.Enabled =
+                !string.IsNullOrWhiteSpace(photoPath) &&
+                File.Exists(photoPath.Trim());
     }
 }

@@ -24,21 +24,16 @@ namespace AsutpKnowledgeBase
 
         private bool _isBindingWorkshops;
         private bool _isApplyingSelectedNodeState;
-        private Image? _photoPreviewImage;
         private bool _isApplyingDeferredLayout;
 
         private ToolStrip toolStrip = null!;
         private ToolStripButton btnUndo = null!;
         private ToolStripButton btnRedo = null!;
         private ToolStripButton btnSave = null!;
-        private ToolStripLabel lblToolbarFileValue = null!;
-        private ToolStripLabel lblToolbarSaveStateValue = null!;
-        private ToolStripLabel lblToolbarWorkshopValue = null!;
         private ToolStripMenuItem menuFile = null!;
         private ToolStripMenuItem menuNewWorkshop = null!;
 
         private SplitContainer splitMain = null!;
-        private SplitContainer splitDetailsBody = null!;
         private TableLayoutPanel tblDetailsLeftColumn = null!;
         private ComboBox cmbWorkshops = null!;
         private TreeView tvTree = null!;
@@ -68,8 +63,6 @@ namespace AsutpKnowledgeBase
         private TextBox txtNodeIpAddress = null!;
         private TextBox txtNodeSchemaLink = null!;
         private GroupBox grpTechnicalFields = null!;
-        private PictureBox picNodePhotoPreview = null!;
-        private Label lblPhotoPreviewState = null!;
         private Button btnBrowsePhoto = null!;
         private Button btnOpenPhoto = null!;
 
@@ -150,7 +143,7 @@ namespace AsutpKnowledgeBase
                 txtNodeSchemaLink.Text = selectedNodeState.SchemaLink;
                 SetTechnicalFieldsVisibility(hasSelection && selectedNodeState.ShowTechnicalFields);
 
-                UpdatePhotoPreview(selectedNodeState.PhotoPath, hasSelection);
+                UpdatePhotoControlsState(selectedNodeState.PhotoPath);
                 ScheduleDeferredLayout();
             }
             finally
@@ -164,7 +157,7 @@ namespace AsutpKnowledgeBase
             if (string.IsNullOrWhiteSpace(text))
                 return;
 
-            lblLastAction.Text = $"{DateTime.Now:HH:mm} | {text}";
+            lblLastAction.Text = text;
         }
 
         private KnowledgeBaseFormState BuildFormState()
@@ -202,10 +195,6 @@ namespace AsutpKnowledgeBase
             Text = formState.WindowTitle;
             lblSessionInfo.Text = formState.SessionStatusText;
             lblSelectionInfo.Text = formState.SelectionStatusText;
-            lblToolbarFileValue.Text = $"Файл: {formState.FileNameText}";
-            lblToolbarFileValue.ToolTipText = formState.FilePathText;
-            lblToolbarSaveStateValue.Text = formState.SaveStateText;
-            lblToolbarWorkshopValue.Text = $"Цех: {formState.WorkshopText}";
 
             if (refreshSelectedNodeState)
                 ApplySelectedNodeState(formState.SelectedNode);
@@ -233,9 +222,6 @@ namespace AsutpKnowledgeBase
         private void ApplyDeferredLayout()
         {
             ApplySplitLayout(splitMain, panel1MinSize: 260, panel2MinSize: 480, desiredDistance: 340);
-
-            if (tblSelectedNodeCard.Visible)
-                ApplySplitLayout(splitDetailsBody, panel1MinSize: 0, panel2MinSize: 280, desiredDistance: 660);
         }
 
         private void SetTechnicalFieldsVisibility(bool visible)

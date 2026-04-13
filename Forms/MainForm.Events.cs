@@ -24,9 +24,7 @@ namespace AsutpKnowledgeBase
 
             txtNodeDescription.TextChanged += (s, e) => HandleNodeDetailsChanged(details => details.Description = txtNodeDescription.Text);
             txtNodeLocation.TextChanged += (s, e) => HandleNodeDetailsChanged(details => details.Location = txtNodeLocation.Text);
-            txtNodePhotoPath.TextChanged += (s, e) => HandleNodeDetailsChanged(
-                details => details.PhotoPath = txtNodePhotoPath.Text,
-                refreshPhotoPreview: true);
+            txtNodePhotoPath.TextChanged += (s, e) => HandleNodeDetailsChanged(details => details.PhotoPath = txtNodePhotoPath.Text);
             txtNodeIpAddress.TextChanged += (s, e) => HandleNodeDetailsChanged(details => details.IpAddress = txtNodeIpAddress.Text);
             txtNodeSchemaLink.TextChanged += (s, e) => HandleNodeDetailsChanged(details => details.SchemaLink = txtNodeSchemaLink.Text);
 
