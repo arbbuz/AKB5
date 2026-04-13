@@ -177,6 +177,19 @@ public class KnowledgeBaseExcelExchangeServiceTests
     }
 
     [Fact]
+    public void BuildWorkbookPackage_AllowsNullChildrenLists()
+    {
+        var service = new KnowledgeBaseExcelExchangeService();
+        var sourceData = CreateSampleData();
+        sourceData.Workshops["Цех 1"][0].Children = null!;
+
+        byte[] packageBytes = service.BuildWorkbookPackage(sourceData);
+
+        Assert.NotEmpty(packageBytes);
+        Assert.Null(sourceData.Workshops["Цех 1"][0].Children);
+    }
+
+    [Fact]
     public void Export_WritesXlsxFile()
     {
         string tempDirectory = CreateTempDirectory();

@@ -173,7 +173,7 @@ namespace AsutpKnowledgeBase.Services
                     IpAddress = details.IpAddress,
                     SchemaLink = details.SchemaLink
                 },
-                Children = source.Children.Select(CloneNode).ToList()
+                Children = (source.Children ?? new List<KbNode>()).Select(CloneNode).ToList()
             };
         }
 

@@ -13,6 +13,7 @@
   - технические поля для уровней `2+`: `IpAddress`, `SchemaLink`
 - Старый JSON `SchemaVersion = 1` и старый workbook `v3` без новых detail-колонок по-прежнему импортируются; недостающие поля нормализуются в пустые значения.
 - Excel export/import `v3` расширен новыми колонками на node sheets без смены `WorkbookFormatVersion`.
+- Excel export clone path теперь устойчив к `KbNode.Children = null` и не падает до стадии нормализации входных данных.
 
 # Decisions already made
 
@@ -56,7 +57,7 @@
 
 Observed results:
 
-- core test suite: success, `96` passed, `0` failed
+- core test suite: success, `99` passed, `0` failed
 - root WinForms build: success
 - analyzer/style warnings остались существующим non-blocking noise, но новых build blockers после feature rollout нет
 
