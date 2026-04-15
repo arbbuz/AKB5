@@ -1,3 +1,15 @@
+# Latest update
+
+- Local Windows repo for the current session: `C:\Users\Olga\AKB5`
+- Active working branch: `icon`
+- Application icon asset moved from repo root to `resources/app.ico`
+- `asutpKB.csproj` now uses `resources/app.ico` as `ApplicationIcon` and copies it to build/publish output
+- `AppIconProvider.cs` assigns the icon at runtime to `MainForm`, `SetupForm`, and `InputDialog` from `AppContext.BaseDirectory\resources\app.ico`
+- Replacing `resources/app.ico` updates the window icon without code changes; rebuild is still required if the `.exe` file icon also needs to change
+- Validation after this change:
+  - `dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore` passed
+  - build output contains `bin\Release\net8.0-windows\resources\app.ico`
+
 # Current objective
 
 - Подтвердить на Windows два последних UX-изменения главной формы:

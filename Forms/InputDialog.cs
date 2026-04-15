@@ -17,6 +17,7 @@ namespace AsutpKnowledgeBase
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
+            AppIconProvider.Apply(this);
 
             var lbl = new Label { Text = prompt, AutoSize = true, Location = new Point(15, 15) };
             _txtInput = new TextBox { Text = defaultValue, Location = new Point(15, 45), Width = 300 };

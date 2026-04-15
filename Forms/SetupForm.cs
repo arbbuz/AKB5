@@ -41,6 +41,7 @@ namespace AsutpKnowledgeBase
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
+            AppIconProvider.Apply(this);
 
             _pnlInputs = new FlowLayoutPanel
             {

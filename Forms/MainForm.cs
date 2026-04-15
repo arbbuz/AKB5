@@ -82,6 +82,7 @@ namespace AsutpKnowledgeBase
             _appLogger = appLogger ?? NullAppLogger.Instance;
             _treeController = new KnowledgeBaseTreeController(_session);
             InitializeComponent();
+            AppIconProvider.Apply(this);
             var storageService = new JsonStorageService(GetDefaultJsonPath(), _appLogger);
             var fileWorkflowService = new KnowledgeBaseFileWorkflowService(
                 _session,
