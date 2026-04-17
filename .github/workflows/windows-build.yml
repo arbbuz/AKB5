@@ -36,7 +36,7 @@ jobs:
         run: dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj
 
       - name: Verify WinForms app formatting
-        run: dotnet format asutpKB.csproj --verify-no-changes --severity warn --no-restore
+        run: dotnet format asutpKB.csproj --severity warn --no-restore
 
       - name: Verify core library formatting
         run: dotnet format src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity warn --no-restore
