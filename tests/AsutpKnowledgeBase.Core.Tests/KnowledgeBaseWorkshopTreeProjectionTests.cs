@@ -6,7 +6,7 @@ namespace AsutpKnowledgeBase.Core.Tests;
 public class KnowledgeBaseWorkshopTreeProjectionTests
 {
     [Fact]
-    public void Create_HidesSingleMatchingRootWithEmptyDetails()
+    public void Create_HidesSingleLevelZeroRoot_WhenWorkshopNameMatches()
     {
         var wrapperRoot = new KbNode
         {
@@ -17,6 +17,26 @@ public class KnowledgeBaseWorkshopTreeProjectionTests
 
         var projection = KnowledgeBaseWorkshopTreeProjection.Create(
             " ЦЕХ 1 ",
+            new List<KbNode> { wrapperRoot });
+
+        Assert.True(projection.HasHiddenWrapper);
+        Assert.Same(wrapperRoot, projection.HiddenWrapperRoot);
+        Assert.Single(projection.VisibleRoots);
+        Assert.Same(wrapperRoot.Children[0], projection.VisibleRoots[0]);
+    }
+
+    [Fact]
+    public void Create_HidesSingleLevelZeroRoot_WhenWorkshopNameDiffers()
+    {
+        var wrapperRoot = new KbNode
+        {
+            Name = "Энергоцех",
+            LevelIndex = 0,
+            Children = { new KbNode { Name = "Отделение", LevelIndex = 1 } }
+        };
+
+        var projection = KnowledgeBaseWorkshopTreeProjection.Create(
+            "Энергоцех (ЭнЦ)",
             new List<KbNode> { wrapperRoot });
 
         Assert.True(projection.HasHiddenWrapper);

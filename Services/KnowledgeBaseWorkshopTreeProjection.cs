@@ -31,7 +31,7 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbNode>? persistedRoots)
         {
             var roots = persistedRoots ?? Array.Empty<KbNode>();
-            if (TryGetHiddenWrapperRoot(workshopName, roots, out var hiddenWrapperRoot))
+            if (TryGetHiddenWrapperRoot(roots, out var hiddenWrapperRoot))
             {
                 return new KnowledgeBaseWorkshopTreeProjection(
                     workshopName,
@@ -94,7 +94,6 @@ namespace AsutpKnowledgeBase.Services
         }
 
         private static bool TryGetHiddenWrapperRoot(
-            string workshopName,
             IReadOnlyList<KbNode> persistedRoots,
             out KbNode hiddenWrapperRoot)
         {
@@ -105,9 +104,6 @@ namespace AsutpKnowledgeBase.Services
 
             var candidate = persistedRoots[0];
             if (candidate.LevelIndex != 0)
-                return false;
-
-            if (!KnowledgeBaseDataService.WorkshopNamesEqual(candidate.Name, workshopName))
                 return false;
 
             hiddenWrapperRoot = candidate;

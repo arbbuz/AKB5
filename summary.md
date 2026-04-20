@@ -20,7 +20,7 @@ Last updated: 2026-04-21
 - Application icon is sourced from `resources/app.ico`
 - Splitter width is persisted per workshop in `%LocalAppData%\AKB5\window-layout-state.json`
 - Current local changes implement projection-based workshop-root hiding in the tree UI:
-  - when a workshop contains a single technical root node with the workshop name and `LevelIndex = 0`, that node is hidden in `TreeView`
+  - when a workshop contains a single root node with `LevelIndex = 0`, that node is hidden in `TreeView`
   - its children are shown as visible roots in the UI
   - empty workshops get a virtual hidden wrapper root so the first visible node can be added immediately
   - the first add into an empty workshop materializes that wrapper into persisted workshop data
@@ -33,6 +33,7 @@ Last updated: 2026-04-21
 - Do not rewrite form architecture just to hide the workshop root
 - Handle workshop-root hiding in projection/UI-oriented logic, not by rewriting storage format
 - Keep storage structure unchanged; only change the UI entry point into the hierarchy
+- Do not depend on workshop-name text matching the persisted root text; real data already uses mixed full names and abbreviations
 
 ## Most Relevant Files
 

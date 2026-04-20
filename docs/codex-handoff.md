@@ -9,8 +9,8 @@
 
 - `KnowledgeBaseWorkshopTreeProjection` now hides the technical workshop root for the normal workshop shape:
   - exactly one persisted root
-  - workshop name matches that root
   - `LevelIndex = 0`
+- Root-name text is no longer used as a gating condition; this is necessary because real workshop names and persisted root names differ in production data
 - Wrapper details no longer block hiding; the root is treated as a technical UI wrapper either way
 - Empty workshops now get a virtual hidden wrapper root in projection
 - The first visible add into an empty workshop persists that wrapper into the current workshop data
@@ -46,7 +46,7 @@ dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-rest
 
 Observed results:
 
-- `dotnet test`: passed, `121/121`
+- `dotnet test`: passed, `122/122`
 - `dotnet build`: passed
 - Existing analyzer warnings remain
 - `NU1900` vulnerability-index warnings remain because the environment could not fetch `https://api.nuget.org/v3/index.json`
