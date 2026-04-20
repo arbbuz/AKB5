@@ -1,5 +1,3 @@
-using System.Drawing;
-
 namespace AsutpKnowledgeBase
 {
     internal static class AppIconProvider
