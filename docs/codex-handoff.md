@@ -1,113 +1,95 @@
+# Latest update
+
+- Local Windows repo for the current session: `C:\Users\Olga\AKB5`
+- Active working branch: `icon`
+- Application icon asset moved from repo root to `resources/app.ico`
+- `asutpKB.csproj` now uses `resources/app.ico` as `ApplicationIcon` and copies it to build/publish output
+- `AppIconProvider.cs` assigns the icon at runtime to `MainForm`, `SetupForm`, and `InputDialog` from `AppContext.BaseDirectory\resources\app.ico`
+- Replacing `resources/app.ico` updates the window icon without code changes; rebuild is still required if the `.exe` file icon also needs to change
+- `MainForm` now remembers splitter width per workshop, and switching between items inside the same workshop no longer creates separate splitter states
+- Splitter-state is now persisted across restarts in `%LocalAppData%\AKB5\window-layout-state.json`
+- Persistence is intentionally outside the domain JSON file, so changing splitter width does not participate in dirty/save prompts for the knowledge base
+- Validation after this change:
+  - `dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore` passed
+  - `dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore` passed (`117/117`)
+  - build output contains `bin\Release\net8.0-windows\resources\app.ico`
+  - a parallel `build` + `test` attempt was invalid because it caused an obj/bin lock; the sequential rerun passed
+
 # Current objective
 
-- Ветка `icon` остаётся рабочей веткой для следующей задачи разработки.
-- В этой сессии исправлен сценарий пустого цеха: пользователь должен иметь возможность сразу добавлять отделения без ручного создания корневого узла цеха.
-- Следующая продуктовая задача после этого фикса пока не выбрана.
+- Подтвердить на Windows два последних UX-изменения главной формы:
+  - новые "отделения" верхнего видимого уровня снова должны корректно создаваться в цехах со скрытым technical wrapper root
+  - карточка объекта должна отображаться без правой панели превью фото, без верхней статусной строки и без часов в нижнем статус-баре
+- После этого остаётся ручной smoke-check на Windows: добавление верхнеуровневого узла, добавление дочернего узла, drag-and-drop и обычный open/save/import/export сценарий.
 
 # Current repo state
 
-- Локальный рабочий репозиторий для этой сессии: `C:\Users\Olga\AKB5`.
-- Активная ветка: `icon`, upstream: `origin/icon`.
-- После этой сессии worktree содержит документационные обновления и кодовый фикс для пустых/новых цехов.
-- Приложение остаётся WinForms-приложением на `.NET 8`.
-- Root app project: `asutpKB.csproj`.
-- Core library project: `src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj`.
-- Tests project: `tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj`.
-- JSON остаётся source of truth; Excel остаётся отдельным import/export контрактом.
-- Поддерживаемый Excel-формат сейчас только `v3`.
-- Источник иконки приложения: `resources/app.ico`.
-- `AppIconProvider` загружает иконку во время выполнения из `AppContext.BaseDirectory\resources\app.ico`.
-- Ширина splitter сохраняется отдельно по каждому цеху в `%LocalAppData%\AKB5\window-layout-state.json` и не участвует в dirty/save prompts для доменных данных.
-- Hidden workshop wrapper root остаётся намеренной частью модели:
-  - в storage/model технический корень цеха может оставаться на `LevelIndex = 0`
-  - в UI его дети могут показываться как видимые корни
-- Для нового или выбранного пустого цеха session-layer теперь автоматически создаёт технический wrapper root с именем цеха:
-  - UI его не показывает напрямую благодаря `KnowledgeBaseWorkshopTreeProjection`
-  - первое добавление узла идёт сразу как видимый дочерний элемент уровня `Отделение`
-  - при сериализации и dirty-check пустой wrapper без детей схлопывается обратно в пустой список, чтобы простой switch между пустыми цехами не считался пользовательским изменением
-- Ветка уже содержит недавние UI-изменения:
-  - исправление выбора узла в дереве для сценария добавления нового видимого верхнего узла
-  - удаление правой панели превью фото
-  - удаление верхних дублирующих status labels
-  - нижний status bar без префикса времени в `lblLastAction`
+- Основной рабочий репозиторий: `/Users/home/ASUTP/AKB5`.
+- В модели дерева `LevelIndex = 0` остаётся у технического корня-цеха, если он совпадает с именем workshop и не содержит details; UI скрывает этот wrapper и показывает его детей как видимые корни.
+- В пользовательской терминологии это означает: "отделения" выглядят как верхний видимый уровень, но в модели остаются `LevelIndex = 1`.
+- Domain-логика создания узлов была исправна: `KnowledgeBaseTreeMutationWorkflowService` и `KnowledgeBaseWorkshopTreeProjection` уже умели добавлять новый видимый root через hidden wrapper.
+- Фактическая проблема была в UI-выборе узла: `TreeView` не синхронизировал selection с правым/левым кликом и не снимал selection при клике по пустому месту. Из-за этого команда `Добавить сюда` почти всегда работала от уже выбранного узла и создавала дочерний элемент вместо нового отделения.
+- Исправление внесено в `Forms/MainForm.Events.cs`: клик по узлу теперь выбирает именно его, клик по пустому месту снимает выбор. Это возвращает сценарий "снять выбор -> добавить новое отделение" при активном hidden wrapper.
+- Дополнительно упрощён UI главной формы:
+  - правая колонка `Превью фото` удалена, карточка объекта теперь занимает всю правую область
+  - верхние `ToolStripLabel` со значениями `Файл / Состояние / Цех` удалены, остаётся только нижний status bar
+  - нижний `lblLastAction` больше не префиксует сообщения временем `HH:mm`
+- Логика фото теперь только хранит путь и включает/выключает кнопку `Открыть фото`; локальная загрузка `Image/Bitmap` для превью больше не используется.
 
 # Decisions already made
 
-- Продолжаем работу в ветке `icon`.
-- Следующая продуктовая задача будет выбрана позже; без отдельного запроса не начинать новый feature scope.
-- Не переписывать приложение с WinForms на другую UI-архитектуру.
-- Не заменять JSON как основное хранилище.
-- Не сводить Excel-логику к `JsonStorageService`.
-- Не менять путь иконки без отдельной packaging-причины; текущая договорённость — `resources/app.ico`.
-- Считать пустой цех и технический wrapper root без детей эквивалентными при сохранении и dirty-check.
-- Не считать UI-поведение подтверждённым, пока не выполнен реальный ручной Windows smoke-test.
+- Не менять `LevelIndex` и не переписывать model/workflow-логику добавления узлов: проблема была не в структуре данных.
+- Не ломать семантику `Добавить сюда` для выбранного узла: если узел выбран, команда по-прежнему добавляет дочерний объект.
+- Считать корректной модель, где пользовательский "уровень 2" для отделений соответствует `LevelIndex = 1`, потому что `LevelIndex = 0` занят скрытым корнем цеха.
+- Не оставлять дублирующие статусные индикаторы сверху: файл/состояние/цех показываются только внизу.
+- Не возвращать фото-превью без отдельного запроса: текущий UX-выбор — убрать пустую правую панель совсем.
 
 # Files already relevant to the task
 
-- `README.md`
-- `docs/codex-handoff.md`
-- `summary.md`
-- `AGENTS.md`
-- `.github/workflows/windows-build.yml`
-- `Services/KnowledgeBaseDataService.cs`
-- `Services/KnowledgeBaseSessionService.cs`
-- `Forms/MainForm.cs`
 - `Forms/MainForm.Events.cs`
 - `Forms/MainForm.Layout.cs`
-- `UiServices/KnowledgeBaseTreeViewService.cs`
+- `Forms/MainForm.NodeDetails.cs`
+- `Forms/MainForm.cs`
 - `UiServices/KnowledgeBaseTreeMutationUiWorkflowService.cs`
-- `Services/KnowledgeBaseTreeSearchService.cs`
-- `Services/KnowledgeBaseWindowLayoutStateService.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseTreeSearchServiceTests.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseSessionServiceTests.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseSessionWorkflowServiceTests.cs`
+- `UiServices/KnowledgeBaseTreeViewService.cs`
+- `Services/KnowledgeBaseWorkshopTreeProjection.cs`
+- `Services/KnowledgeBaseTreeMutationWorkflowService.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseTreeMutationWorkflowServiceTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseWorkshopTreeProjectionTests.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseWindowLayoutStateServiceTests.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseExcelExchangeServiceTests.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseFileWorkflowServiceTests.cs`
 
-# Validation already available in repo
+# Validation performed in this session
 
-- CI workflow `.github/workflows/windows-build.yml` на Windows делает:
-  - `dotnet restore` для app и tests
-  - `dotnet format --verify-no-changes --severity error`
-  - `dotnet build`
-  - `dotnet test`
-  - `dotnet publish` для `win-x64` на `push` в `icon` и на `workflow_dispatch`
-- В этой сессии фактически выполнено:
-  - `dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore`
-  - `dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore`
-- Наблюдаемые результаты:
-  - `dotnet test`: passed, `119/119`
-  - `dotnet build`: passed при последовательном запуске
-  - `build`/`test` по-прежнему выводят существующие analyzer warnings
-  - `NU1900` warnings по vulnerability metadata возникают из-за недоступности `https://api.nuget.org/v3/index.json`, но сами `build` и `test` завершаются
-- Ручной WinForms smoke-test в этой сессии не выполнялся.
+Фактически выполнено:
+
+- `/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore`
+- `/Users/home/.dotnet/dotnet build asutpKB.csproj --configuration Release --no-restore`
+
+Observed results:
+
+- core test suite: success, `114` passed, `0` failed
+- root WinForms build: success
+- build/test по-прежнему содержат существующие analyzer warnings, но новых compile/runtime blockers после UI-правок не появилось
 
 # Known risks / open questions
 
-- Следующая продуктовая задача пока не выбрана.
-- Нет ручного Windows smoke-test для нового сценария пустого/нового цеха, а также для недавних UI-изменений в дереве, статус-баре и layout правой панели.
-- Поиск в UI по-прежнему описан как поиск по имени, пути и уровню, но реализованный сервис всё ещё ищет только по имени узла.
-- Нет автоматизированной WinForms UI-проверки для click selection, right-click selection, drag-and-drop и layout behavior.
+- Не было ручного WinForms smoke-test на реальном Windows UI, поэтому поведение клика по пустому месту, правого клика и новой растяжки карточки без preview-колонки подтверждено пока только кодом и сборкой.
+- Контекстное меню всё ещё называется `Добавить сюда`; технически теперь root-level добавление снова возможно, но UX формулировки может оставаться неочевидным для пользователя.
+- Не проверялся отдельный сценарий редактирования дерева при нестандартных legacy-данных без hidden wrapper.
+- Не проверялось визуально, достаточно ли нижнего status bar без верхних индикаторов при длинных путях к файлу и длинных названиях цехов.
 
 # Recommended next step
 
-- Выбрать следующую продуктовую задачу на ветке `icon`.
-- Наиболее естественные кандидаты:
-  - ручной Windows smoke-test сценария пустого/нового цеха и недавних UI-изменений
-  - устранение несоответствия между текстом поиска в UI и фактическим поведением сервиса поиска
+- На Windows открыть форму и проверить четыре сценария:
+  - клик по пустому месту дерева -> `Добавить сюда` / `Insert` создаёт новое отделение верхнего видимого уровня
+  - правый клик по конкретному узлу сначала выбирает этот узел, затем команды контекстного меню применяются к нему, а не к старому selection
+- убедиться, что карточка объекта корректно растягивается на всю правую часть без пустой правой панели
+- убедиться, что нижняя строка состояния остаётся читаемой без часов и без верхних дублирующих индикаторов
+- Если UX всё ещё кажется неочевидным, следующим минимальным шагом будет разнести команды на `Добавить дочерний объект` и `Добавить отделение`.
 
 # Commands to run before finishing future implementation work
 
 ```bash
 git status --short
-dotnet restore asutpKB.csproj
-dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj
-dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
-dotnet format src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
-dotnet format tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
-dotnet build asutpKB.csproj --configuration Release --no-restore
-dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore
+/Users/home/.dotnet/dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore
+/Users/home/.dotnet/dotnet build asutpKB.csproj --configuration Release --no-restore
 ```

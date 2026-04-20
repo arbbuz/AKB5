@@ -68,39 +68,6 @@ public class KnowledgeBaseSessionWorkflowServiceTests
     }
 
     [Fact]
-    public void SelectWorkshop_WhenTargetWorkshopIsEmpty_ReturnsTechnicalWrapperRoot()
-    {
-        var session = new KnowledgeBaseSessionService();
-        session.ApplyLoadedData(
-            new SavedData
-            {
-                SchemaVersion = SavedData.CurrentSchemaVersion,
-                Config = new KbConfig
-                {
-                    MaxLevels = 3,
-                    LevelNames = new List<string> { "Цех", "Отделение", "Оборудование" }
-                },
-                Workshops = new Dictionary<string, List<KbNode>>
-                {
-                    ["Цех 1"] = new List<KbNode> { new() { Name = "Линия 1", LevelIndex = 0 } },
-                    ["Цех 2"] = new List<KbNode>()
-                },
-                LastWorkshop = "Цех 1"
-            },
-            recordAsSavedState: true);
-        var workflow = new KnowledgeBaseSessionWorkflowService(session);
-
-        var result = workflow.SelectWorkshop("Цех 2", session.GetCurrentWorkshopNodes());
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal("Цех 2", result.ViewState.CurrentWorkshop);
-        var wrapperRoot = Assert.Single(result.ViewState.CurrentRoots);
-        Assert.Equal("Цех 2", wrapperRoot.Name);
-        Assert.Equal(0, wrapperRoot.LevelIndex);
-        Assert.Empty(wrapperRoot.Children);
-    }
-
-    [Fact]
     public void AddWorkshop_RejectsDuplicateNames()
     {
         var session = new KnowledgeBaseSessionService();
@@ -127,10 +94,6 @@ public class KnowledgeBaseSessionWorkflowServiceTests
         Assert.Equal("Новый цех", session.CurrentWorkshop);
         Assert.Contains("Новый цех", result.ViewState.WorkshopNames);
         Assert.Equal("Новый цех", result.ViewState.CurrentWorkshop);
-        var wrapperRoot = Assert.Single(result.ViewState.CurrentRoots);
-        Assert.Equal("Новый цех", wrapperRoot.Name);
-        Assert.Equal(0, wrapperRoot.LevelIndex);
-        Assert.Empty(wrapperRoot.Children);
     }
 
     private static SavedData CreateSampleData(string lastWorkshop) =>

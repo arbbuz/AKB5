@@ -149,33 +149,5 @@ public class KnowledgeBaseSessionServiceTests
         Assert.True(session.TryAddWorkshop("Новый цех", new List<KbNode>()));
         Assert.Equal("Новый цех", session.CurrentWorkshop);
         Assert.True(session.Workshops.ContainsKey("Новый цех"));
-        var wrapperRoot = Assert.Single(session.Workshops["Новый цех"]);
-        Assert.Equal("Новый цех", wrapperRoot.Name);
-        Assert.Equal(0, wrapperRoot.LevelIndex);
-        Assert.Empty(wrapperRoot.Children);
-    }
-
-    [Fact]
-    public void GetCurrentWorkshopNodes_WhenWorkshopIsEmpty_CreatesTechnicalWrapperRoot()
-    {
-        var session = new KnowledgeBaseSessionService();
-        session.ApplyLoadedData(
-            new SavedData
-            {
-                Workshops = new Dictionary<string, List<KbNode>>
-                {
-                    ["Цех 1"] = new()
-                },
-                LastWorkshop = "Цех 1"
-            },
-            recordAsSavedState: true);
-
-        var roots = session.GetCurrentWorkshopNodes();
-
-        var wrapperRoot = Assert.Single(roots);
-        Assert.Equal("Цех 1", wrapperRoot.Name);
-        Assert.Equal(0, wrapperRoot.LevelIndex);
-        Assert.Empty(wrapperRoot.Children);
-        Assert.Same(wrapperRoot, session.Workshops["Цех 1"].Single());
     }
 }

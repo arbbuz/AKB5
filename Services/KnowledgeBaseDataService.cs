@@ -36,15 +36,6 @@ namespace AsutpKnowledgeBase.Services
                 LastWorkshop = "Новый цех"
             };
 
-        public static KbNode CreateTechnicalWorkshopRoot(string workshopName) =>
-            new()
-            {
-                Name = NormalizeWorkshopName(workshopName),
-                LevelIndex = 0,
-                Details = new KbNodeDetails(),
-                Children = new List<KbNode>()
-            };
-
         public static string NormalizeWorkshopName(string? workshopName) =>
             workshopName?.Trim() ?? string.Empty;
 
@@ -183,41 +174,20 @@ namespace AsutpKnowledgeBase.Services
             string currentWorkshop,
             bool includeCurrentWorkshop)
         {
-            var persistedWorkshops = CreatePersistedWorkshopSnapshot(workshops);
             var data = new SavedData
             {
                 Config = config,
-                Workshops = persistedWorkshops,
+                Workshops = workshops,
                 LastWorkshop = includeCurrentWorkshop ? currentWorkshop : string.Empty
             };
 
             return JsonSerializer.Serialize(data, SnapshotOptions);
         }
 
-        public static Dictionary<string, List<KbNode>> CreatePersistedWorkshopSnapshot(
-            Dictionary<string, List<KbNode>> workshops)
-        {
-            var persistedWorkshops = new Dictionary<string, List<KbNode>>(WorkshopNameComparer);
-
-            foreach (var pair in workshops)
-                persistedWorkshops[pair.Key] = CreatePersistedWorkshopRoots(pair.Key, pair.Value);
-
-            return persistedWorkshops;
-        }
-
         private static void NormalizeNodes(IEnumerable<KbNode> nodes)
         {
             foreach (var node in nodes)
                 NormalizeNode(node);
-        }
-
-        private static List<KbNode> CreatePersistedWorkshopRoots(string workshopName, List<KbNode>? roots)
-        {
-            var normalizedRoots = roots ?? new List<KbNode>();
-            if (normalizedRoots.Count == 1 && IsEmptyTechnicalWorkshopRoot(workshopName, normalizedRoots[0]))
-                return new List<KbNode>();
-
-            return normalizedRoots;
         }
 
         private static void NormalizeNode(KbNode node)
@@ -227,20 +197,6 @@ namespace AsutpKnowledgeBase.Services
             node.Children ??= new List<KbNode>();
             NormalizeNodes(node.Children);
         }
-
-        private static bool IsEmptyTechnicalWorkshopRoot(string workshopName, KbNode node) =>
-            node.LevelIndex == 0 &&
-            WorkshopNamesEqual(node.Name, workshopName) &&
-            node.Children.Count == 0 &&
-            IsDetailsEmpty(node.Details);
-
-        private static bool IsDetailsEmpty(KbNodeDetails? details) =>
-            details == null ||
-            (string.IsNullOrWhiteSpace(details.Description) &&
-             string.IsNullOrWhiteSpace(details.Location) &&
-             string.IsNullOrWhiteSpace(details.PhotoPath) &&
-             string.IsNullOrWhiteSpace(details.IpAddress) &&
-             string.IsNullOrWhiteSpace(details.SchemaLink));
 
         private static KbNodeDetails NormalizeDetails(KbNodeDetails? details, int levelIndex) =>
             new()

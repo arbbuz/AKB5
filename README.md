@@ -11,22 +11,12 @@
 - `Workshops`
 - `LastWorkshop`
 
-У каждого узла дерева есть вложенная карточка `Details` с полями:
+У каждого узла дерева теперь есть вложенная карточка `Details` с полями:
 
 - общие для всех узлов: `Description`, `Location`, `PhotoPath`
 - технические для уровней `2+`: `IpAddress`, `SchemaLink`
 
-Excel используется как отдельный редактируемый exchange-формат для выгрузки, ручной правки и обратного импорта.
-
-## Текущее состояние приложения
-
-- JSON остаётся основным хранилищем, Excel не подменяет его.
-- Поддерживаемый Excel-контракт сейчас только один: workbook `v3`.
-- Источник иконки приложения — `resources/app.ico`.
-- `AppIconProvider` назначает иконку окнам во время выполнения из `AppContext.BaseDirectory\resources\app.ico`.
-- Ширина splitter теперь хранится отдельно для каждого цеха в `%LocalAppData%\AKB5\window-layout-state.json`.
-- Состояние splitter вынесено из доменного JSON и не должно влиять на dirty/save prompts.
-- Технический hidden wrapper root цеха может оставаться в модели на `LevelIndex = 0`, а UI показывает его детей как видимые корни.
+Excel нужен как редактируемый exchange-формат для выгрузки, ручной правки и обратного импорта.
 
 ## Структура репозитория
 
@@ -112,10 +102,10 @@ dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:Pub
 
 Automation сейчас работает так:
 
-- `push` в `icon` запускает `build-and-test` и `publish-win-x64`
 - `pull_request` запускает только `build-and-test`
+- `push` в `development/main` запускает `build-and-test` и `publish-win-x64`
 - ручной запуск через `workflow_dispatch` тоже собирает publish artifact
-- job `build-and-test` валидирует форматирование через `dotnet format --verify-no-changes --severity error` до `dotnet build` и `dotnet test`
+- job `build-and-test` теперь дополнительно валидирует форматирование и базовый code style через `dotnet format` + root `.editorconfig` до `dotnet build` и `dotnet test`
 
 Детали по deployment и CI artifact собраны в [docs/deployment.md](./docs/deployment.md).
 
@@ -126,9 +116,9 @@ Automation сейчас работает так:
 ```bash
 dotnet restore asutpKB.csproj
 dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj
-dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
-dotnet format src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
-dotnet format tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
+dotnet format asutpKB.csproj --verify-no-changes --severity warn --no-restore
+dotnet format src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity warn --no-restore
+dotnet format tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity warn --no-restore
 dotnet build asutpKB.csproj -c Release --no-restore
 dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-restore
 dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/publish/win-x64
@@ -142,7 +132,6 @@ Lint baseline намеренно минимальный:
 
 ## AI Handoff
 
-- короткий summary для нового диалога: [summary.md](./summary.md)
 - persistent guide для новой AI-сессии: [AGENTS.md](./AGENTS.md)
 - текущее состояние задачи: [docs/codex-handoff.md](./docs/codex-handoff.md)
 - reusable стартовый prompt для чистого диалога: [docs/codex-start-prompt.md](./docs/codex-start-prompt.md)

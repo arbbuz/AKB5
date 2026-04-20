@@ -54,7 +54,7 @@ namespace AsutpKnowledgeBase.Services
             return new SavedData
             {
                 Config = Config,
-                Workshops = KnowledgeBaseDataService.CreatePersistedWorkshopSnapshot(Workshops),
+                Workshops = Workshops,
                 LastWorkshop = CurrentWorkshop
             };
         }
@@ -95,13 +95,9 @@ namespace AsutpKnowledgeBase.Services
             if (string.IsNullOrWhiteSpace(CurrentWorkshop) || !Workshops.ContainsKey(CurrentWorkshop))
                 CurrentWorkshop = KnowledgeBaseDataService.ResolveWorkshop(Workshops, null);
 
-            if (!Workshops.TryGetValue(CurrentWorkshop, out var nodes))
-                return new List<KbNode>();
-
-            if (nodes.Count == 0 && !string.IsNullOrWhiteSpace(CurrentWorkshop))
-                nodes.Add(KnowledgeBaseDataService.CreateTechnicalWorkshopRoot(CurrentWorkshop));
-
-            return nodes;
+            return Workshops.TryGetValue(CurrentWorkshop, out var nodes)
+                ? nodes
+                : new List<KbNode>();
         }
 
         public bool TrySelectWorkshop(string selectedWorkshop, List<KbNode> currentWorkshopRoots)
@@ -131,10 +127,7 @@ namespace AsutpKnowledgeBase.Services
                 return false;
 
             SyncCurrentWorkshop(currentWorkshopRoots);
-            Workshops[normalizedWorkshop] = new List<KbNode>
-            {
-                KnowledgeBaseDataService.CreateTechnicalWorkshopRoot(normalizedWorkshop)
-            };
+            Workshops[normalizedWorkshop] = new List<KbNode>();
             CurrentWorkshop = normalizedWorkshop;
             return true;
         }

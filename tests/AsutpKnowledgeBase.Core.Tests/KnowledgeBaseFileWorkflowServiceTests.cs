@@ -23,19 +23,12 @@ public class KnowledgeBaseFileWorkflowServiceTests
             Assert.NotNull(result.ViewState);
             Assert.Equal("Новый цех", result.ViewState!.CurrentWorkshop);
             Assert.Equal(new[] { "Новый цех" }, result.ViewState.WorkshopNames);
-            var wrapperRoot = Assert.Single(result.ViewState.CurrentRoots);
-            Assert.Equal("Новый цех", wrapperRoot.Name);
-            Assert.Equal(0, wrapperRoot.LevelIndex);
-            Assert.Empty(wrapperRoot.Children);
+            Assert.Empty(result.ViewState.CurrentRoots);
             Assert.True(File.Exists(path));
             Assert.Equal("Новый цех", session.CurrentWorkshop);
             Assert.Equal("Новый цех", session.LastSavedWorkshop);
             Assert.False(session.IsDirty);
             Assert.False(session.RequiresSave);
-
-            var saved = JsonSerializer.Deserialize<SavedData>(File.ReadAllText(path));
-            Assert.NotNull(saved);
-            Assert.Empty(saved!.Workshops["Новый цех"]);
         }
         finally
         {
