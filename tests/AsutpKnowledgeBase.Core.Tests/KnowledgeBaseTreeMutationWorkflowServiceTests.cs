@@ -6,27 +6,31 @@ namespace AsutpKnowledgeBase.Core.Tests;
 public class KnowledgeBaseTreeMutationWorkflowServiceTests
 {
     [Fact]
-    public void AddNode_WhenSuccessful_PushesUndoSnapshotAndReturnsCreatedNodeWithCurrentViewState()
+    public void AddNode_WhenDefaultWorkshopIsEmpty_AddsFirstVisibleChildUnderTechnicalWorkshopRoot()
     {
         var session = CreateSessionWithDefaultData();
         var history = new UndoRedoService();
         var controller = new KnowledgeBaseTreeController(session);
         var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
         var workflow = new KnowledgeBaseTreeMutationWorkflowService(session, sessionWorkflow, controller, history);
+        var workshopRoot = Assert.Single(session.GetCurrentWorkshopNodes());
 
         var result = workflow.AddNode(
             session.CurrentWorkshop,
-            parentNode: null,
+            parentNode: workshopRoot,
             nodeName: "  Линия 1  ",
             currentRoots: session.GetCurrentWorkshopNodes());
 
         Assert.True(result.IsSuccess);
         Assert.True(workflow.CanUndo);
         Assert.Equal("Линия 1", result.AffectedNode!.Name);
-        Assert.Single(session.GetCurrentWorkshopNodes());
+        Assert.Equal(1, result.AffectedNode.LevelIndex);
+        var persistedWorkshopRoot = Assert.Single(session.GetCurrentWorkshopNodes());
+        var addedNode = Assert.Single(persistedWorkshopRoot.Children);
+        Assert.Same(result.AffectedNode, addedNode);
         Assert.Equal(session.CurrentWorkshop, result.ViewState.CurrentWorkshop);
         Assert.Same(session.GetCurrentWorkshopNodes(), result.ViewState.CurrentRoots);
-        Assert.Same(result.AffectedNode, result.ViewState.CurrentRoots[0]);
+        Assert.Same(persistedWorkshopRoot, result.ViewState.CurrentRoots[0]);
     }
 
     [Fact]
