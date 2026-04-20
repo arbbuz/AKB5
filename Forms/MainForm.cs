@@ -38,6 +38,8 @@ namespace AsutpKnowledgeBase
         private ToolStripButton btnSave = null!;
         private ToolStripMenuItem menuFile = null!;
         private ToolStripMenuItem menuNewWorkshop = null!;
+        private ToolStripMenuItem menuRenameWorkshop = null!;
+        private ToolStripMenuItem menuDeleteWorkshop = null!;
 
         private SplitContainer splitMain = null!;
         private TableLayoutPanel tblDetailsLeftColumn = null!;
@@ -200,6 +202,8 @@ namespace AsutpKnowledgeBase
             ctxDelete.Enabled = hasSelection;
             ctxAdd.Enabled = _treeMutationWorkflowService.CanAddNode(effectiveAddParent);
             ctxPaste.Enabled = hasSelection && _treeMutationWorkflowService.CanPasteNode(selectedNode!);
+            menuRenameWorkshop.Enabled = !string.IsNullOrWhiteSpace(_currentWorkshop);
+            menuDeleteWorkshop.Enabled = !string.IsNullOrWhiteSpace(_currentWorkshop) && _session.Workshops.Count > 1;
 
             btnSave.ToolTipText = formState.SaveToolTip;
             Text = formState.WindowTitle;
@@ -260,6 +264,32 @@ namespace AsutpKnowledgeBase
             }
 
             _splitterDistancesByContext[contextKey] = splitMain.SplitterDistance;
+            _windowLayoutStateService.SaveSplitterDistancesByWorkshop(_splitterDistancesByContext);
+        }
+
+        private void RenameWorkshopSplitterDistance(string oldWorkshop, string newWorkshop)
+        {
+            string oldKey = oldWorkshop.Trim();
+            string newKey = newWorkshop.Trim();
+            if (string.IsNullOrWhiteSpace(oldKey) || string.IsNullOrWhiteSpace(newKey))
+                return;
+
+            if (!_splitterDistancesByContext.Remove(oldKey, out int splitterDistance))
+                return;
+
+            _splitterDistancesByContext[newKey] = splitterDistance;
+            _windowLayoutStateService.SaveSplitterDistancesByWorkshop(_splitterDistancesByContext);
+        }
+
+        private void RemoveWorkshopSplitterDistance(string workshop)
+        {
+            string key = workshop.Trim();
+            if (string.IsNullOrWhiteSpace(key))
+                return;
+
+            if (!_splitterDistancesByContext.Remove(key))
+                return;
+
             _windowLayoutStateService.SaveSplitterDistancesByWorkshop(_splitterDistancesByContext);
         }
 

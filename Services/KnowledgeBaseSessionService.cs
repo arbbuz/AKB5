@@ -139,9 +139,90 @@ namespace AsutpKnowledgeBase.Services
             return true;
         }
 
+        public bool TryRenameCurrentWorkshop(string workshopName, List<KbNode> currentWorkshopRoots)
+        {
+            string? resolvedCurrentWorkshop = KnowledgeBaseDataService.FindWorkshopName(Workshops.Keys, CurrentWorkshop);
+            string normalizedWorkshop = KnowledgeBaseDataService.NormalizeWorkshopName(workshopName);
+            if (string.IsNullOrWhiteSpace(resolvedCurrentWorkshop) || string.IsNullOrWhiteSpace(normalizedWorkshop))
+                return false;
+
+            string? existingWorkshop = KnowledgeBaseDataService.FindWorkshopName(Workshops.Keys, normalizedWorkshop);
+            if (!string.IsNullOrWhiteSpace(existingWorkshop) &&
+                !KnowledgeBaseDataService.WorkshopNamesEqual(existingWorkshop, resolvedCurrentWorkshop))
+            {
+                return false;
+            }
+
+            SyncCurrentWorkshop(currentWorkshopRoots);
+            if (!Workshops.TryGetValue(resolvedCurrentWorkshop, out var roots))
+                return false;
+
+            RenameTechnicalWrapperIfNeeded(resolvedCurrentWorkshop, normalizedWorkshop, roots);
+            Workshops = ReplaceWorkshopKey(resolvedCurrentWorkshop, normalizedWorkshop);
+            CurrentWorkshop = normalizedWorkshop;
+            return true;
+        }
+
+        public bool TryDeleteCurrentWorkshop(List<KbNode> currentWorkshopRoots)
+        {
+            string? resolvedCurrentWorkshop = KnowledgeBaseDataService.FindWorkshopName(Workshops.Keys, CurrentWorkshop);
+            if (string.IsNullOrWhiteSpace(resolvedCurrentWorkshop) || Workshops.Count <= 1)
+                return false;
+
+            SyncCurrentWorkshop(currentWorkshopRoots);
+
+            var remainingWorkshops = new Dictionary<string, List<KbNode>>(KnowledgeBaseDataService.WorkshopNameComparer);
+            foreach (var pair in Workshops)
+            {
+                if (KnowledgeBaseDataService.WorkshopNamesEqual(pair.Key, resolvedCurrentWorkshop))
+                    continue;
+
+                remainingWorkshops[pair.Key] = pair.Value;
+            }
+
+            if (remainingWorkshops.Count == 0)
+                return false;
+
+            Workshops = remainingWorkshops;
+            CurrentWorkshop = KnowledgeBaseDataService.ResolveWorkshop(Workshops, preferredWorkshop: null);
+            return true;
+        }
+
         public void UpdateConfig(KbConfig config) => Config = config;
 
         public void SetRequiresSave(bool requiresSave) => RequiresSave = requiresSave;
+
+        private Dictionary<string, List<KbNode>> ReplaceWorkshopKey(string existingWorkshop, string renamedWorkshop)
+        {
+            var renamedWorkshops = new Dictionary<string, List<KbNode>>(KnowledgeBaseDataService.WorkshopNameComparer);
+            foreach (var pair in Workshops)
+            {
+                if (KnowledgeBaseDataService.WorkshopNamesEqual(pair.Key, existingWorkshop))
+                    renamedWorkshops[renamedWorkshop] = pair.Value;
+                else
+                    renamedWorkshops[pair.Key] = pair.Value;
+            }
+
+            return renamedWorkshops;
+        }
+
+        private static void RenameTechnicalWrapperIfNeeded(
+            string currentWorkshop,
+            string renamedWorkshop,
+            List<KbNode> roots)
+        {
+            if (roots.Count != 1)
+                return;
+
+            var root = roots[0];
+            if (root.LevelIndex != 0)
+                return;
+
+            if (!KnowledgeBaseDataService.WorkshopNamesEqual(root.Name, currentWorkshop))
+                return;
+
+            root.Name = renamedWorkshop;
+        }
 
         private void ReindexAllWorkshops()
         {

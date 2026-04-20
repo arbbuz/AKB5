@@ -100,6 +100,91 @@ public class KnowledgeBaseSessionWorkflowServiceTests
         Assert.Same(root, Assert.Single(result.ViewState.CurrentRoots));
     }
 
+    [Fact]
+    public void RenameCurrentWorkshop_RenamesSelectedWorkshopAndReturnsUpdatedViewState()
+    {
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(
+            new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = new KbConfig
+                {
+                    MaxLevels = 3,
+                    LevelNames = new List<string> { "Цех", "Отделение", "Оборудование" }
+                },
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех 1"] = new List<KbNode>
+                    {
+                        new()
+                        {
+                            Name = "Цех 1",
+                            LevelIndex = 0,
+                            Children = { new KbNode { Name = "Отделение 1", LevelIndex = 1 } }
+                        }
+                    },
+                    ["Цех 2"] = new List<KbNode>()
+                },
+                LastWorkshop = "Цех 1"
+            },
+            recordAsSavedState: true);
+        var workflow = new KnowledgeBaseSessionWorkflowService(session);
+
+        var result = workflow.RenameCurrentWorkshop("Переименованный цех", session.GetCurrentWorkshopNodes());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Переименованный цех", session.CurrentWorkshop);
+        Assert.Equal("Переименованный цех", result.ViewState.CurrentWorkshop);
+        Assert.Contains("Переименованный цех", result.ViewState.WorkshopNames);
+        var root = Assert.Single(result.ViewState.CurrentRoots);
+        Assert.Equal("Переименованный цех", root.Name);
+    }
+
+    [Fact]
+    public void DeleteCurrentWorkshop_RemovesSelectedWorkshopAndReturnsNextWorkshop()
+    {
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(CreateSampleData(lastWorkshop: "Цех 1"), recordAsSavedState: true);
+        var workflow = new KnowledgeBaseSessionWorkflowService(session);
+
+        var result = workflow.DeleteCurrentWorkshop(session.GetCurrentWorkshopNodes());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Цех 2", session.CurrentWorkshop);
+        Assert.Equal("Цех 2", result.ViewState.CurrentWorkshop);
+        Assert.DoesNotContain("Цех 1", result.ViewState.WorkshopNames);
+    }
+
+    [Fact]
+    public void DeleteCurrentWorkshop_RejectsDeletingLastWorkshop()
+    {
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(
+            new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = new KbConfig
+                {
+                    MaxLevels = 2,
+                    LevelNames = new List<string> { "Цех", "Отделение" }
+                },
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех 1"] = new List<KbNode>()
+                },
+                LastWorkshop = "Цех 1"
+            },
+            recordAsSavedState: true);
+        var workflow = new KnowledgeBaseSessionWorkflowService(session);
+
+        var result = workflow.DeleteCurrentWorkshop(session.GetCurrentWorkshopNodes());
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(KnowledgeBaseSessionTransitionFailure.TransitionRejected, result.Failure);
+        Assert.Equal("Нельзя удалить последний цех.", result.ErrorMessage);
+    }
+
     private static SavedData CreateSampleData(string lastWorkshop) =>
         new()
         {

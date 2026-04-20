@@ -181,6 +181,12 @@ namespace AsutpKnowledgeBase
         private void BtnAddWorkshop_Click(object? sender, EventArgs e)
             => _workshopUiWorkflowService.AddWorkshop(CreateWorkshopUiWorkflowContext());
 
+        private void BtnDeleteWorkshop_Click(object? sender, EventArgs e)
+            => _workshopUiWorkflowService.DeleteCurrentWorkshop(CreateWorkshopUiWorkflowContext());
+
+        private void BtnRenameWorkshop_Click(object? sender, EventArgs e)
+            => _workshopUiWorkflowService.RenameCurrentWorkshop(CreateWorkshopUiWorkflowContext());
+
         private void BtnSetup_Click(object? sender, EventArgs e)
             => _workshopUiWorkflowService.ConfigureLevels(CreateWorkshopUiWorkflowContext());
 

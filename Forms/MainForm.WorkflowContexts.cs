@@ -33,6 +33,8 @@ namespace AsutpKnowledgeBase
                 GetPersistedTreeData = GetPersistedTreeData,
                 ApplySessionView = viewState => ApplySessionView(viewState, clearSearch: false),
                 RefreshSearchAfterMutation = RefreshSearchAfterMutation,
+                RenameWorkshopLayoutState = RenameWorkshopSplitterDistance,
+                RemoveWorkshopLayoutState = RemoveWorkshopSplitterDistance,
                 UpdateDirtyState = UpdateDirtyState,
                 UpdateUi = () => UpdateUI(),
                 SetStatusText = SetLastActionText

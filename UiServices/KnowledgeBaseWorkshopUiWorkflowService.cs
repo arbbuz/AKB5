@@ -13,6 +13,10 @@ namespace AsutpKnowledgeBase.UiServices
 
         public Action RefreshSearchAfterMutation { get; init; } = null!;
 
+        public Action<string, string> RenameWorkshopLayoutState { get; init; } = (_, _) => { };
+
+        public Action<string> RemoveWorkshopLayoutState { get; init; } = _ => { };
+
         public Action UpdateDirtyState { get; init; } = null!;
 
         public Action UpdateUi { get; init; } = null!;
@@ -22,7 +26,7 @@ namespace AsutpKnowledgeBase.UiServices
 
     /// <summary>
     /// Координирует WinForms-специфичные screen-level сценарии
-    /// по переключению/добавлению цехов и настройке уровней.
+    /// по переключению/добавлению/переименованию/удалению цехов и настройке уровней.
     /// </summary>
     public class KnowledgeBaseWorkshopUiWorkflowService
     {
@@ -73,16 +77,7 @@ namespace AsutpKnowledgeBase.UiServices
 
             if (!addResult.IsSuccess)
             {
-                if (!string.IsNullOrWhiteSpace(addResult.ErrorMessage))
-                {
-                    MessageBox.Show(
-                        context.Owner,
-                        addResult.ErrorMessage,
-                        "Ошибка",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
-                }
-
+                ShowWorkshopFailure(context.Owner, addResult, "Ошибка");
                 return;
             }
 
@@ -92,6 +87,96 @@ namespace AsutpKnowledgeBase.UiServices
             context.UpdateDirtyState();
             context.UpdateUi();
             context.SetStatusText($"🏭 Добавлен цех: {addResult.ViewState.CurrentWorkshop}");
+        }
+
+        public void RenameCurrentWorkshop(KnowledgeBaseWorkshopUiWorkflowContext context)
+        {
+            string currentWorkshop = _session.CurrentWorkshop;
+            if (string.IsNullOrWhiteSpace(currentWorkshop))
+            {
+                MessageBox.Show(
+                    context.Owner,
+                    "Нет выбранного цеха для переименования.",
+                    "Внимание",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            using var dialog = new InputDialog("Введите новое название цеха:", currentWorkshop);
+            if (dialog.ShowDialog(context.Owner) != DialogResult.OK || string.IsNullOrWhiteSpace(dialog.Result))
+                return;
+
+            string normalizedWorkshop = dialog.Result.Trim();
+            if (MessageBox.Show(
+                    context.Owner,
+                    $"Переименовать цех '{currentWorkshop}' в '{normalizedWorkshop}'?",
+                    "Подтверждение",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question) != DialogResult.Yes)
+            {
+                return;
+            }
+
+            var currentRoots = context.GetPersistedTreeData();
+            string historySnapshot = _session.SerializeSnapshot(currentRoots, includeCurrentWorkshop: true);
+            var renameResult = _sessionWorkflowService.RenameCurrentWorkshop(normalizedWorkshop, currentRoots);
+            if (!renameResult.IsSuccess)
+            {
+                ShowWorkshopFailure(context.Owner, renameResult, "Переименование цеха");
+                return;
+            }
+
+            _history.SaveState(historySnapshot);
+            context.RenameWorkshopLayoutState(currentWorkshop, renameResult.ViewState.CurrentWorkshop);
+            context.ApplySessionView(renameResult.ViewState);
+            context.RefreshSearchAfterMutation();
+            context.UpdateDirtyState();
+            context.UpdateUi();
+            context.SetStatusText(
+                $"🏭 Цех переименован: {currentWorkshop} → {renameResult.ViewState.CurrentWorkshop}");
+        }
+
+        public void DeleteCurrentWorkshop(KnowledgeBaseWorkshopUiWorkflowContext context)
+        {
+            string currentWorkshop = _session.CurrentWorkshop;
+            if (string.IsNullOrWhiteSpace(currentWorkshop))
+            {
+                MessageBox.Show(
+                    context.Owner,
+                    "Нет выбранного цеха для удаления.",
+                    "Внимание",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (MessageBox.Show(
+                    context.Owner,
+                    $"Удалить цех '{currentWorkshop}' и все его объекты?",
+                    "Подтверждение",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning) != DialogResult.Yes)
+            {
+                return;
+            }
+
+            var currentRoots = context.GetPersistedTreeData();
+            string historySnapshot = _session.SerializeSnapshot(currentRoots, includeCurrentWorkshop: true);
+            var deleteResult = _sessionWorkflowService.DeleteCurrentWorkshop(currentRoots);
+            if (!deleteResult.IsSuccess)
+            {
+                ShowWorkshopFailure(context.Owner, deleteResult, "Удаление цеха");
+                return;
+            }
+
+            _history.SaveState(historySnapshot);
+            context.RemoveWorkshopLayoutState(currentWorkshop);
+            context.ApplySessionView(deleteResult.ViewState);
+            context.RefreshSearchAfterMutation();
+            context.UpdateDirtyState();
+            context.UpdateUi();
+            context.SetStatusText($"🗑 Удален цех: {currentWorkshop}");
         }
 
         public void ConfigureLevels(KnowledgeBaseWorkshopUiWorkflowContext context)
@@ -121,6 +206,22 @@ namespace AsutpKnowledgeBase.UiServices
             context.UpdateDirtyState();
             context.UpdateUi();
             context.SetStatusText($"💡 Уровни: {string.Join(" → ", _session.Config.LevelNames)}");
+        }
+
+        private static void ShowWorkshopFailure(
+            IWin32Window owner,
+            KnowledgeBaseSessionTransitionResult result,
+            string title)
+        {
+            if (string.IsNullOrWhiteSpace(result.ErrorMessage))
+                return;
+
+            MessageBox.Show(
+                owner,
+                result.ErrorMessage,
+                title,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
         }
     }
 }

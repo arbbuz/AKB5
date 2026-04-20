@@ -35,6 +35,8 @@ namespace AsutpKnowledgeBase
 
             menuFile = new ToolStripMenuItem("📁 Файл");
             menuNewWorkshop = new ToolStripMenuItem("🏭 Новый цех", null, BtnAddWorkshop_Click);
+            menuDeleteWorkshop = new ToolStripMenuItem("🗑 Удалить цех", null, BtnDeleteWorkshop_Click);
+            menuRenameWorkshop = new ToolStripMenuItem("✏️ Переименовать цех", null, BtnRenameWorkshop_Click);
             var menuSetupLevels = new ToolStripMenuItem("⚙️ Настроить уровни", null, BtnSetup_Click);
             var menuOpenDb = new ToolStripMenuItem("📂 Открыть базу...", null, BtnOpen_Click);
             var menuReloadDb = new ToolStripMenuItem("🔄 Обновить из файла", null, BtnLoad_Click);
@@ -45,6 +47,8 @@ namespace AsutpKnowledgeBase
             menuFile.DropDownItems.AddRange(new ToolStripItem[]
             {
                 menuNewWorkshop,
+                menuDeleteWorkshop,
+                menuRenameWorkshop,
                 menuSetupLevels,
                 new ToolStripSeparator(),
                 menuOpenDb,

@@ -133,6 +133,95 @@ namespace AsutpKnowledgeBase.Services
             return Success();
         }
 
+        public KnowledgeBaseSessionTransitionResult RenameCurrentWorkshop(
+            string workshopName,
+            List<KbNode> currentWorkshopRoots)
+        {
+            if (string.IsNullOrWhiteSpace(_session.CurrentWorkshop))
+            {
+                return new KnowledgeBaseSessionTransitionResult
+                {
+                    Failure = KnowledgeBaseSessionTransitionFailure.TransitionRejected,
+                    ErrorMessage = "Нет выбранного цеха для переименования."
+                };
+            }
+
+            if (string.IsNullOrWhiteSpace(workshopName))
+            {
+                return new KnowledgeBaseSessionTransitionResult
+                {
+                    Failure = KnowledgeBaseSessionTransitionFailure.InvalidWorkshopName,
+                    ErrorMessage = "Название цеха не должно быть пустым."
+                };
+            }
+
+            string normalizedWorkshop = workshopName.Trim();
+            if (string.Equals(_session.CurrentWorkshop, normalizedWorkshop, StringComparison.Ordinal))
+            {
+                return new KnowledgeBaseSessionTransitionResult
+                {
+                    Failure = KnowledgeBaseSessionTransitionFailure.TransitionRejected,
+                    ErrorMessage = "Название цеха не изменилось."
+                };
+            }
+
+            string? existingWorkshop = KnowledgeBaseDataService.FindWorkshopName(
+                _session.Workshops.Keys,
+                normalizedWorkshop);
+            if (!string.IsNullOrWhiteSpace(existingWorkshop) &&
+                !KnowledgeBaseDataService.WorkshopNamesEqual(existingWorkshop, _session.CurrentWorkshop))
+            {
+                return new KnowledgeBaseSessionTransitionResult
+                {
+                    Failure = KnowledgeBaseSessionTransitionFailure.DuplicateWorkshopName,
+                    ErrorMessage = "Цех с таким названием уже существует."
+                };
+            }
+
+            if (!_session.TryRenameCurrentWorkshop(normalizedWorkshop, currentWorkshopRoots))
+            {
+                return new KnowledgeBaseSessionTransitionResult
+                {
+                    Failure = KnowledgeBaseSessionTransitionFailure.TransitionRejected,
+                    ErrorMessage = "Не удалось переименовать выбранный цех."
+                };
+            }
+
+            return Success();
+        }
+
+        public KnowledgeBaseSessionTransitionResult DeleteCurrentWorkshop(List<KbNode> currentWorkshopRoots)
+        {
+            if (string.IsNullOrWhiteSpace(_session.CurrentWorkshop))
+            {
+                return new KnowledgeBaseSessionTransitionResult
+                {
+                    Failure = KnowledgeBaseSessionTransitionFailure.TransitionRejected,
+                    ErrorMessage = "Нет выбранного цеха для удаления."
+                };
+            }
+
+            if (_session.Workshops.Count <= 1)
+            {
+                return new KnowledgeBaseSessionTransitionResult
+                {
+                    Failure = KnowledgeBaseSessionTransitionFailure.TransitionRejected,
+                    ErrorMessage = "Нельзя удалить последний цех."
+                };
+            }
+
+            if (!_session.TryDeleteCurrentWorkshop(currentWorkshopRoots))
+            {
+                return new KnowledgeBaseSessionTransitionResult
+                {
+                    Failure = KnowledgeBaseSessionTransitionFailure.TransitionRejected,
+                    ErrorMessage = "Не удалось удалить выбранный цех."
+                };
+            }
+
+            return Success();
+        }
+
         private KnowledgeBaseSessionTransitionResult Success() =>
             new()
             {

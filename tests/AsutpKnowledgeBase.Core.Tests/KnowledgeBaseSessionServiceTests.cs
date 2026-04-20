@@ -153,4 +153,78 @@ public class KnowledgeBaseSessionServiceTests
         Assert.Equal("Новый цех", root.Name);
         Assert.Equal(0, root.LevelIndex);
     }
+
+    [Fact]
+    public void TryRenameCurrentWorkshop_RenamesWorkshopAndMatchingHiddenRoot()
+    {
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(
+            new SavedData
+            {
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех 1"] =
+                    [
+                        new KbNode
+                        {
+                            Name = "Цех 1",
+                            LevelIndex = 0,
+                            Children = { new KbNode { Name = "Отделение", LevelIndex = 1 } }
+                        }
+                    ],
+                    ["Цех 2"] = new()
+                },
+                LastWorkshop = "Цех 1"
+            },
+            recordAsSavedState: true);
+
+        Assert.True(session.TryRenameCurrentWorkshop("Новый цех", session.GetCurrentWorkshopNodes()));
+        Assert.Equal("Новый цех", session.CurrentWorkshop);
+        Assert.False(session.Workshops.ContainsKey("Цех 1"));
+        var wrapper = Assert.Single(session.Workshops["Новый цех"]);
+        Assert.Equal("Новый цех", wrapper.Name);
+        Assert.Equal("Отделение", wrapper.Children.Single().Name);
+    }
+
+    [Fact]
+    public void TryDeleteCurrentWorkshop_RemovesSelectedWorkshopAndSelectsRemaining()
+    {
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(
+            new SavedData
+            {
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех 1"] = new(),
+                    ["Цех 2"] = new()
+                },
+                LastWorkshop = "Цех 1"
+            },
+            recordAsSavedState: true);
+
+        Assert.True(session.TryDeleteCurrentWorkshop(session.GetCurrentWorkshopNodes()));
+        Assert.False(session.Workshops.ContainsKey("Цех 1"));
+        Assert.Equal("Цех 2", session.CurrentWorkshop);
+        Assert.Single(session.Workshops);
+    }
+
+    [Fact]
+    public void TryDeleteCurrentWorkshop_RejectsDeletingLastWorkshop()
+    {
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(
+            new SavedData
+            {
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех 1"] = new()
+                },
+                LastWorkshop = "Цех 1"
+            },
+            recordAsSavedState: true);
+
+        Assert.False(session.TryDeleteCurrentWorkshop(session.GetCurrentWorkshopNodes()));
+        Assert.True(session.Workshops.ContainsKey("Цех 1"));
+        Assert.Equal("Цех 1", session.CurrentWorkshop);
+    }
 }

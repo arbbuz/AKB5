@@ -26,6 +26,10 @@ Last updated: 2026-04-21
   - legacy or imported empty workshops still get a virtual hidden wrapper root so the first visible node can be added immediately
   - if a hidden wrapper is virtual and has no children, persisted snapshot collapses back to an empty root list
   - if a hidden wrapper is already persisted, it is preserved even when it has no children
+- The `Файл` menu now also supports workshop lifecycle operations:
+  - `Удалить цех` asks for confirmation and blocks deleting the last remaining workshop
+  - `Переименовать цех` asks for the new name and then for explicit confirmation
+  - both actions update the current session state, undo history and per-workshop splitter layout state
 
 ## Important Design Decisions
 
@@ -46,8 +50,14 @@ Last updated: 2026-04-21
 - `Forms/MainForm.cs`
 - `Forms/MainForm.Events.cs`
 - `Forms/MainForm.WorkflowContexts.cs`
+- `Forms/MainForm.Layout.cs`
+- `UiServices/KnowledgeBaseWorkshopUiWorkflowService.cs`
+- `Services/KnowledgeBaseSessionWorkflowService.cs`
+- `Services/KnowledgeBaseSessionService.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseWorkshopTreeProjectionTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseTreeMutationWorkflowServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseSessionServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseSessionWorkflowServiceTests.cs`
 - `docs/codex-handoff.md`
 
 ## Validation Actually Run
@@ -57,7 +67,7 @@ dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledg
 dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore
 ```
 
-- `dotnet test`: passed, `123/123`
+- `dotnet test`: passed, `129/129`
 - `dotnet build`: passed
 - Existing analyzer warnings remain
 - `NU1900` warnings remain because vulnerability metadata could not be fetched from NuGet in this environment
@@ -70,6 +80,7 @@ dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-rest
   - newly created workshop selection
   - legacy empty workshop selection
   - first visible top-level add
+  - rename/delete workshop flows from the `Файл` menu
   - rename/delete/move flows under a hidden wrapper root
 - Search UX text and actual implementation still do not match; this is unrelated and still open
 
@@ -80,4 +91,6 @@ Run a Windows smoke test on branch `icon` and verify:
 1. No visible workshop root is shown for workshops that use the technical wrapper
 2. A filled workshop opens directly at the department level
 3. An empty workshop allows adding the first visible department node directly
-4. Switching between workshops preserves each workshop tree correctly
+4. `Файл -> Переименовать цех` renames the selected workshop only after confirmation
+5. `Файл -> Удалить цех` deletes the selected workshop only after confirmation and is disabled for the last workshop
+6. Switching between workshops preserves each workshop tree correctly
