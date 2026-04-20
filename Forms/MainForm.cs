@@ -9,6 +9,10 @@ namespace AsutpKnowledgeBase
     /// </summary>
     public partial class MainForm : Form
     {
+        private const int DefaultSplitterDistance = 340;
+        private const int NavigationPanelMinSize = 260;
+        private const int DetailsPanelMinSize = 480;
+
         private readonly IAppLogger _appLogger;
         private readonly KnowledgeBaseSessionService _session = new();
         private readonly KnowledgeBaseExcelUiWorkflowService _excelUiWorkflowService;
@@ -21,6 +25,7 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseFormStateService _formStateService = new();
         private readonly KnowledgeBaseTreeViewService _treeViewService = new();
         private readonly UndoRedoService _history = new(50);
+        private readonly Dictionary<string, int> _splitterDistancesByContext = new(StringComparer.Ordinal);
 
         private bool _isBindingWorkshops;
         private bool _isApplyingSelectedNodeState;
@@ -222,7 +227,51 @@ namespace AsutpKnowledgeBase
 
         private void ApplyDeferredLayout()
         {
-            ApplySplitLayout(splitMain, panel1MinSize: 260, panel2MinSize: 480, desiredDistance: 340);
+            ApplySplitLayout(
+                splitMain,
+                panel1MinSize: NavigationPanelMinSize,
+                panel2MinSize: DetailsPanelMinSize,
+                desiredDistance: GetPreferredSplitterDistance());
+        }
+
+        private int GetPreferredSplitterDistance()
+        {
+            string? contextKey = GetCurrentSplitterContextKey();
+            if (contextKey != null && _splitterDistancesByContext.TryGetValue(contextKey, out int savedDistance))
+                return savedDistance;
+
+            return DefaultSplitterDistance;
+        }
+
+        private void SaveCurrentSplitterDistance()
+        {
+            string? contextKey = GetCurrentSplitterContextKey();
+            if (contextKey == null)
+                return;
+
+            _splitterDistancesByContext[contextKey] = splitMain.SplitterDistance;
+        }
+
+        private string? GetCurrentSplitterContextKey()
+        {
+            string workshop = _currentWorkshop.Trim();
+            if (string.IsNullOrWhiteSpace(workshop))
+                return null;
+
+            if (tvTree.SelectedNode is not TreeNode selectedNode)
+                return workshop;
+
+            return $"{workshop}|{BuildSelectedNodeContextPath(selectedNode)}";
+        }
+
+        private static string BuildSelectedNodeContextPath(TreeNode selectedNode)
+        {
+            var pathSegments = new Stack<string>();
+
+            for (TreeNode? current = selectedNode; current != null; current = current.Parent)
+                pathSegments.Push($"{current.Index}:{current.Text}");
+
+            return string.Join("/", pathSegments);
         }
 
         private void SetTechnicalFieldsVisibility(bool visible)

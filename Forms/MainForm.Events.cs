@@ -6,6 +6,7 @@ namespace AsutpKnowledgeBase
     {
         private void InitializeEvents()
         {
+            splitMain.SplitterMoved += SplitMain_SplitterMoved;
             tvTree.ItemDrag += TvTree_ItemDrag;
             tvTree.MouseDown += TvTree_MouseDown;
             tvTree.DragEnter += TvTree_DragEnter;
@@ -152,6 +153,14 @@ namespace AsutpKnowledgeBase
 
         private void TvTree_DragDrop(object? sender, DragEventArgs e)
             => _treeMutationUiWorkflowService.HandleDragDrop(CreateTreeMutationUiWorkflowContext(), e);
+
+        private void SplitMain_SplitterMoved(object? sender, SplitterEventArgs e)
+        {
+            if (_isApplyingDeferredLayout)
+                return;
+
+            SaveCurrentSplitterDistance();
+        }
 
         private void UndoAction()
             => _treeMutationUiWorkflowService.Undo(CreateTreeMutationUiWorkflowContext());

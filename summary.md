@@ -1,6 +1,6 @@
 # AKB5 Summary
 
-Last updated: 2026-04-16
+Last updated: 2026-04-20
 
 ## Purpose
 
@@ -12,7 +12,7 @@ It reflects the current inspected state of the repository on branch `icon`.
 - Repository root: `C:\Users\Olga\AKB5`
 - Active branch: `icon`
 - Upstream: `origin/icon`
-- Worktree state at inspection time: modified, with local icon-configuration changes not yet committed
+- Worktree state at inspection time: modified, with local splitter-state changes not yet committed
 - App type: WinForms knowledge-base application on `.NET 8`
 - Root app project: `asutpKB.csproj`
 - Core library project: `src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj`
@@ -27,6 +27,8 @@ It reflects the current inspected state of the repository on branch `icon`.
 - `asutpKB.csproj` embeds `resources/app.ico` as `ApplicationIcon` and also copies it to build/publish output.
 - Runtime WinForms windows use `AppIconProvider` to load `resources/app.ico` from `AppContext.BaseDirectory`, so replacing that file does not require code changes.
 - Replacing `resources/app.ico` updates the window icon without code changes; rebuilding is still required if the executable file icon itself also needs to change.
+- `MainForm` now remembers splitter width in memory per current navigation context and restores it when the user returns to the same selected item.
+- The splitter-state feature is session-only and does not write to files or the registry.
 - The current branch already contains the recent UI changes around:
   - hidden workshop wrapper root handling
   - creation of visible top-level nodes inside workshops with hidden wrapper roots
@@ -90,12 +92,14 @@ Observed results:
 - `dotnet test`: passed, `114/114`
 - `dotnet build`: passed
 - Build output now includes `bin/Release/net8.0-windows/resources/app.ico`.
+- A later `dotnet build` on `2026-04-20` also passed after the splitter-state change.
 - Build/test still emit existing analyzer warnings.
 - NuGet vulnerability metadata lookup produced `NU1900` warnings because the environment could not fetch the vulnerability index, but restore/build/test still completed.
 
 ## Known Risks / Open Questions
 
 - No manual WinForms smoke test was run in this session.
+- The splitter-state behavior was validated only by code inspection and successful build; it still needs a real Windows UI smoke test.
 - The current UX around the context command `Добавить сюда` may still feel ambiguous for users when no node is selected and a new visible top-level node is expected.
 - The search behavior mismatch should be treated as either:
   - a UX wording bug
@@ -151,5 +155,6 @@ Observed results:
 - Prefer small diffs.
 - Do not move the application icon path again unless there is a packaging reason; current convention is `resources/app.ico`.
 - To swap the app icon without code changes, replace `resources/app.ico`; rebuild if the `.exe` file icon also needs to reflect the new asset.
+- Splitter width is now remembered only in memory for the current run, keyed by the current navigation context; there is no persistence layer for it.
 - Respect the existing Excel v3 contract.
 - Do not claim UI behavior is validated unless a real manual Windows check was performed.
