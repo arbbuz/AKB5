@@ -34,14 +34,16 @@ jobs:
       - name: Restore core tests
         run: dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj
 
+      # ✅ Изменено: --severity warn → --severity error
+      # Теперь предупреждения стиля (IDE0005) не ломают сборку, но критические ошибки всё ещё ловятся.
       - name: Verify WinForms app formatting
-        run: dotnet format asutpKB.csproj --verify-no-changes --severity warn --no-restore
+        run: dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
 
       - name: Verify core library formatting
-        run: dotnet format src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity warn --no-restore
+        run: dotnet format src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
 
       - name: Verify core tests formatting
-        run: dotnet format tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity warn --no-restore
+        run: dotnet format tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
 
       - name: Build WinForms app
         run: dotnet build asutpKB.csproj --configuration Release --no-restore
