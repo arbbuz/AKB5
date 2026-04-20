@@ -27,7 +27,7 @@ It reflects the current inspected state of the repository on branch `icon`.
 - `asutpKB.csproj` embeds `resources/app.ico` as `ApplicationIcon` and also copies it to build/publish output.
 - Runtime WinForms windows use `AppIconProvider` to load `resources/app.ico` from `AppContext.BaseDirectory`, so replacing that file does not require code changes.
 - Replacing `resources/app.ico` updates the window icon without code changes; rebuilding is still required if the executable file icon itself also needs to change.
-- `MainForm` now remembers splitter width in memory per current navigation context and restores it when the user returns to the same selected item.
+- `MainForm` now remembers splitter width in memory per workshop, and switching between items inside the same workshop no longer creates separate splitter states.
 - The splitter-state feature is session-only and does not write to files or the registry.
 - The current branch already contains the recent UI changes around:
   - hidden workshop wrapper root handling
@@ -155,6 +155,6 @@ Observed results:
 - Prefer small diffs.
 - Do not move the application icon path again unless there is a packaging reason; current convention is `resources/app.ico`.
 - To swap the app icon without code changes, replace `resources/app.ico`; rebuild if the `.exe` file icon also needs to reflect the new asset.
-- Splitter width is now remembered only in memory for the current run, keyed by the current navigation context; there is no persistence layer for it.
+- Splitter width is now remembered only in memory for the current run, keyed by workshop; there is no persistence layer for it.
 - Respect the existing Excel v3 contract.
 - Do not claim UI behavior is validated unless a real manual Windows check was performed.

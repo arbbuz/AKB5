@@ -255,23 +255,7 @@ namespace AsutpKnowledgeBase
         private string? GetCurrentSplitterContextKey()
         {
             string workshop = _currentWorkshop.Trim();
-            if (string.IsNullOrWhiteSpace(workshop))
-                return null;
-
-            if (tvTree.SelectedNode is not TreeNode selectedNode)
-                return workshop;
-
-            return $"{workshop}|{BuildSelectedNodeContextPath(selectedNode)}";
-        }
-
-        private static string BuildSelectedNodeContextPath(TreeNode selectedNode)
-        {
-            var pathSegments = new Stack<string>();
-
-            for (TreeNode? current = selectedNode; current != null; current = current.Parent)
-                pathSegments.Push($"{current.Index}:{current.Text}");
-
-            return string.Join("/", pathSegments);
+            return string.IsNullOrWhiteSpace(workshop) ? null : workshop;
         }
 
         private void SetTechnicalFieldsVisibility(bool visible)

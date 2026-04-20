@@ -6,7 +6,7 @@
 - `asutpKB.csproj` now uses `resources/app.ico` as `ApplicationIcon` and copies it to build/publish output
 - `AppIconProvider.cs` assigns the icon at runtime to `MainForm`, `SetupForm`, and `InputDialog` from `AppContext.BaseDirectory\resources\app.ico`
 - Replacing `resources/app.ico` updates the window icon without code changes; rebuild is still required if the `.exe` file icon also needs to change
-- `MainForm` now remembers splitter width per current navigation context during the running session and restores it when the same item is selected again
+- `MainForm` now remembers splitter width per workshop during the running session, and switching between items inside the same workshop no longer creates separate splitter states
 - Splitter-state storage is strictly in-memory; no file or registry persistence was added
 - Validation after this change:
   - `dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore` passed
