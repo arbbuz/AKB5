@@ -2,11 +2,6 @@ using AsutpKnowledgeBase.Models;
 
 namespace AsutpKnowledgeBase.Services
 {
-    /// <summary>
-    /// Представляет выбранный цех в двух видах:
-    /// persisted roots для session/save и visible roots для TreeView.
-    /// Скрывает техническую обёртку-цех только в безопасном случае.
-    /// </summary>
     public sealed class KnowledgeBaseWorkshopTreeProjection
     {
         private KnowledgeBaseWorkshopTreeProjection(
@@ -45,6 +40,16 @@ namespace AsutpKnowledgeBase.Services
                     hiddenWrapperRoot);
             }
 
+            if (roots.Count == 0 && !string.IsNullOrWhiteSpace(workshopName))
+            {
+                var virtualHiddenWrapperRoot = CreateVirtualHiddenWrapperRoot(workshopName);
+                return new KnowledgeBaseWorkshopTreeProjection(
+                    workshopName,
+                    roots,
+                    virtualHiddenWrapperRoot.Children,
+                    virtualHiddenWrapperRoot);
+            }
+
             return new KnowledgeBaseWorkshopTreeProjection(
                 workshopName,
                 roots,
@@ -70,6 +75,10 @@ namespace AsutpKnowledgeBase.Services
 
             HiddenWrapperRoot.Children.Clear();
             HiddenWrapperRoot.Children.AddRange(visibleRootList);
+
+            if (HiddenWrapperRoot.Children.Count == 0)
+                return new List<KbNode>();
+
             return new List<KbNode> { HiddenWrapperRoot };
         }
 
@@ -95,22 +104,21 @@ namespace AsutpKnowledgeBase.Services
                 return false;
 
             var candidate = persistedRoots[0];
-            if (!KnowledgeBaseDataService.WorkshopNamesEqual(candidate.Name, workshopName))
+            if (candidate.LevelIndex != 0)
                 return false;
 
-            if (!IsDetailsEmpty(candidate.Details))
+            if (!KnowledgeBaseDataService.WorkshopNamesEqual(candidate.Name, workshopName))
                 return false;
 
             hiddenWrapperRoot = candidate;
             return true;
         }
 
-        private static bool IsDetailsEmpty(KbNodeDetails? details) =>
-            details == null ||
-            (string.IsNullOrWhiteSpace(details.Description) &&
-             string.IsNullOrWhiteSpace(details.Location) &&
-             string.IsNullOrWhiteSpace(details.PhotoPath) &&
-             string.IsNullOrWhiteSpace(details.IpAddress) &&
-             string.IsNullOrWhiteSpace(details.SchemaLink));
+        private static KbNode CreateVirtualHiddenWrapperRoot(string workshopName) =>
+            new()
+            {
+                Name = workshopName.Trim(),
+                LevelIndex = 0
+            };
     }
 }

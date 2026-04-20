@@ -26,6 +26,20 @@ public class KnowledgeBaseWorkshopTreeProjectionTests
     }
 
     [Fact]
+    public void Create_WhenWorkshopHasNoRoots_CreatesVirtualHiddenWrapper()
+    {
+        var projection = KnowledgeBaseWorkshopTreeProjection.Create(
+            "Цех 1",
+            Array.Empty<KbNode>());
+
+        Assert.True(projection.HasHiddenWrapper);
+        Assert.NotNull(projection.HiddenWrapperRoot);
+        Assert.Equal("Цех 1", projection.HiddenWrapperRoot!.Name);
+        Assert.Equal(0, projection.HiddenWrapperRoot.LevelIndex);
+        Assert.Empty(projection.VisibleRoots);
+    }
+
+    [Fact]
     public void Create_DoesNotHideWhenMultipleRootsExist()
     {
         var projection = KnowledgeBaseWorkshopTreeProjection.Create(
@@ -41,7 +55,28 @@ public class KnowledgeBaseWorkshopTreeProjectionTests
     }
 
     [Fact]
-    public void Create_DoesNotHideWhenWrapperContainsDetails()
+    public void Create_HidesMatchingRootEvenWhenWrapperContainsDetails()
+    {
+        var wrapperRoot = new KbNode
+        {
+            Name = "Цех 1",
+            LevelIndex = 0,
+            Details = new KbNodeDetails { Description = "Корень цеха" },
+            Children = { new KbNode { Name = "Отделение", LevelIndex = 1 } }
+        };
+
+        var projection = KnowledgeBaseWorkshopTreeProjection.Create(
+            "Цех 1",
+            new List<KbNode> { wrapperRoot });
+
+        Assert.True(projection.HasHiddenWrapper);
+        Assert.Single(projection.VisibleRoots);
+        Assert.Same(wrapperRoot, projection.HiddenWrapperRoot);
+        Assert.Equal("Отделение", projection.VisibleRoots[0].Name);
+    }
+
+    [Fact]
+    public void Create_DoesNotHideWhenMatchingRootIsNotLevelZero()
     {
         var projection = KnowledgeBaseWorkshopTreeProjection.Create(
             "Цех 1",
@@ -50,15 +85,15 @@ public class KnowledgeBaseWorkshopTreeProjectionTests
                 new()
                 {
                     Name = "Цех 1",
-                    LevelIndex = 0,
-                    Details = new KbNodeDetails { Description = "Не технический узел" },
-                    Children = { new KbNode { Name = "Отделение", LevelIndex = 1 } }
+                    LevelIndex = 1,
+                    Children = { new KbNode { Name = "Участок", LevelIndex = 2 } }
                 }
             });
 
         Assert.False(projection.HasHiddenWrapper);
         Assert.Single(projection.VisibleRoots);
         Assert.Equal("Цех 1", projection.VisibleRoots[0].Name);
+        Assert.Equal(1, projection.VisibleRoots[0].LevelIndex);
     }
 
     [Fact]
@@ -87,6 +122,18 @@ public class KnowledgeBaseWorkshopTreeProjectionTests
         Assert.Same(child, restoredWrapper.Children[0]);
         Assert.Equal(1, restoredWrapper.Children[0].LevelIndex);
         Assert.Equal(2, restoredWrapper.Children[0].Children[0].LevelIndex);
+    }
+
+    [Fact]
+    public void CreatePersistedRootsSnapshot_WhenHiddenWrapperBecomesEmpty_ReturnsEmptyRoots()
+    {
+        var projection = KnowledgeBaseWorkshopTreeProjection.Create(
+            "Цех 1",
+            Array.Empty<KbNode>());
+
+        var persistedRoots = projection.CreatePersistedRootsSnapshot(Array.Empty<KbNode>());
+
+        Assert.Empty(persistedRoots);
     }
 
     [Fact]
