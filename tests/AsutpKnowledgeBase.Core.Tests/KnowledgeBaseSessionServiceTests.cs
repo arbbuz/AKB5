@@ -149,5 +149,8 @@ public class KnowledgeBaseSessionServiceTests
         Assert.True(session.TryAddWorkshop("Новый цех", new List<KbNode>()));
         Assert.Equal("Новый цех", session.CurrentWorkshop);
         Assert.True(session.Workshops.ContainsKey("Новый цех"));
+        var root = Assert.Single(session.Workshops["Новый цех"]);
+        Assert.Equal("Новый цех", root.Name);
+        Assert.Equal(0, root.LevelIndex);
     }
 }

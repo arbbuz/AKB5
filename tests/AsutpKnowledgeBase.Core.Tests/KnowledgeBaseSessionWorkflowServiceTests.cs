@@ -94,6 +94,10 @@ public class KnowledgeBaseSessionWorkflowServiceTests
         Assert.Equal("Новый цех", session.CurrentWorkshop);
         Assert.Contains("Новый цех", result.ViewState.WorkshopNames);
         Assert.Equal("Новый цех", result.ViewState.CurrentWorkshop);
+        var root = Assert.Single(session.Workshops["Новый цех"]);
+        Assert.Equal("Новый цех", root.Name);
+        Assert.Equal(0, root.LevelIndex);
+        Assert.Same(root, Assert.Single(result.ViewState.CurrentRoots));
     }
 
     private static SavedData CreateSampleData(string lastWorkshop) =>

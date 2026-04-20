@@ -127,7 +127,14 @@ namespace AsutpKnowledgeBase.Services
                 return false;
 
             SyncCurrentWorkshop(currentWorkshopRoots);
-            Workshops[normalizedWorkshop] = new List<KbNode>();
+            Workshops[normalizedWorkshop] =
+            [
+                new KbNode
+                {
+                    Name = normalizedWorkshop,
+                    LevelIndex = 0
+                }
+            ];
             CurrentWorkshop = normalizedWorkshop;
             return true;
         }

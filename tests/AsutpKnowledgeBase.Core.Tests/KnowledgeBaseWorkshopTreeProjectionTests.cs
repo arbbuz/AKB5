@@ -145,7 +145,7 @@ public class KnowledgeBaseWorkshopTreeProjectionTests
     }
 
     [Fact]
-    public void CreatePersistedRootsSnapshot_WhenHiddenWrapperBecomesEmpty_ReturnsEmptyRoots()
+    public void CreatePersistedRootsSnapshot_WhenVirtualHiddenWrapperIsEmpty_ReturnsEmptyRoots()
     {
         var projection = KnowledgeBaseWorkshopTreeProjection.Create(
             "Цех 1",
@@ -154,6 +154,25 @@ public class KnowledgeBaseWorkshopTreeProjectionTests
         var persistedRoots = projection.CreatePersistedRootsSnapshot(Array.Empty<KbNode>());
 
         Assert.Empty(persistedRoots);
+    }
+
+    [Fact]
+    public void CreatePersistedRootsSnapshot_WhenPersistedHiddenWrapperIsEmpty_KeepsWrapperRoot()
+    {
+        var wrapperRoot = new KbNode
+        {
+            Name = "Новый цех",
+            LevelIndex = 0
+        };
+        var projection = KnowledgeBaseWorkshopTreeProjection.Create(
+            "Новый цех",
+            new List<KbNode> { wrapperRoot });
+
+        var persistedRoots = projection.CreatePersistedRootsSnapshot(Array.Empty<KbNode>());
+
+        var restoredWrapper = Assert.Single(persistedRoots);
+        Assert.Same(wrapperRoot, restoredWrapper);
+        Assert.Empty(restoredWrapper.Children);
     }
 
     [Fact]

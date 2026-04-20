@@ -8,12 +8,14 @@ namespace AsutpKnowledgeBase.Services
             string workshopName,
             IReadOnlyList<KbNode> persistedRoots,
             IReadOnlyList<KbNode> visibleRoots,
-            KbNode? hiddenWrapperRoot)
+            KbNode? hiddenWrapperRoot,
+            bool hiddenWrapperIsVirtual)
         {
             WorkshopName = workshopName;
             PersistedRoots = persistedRoots;
             VisibleRoots = visibleRoots;
             HiddenWrapperRoot = hiddenWrapperRoot;
+            HiddenWrapperIsVirtual = hiddenWrapperIsVirtual;
         }
 
         public string WorkshopName { get; }
@@ -26,6 +28,8 @@ namespace AsutpKnowledgeBase.Services
 
         public bool HasHiddenWrapper => HiddenWrapperRoot != null;
 
+        private bool HiddenWrapperIsVirtual { get; }
+
         public static KnowledgeBaseWorkshopTreeProjection Create(
             string workshopName,
             IReadOnlyList<KbNode>? persistedRoots)
@@ -37,7 +41,8 @@ namespace AsutpKnowledgeBase.Services
                     workshopName,
                     roots,
                     hiddenWrapperRoot.Children,
-                    hiddenWrapperRoot);
+                    hiddenWrapperRoot,
+                    hiddenWrapperIsVirtual: false);
             }
 
             if (roots.Count == 0 && !string.IsNullOrWhiteSpace(workshopName))
@@ -47,14 +52,16 @@ namespace AsutpKnowledgeBase.Services
                     workshopName,
                     roots,
                     virtualHiddenWrapperRoot.Children,
-                    virtualHiddenWrapperRoot);
+                    virtualHiddenWrapperRoot,
+                    hiddenWrapperIsVirtual: true);
             }
 
             return new KnowledgeBaseWorkshopTreeProjection(
                 workshopName,
                 roots,
                 roots,
-                hiddenWrapperRoot: null);
+                hiddenWrapperRoot: null,
+                hiddenWrapperIsVirtual: false);
         }
 
         public KbNode? GetEffectiveParentForRootOperations() => HiddenWrapperRoot;
@@ -76,7 +83,7 @@ namespace AsutpKnowledgeBase.Services
             HiddenWrapperRoot.Children.Clear();
             HiddenWrapperRoot.Children.AddRange(visibleRootList);
 
-            if (HiddenWrapperRoot.Children.Count == 0)
+            if (HiddenWrapperRoot.Children.Count == 0 && HiddenWrapperIsVirtual)
                 return new List<KbNode>();
 
             return new List<KbNode> { HiddenWrapperRoot };

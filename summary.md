@@ -22,9 +22,10 @@ Last updated: 2026-04-21
 - Current local changes implement projection-based workshop-root hiding in the tree UI:
   - when a workshop contains a single root node with `LevelIndex = 0`, that node is hidden in `TreeView`
   - its children are shown as visible roots in the UI
-  - empty workshops get a virtual hidden wrapper root so the first visible node can be added immediately
-  - the first add into an empty workshop materializes that wrapper into persisted workshop data
-  - if the hidden wrapper has no children, persisted snapshot collapses back to an empty root list
+  - newly created workshops now get a real persisted hidden root immediately, with the exact workshop name
+  - legacy or imported empty workshops still get a virtual hidden wrapper root so the first visible node can be added immediately
+  - if a hidden wrapper is virtual and has no children, persisted snapshot collapses back to an empty root list
+  - if a hidden wrapper is already persisted, it is preserved even when it has no children
 
 ## Important Design Decisions
 
@@ -34,6 +35,7 @@ Last updated: 2026-04-21
 - Handle workshop-root hiding in projection/UI-oriented logic, not by rewriting storage format
 - Keep storage structure unchanged; only change the UI entry point into the hierarchy
 - Do not depend on workshop-name text matching the persisted root text; real data already uses mixed full names and abbreviations
+- New workshops should be created with a real hidden root object, not only a virtual projection wrapper
 
 ## Most Relevant Files
 
@@ -55,7 +57,7 @@ dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledg
 dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore
 ```
 
-- `dotnet test`: passed, `121/121`
+- `dotnet test`: passed, `123/123`
 - `dotnet build`: passed
 - Existing analyzer warnings remain
 - `NU1900` warnings remain because vulnerability metadata could not be fetched from NuGet in this environment
@@ -65,7 +67,8 @@ dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-rest
 - No manual WinForms smoke test has been run for the current projection-based fix
 - The tree behavior still needs a real Windows UI check for:
   - filled workshop selection
-  - empty workshop selection
+  - newly created workshop selection
+  - legacy empty workshop selection
   - first visible top-level add
   - rename/delete/move flows under a hidden wrapper root
 - Search UX text and actual implementation still do not match; this is unrelated and still open
