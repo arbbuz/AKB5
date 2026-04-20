@@ -6,12 +6,14 @@
 - `asutpKB.csproj` now uses `resources/app.ico` as `ApplicationIcon` and copies it to build/publish output
 - `AppIconProvider.cs` assigns the icon at runtime to `MainForm`, `SetupForm`, and `InputDialog` from `AppContext.BaseDirectory\resources\app.ico`
 - Replacing `resources/app.ico` updates the window icon without code changes; rebuild is still required if the `.exe` file icon also needs to change
-- `MainForm` now remembers splitter width per workshop during the running session, and switching between items inside the same workshop no longer creates separate splitter states
-- Splitter-state storage is strictly in-memory; no file or registry persistence was added
+- `MainForm` now remembers splitter width per workshop, and switching between items inside the same workshop no longer creates separate splitter states
+- Splitter-state is now persisted across restarts in `%LocalAppData%\AKB5\window-layout-state.json`
+- Persistence is intentionally outside the domain JSON file, so changing splitter width does not participate in dirty/save prompts for the knowledge base
 - Validation after this change:
   - `dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore` passed
+  - `dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore` passed (`117/117`)
   - build output contains `bin\Release\net8.0-windows\resources\app.ico`
-  - `dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore` also passed after the splitter-state change
+  - a parallel `build` + `test` attempt was invalid because it caused an obj/bin lock; the sequential rerun passed
 
 # Current objective
 

@@ -25,6 +25,7 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseFormStateService _formStateService = new();
         private readonly KnowledgeBaseTreeViewService _treeViewService = new();
         private readonly UndoRedoService _history = new(50);
+        private readonly KnowledgeBaseWindowLayoutStateService _windowLayoutStateService;
         private readonly Dictionary<string, int> _splitterDistancesByContext = new(StringComparer.Ordinal);
 
         private bool _isBindingWorkshops;
@@ -86,8 +87,11 @@ namespace AsutpKnowledgeBase
         {
             _appLogger = appLogger ?? NullAppLogger.Instance;
             _treeController = new KnowledgeBaseTreeController(_session);
+            _windowLayoutStateService = new KnowledgeBaseWindowLayoutStateService(logger: _appLogger);
             InitializeComponent();
             AppIconProvider.Apply(this);
+            foreach (var pair in _windowLayoutStateService.LoadSplitterDistancesByWorkshop())
+                _splitterDistancesByContext[pair.Key] = pair.Value;
             var storageService = new JsonStorageService(GetDefaultJsonPath(), _appLogger);
             var fileWorkflowService = new KnowledgeBaseFileWorkflowService(
                 _session,
@@ -249,7 +253,14 @@ namespace AsutpKnowledgeBase
             if (contextKey == null)
                 return;
 
+            if (_splitterDistancesByContext.TryGetValue(contextKey, out int existingDistance) &&
+                existingDistance == splitMain.SplitterDistance)
+            {
+                return;
+            }
+
             _splitterDistancesByContext[contextKey] = splitMain.SplitterDistance;
+            _windowLayoutStateService.SaveSplitterDistancesByWorkshop(_splitterDistancesByContext);
         }
 
         private string? GetCurrentSplitterContextKey()

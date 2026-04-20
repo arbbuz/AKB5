@@ -12,7 +12,7 @@ It reflects the current inspected state of the repository on branch `icon`.
 - Repository root: `C:\Users\Olga\AKB5`
 - Active branch: `icon`
 - Upstream: `origin/icon`
-- Worktree state at inspection time: modified, with local splitter-state changes not yet committed
+- Worktree state at inspection time: modified, with local persisted splitter-state changes not yet committed
 - App type: WinForms knowledge-base application on `.NET 8`
 - Root app project: `asutpKB.csproj`
 - Core library project: `src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj`
@@ -27,8 +27,9 @@ It reflects the current inspected state of the repository on branch `icon`.
 - `asutpKB.csproj` embeds `resources/app.ico` as `ApplicationIcon` and also copies it to build/publish output.
 - Runtime WinForms windows use `AppIconProvider` to load `resources/app.ico` from `AppContext.BaseDirectory`, so replacing that file does not require code changes.
 - Replacing `resources/app.ico` updates the window icon without code changes; rebuilding is still required if the executable file icon itself also needs to change.
-- `MainForm` now remembers splitter width in memory per workshop, and switching between items inside the same workshop no longer creates separate splitter states.
-- The splitter-state feature is session-only and does not write to files or the registry.
+- `MainForm` now remembers splitter width per workshop, and switching between items inside the same workshop does not create separate splitter states.
+- Splitter state is persisted across app restarts in `%LocalAppData%\AKB5\window-layout-state.json`.
+- Splitter state is intentionally separate from the knowledge-base JSON and does not affect dirty/save prompts for domain data.
 - The current branch already contains the recent UI changes around:
   - hidden workshop wrapper root handling
   - creation of visible top-level nodes inside workshops with hidden wrapper roots
@@ -89,17 +90,17 @@ dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-rest
 
 Observed results:
 
-- `dotnet test`: passed, `114/114`
+- `dotnet test`: passed, `117/117`
 - `dotnet build`: passed
 - Build output now includes `bin/Release/net8.0-windows/resources/app.ico`.
-- A later `dotnet build` on `2026-04-20` also passed after the splitter-state change.
+- A later `dotnet build` and `dotnet test` on `2026-04-20` also passed after the persisted splitter-state change.
 - Build/test still emit existing analyzer warnings.
 - NuGet vulnerability metadata lookup produced `NU1900` warnings because the environment could not fetch the vulnerability index, but restore/build/test still completed.
 
 ## Known Risks / Open Questions
 
 - No manual WinForms smoke test was run in this session.
-- The splitter-state behavior was validated only by code inspection and successful build; it still needs a real Windows UI smoke test.
+- The splitter-state behavior is covered by service-level tests and successful build/test, but it still needs a real Windows UI smoke test across full app restart.
 - The current UX around the context command `Добавить сюда` may still feel ambiguous for users when no node is selected and a new visible top-level node is expected.
 - The search behavior mismatch should be treated as either:
   - a UX wording bug
@@ -142,12 +143,14 @@ Observed results:
 - `Services/KnowledgeBaseTreeMutationWorkflowService.cs`
 - `Services/KnowledgeBaseFileWorkflowService.cs`
 - `Services/JsonStorageService.cs`
+- `Services/KnowledgeBaseWindowLayoutStateService.cs`
 - `Services/KnowledgeBaseExcelExchangeService.cs`
 - `Services/KnowledgeBaseExcelWorkbookParser.cs`
 - `Services/KnowledgeBaseXlsxWriter.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseWorkshopTreeProjectionTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseTreeMutationWorkflowServiceTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseExcelExchangeServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseWindowLayoutStateServiceTests.cs`
 
 ## Notes For The Next Agent
 
@@ -155,6 +158,6 @@ Observed results:
 - Prefer small diffs.
 - Do not move the application icon path again unless there is a packaging reason; current convention is `resources/app.ico`.
 - To swap the app icon without code changes, replace `resources/app.ico`; rebuild if the `.exe` file icon also needs to reflect the new asset.
-- Splitter width is now remembered only in memory for the current run, keyed by workshop; there is no persistence layer for it.
+- Splitter width is now persisted per workshop in `%LocalAppData%\AKB5\window-layout-state.json`; it is intentionally outside the domain JSON file.
 - Respect the existing Excel v3 contract.
 - Do not claim UI behavior is validated unless a real manual Windows check was performed.
