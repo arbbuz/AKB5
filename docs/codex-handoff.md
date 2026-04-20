@@ -22,6 +22,11 @@
 - Delete and rename both require explicit user confirmation
 - Delete is rejected for the last remaining workshop to avoid an inconsistent empty-session state on the next save/load cycle
 - Rename preserves the current workshop tree, keeps the selected workshop active and updates the splitter-layout key for that workshop
+- Tree creation actions are now separated:
+  - `Добавить на верхнем уровне` always creates another visible level-1 node under the hidden workshop wrapper
+  - `Добавить сюда` creates a child under the selected visible node
+  - `Insert` follows the same top-level add path
+- This closes the regression where existing workshops could no longer create new level-1 nodes and new workshops could create only one such node before subsequent adds dropped to level 2
 
 # Why this fits the current architecture
 
@@ -79,4 +84,6 @@ Run a real Windows UI smoke test for:
 4. Renaming the current workshop through `Файл -> Переименовать цех` and confirming the tree/context stay intact
 5. Deleting the current workshop through `Файл -> Удалить цех` and confirming the next workshop is selected automatically
 6. Confirming the delete action is blocked or disabled for the last remaining workshop
-7. Switching between workshops and confirming structure is preserved
+7. Using `Добавить на верхнем уровне` repeatedly and confirming multiple departments can be created for both existing and newly created workshops
+8. Using `Добавить сюда` on a selected department and confirming child equipment is still created at the next level
+9. Switching between workshops and confirming structure is preserved

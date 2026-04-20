@@ -44,29 +44,29 @@ namespace AsutpKnowledgeBase.UiServices
             _treeMutationWorkflowService = treeMutationWorkflowService;
         }
 
-        public void AddNode(KnowledgeBaseTreeMutationUiWorkflowContext context)
+        public void AddNode(KnowledgeBaseTreeMutationUiWorkflowContext context) =>
+            AddNodeWithParent(
+                context,
+                context.GetEffectiveParentForRootOperations(),
+                "Введите название нового объекта:");
+
+        public void AddChildNode(KnowledgeBaseTreeMutationUiWorkflowContext context)
         {
-            using var dialog = new InputDialog("Введите название нового объекта:");
-            if (dialog.ShowDialog(context.Owner) != DialogResult.OK || string.IsNullOrWhiteSpace(dialog.Result))
-                return;
-
-            var selectedNode =
-                context.TreeView.SelectedNode?.Tag as KbNode ??
-                context.GetEffectiveParentForRootOperations();
-            var expandedNodes = context.CaptureExpandedNodes();
-            var result = _treeMutationWorkflowService.AddNode(
-                context.CurrentWorkshop,
-                selectedNode,
-                dialog.Result,
-                context.GetPersistedTreeData());
-
-            if (!result.IsSuccess)
+            if (context.TreeView.SelectedNode?.Tag is not KbNode selectedNode)
             {
-                ShowMutationFailure(context.Owner, result, "Невозможно добавить");
+                MessageBox.Show(
+                    context.Owner,
+                    "Выберите узел, в который нужно добавить дочерний объект.",
+                    "Внимание",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
                 return;
             }
 
-            ApplySuccessfulMutation(context, result, result.AffectedNode, expandedNodes);
+            AddNodeWithParent(
+                context,
+                selectedNode,
+                "Введите название нового дочернего объекта:");
         }
 
         public void DeleteNode(KnowledgeBaseTreeMutationUiWorkflowContext context)
@@ -222,7 +222,32 @@ namespace AsutpKnowledgeBase.UiServices
             context.SetStatusText(result.StatusMessage ?? "↪ Выполнен повтор");
         }
 
-        private void ApplySuccessfulMutation(
+        private void AddNodeWithParent(
+            KnowledgeBaseTreeMutationUiWorkflowContext context,
+            KbNode? parentNode,
+            string prompt)
+        {
+            using var dialog = new InputDialog(prompt);
+            if (dialog.ShowDialog(context.Owner) != DialogResult.OK || string.IsNullOrWhiteSpace(dialog.Result))
+                return;
+
+            var expandedNodes = context.CaptureExpandedNodes();
+            var result = _treeMutationWorkflowService.AddNode(
+                context.CurrentWorkshop,
+                parentNode,
+                dialog.Result,
+                context.GetPersistedTreeData());
+
+            if (!result.IsSuccess)
+            {
+                ShowMutationFailure(context.Owner, result, "Невозможно добавить");
+                return;
+            }
+
+            ApplySuccessfulMutation(context, result, result.AffectedNode, expandedNodes);
+        }
+
+        private static void ApplySuccessfulMutation(
             KnowledgeBaseTreeMutationUiWorkflowContext context,
             KnowledgeBaseTreeMutationResult result,
             KbNode? nodeToSelect,

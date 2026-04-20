@@ -55,6 +55,7 @@ namespace AsutpKnowledgeBase
         private ToolStripStatusLabel lblLastAction = null!;
         private ToolTip toolTip = null!;
         private ToolStripMenuItem ctxAdd = null!;
+        private ToolStripMenuItem ctxAddChild = null!;
         private ToolStripMenuItem ctxCopy = null!;
         private ToolStripMenuItem ctxPaste = null!;
         private ToolStripMenuItem ctxRename = null!;
@@ -191,7 +192,6 @@ namespace AsutpKnowledgeBase
         {
             var selectedNode = tvTree.SelectedNode?.Tag as KbNode;
             bool hasSelection = selectedNode != null;
-            var effectiveAddParent = selectedNode ?? GetEffectiveParentForRootOperations();
 
             btnUndo.Enabled = _treeMutationWorkflowService.CanUndo;
             btnRedo.Enabled = _treeMutationWorkflowService.CanRedo;
@@ -200,7 +200,8 @@ namespace AsutpKnowledgeBase
             ctxCopy.Enabled = hasSelection;
             ctxRename.Enabled = hasSelection;
             ctxDelete.Enabled = hasSelection;
-            ctxAdd.Enabled = _treeMutationWorkflowService.CanAddNode(effectiveAddParent);
+            ctxAdd.Enabled = _treeMutationWorkflowService.CanAddNode(GetEffectiveParentForRootOperations());
+            ctxAddChild.Enabled = hasSelection && _treeMutationWorkflowService.CanAddNode(selectedNode!);
             ctxPaste.Enabled = hasSelection && _treeMutationWorkflowService.CanPasteNode(selectedNode!);
             menuRenameWorkshop.Enabled = !string.IsNullOrWhiteSpace(_currentWorkshop);
             menuDeleteWorkshop.Enabled = !string.IsNullOrWhiteSpace(_currentWorkshop) && _session.Workshops.Count > 1;

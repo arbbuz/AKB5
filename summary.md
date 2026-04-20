@@ -30,6 +30,10 @@ Last updated: 2026-04-21
   - `Удалить цех` asks for confirmation and blocks deleting the last remaining workshop
   - `Переименовать цех` asks for the new name and then for explicit confirmation
   - both actions update the current session state, undo history and per-workshop splitter layout state
+- Tree add actions are now split by intent when the workshop root is hidden:
+  - `Insert` and the tree context action `Добавить на верхнем уровне` always add a new visible top-level node under the hidden workshop root
+  - `Добавить сюда` adds a child to the currently selected visible node
+  - this fixes the regression where only one top-level department could be created and further adds incorrectly went to level 2
 
 ## Important Design Decisions
 

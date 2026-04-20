@@ -439,13 +439,15 @@ namespace AsutpKnowledgeBase
         {
             var ctxMenu = new ContextMenuStrip();
 
-            ctxAdd = new ToolStripMenuItem("➕ Добавить сюда", null, (s, e) => AddNode());
+            ctxAdd = new ToolStripMenuItem("➕ Добавить на верхнем уровне", null, (s, e) => AddNode());
+            ctxAddChild = new ToolStripMenuItem("↳ Добавить сюда", null, (s, e) => AddChildNode());
             ctxCopy = new ToolStripMenuItem("📋 Копировать", null, (s, e) => CopyNode());
             ctxPaste = new ToolStripMenuItem("📌 Вставить", null, (s, e) => PasteNode());
             ctxRename = new ToolStripMenuItem("✏️ Переименовать", null, (s, e) => RenameNode());
             ctxDelete = new ToolStripMenuItem("🗑 Удалить", null, (s, e) => DeleteNode());
 
             ctxMenu.Items.Add(ctxAdd);
+            ctxMenu.Items.Add(ctxAddChild);
             ctxMenu.Items.Add("-");
             ctxMenu.Items.Add(ctxCopy);
             ctxMenu.Items.Add(ctxPaste);
