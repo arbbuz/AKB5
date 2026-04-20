@@ -36,6 +36,16 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbNode>? persistedRoots)
         {
             var roots = persistedRoots ?? Array.Empty<KbNode>();
+            if (roots.Count == 0 && !string.IsNullOrWhiteSpace(workshopName))
+            {
+                var virtualHiddenWrapperRoot = CreateVirtualHiddenWrapperRoot(workshopName);
+                return new KnowledgeBaseWorkshopTreeProjection(
+                    workshopName,
+                    roots,
+                    virtualHiddenWrapperRoot.Children,
+                    virtualHiddenWrapperRoot);
+            }
+
             if (TryGetHiddenWrapperRoot(workshopName, roots, out var hiddenWrapperRoot))
             {
                 return new KnowledgeBaseWorkshopTreeProjection(
@@ -70,6 +80,10 @@ namespace AsutpKnowledgeBase.Services
 
             HiddenWrapperRoot.Children.Clear();
             HiddenWrapperRoot.Children.AddRange(visibleRootList);
+
+            if (HiddenWrapperRoot.Children.Count == 0)
+                return new List<KbNode>();
+
             return new List<KbNode> { HiddenWrapperRoot };
         }
 
@@ -98,12 +112,22 @@ namespace AsutpKnowledgeBase.Services
             if (!KnowledgeBaseDataService.WorkshopNamesEqual(candidate.Name, workshopName))
                 return false;
 
+            if (candidate.LevelIndex != 0)
+                return false;
+
             if (!IsDetailsEmpty(candidate.Details))
                 return false;
 
             hiddenWrapperRoot = candidate;
             return true;
         }
+
+        private static KbNode CreateVirtualHiddenWrapperRoot(string workshopName) =>
+            new()
+            {
+                Name = workshopName.Trim(),
+                LevelIndex = 0
+            };
 
         private static bool IsDetailsEmpty(KbNodeDetails? details) =>
             details == null ||
