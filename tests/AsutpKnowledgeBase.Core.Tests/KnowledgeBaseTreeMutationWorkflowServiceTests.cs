@@ -30,36 +30,6 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
     }
 
     [Fact]
-    public void AddNode_WhenUsingVirtualHiddenWorkshopRoot_PersistsWrapperAndAddsFirstVisibleChild()
-    {
-        var session = CreateSession(
-            new Dictionary<string, List<KbNode>>
-            {
-                ["Цех 1"] = new List<KbNode>()
-            });
-        var history = new UndoRedoService();
-        var controller = new KnowledgeBaseTreeController(session);
-        var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
-        var workflow = new KnowledgeBaseTreeMutationWorkflowService(session, sessionWorkflow, controller, history);
-        var projection = KnowledgeBaseWorkshopTreeProjection.Create(session.CurrentWorkshop, session.GetCurrentWorkshopNodes());
-
-        var result = workflow.AddNode(
-            session.CurrentWorkshop,
-            parentNode: projection.GetEffectiveParentForRootOperations(),
-            nodeName: "Отделение",
-            currentRoots: projection.CreatePersistedRootsSnapshot(projection.VisibleRoots));
-
-        Assert.True(result.IsSuccess);
-        var wrapperRoot = Assert.Single(session.Workshops["Цех 1"]);
-        var addedNode = Assert.Single(wrapperRoot.Children);
-        Assert.Equal("Цех 1", wrapperRoot.Name);
-        Assert.Equal(0, wrapperRoot.LevelIndex);
-        Assert.Equal("Отделение", addedNode.Name);
-        Assert.Equal(1, addedNode.LevelIndex);
-        Assert.Same(wrapperRoot, result.ViewState.CurrentRoots[0]);
-    }
-
-    [Fact]
     public void RenameNode_WhenSuccessful_ReturnsViewStateWithRenamedNode()
     {
         var root = new KbNode { Name = "Линия 1", LevelIndex = 0 };
