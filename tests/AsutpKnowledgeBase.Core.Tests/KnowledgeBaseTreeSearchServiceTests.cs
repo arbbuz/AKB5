@@ -43,6 +43,23 @@ public class KnowledgeBaseTreeSearchServiceTests
         Assert.Empty(matches);
     }
 
+    [Fact]
+    public void FindMatches_ReturnsMatchesInDisplaySortedOrder()
+    {
+        var roots = new List<KbNode>
+        {
+            new() { Name = "Node 10", LevelIndex = 0 },
+            new() { Name = "node 2", LevelIndex = 0 },
+            new() { Name = "Node 1", LevelIndex = 0 }
+        };
+
+        var matches = _service.FindMatches(roots, CreateConfig(), "node");
+
+        Assert.Equal(
+            new[] { "Node 1", "node 2", "Node 10" },
+            matches.Select(static match => match.MatchValue).ToArray());
+    }
+
     private static KbConfig CreateConfig() =>
         new()
         {

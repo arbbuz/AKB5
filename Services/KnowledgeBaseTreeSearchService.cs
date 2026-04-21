@@ -32,7 +32,7 @@ namespace AsutpKnowledgeBase.Services
             var matches = new List<KnowledgeBaseTreeSearchMatch>();
             var pathSegments = new List<string>();
 
-            foreach (var root in roots)
+            foreach (var root in EnumerateDisplaySortedNodes(roots))
                 CollectMatches(root, config, normalizedSearch, pathSegments, matches);
 
             return matches;
@@ -50,7 +50,7 @@ namespace AsutpKnowledgeBase.Services
             if (TryCreateMatch(node, normalizedSearch, nodePath, out var match))
                 matches.Add(match);
 
-            foreach (var child in node.Children)
+            foreach (var child in EnumerateDisplaySortedNodes(node.Children))
                 CollectMatches(child, config, normalizedSearch, pathSegments, matches);
 
             pathSegments.RemoveAt(pathSegments.Count - 1);
@@ -74,6 +74,18 @@ namespace AsutpKnowledgeBase.Services
 
         private static bool Contains(string value, string searchText) =>
             value.Contains(searchText, StringComparison.CurrentCultureIgnoreCase);
+
+        private static IEnumerable<KbNode> EnumerateDisplaySortedNodes(IReadOnlyList<KbNode> nodes)
+        {
+            if (nodes.Count <= 1)
+                return nodes;
+
+            var sortedNodes = nodes.ToArray();
+            Array.Sort(
+                sortedNodes,
+                static (left, right) => KnowledgeBaseNaturalStringComparer.Instance.Compare(left.Name, right.Name));
+            return sortedNodes;
+        }
 
         private static KnowledgeBaseTreeSearchMatch BuildMatch(
             KbNode node,

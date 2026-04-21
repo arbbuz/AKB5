@@ -1,3 +1,4 @@
+using System.Collections;
 using AsutpKnowledgeBase.Models;
 using AsutpKnowledgeBase.Services;
 
@@ -9,6 +10,7 @@ namespace AsutpKnowledgeBase.UiServices
     /// </summary>
     public class KnowledgeBaseTreeViewService
     {
+        private static readonly IComparer TreeNodeDisplayComparer = new KnowledgeBaseTreeNodeDisplayComparer();
         private readonly KnowledgeBaseTreeSearchService _treeSearchService = new();
         private readonly List<SearchNavigationItem> _searchResults = new();
         private KnowledgeBaseWorkshopTreeProjection _currentProjection =
@@ -42,6 +44,7 @@ namespace AsutpKnowledgeBase.UiServices
             _currentProjection = KnowledgeBaseWorkshopTreeProjection.Create(
                 viewState.CurrentWorkshop,
                 viewState.CurrentRoots);
+            treeView.TreeViewNodeSorter ??= TreeNodeDisplayComparer;
 
             treeView.BeginUpdate();
             treeView.SelectedNode = null;
@@ -50,6 +53,7 @@ namespace AsutpKnowledgeBase.UiServices
             foreach (var node in _currentProjection.VisibleRoots)
                 treeView.Nodes.Add(BuildTreeNode(node, nodeToSelect, expandedNodes, ref selectedTreeNode));
 
+            treeView.Sort();
             treeView.EndUpdate();
 
             if (expandedNodes == null)
@@ -75,19 +79,10 @@ namespace AsutpKnowledgeBase.UiServices
         }
 
         public List<KbNode> GetVisibleTreeData(TreeView treeView)
-        {
-            var list = new List<KbNode>();
-            foreach (TreeNode treeNode in treeView.Nodes)
-            {
-                if (treeNode.Tag is KbNode node)
-                    list.Add(node);
-            }
-
-            return list;
-        }
+            => _currentProjection.VisibleRoots.ToList();
 
         public List<KbNode> GetPersistedTreeData(TreeView treeView) =>
-            _currentProjection.CreatePersistedRootsSnapshot(GetVisibleTreeData(treeView));
+            _currentProjection.CreatePersistedRootsSnapshot(_currentProjection.VisibleRoots);
 
         public KbNode? GetEffectiveParentForRootOperations() =>
             _currentProjection.GetEffectiveParentForRootOperations();
@@ -245,5 +240,23 @@ namespace AsutpKnowledgeBase.UiServices
         }
 
         private sealed record SearchNavigationItem(TreeNode TreeNode);
+
+        private sealed class KnowledgeBaseTreeNodeDisplayComparer : IComparer
+        {
+            public int Compare(object? x, object? y)
+            {
+                var left = x as TreeNode;
+                var right = y as TreeNode;
+
+                if (ReferenceEquals(left, right))
+                    return 0;
+                if (left is null)
+                    return -1;
+                if (right is null)
+                    return 1;
+
+                return KnowledgeBaseNaturalStringComparer.Instance.Compare(left.Text, right.Text);
+            }
+        }
     }
 }
