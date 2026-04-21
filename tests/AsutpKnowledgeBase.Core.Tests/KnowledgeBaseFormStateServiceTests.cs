@@ -87,9 +87,9 @@ public class KnowledgeBaseFormStateServiceTests
         Assert.True(state.CanSave);
         Assert.Equal("Сохранить базу данных (/tmp/knowledge.json)", state.SaveToolTip);
         Assert.Equal("* База знаний АСУТП [knowledge.json]", state.WindowTitle);
-        Assert.Equal("Файл: knowledge.json | Есть несохранённые изменения | Цех: Цех 7 | Узлов: 5", state.SessionStatusText);
-        Assert.Equal("Выбор: Насос | Уровень: Оборудование | Дочерних: 0", state.SelectionStatusText);
-        Assert.Equal("Есть несохранённые изменения", state.SaveStateText);
+        Assert.Equal("Есть несохраненные изменения", state.SessionStatusText);
+        Assert.Equal(string.Empty, state.SelectionStatusText);
+        Assert.Equal("Есть несохраненные изменения", state.SaveStateText);
         Assert.Equal("Насос", state.SelectedNode.FullPath);
         Assert.Equal("Основной насос", state.SelectedNode.Description);
         Assert.Equal("10.0.0.12", state.SelectedNode.IpAddress);
@@ -111,7 +111,7 @@ public class KnowledgeBaseFormStateServiceTests
             currentRoots: new List<KbNode> { node },
             selectedNode: node);
 
-        Assert.Equal("Выбор: Узел | Уровень: Ур. 5 | Дочерних: 0", state.SelectionStatusText);
+        Assert.Equal(string.Empty, state.SelectionStatusText);
         Assert.Equal("Узел", state.SelectedNode.FullPath);
     }
 
@@ -130,11 +130,29 @@ public class KnowledgeBaseFormStateServiceTests
             selectedNode: null);
 
         Assert.Equal("Файл: missing-knowledge.json | Файл отсутствует на диске | Цех: Цех 3 | Узлов: 8", state.SessionStatusText);
-        Assert.Equal("Выбранный узел: нет", state.SelectionStatusText);
+        Assert.Equal(string.Empty, state.SelectionStatusText);
         Assert.Equal("Ничего не выбрано. Выберите узел в дереве слева.", state.SelectedNode.EmptyStateText);
         Assert.Equal("Файл отсутствует на диске", state.SaveStateText);
         Assert.False(state.SelectedNode.ShowTechnicalFields);
         Assert.Equal(string.Empty, state.SelectedNode.Description);
+    }
+
+    [Fact]
+    public void Build_WhenRequiresResave_DoesNotEmitSessionStatusMessage()
+    {
+        var state = _service.Build(
+            isDirty: false,
+            requiresSave: true,
+            currentDataPath: "/tmp/backup.json",
+            currentWorkshop: "Цех 9",
+            lastSavedWorkshop: "Цех 9",
+            totalNodes: 4,
+            config: new KbConfig { MaxLevels = 3, LevelNames = new List<string> { "Цех", "Линия", "Щит" } },
+            currentRoots: new List<KbNode>(),
+            selectedNode: null);
+
+        Assert.Equal(string.Empty, state.SessionStatusText);
+        Assert.Equal(string.Empty, state.SaveStateText);
     }
 
     [Fact]

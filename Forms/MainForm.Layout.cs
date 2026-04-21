@@ -68,7 +68,11 @@ namespace AsutpKnowledgeBase
 
             btnUndo = new ToolStripButton("↩ Отменить") { Enabled = false, ToolTipText = "Отменить (Ctrl+Z)" };
             btnRedo = new ToolStripButton("↪ Повторить") { Enabled = false, ToolTipText = "Повторить (Ctrl+Y)" };
-            toolStrip.Items.AddRange(new ToolStripItem[] { btnUndo, btnRedo });
+            btnCollapseTree = new ToolStripButton("🗂 Свернуть")
+            {
+                ToolTipText = "Свернуть дерево до корневых элементов"
+            };
+            toolStrip.Items.AddRange(new ToolStripItem[] { btnUndo, btnRedo, btnCollapseTree });
 
             InitializeSearchToolbarItems();
         }
@@ -402,19 +406,21 @@ namespace AsutpKnowledgeBase
         {
             lblSessionInfo = new ToolStripStatusLabel
             {
-                Text = "Файл: —",
+                Text = string.Empty,
                 BorderSides = ToolStripStatusLabelBorderSides.Right,
                 AutoSize = false,
-                Width = 430,
-                TextAlign = ContentAlignment.MiddleLeft
+                Width = 540,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Visible = false
             };
             lblSelectionInfo = new ToolStripStatusLabel
             {
-                Text = "Выбранный узел: нет",
-                BorderSides = ToolStripStatusLabelBorderSides.Right,
+                Text = string.Empty,
+                BorderSides = ToolStripStatusLabelBorderSides.None,
                 AutoSize = false,
-                Width = 360,
-                TextAlign = ContentAlignment.MiddleLeft
+                Width = 0,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Visible = false
             };
             lblLastAction = new ToolStripStatusLabel
             {
@@ -424,7 +430,7 @@ namespace AsutpKnowledgeBase
             };
 
             ssStatus = new StatusStrip();
-            ssStatus.Items.AddRange(new ToolStripItem[] { lblSessionInfo, lblSelectionInfo, lblLastAction });
+            ssStatus.Items.AddRange(new ToolStripItem[] { lblSessionInfo, lblLastAction });
         }
 
         private void InitializeContextMenu()

@@ -61,7 +61,6 @@ namespace AsutpKnowledgeBase
                     FileName = photoPath,
                     UseShellExecute = true
                 });
-                SetLastActionText($"Открыто фото: {Path.GetFileName(photoPath)}");
             }
             catch (Exception ex)
             {

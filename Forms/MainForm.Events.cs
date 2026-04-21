@@ -23,6 +23,7 @@ namespace AsutpKnowledgeBase
 
             btnUndo.Click += (s, e) => UndoAction();
             btnRedo.Click += (s, e) => RedoAction();
+            btnCollapseTree.Click += (s, e) => CollapseTreeToRoots();
 
             txtNodeDescription.TextChanged += (s, e) => HandleNodeDetailsChanged(details => details.Description = txtNodeDescription.Text);
             txtNodeLocation.TextChanged += (s, e) => HandleNodeDetailsChanged(details => details.Location = txtNodeLocation.Text);

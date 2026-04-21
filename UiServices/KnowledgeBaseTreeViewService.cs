@@ -107,7 +107,7 @@ namespace AsutpKnowledgeBase.UiServices
             foreach (var match in matches)
             {
                 if (TryFindTreeNode(treeView.Nodes, match.Node, out var treeNode) && treeNode != null)
-                    _searchResults.Add(new SearchNavigationItem(treeNode, match));
+                    _searchResults.Add(new SearchNavigationItem(treeNode));
             }
 
             if (_searchResults.Count == 0)
@@ -115,7 +115,7 @@ namespace AsutpKnowledgeBase.UiServices
 
             _currentSearchIndex = 0;
             SelectSearchResult(treeView, _currentSearchIndex);
-            return BuildSearchStatus();
+            return string.Empty;
         }
 
         public string? NavigateSearch(TreeView treeView, int direction)
@@ -130,7 +130,7 @@ namespace AsutpKnowledgeBase.UiServices
                 _currentSearchIndex = _searchResults.Count - 1;
 
             SelectSearchResult(treeView, _currentSearchIndex);
-            return BuildSearchStatus();
+            return string.Empty;
         }
 
         public void RefreshSearch(TreeView treeView, KbConfig config, string searchText)
@@ -238,31 +238,12 @@ namespace AsutpKnowledgeBase.UiServices
             }
         }
 
-        private string BuildSearchStatus()
-        {
-            var current = _searchResults[_currentSearchIndex];
-            return
-                $"Поиск: \"{current.Match.SearchText}\" | " +
-                $"Найдено: {_searchResults.Count} | " +
-                $"Показан: {_currentSearchIndex + 1}/{_searchResults.Count} | " +
-                $"Совпадение: {current.Match.MatchFieldLabel} ({TrimForStatus(current.Match.MatchValue)})";
-        }
-
         private void ResetSearchResults()
         {
             _searchResults.Clear();
             _currentSearchIndex = -1;
         }
 
-        private static string TrimForStatus(string value)
-        {
-            const int maxLength = 60;
-            if (value.Length <= maxLength)
-                return value;
-
-            return $"{value[..(maxLength - 3)]}...";
-        }
-
-        private sealed record SearchNavigationItem(TreeNode TreeNode, KnowledgeBaseTreeSearchMatch Match);
+        private sealed record SearchNavigationItem(TreeNode TreeNode);
     }
 }

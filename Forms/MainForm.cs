@@ -36,6 +36,7 @@ namespace AsutpKnowledgeBase
         private ToolStripButton btnUndo = null!;
         private ToolStripButton btnRedo = null!;
         private ToolStripButton btnSave = null!;
+        private ToolStripButton btnCollapseTree = null!;
         private ToolStripMenuItem menuFile = null!;
         private ToolStripMenuItem menuNewWorkshop = null!;
         private ToolStripMenuItem menuRenameWorkshop = null!;
@@ -172,6 +173,16 @@ namespace AsutpKnowledgeBase
             lblLastAction.Text = text;
         }
 
+        private void SetSessionStatusText(string text)
+        {
+            bool hasText = !string.IsNullOrWhiteSpace(text);
+            lblSessionInfo.Text = text;
+            lblSessionInfo.Visible = hasText;
+            lblSessionInfo.BorderSides = hasText
+                ? ToolStripStatusLabelBorderSides.Right
+                : ToolStripStatusLabelBorderSides.None;
+        }
+
         private KnowledgeBaseFormState BuildFormState()
         {
             var currentRoots = GetVisibleTreeData();
@@ -207,8 +218,7 @@ namespace AsutpKnowledgeBase
 
             btnSave.ToolTipText = formState.SaveToolTip;
             Text = formState.WindowTitle;
-            lblSessionInfo.Text = formState.SessionStatusText;
-            lblSelectionInfo.Text = formState.SelectionStatusText;
+            SetSessionStatusText(formState.SessionStatusText);
 
             if (refreshSelectedNodeState)
                 ApplySelectedNodeState(formState.SelectedNode);
@@ -258,6 +268,29 @@ namespace AsutpKnowledgeBase
             _windowLayoutStateService.SaveSplitterDistance(splitMain.SplitterDistance);
         }
 
+        private void CollapseTreeToRoots()
+        {
+            TreeNode? rootNodeToKeepVisible = tvTree.SelectedNode is { } selectedNode
+                ? GetRootTreeNode(selectedNode)
+                : null;
+            bool hadTreeFocus = tvTree.Focused;
+
+            tvTree.BeginUpdate();
+            try
+            {
+                tvTree.CollapseAll();
+                if (rootNodeToKeepVisible != null && !ReferenceEquals(tvTree.SelectedNode, rootNodeToKeepVisible))
+                    tvTree.SelectedNode = rootNodeToKeepVisible;
+            }
+            finally
+            {
+                tvTree.EndUpdate();
+            }
+
+            if (hadTreeFocus)
+                tvTree.Focus();
+        }
+
         private void SetTechnicalFieldsVisibility(bool visible)
         {
             grpTechnicalFields.Visible = visible;
@@ -291,6 +324,15 @@ namespace AsutpKnowledgeBase
                 return;
 
             splitContainer.SplitterDistance = Math.Clamp(desiredDistance, minimumDistance, maximumDistance);
+        }
+
+        private static TreeNode GetRootTreeNode(TreeNode node)
+        {
+            var current = node;
+            while (current.Parent != null)
+                current = current.Parent;
+
+            return current;
         }
     }
 }

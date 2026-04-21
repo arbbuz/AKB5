@@ -119,19 +119,18 @@ namespace AsutpKnowledgeBase.Services
             string currentDataFileName,
             string saveStateText,
             string currentWorkshop,
-            int totalNodes) =>
-            $"Файл: {currentDataFileName} | {saveStateText} | Цех: {currentWorkshop} | Узлов: {totalNodes}";
-
-        public string BuildSelectionStatusText(KnowledgeBaseSelectedNodeState selectedNodeState)
+            int totalNodes)
         {
-            if (!selectedNodeState.HasSelection)
-                return "Выбранный узел: нет";
+            if (string.Equals(saveStateText, "Есть несохраненные изменения", StringComparison.Ordinal))
+                return saveStateText;
 
-            return
-                $"Выбор: {selectedNodeState.Name} | " +
-                $"Уровень: {selectedNodeState.LevelName} | " +
-                $"Дочерних: {selectedNodeState.ChildrenCountText}";
+            if (string.IsNullOrWhiteSpace(saveStateText))
+                return string.Empty;
+
+            return $"Файл: {currentDataFileName} | {saveStateText} | Цех: {currentWorkshop} | Узлов: {totalNodes}";
         }
+
+        public string BuildSelectionStatusText(KnowledgeBaseSelectedNodeState selectedNodeState) => string.Empty;
 
         public bool RequiresSavePromptBeforeContinue(bool isDirty, bool requiresSave) =>
             isDirty || requiresSave;
@@ -145,10 +144,10 @@ namespace AsutpKnowledgeBase.Services
         private static string BuildSaveStateText(bool isDirty, bool requiresSave, bool fileExists)
         {
             if (isDirty)
-                return "Есть несохранённые изменения";
+                return "Есть несохраненные изменения";
 
             if (requiresSave)
-                return "Нужно пересохранить файл";
+                return string.Empty;
 
             if (!fileExists)
                 return "Файл отсутствует на диске";

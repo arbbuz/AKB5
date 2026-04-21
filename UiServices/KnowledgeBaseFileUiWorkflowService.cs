@@ -171,9 +171,7 @@ namespace AsutpKnowledgeBase.UiServices
             if (!ConfirmContinueWithUnsavedChanges(context, "перезагрузкой базы из файла"))
                 return;
 
-            var loadResult = LoadData(context, createDefaultIfMissing: false, fallbackToDefaultOnError: false);
-            if (loadResult.IsSuccess)
-                context.SetStatusText(BuildReloadSuccessMessage(RequireViewState(loadResult.ViewState)));
+            LoadData(context, createDefaultIfMissing: false, fallbackToDefaultOnError: false);
         }
 
         public void SaveCurrentDatabase(KnowledgeBaseFileUiWorkflowContext context)
@@ -363,30 +361,8 @@ namespace AsutpKnowledgeBase.UiServices
                 $"Загружена резервная копия '{loadResult.SourcePath}'. После проверки данных сохраните базу заново.";
         }
 
-        private string BuildReloadSuccessMessage(KnowledgeBaseSessionViewState viewState)
-        {
-            var projection = KnowledgeBaseWorkshopTreeProjection.Create(
-                viewState.CurrentWorkshop,
-                viewState.CurrentRoots);
-            int totalNodes = CountNodes(projection.VisibleRoots);
-
-            return
-                $"Файл перечитан с диска: {CurrentDataFileName} | " +
-                $"Цех: {viewState.CurrentWorkshop} | " +
-                $"Узлов: {totalNodes}";
-        }
-
         private static KnowledgeBaseSessionViewState RequireViewState(KnowledgeBaseSessionViewState? viewState) =>
             viewState ?? throw new InvalidOperationException(
                 "Successful file workflow result must contain session ViewState.");
-
-        private static int CountNodes(IEnumerable<KbNode> nodes)
-        {
-            int count = 0;
-            foreach (var node in nodes)
-                count += 1 + CountNodes(node.Children);
-
-            return count;
-        }
     }
 }
