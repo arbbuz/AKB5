@@ -17,6 +17,7 @@ namespace AsutpKnowledgeBase
             btnSearch.Click += (s, e) => PerformSearch();
             btnSearchPrev.Click += (s, e) => NavigateSearch(-1);
             btnSearchNext.Click += (s, e) => NavigateSearch(1);
+            txtSearch.KeyDown += TxtSearch_KeyDown;
             btnBrowsePhoto.Click += BtnBrowsePhoto_Click;
             btnOpenPhoto.Click += BtnOpenPhoto_Click;
 
@@ -42,8 +43,6 @@ namespace AsutpKnowledgeBase
                 if (e.KeyCode == Keys.F2) { e.SuppressKeyPress = true; RenameNode(); }
                 if (e.KeyCode == Keys.Insert) { e.SuppressKeyPress = true; AddNode(); }
                 if (e.Control && e.KeyCode == Keys.F) { e.SuppressKeyPress = true; txtSearch.Focus(); }
-                if (e.KeyCode == Keys.Enter && txtSearch.Focused) { e.SuppressKeyPress = true; PerformSearch(); }
-                if (e.KeyCode == Keys.Escape && txtSearch.Focused) { e.SuppressKeyPress = true; txtSearch.Clear(); ClearSearch(); UpdateUI(); }
             };
         }
 
@@ -52,11 +51,32 @@ namespace AsutpKnowledgeBase
             if (!e.Control || e.KeyCode is not (Keys.C or Keys.V or Keys.Z or Keys.Y))
                 return false;
 
+            if (txtSearch.Focused)
+                return true;
+
             Control? focusedControl = ActiveControl;
             while (focusedControl is ContainerControl container && container.ActiveControl != null)
                 focusedControl = container.ActiveControl;
 
             return focusedControl is TextBoxBase;
+        }
+
+        private void TxtSearch_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                e.SuppressKeyPress = true;
+                PerformSearch();
+                return;
+            }
+
+            if (e.KeyCode == Keys.Escape)
+            {
+                e.SuppressKeyPress = true;
+                txtSearch.Clear();
+                ClearSearch();
+                UpdateUI();
+            }
         }
 
         private void BtnOpen_Click(object? sender, EventArgs e)

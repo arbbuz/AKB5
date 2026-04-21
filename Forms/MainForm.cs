@@ -45,10 +45,10 @@ namespace AsutpKnowledgeBase
         private TableLayoutPanel tblDetailsLeftColumn = null!;
         private ComboBox cmbWorkshops = null!;
         private TreeView tvTree = null!;
-        private TextBox txtSearch = null!;
-        private Button btnSearchPrev = null!;
-        private Button btnSearchNext = null!;
-        private Button btnSearch = null!;
+        private ToolStripTextBox txtSearch = null!;
+        private ToolStripButton btnSearchPrev = null!;
+        private ToolStripButton btnSearchNext = null!;
+        private ToolStripButton btnSearch = null!;
         private StatusStrip ssStatus = null!;
         private ToolStripStatusLabel lblSessionInfo = null!;
         private ToolStripStatusLabel lblSelectionInfo = null!;

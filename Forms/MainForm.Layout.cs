@@ -70,6 +70,7 @@ namespace AsutpKnowledgeBase
             btnRedo = new ToolStripButton("↪ Повторить") { Enabled = false, ToolTipText = "Повторить (Ctrl+Y)" };
             toolStrip.Items.AddRange(new ToolStripItem[] { btnUndo, btnRedo });
 
+            InitializeSearchToolbarItems();
         }
 
         private void InitializeMainLayout()
@@ -98,12 +99,9 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Padding = new Padding(12),
                 ColumnCount = 1,
-                RowCount = 6
+                RowCount = 3
             };
             leftLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            leftLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            leftLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            leftLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             leftLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             leftLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             leftLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
@@ -117,52 +115,6 @@ namespace AsutpKnowledgeBase
                 Margin = new Padding(0, 0, 0, 12)
             };
             leftLayout.Controls.Add(cmbWorkshops, 0, 1);
-
-            leftLayout.Controls.Add(CreateSectionLabel("Поиск по имени, пути и уровню"), 0, 2);
-
-            txtSearch = new TextBox
-            {
-                Dock = DockStyle.Top,
-                Margin = new Padding(0, 0, 0, 8)
-            };
-            leftLayout.Controls.Add(txtSearch, 0, 3);
-
-            var pnlSearchNav = new TableLayoutPanel
-            {
-                Dock = DockStyle.Top,
-                ColumnCount = 3,
-                RowCount = 1,
-                Margin = new Padding(0, 0, 0, 12)
-            };
-            pnlSearchNav.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34F));
-            pnlSearchNav.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34F));
-            pnlSearchNav.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32F));
-
-            btnSearchPrev = new Button
-            {
-                Text = "◀ Пред.",
-                Dock = DockStyle.Fill,
-                Enabled = false,
-                Margin = new Padding(0, 0, 4, 0)
-            };
-            btnSearchNext = new Button
-            {
-                Text = "След. ▶",
-                Dock = DockStyle.Fill,
-                Enabled = false,
-                Margin = new Padding(0, 0, 4, 0)
-            };
-            btnSearch = new Button
-            {
-                Text = "🔍 Найти",
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0)
-            };
-
-            pnlSearchNav.Controls.Add(btnSearchPrev, 0, 0);
-            pnlSearchNav.Controls.Add(btnSearchNext, 1, 0);
-            pnlSearchNav.Controls.Add(btnSearch, 2, 0);
-            leftLayout.Controls.Add(pnlSearchNav, 0, 4);
 
             var grpTree = new GroupBox
             {
@@ -183,10 +135,50 @@ namespace AsutpKnowledgeBase
 
             toolTip.SetToolTip(tvTree, "Drag & Drop для перемещения, ПКМ для меню");
             grpTree.Controls.Add(tvTree);
-            leftLayout.Controls.Add(grpTree, 0, 5);
+            leftLayout.Controls.Add(grpTree, 0, 2);
 
             pnlLeft.Controls.Add(leftLayout);
             splitMain.Panel1.Controls.Add(pnlLeft);
+        }
+
+        private void InitializeSearchToolbarItems()
+        {
+            var searchSeparator = new ToolStripSeparator
+            {
+                Alignment = ToolStripItemAlignment.Right
+            };
+
+            txtSearch = new ToolStripTextBox
+            {
+                Alignment = ToolStripItemAlignment.Right,
+                AutoSize = false,
+                Size = new Size(220, 25),
+                Margin = new Padding(0, 1, 4, 1),
+                ToolTipText = "Поиск по имени, пути и уровню"
+            };
+            txtSearch.TextBox.PlaceholderText = "Поиск";
+
+            btnSearch = CreateSearchToolbarButton(
+                CreateSearchIcon(),
+                "Найти");
+            btnSearchPrev = CreateSearchToolbarButton(
+                CreateChevronIcon(pointLeft: true),
+                "Предыдущий результат");
+            btnSearchPrev.Enabled = false;
+            btnSearchNext = CreateSearchToolbarButton(
+                CreateChevronIcon(pointLeft: false),
+                "Следующий результат");
+            btnSearchNext.Enabled = false;
+
+            // Right-aligned ToolStrip items are rendered from right to left in insertion order.
+            toolStrip.Items.AddRange(new ToolStripItem[]
+            {
+                btnSearchNext,
+                btnSearchPrev,
+                btnSearch,
+                txtSearch,
+                searchSeparator
+            });
         }
 
         private void InitializeRightPanel()
@@ -484,5 +476,54 @@ namespace AsutpKnowledgeBase
                 TextAlign = ContentAlignment.MiddleLeft,
                 AutoEllipsis = true
             };
+
+        private static ToolStripButton CreateSearchToolbarButton(Image image, string toolTipText) =>
+            new()
+            {
+                Alignment = ToolStripItemAlignment.Right,
+                AutoSize = false,
+                DisplayStyle = ToolStripItemDisplayStyle.Image,
+                Image = image,
+                Margin = new Padding(0, 1, 0, 1),
+                Size = new Size(28, 28),
+                Text = toolTipText,
+                ToolTipText = toolTipText
+            };
+
+        private static Bitmap CreateSearchIcon()
+        {
+            var bitmap = new Bitmap(16, 16);
+            using var graphics = Graphics.FromImage(bitmap);
+            using var pen = new Pen(SystemColors.ControlText, 1.75f)
+            {
+                StartCap = System.Drawing.Drawing2D.LineCap.Round,
+                EndCap = System.Drawing.Drawing2D.LineCap.Round
+            };
+
+            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            graphics.DrawEllipse(pen, 2.5f, 2.5f, 7.5f, 7.5f);
+            graphics.DrawLine(pen, 9.25f, 9.25f, 13f, 13f);
+            return bitmap;
+        }
+
+        private static Bitmap CreateChevronIcon(bool pointLeft)
+        {
+            var bitmap = new Bitmap(16, 16);
+            using var graphics = Graphics.FromImage(bitmap);
+            using var pen = new Pen(SystemColors.ControlText, 1.9f)
+            {
+                StartCap = System.Drawing.Drawing2D.LineCap.Round,
+                EndCap = System.Drawing.Drawing2D.LineCap.Round
+            };
+
+            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+            var points = pointLeft
+                ? new[] { new PointF(10.25f, 3.5f), new PointF(5.75f, 8f), new PointF(10.25f, 12.5f) }
+                : new[] { new PointF(5.75f, 3.5f), new PointF(10.25f, 8f), new PointF(5.75f, 12.5f) };
+
+            graphics.DrawLines(pen, points);
+            return bitmap;
+        }
     }
 }
