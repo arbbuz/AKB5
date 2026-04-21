@@ -18,7 +18,7 @@ Last updated: 2026-04-21
 - JSON remains the source of truth
 - Excel import/export remains a separate contract and workbook format v3 is still supported
 - Application icon is sourced from `resources/app.ico`
-- Splitter width is persisted per workshop in `%LocalAppData%\AKB5\window-layout-state.json`
+- Splitter width is persisted as one shared setting for the whole app in `%LocalAppData%\AKB5\window-layout-state.json`
 - Current local changes implement projection-based workshop-root hiding in the tree UI:
   - when a workshop contains a single root node with `LevelIndex = 0`, that node is hidden in `TreeView`
   - its children are shown as visible roots in the UI
@@ -29,7 +29,7 @@ Last updated: 2026-04-21
 - The `Файл` menu now also supports workshop lifecycle operations:
   - `Удалить цех` asks for confirmation and blocks deleting the last remaining workshop
   - `Переименовать цех` asks for the new name and then for explicit confirmation
-  - both actions update the current session state, undo history and per-workshop splitter layout state
+  - both actions update the current session state and undo history without touching the shared splitter-size preference
 - Tree add actions are now split by intent when the workshop root is hidden:
   - `Insert` and the tree context action `Добавить на верхнем уровне` always add a new visible top-level node under the hidden workshop root
   - `Добавить сюда` adds a child to the currently selected visible node
@@ -71,7 +71,7 @@ dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledg
 dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore
 ```
 
-- `dotnet test`: passed, `129/129`
+- `dotnet test`: passed, `130/130`
 - `dotnet build`: passed
 - Existing analyzer warnings remain
 - `NU1900` warnings remain because vulnerability metadata could not be fetched from NuGet in this environment

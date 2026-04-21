@@ -13,10 +13,6 @@ namespace AsutpKnowledgeBase.UiServices
 
         public Action RefreshSearchAfterMutation { get; init; } = null!;
 
-        public Action<string, string> RenameWorkshopLayoutState { get; init; } = (_, _) => { };
-
-        public Action<string> RemoveWorkshopLayoutState { get; init; } = _ => { };
-
         public Action UpdateDirtyState { get; init; } = null!;
 
         public Action UpdateUi { get; init; } = null!;
@@ -128,7 +124,6 @@ namespace AsutpKnowledgeBase.UiServices
             }
 
             _history.SaveState(historySnapshot);
-            context.RenameWorkshopLayoutState(currentWorkshop, renameResult.ViewState.CurrentWorkshop);
             context.ApplySessionView(renameResult.ViewState);
             context.RefreshSearchAfterMutation();
             context.UpdateDirtyState();
@@ -171,7 +166,6 @@ namespace AsutpKnowledgeBase.UiServices
             }
 
             _history.SaveState(historySnapshot);
-            context.RemoveWorkshopLayoutState(currentWorkshop);
             context.ApplySessionView(deleteResult.ViewState);
             context.RefreshSearchAfterMutation();
             context.UpdateDirtyState();

@@ -20,19 +20,19 @@ namespace AsutpKnowledgeBase.Services
             _logger = logger ?? NullAppLogger.Instance;
         }
 
-        public IReadOnlyDictionary<string, int> LoadSplitterDistancesByWorkshop()
+        public int? LoadSplitterDistance()
         {
             try
             {
                 if (!File.Exists(StatePath))
-                    return CreateEmptyState();
+                    return null;
 
                 string json = File.ReadAllText(StatePath);
                 if (string.IsNullOrWhiteSpace(json))
-                    return CreateEmptyState();
+                    return null;
 
                 var state = JsonSerializer.Deserialize<KnowledgeBaseWindowLayoutState>(json, SerializerOptions);
-                return NormalizeSplitterDistances(state?.SplitterDistancesByWorkshop);
+                return NormalizeSplitterDistance(state);
             }
             catch (Exception ex)
             {
@@ -43,11 +43,11 @@ namespace AsutpKnowledgeBase.Services
                     ex,
                     CreateProperties(("path", StatePath)));
 
-                return CreateEmptyState();
+                return null;
             }
         }
 
-        public void SaveSplitterDistancesByWorkshop(IReadOnlyDictionary<string, int> splitterDistancesByWorkshop)
+        public void SaveSplitterDistance(int splitterDistance)
         {
             try
             {
@@ -57,7 +57,7 @@ namespace AsutpKnowledgeBase.Services
 
                 var state = new KnowledgeBaseWindowLayoutState
                 {
-                    SplitterDistancesByWorkshop = NormalizeSplitterDistances(splitterDistancesByWorkshop)
+                    SplitterDistance = NormalizeSplitterDistance(splitterDistance)
                 };
 
                 string json = JsonSerializer.Serialize(state, SerializerOptions);
@@ -74,27 +74,32 @@ namespace AsutpKnowledgeBase.Services
             }
         }
 
-        private static Dictionary<string, int> NormalizeSplitterDistances(
-            IReadOnlyDictionary<string, int>? splitterDistancesByWorkshop)
+        private static int? NormalizeSplitterDistance(KnowledgeBaseWindowLayoutState? state)
         {
-            var normalized = CreateEmptyState();
-            if (splitterDistancesByWorkshop == null)
-                return normalized;
+            int? normalizedCurrentValue = NormalizeSplitterDistance(state?.SplitterDistance);
+            if (normalizedCurrentValue.HasValue)
+                return normalizedCurrentValue;
 
-            foreach (var pair in splitterDistancesByWorkshop)
+            if (state?.SplitterDistancesByWorkshop == null)
+                return null;
+
+            foreach (var pair in state.SplitterDistancesByWorkshop)
             {
-                string workshop = pair.Key?.Trim() ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(workshop) || pair.Value <= 0)
-                    continue;
-
-                normalized[workshop] = pair.Value;
+                int? normalizedLegacyValue = NormalizeSplitterDistance(pair.Value);
+                if (normalizedLegacyValue.HasValue)
+                    return normalizedLegacyValue;
             }
 
-            return normalized;
+            return null;
         }
 
-        private static Dictionary<string, int> CreateEmptyState() =>
-            new(StringComparer.Ordinal);
+        private static int? NormalizeSplitterDistance(int? splitterDistance)
+        {
+            if (!splitterDistance.HasValue || splitterDistance.Value <= 0)
+                return null;
+
+            return splitterDistance.Value;
+        }
 
         private static string ResolveStatePath(string? overridePath)
         {
@@ -125,7 +130,8 @@ namespace AsutpKnowledgeBase.Services
 
     internal sealed class KnowledgeBaseWindowLayoutState
     {
-        public Dictionary<string, int> SplitterDistancesByWorkshop { get; init; } =
-            new(StringComparer.Ordinal);
+        public int? SplitterDistance { get; init; }
+
+        public Dictionary<string, int>? SplitterDistancesByWorkshop { get; init; }
     }
 }

@@ -26,7 +26,7 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseTreeViewService _treeViewService = new();
         private readonly UndoRedoService _history = new(50);
         private readonly KnowledgeBaseWindowLayoutStateService _windowLayoutStateService;
-        private readonly Dictionary<string, int> _splitterDistancesByContext = new(StringComparer.Ordinal);
+        private int? _savedSplitterDistance;
 
         private bool _isBindingWorkshops;
         private bool _isApplyingSelectedNodeState;
@@ -93,8 +93,7 @@ namespace AsutpKnowledgeBase
             _windowLayoutStateService = new KnowledgeBaseWindowLayoutStateService(logger: _appLogger);
             InitializeComponent();
             AppIconProvider.Apply(this);
-            foreach (var pair in _windowLayoutStateService.LoadSplitterDistancesByWorkshop())
-                _splitterDistancesByContext[pair.Key] = pair.Value;
+            _savedSplitterDistance = _windowLayoutStateService.LoadSplitterDistance();
             var storageService = new JsonStorageService(GetDefaultJsonPath(), _appLogger);
             var fileWorkflowService = new KnowledgeBaseFileWorkflowService(
                 _session,
@@ -245,59 +244,18 @@ namespace AsutpKnowledgeBase
 
         private int GetPreferredSplitterDistance()
         {
-            string? contextKey = GetCurrentSplitterContextKey();
-            if (contextKey != null && _splitterDistancesByContext.TryGetValue(contextKey, out int savedDistance))
-                return savedDistance;
-
-            return DefaultSplitterDistance;
+            return _savedSplitterDistance ?? DefaultSplitterDistance;
         }
 
         private void SaveCurrentSplitterDistance()
         {
-            string? contextKey = GetCurrentSplitterContextKey();
-            if (contextKey == null)
-                return;
-
-            if (_splitterDistancesByContext.TryGetValue(contextKey, out int existingDistance) &&
-                existingDistance == splitMain.SplitterDistance)
+            if (_savedSplitterDistance == splitMain.SplitterDistance)
             {
                 return;
             }
 
-            _splitterDistancesByContext[contextKey] = splitMain.SplitterDistance;
-            _windowLayoutStateService.SaveSplitterDistancesByWorkshop(_splitterDistancesByContext);
-        }
-
-        private void RenameWorkshopSplitterDistance(string oldWorkshop, string newWorkshop)
-        {
-            string oldKey = oldWorkshop.Trim();
-            string newKey = newWorkshop.Trim();
-            if (string.IsNullOrWhiteSpace(oldKey) || string.IsNullOrWhiteSpace(newKey))
-                return;
-
-            if (!_splitterDistancesByContext.Remove(oldKey, out int splitterDistance))
-                return;
-
-            _splitterDistancesByContext[newKey] = splitterDistance;
-            _windowLayoutStateService.SaveSplitterDistancesByWorkshop(_splitterDistancesByContext);
-        }
-
-        private void RemoveWorkshopSplitterDistance(string workshop)
-        {
-            string key = workshop.Trim();
-            if (string.IsNullOrWhiteSpace(key))
-                return;
-
-            if (!_splitterDistancesByContext.Remove(key))
-                return;
-
-            _windowLayoutStateService.SaveSplitterDistancesByWorkshop(_splitterDistancesByContext);
-        }
-
-        private string? GetCurrentSplitterContextKey()
-        {
-            string workshop = _currentWorkshop.Trim();
-            return string.IsNullOrWhiteSpace(workshop) ? null : workshop;
+            _savedSplitterDistance = splitMain.SplitterDistance;
+            _windowLayoutStateService.SaveSplitterDistance(splitMain.SplitterDistance);
         }
 
         private void SetTechnicalFieldsVisibility(bool visible)

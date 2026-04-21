@@ -21,7 +21,7 @@
   - `Переименовать цех`
 - Delete and rename both require explicit user confirmation
 - Delete is rejected for the last remaining workshop to avoid an inconsistent empty-session state on the next save/load cycle
-- Rename preserves the current workshop tree, keeps the selected workshop active and updates the splitter-layout key for that workshop
+- Rename preserves the current workshop tree and keeps the selected workshop active without affecting the shared splitter-size preference
 - Tree creation actions are now separated:
   - `Добавить на верхнем уровне` always creates another visible level-1 node under the hidden workshop wrapper
   - `Добавить сюда` creates a child under the selected visible node
@@ -69,7 +69,7 @@ dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-rest
 
 Observed results:
 
-- `dotnet test`: passed, `129/129`
+- `dotnet test`: passed, `130/130`
 - `dotnet build`: passed
 - Existing analyzer warnings remain
 - `NU1900` vulnerability-index warnings remain because the environment could not fetch `https://api.nuget.org/v3/index.json`
