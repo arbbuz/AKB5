@@ -95,6 +95,7 @@ namespace AsutpKnowledgeBase
             InitializeComponent();
             AppIconProvider.Apply(this);
             _savedSplitterDistance = _windowLayoutStateService.LoadSplitterDistance();
+            RestoreSavedWindowLayout();
             var storageService = new JsonStorageService(GetDefaultJsonPath(), _appLogger);
             var fileWorkflowService = new KnowledgeBaseFileWorkflowService(
                 _session,
@@ -266,6 +267,50 @@ namespace AsutpKnowledgeBase
 
             _savedSplitterDistance = splitMain.SplitterDistance;
             _windowLayoutStateService.SaveSplitterDistance(splitMain.SplitterDistance);
+        }
+
+        private void RestoreSavedWindowLayout()
+        {
+            var placement = _windowLayoutStateService.LoadWindowPlacement();
+            if (placement == null)
+                return;
+
+            Rectangle requestedBounds = new(
+                placement.Left,
+                placement.Top,
+                placement.Width,
+                placement.Height);
+            Rectangle workingArea = Screen.FromRectangle(requestedBounds).WorkingArea;
+            Rectangle fittedBounds = KnowledgeBaseWindowLayoutStateService.FitWindowBounds(
+                requestedBounds,
+                workingArea,
+                MinimumSize);
+
+            StartPosition = FormStartPosition.Manual;
+            WindowState = FormWindowState.Normal;
+            DesktopBounds = fittedBounds;
+
+            if (placement.IsMaximized)
+                WindowState = FormWindowState.Maximized;
+        }
+
+        private void SaveCurrentWindowLayout()
+        {
+            Rectangle bounds = WindowState == FormWindowState.Normal
+                ? DesktopBounds
+                : RestoreBounds;
+            if (bounds.Width <= 0 || bounds.Height <= 0)
+                return;
+
+            _windowLayoutStateService.SaveWindowPlacement(
+                new KnowledgeBaseWindowPlacement
+                {
+                    Left = bounds.Left,
+                    Top = bounds.Top,
+                    Width = bounds.Width,
+                    Height = bounds.Height,
+                    IsMaximized = WindowState == FormWindowState.Maximized
+                });
         }
 
         private void CollapseTreeToRoots()

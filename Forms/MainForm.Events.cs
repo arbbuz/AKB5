@@ -17,7 +17,7 @@ namespace AsutpKnowledgeBase
             btnSearch.Click += (s, e) => PerformSearch();
             btnSearchPrev.Click += (s, e) => NavigateSearch(-1);
             btnSearchNext.Click += (s, e) => NavigateSearch(1);
-            txtSearch.KeyDown += TxtSearch_KeyDown;
+            txtSearch.TextBox.KeyDown += TxtSearch_KeyDown;
             btnBrowsePhoto.Click += BtnBrowsePhoto_Click;
             btnOpenPhoto.Click += BtnOpenPhoto_Click;
 
@@ -217,6 +217,13 @@ namespace AsutpKnowledgeBase
         private void TvTree_AfterSelect(object? sender, TreeViewEventArgs e) => UpdateUI();
 
         private void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
-            => _fileUiWorkflowService.HandleFormClosing(CreateFileUiWorkflowContext(), e);
+        {
+            _fileUiWorkflowService.HandleFormClosing(CreateFileUiWorkflowContext(), e);
+            if (e.Cancel)
+                return;
+
+            SaveCurrentSplitterDistance();
+            SaveCurrentWindowLayout();
+        }
     }
 }
