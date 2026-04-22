@@ -13,6 +13,7 @@ namespace AsutpKnowledgeBase
         private static readonly Color SelectedInactiveTextColor = Color.FromArgb(30, 64, 175);
 
         private TreeNode? _hoveredNode;
+        private TreeNode? _lastSelectedNode;
 
         public KnowledgeBaseTreeView()
         {
@@ -29,7 +30,11 @@ namespace AsutpKnowledgeBase
             BackColor = Color.White;
             ForeColor = TextColor;
             DoubleBuffered = true;
-            SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
+            SetStyle(
+                ControlStyles.OptimizedDoubleBuffer |
+                ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.ResizeRedraw,
+                true);
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
@@ -71,8 +76,9 @@ namespace AsutpKnowledgeBase
             e.DrawDefault = false;
 
             TreeNode node = e.Node;
-            Rectangle rowBounds = new(0, e.Bounds.Top, ClientSize.Width, ItemHeight);
-            Rectangle iconBounds = GetNodeIconBounds(node);
+            Rectangle rowBounds = GetRowBounds(e.Bounds);
+            Rectangle textBounds = GetTextBounds(e.Bounds, rowBounds);
+            Rectangle iconBounds = GetNodeIconBounds(e.Bounds);
             Rectangle contentBounds = new(
                 Math.Max(2, iconBounds.Left - 6),
                 rowBounds.Top + 2,
@@ -83,9 +89,51 @@ namespace AsutpKnowledgeBase
             bool isFocusedSelection = isSelected && Focused;
             bool isHovered = !isSelected && ReferenceEquals(_hoveredNode, node);
 
+            using Region previousClip = e.Graphics.Clip.Clone();
+            using SolidBrush clearBrush = new(BackColor);
+
+            e.Graphics.SetClip(rowBounds);
+            e.Graphics.FillRectangle(clearBrush, rowBounds);
             DrawNodeBackground(e.Graphics, contentBounds, isFocusedSelection, isSelected, isHovered);
             DrawNodeIcon(e.Graphics, node, iconBounds);
-            DrawNodeText(e.Graphics, node, rowBounds, isFocusedSelection, isSelected);
+            DrawNodeText(e.Graphics, node, textBounds, isFocusedSelection, isSelected);
+            e.Graphics.SetClip(previousClip, CombineMode.Replace);
+        }
+
+        protected override void OnAfterSelect(TreeViewEventArgs e)
+        {
+            TreeNode? previousSelectedNode = _lastSelectedNode;
+            _lastSelectedNode = e.Node;
+
+            base.OnAfterSelect(e);
+
+            InvalidateNode(previousSelectedNode);
+            InvalidateNode(_lastSelectedNode);
+        }
+
+        protected override void OnAfterCollapse(TreeViewEventArgs e)
+        {
+            base.OnAfterCollapse(e);
+            UpdateHoveredNode(null);
+            Invalidate();
+        }
+
+        protected override void OnAfterExpand(TreeViewEventArgs e)
+        {
+            base.OnAfterExpand(e);
+            Invalidate();
+        }
+
+        protected override void OnGotFocus(EventArgs e)
+        {
+            base.OnGotFocus(e);
+            InvalidateNode(SelectedNode);
+        }
+
+        protected override void OnLostFocus(EventArgs e)
+        {
+            base.OnLostFocus(e);
+            InvalidateNode(SelectedNode);
         }
 
         private void UpdateHoveredNode(TreeNode? node)
@@ -105,7 +153,7 @@ namespace AsutpKnowledgeBase
             if (node == null || IsDisposed)
                 return;
 
-            Rectangle rowBounds = new(0, node.Bounds.Top, ClientSize.Width, ItemHeight);
+            Rectangle rowBounds = GetRowBounds(node.Bounds);
             if (!rowBounds.IsEmpty)
                 Invalidate(rowBounds);
         }
@@ -155,7 +203,7 @@ namespace AsutpKnowledgeBase
         private void DrawNodeText(
             Graphics graphics,
             TreeNode node,
-            Rectangle rowBounds,
+            Rectangle textBounds,
             bool isFocusedSelection,
             bool isSelected)
         {
@@ -165,12 +213,6 @@ namespace AsutpKnowledgeBase
                     ? SelectedInactiveTextColor
                     : TextColor;
 
-            Rectangle textBounds = new(
-                node.Bounds.Left,
-                rowBounds.Top,
-                Math.Max(0, ClientSize.Width - node.Bounds.Left - 8),
-                rowBounds.Height);
-
             TextRenderer.DrawText(
                 graphics,
                 node.Text,
@@ -178,6 +220,7 @@ namespace AsutpKnowledgeBase
                 textBounds,
                 textColor,
                 TextFormatFlags.Left |
+                TextFormatFlags.SingleLine |
                 TextFormatFlags.VerticalCenter |
                 TextFormatFlags.EndEllipsis |
                 TextFormatFlags.NoPrefix |
@@ -205,10 +248,37 @@ namespace AsutpKnowledgeBase
 
         private Rectangle GetNodeIconBounds(TreeNode node)
         {
+            return BuildIconBounds(node.Bounds.Left, node.Bounds.Top, node.Bounds.Height);
+        }
+
+        private Rectangle GetNodeIconBounds(Rectangle labelBounds)
+        {
+            return BuildIconBounds(labelBounds.Left, labelBounds.Top, labelBounds.Height);
+        }
+
+        private Rectangle BuildIconBounds(int textLeft, int top, int height)
+        {
             Size imageSize = ImageList?.ImageSize ?? new Size(16, 16);
-            int left = Math.Max(6, node.Bounds.Left - imageSize.Width - 4);
-            int top = node.Bounds.Top + Math.Max(0, (ItemHeight - imageSize.Height) / 2);
-            return new Rectangle(left, top, imageSize.Width, imageSize.Height);
+            int left = Math.Max(6, textLeft - imageSize.Width - 4);
+            int iconTop = top + Math.Max(0, (Math.Max(height, ItemHeight) - imageSize.Height) / 2);
+            return new Rectangle(left, iconTop, imageSize.Width, imageSize.Height);
+        }
+
+        private Rectangle GetRowBounds(Rectangle bounds)
+        {
+            if (bounds.IsEmpty)
+                return Rectangle.Empty;
+
+            return new Rectangle(0, bounds.Top, ClientSize.Width, Math.Max(1, bounds.Height));
+        }
+
+        private Rectangle GetTextBounds(Rectangle labelBounds, Rectangle rowBounds)
+        {
+            return new Rectangle(
+                labelBounds.Left,
+                rowBounds.Top,
+                Math.Max(0, ClientSize.Width - labelBounds.Left - 8),
+                rowBounds.Height);
         }
 
         private static GraphicsPath CreateRoundedRectanglePath(Rectangle bounds, int radius)
