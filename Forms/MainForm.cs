@@ -343,8 +343,6 @@ namespace AsutpKnowledgeBase
                 tvTree.EndUpdate();
             }
 
-            tvTree.Invalidate();
-
             if (hadTreeFocus)
                 tvTree.Focus();
         }

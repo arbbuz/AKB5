@@ -13,7 +13,6 @@ namespace AsutpKnowledgeBase
         private static readonly Color SelectedInactiveTextColor = Color.FromArgb(30, 64, 175);
 
         private TreeNode? _hoveredNode;
-        private TreeNode? _lastSelectedNode;
 
         public KnowledgeBaseTreeView()
         {
@@ -30,11 +29,7 @@ namespace AsutpKnowledgeBase
             BackColor = Color.White;
             ForeColor = TextColor;
             DoubleBuffered = true;
-            SetStyle(
-                ControlStyles.OptimizedDoubleBuffer |
-                ControlStyles.AllPaintingInWmPaint |
-                ControlStyles.ResizeRedraw,
-                true);
+            SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
@@ -55,7 +50,7 @@ namespace AsutpKnowledgeBase
             bool shouldToggle = e.Button == MouseButtons.Left &&
                 clickedNode != null &&
                 clickedNode.Nodes.Count > 0 &&
-                GetNodeIconBounds(clickedNode, GetRowBounds(clickedNode.Bounds)).Contains(e.Location);
+                GetNodeIconBounds(clickedNode).Contains(e.Location);
 
             base.OnMouseDown(e);
 
@@ -76,9 +71,8 @@ namespace AsutpKnowledgeBase
             e.DrawDefault = false;
 
             TreeNode node = e.Node;
-            Rectangle rowBounds = GetRowBounds(e.Bounds);
-            Rectangle iconBounds = GetNodeIconBounds(node, rowBounds);
-            Rectangle textBounds = GetTextBounds(e.Bounds, rowBounds);
+            Rectangle rowBounds = new(0, e.Bounds.Top, ClientSize.Width, ItemHeight);
+            Rectangle iconBounds = GetNodeIconBounds(node);
             Rectangle contentBounds = new(
                 Math.Max(2, iconBounds.Left - 6),
                 rowBounds.Top + 2,
@@ -89,50 +83,9 @@ namespace AsutpKnowledgeBase
             bool isFocusedSelection = isSelected && Focused;
             bool isHovered = !isSelected && ReferenceEquals(_hoveredNode, node);
 
-            using Region previousClip = e.Graphics.Clip.Clone();
-            e.Graphics.SetClip(rowBounds);
-
-            using SolidBrush clearBrush = new(BackColor);
-            e.Graphics.FillRectangle(clearBrush, rowBounds);
-
             DrawNodeBackground(e.Graphics, contentBounds, isFocusedSelection, isSelected, isHovered);
             DrawNodeIcon(e.Graphics, node, iconBounds);
-            DrawNodeText(e.Graphics, node, textBounds, isFocusedSelection, isSelected);
-
-            e.Graphics.SetClip(previousClip, CombineMode.Replace);
-        }
-
-        protected override void OnAfterSelect(TreeViewEventArgs e)
-        {
-            InvalidateNode(_lastSelectedNode);
-            _lastSelectedNode = e.Node;
-            InvalidateNode(_lastSelectedNode);
-            base.OnAfterSelect(e);
-        }
-
-        protected override void OnAfterCollapse(TreeViewEventArgs e)
-        {
-            base.OnAfterCollapse(e);
-            UpdateHoveredNode(null);
-            Invalidate();
-        }
-
-        protected override void OnAfterExpand(TreeViewEventArgs e)
-        {
-            base.OnAfterExpand(e);
-            Invalidate();
-        }
-
-        protected override void OnGotFocus(EventArgs e)
-        {
-            base.OnGotFocus(e);
-            InvalidateNode(SelectedNode);
-        }
-
-        protected override void OnLostFocus(EventArgs e)
-        {
-            base.OnLostFocus(e);
-            InvalidateNode(SelectedNode);
+            DrawNodeText(e.Graphics, node, rowBounds, isFocusedSelection, isSelected);
         }
 
         private void UpdateHoveredNode(TreeNode? node)
@@ -152,7 +105,7 @@ namespace AsutpKnowledgeBase
             if (node == null || IsDisposed)
                 return;
 
-            Rectangle rowBounds = GetRowBounds(node.Bounds);
+            Rectangle rowBounds = new(0, node.Bounds.Top, ClientSize.Width, ItemHeight);
             if (!rowBounds.IsEmpty)
                 Invalidate(rowBounds);
         }
@@ -202,7 +155,7 @@ namespace AsutpKnowledgeBase
         private void DrawNodeText(
             Graphics graphics,
             TreeNode node,
-            Rectangle textBounds,
+            Rectangle rowBounds,
             bool isFocusedSelection,
             bool isSelected)
         {
@@ -211,6 +164,12 @@ namespace AsutpKnowledgeBase
                 : isSelected
                     ? SelectedInactiveTextColor
                     : TextColor;
+
+            Rectangle textBounds = new(
+                node.Bounds.Left,
+                rowBounds.Top,
+                Math.Max(0, ClientSize.Width - node.Bounds.Left - 8),
+                rowBounds.Height);
 
             TextRenderer.DrawText(
                 graphics,
@@ -244,27 +203,12 @@ namespace AsutpKnowledgeBase
             return null;
         }
 
-        private Rectangle GetNodeIconBounds(TreeNode node, Rectangle rowBounds)
+        private Rectangle GetNodeIconBounds(TreeNode node)
         {
             Size imageSize = ImageList?.ImageSize ?? new Size(16, 16);
             int left = Math.Max(6, node.Bounds.Left - imageSize.Width - 4);
-            int top = rowBounds.Top + Math.Max(0, (rowBounds.Height - imageSize.Height) / 2);
+            int top = node.Bounds.Top + Math.Max(0, (ItemHeight - imageSize.Height) / 2);
             return new Rectangle(left, top, imageSize.Width, imageSize.Height);
-        }
-
-        private Rectangle GetRowBounds(Rectangle nodeBounds)
-        {
-            int height = Math.Max(1, nodeBounds.Height);
-            return new Rectangle(0, nodeBounds.Top, ClientSize.Width, height);
-        }
-
-        private Rectangle GetTextBounds(Rectangle nodeBounds, Rectangle rowBounds)
-        {
-            return new Rectangle(
-                nodeBounds.Left,
-                rowBounds.Top,
-                Math.Max(0, ClientSize.Width - nodeBounds.Left - 8),
-                rowBounds.Height);
         }
 
         private static GraphicsPath CreateRoundedRectanglePath(Rectangle bounds, int radius)

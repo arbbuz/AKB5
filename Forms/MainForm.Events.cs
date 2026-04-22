@@ -182,7 +182,6 @@ namespace AsutpKnowledgeBase
             if (tvTree.SelectedNode != null)
             {
                 tvTree.SelectedNode = null;
-                tvTree.Invalidate();
                 UpdateUI();
             }
         }
