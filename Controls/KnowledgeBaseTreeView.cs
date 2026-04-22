@@ -8,9 +8,9 @@ namespace AsutpKnowledgeBase
         private const int TvmFirst = 0x1100;
         private const int TvmSetExtendedStyle = TvmFirst + 44;
         private const int TvsExDoubleBuffer = 0x0004;
-        private const int ExpandGlyphSize = 8;
-        private const int ExpandGlyphGap = 4;
-        private const int ContentGap = 6;
+        private const int ExpandGlyphSize = 9;
+        private const int ExpandGlyphGap = 3;
+        private const int ContentGap = 5;
 
         private static readonly Color HoverBackColor = Color.FromArgb(241, 245, 249);
         private static readonly Color SelectedBackColor = Color.FromArgb(37, 99, 235);
@@ -38,7 +38,7 @@ namespace AsutpKnowledgeBase
             ShowRootLines = false;
             HotTracking = false;
             Indent = 22;
-            ItemHeight = 28;
+            ItemHeight = 30;
             BackColor = Color.White;
             ForeColor = TextColor;
             DoubleBuffered = true;
@@ -346,7 +346,7 @@ namespace AsutpKnowledgeBase
 
         private Rectangle BuildIconBounds(int textLeft, int top, int height)
         {
-            Size imageSize = ImageList?.ImageSize ?? new Size(16, 16);
+            Size imageSize = ImageList?.ImageSize ?? new Size(20, 20);
             int left = Math.Max(6, textLeft - imageSize.Width - 4);
             int iconTop = top + Math.Max(0, (Math.Max(height, ItemHeight) - imageSize.Height) / 2);
             return new Rectangle(left, iconTop, imageSize.Width, imageSize.Height);

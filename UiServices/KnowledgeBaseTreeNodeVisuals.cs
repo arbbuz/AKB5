@@ -4,30 +4,30 @@ namespace AsutpKnowledgeBase.UiServices
 {
     public static class KnowledgeBaseTreeNodeVisuals
     {
+        private const int IconSize = 20;
         private const string WorkshopKey = "workshop";
         private const string DepartmentKey = "department";
-        private const string EquipmentKey = "equipment";
-        private const string CabinetKey = "cabinet";
+        private const string SystemKey = "system";
+        private const string PanelKey = "panel";
         private const string DeviceKey = "device";
-        private const string ModuleKey = "module";
-        private const string NoteKey = "note";
+
+        private static readonly Rectangle TileBounds = new(1, 1, 18, 18);
+        private static readonly RectangleF VariantBadgeBounds = new(11.75f, 11.75f, 7f, 7f);
 
         public static ImageList CreateImageList()
         {
             var imageList = new ImageList
             {
                 ColorDepth = ColorDepth.Depth32Bit,
-                ImageSize = new Size(16, 16),
+                ImageSize = new Size(IconSize, IconSize),
                 TransparentColor = Color.Transparent
             };
 
             AddNodeTypeIcons(imageList, WorkshopKey, CreateWorkshopIcon);
             AddNodeTypeIcons(imageList, DepartmentKey, CreateDepartmentIcon);
-            AddNodeTypeIcons(imageList, EquipmentKey, CreateEquipmentIcon);
-            AddNodeTypeIcons(imageList, CabinetKey, CreateCabinetIcon);
+            AddNodeTypeIcons(imageList, SystemKey, CreateSystemIcon);
+            AddNodeTypeIcons(imageList, PanelKey, CreatePanelIcon);
             AddNodeTypeIcons(imageList, DeviceKey, CreateDeviceIcon);
-            AddNodeTypeIcons(imageList, ModuleKey, CreateModuleIcon);
-            AddNodeTypeIcons(imageList, NoteKey, CreateNoteIcon);
 
             return imageList;
         }
@@ -39,11 +39,9 @@ namespace AsutpKnowledgeBase.UiServices
         {
             <= 0 => WorkshopKey,
             1 => DepartmentKey,
-            2 => EquipmentKey,
-            3 => CabinetKey,
-            4 => DeviceKey,
-            5 => ModuleKey,
-            _ => NoteKey
+            2 => SystemKey,
+            3 => PanelKey,
+            _ => DeviceKey
         };
 
         private static void AddNodeTypeIcons(
@@ -65,114 +63,83 @@ namespace AsutpKnowledgeBase.UiServices
                 graphics =>
                 {
                     using SolidBrush brush = new(Color.White);
-                    graphics.FillRectangle(brush, 3, 9, 10, 4);
-                    graphics.FillRectangle(brush, 5, 6, 2, 3);
-                    graphics.FillRectangle(brush, 9, 6, 2, 3);
-                    graphics.FillRectangle(brush, 7, 3, 2, 10);
+                    graphics.FillRectangle(brush, 4, 13, 12, 3);
+                    graphics.FillRectangle(brush, 5, 9, 3, 4);
+                    graphics.FillRectangle(brush, 9, 7, 3, 6);
+                    graphics.FillRectangle(brush, 13, 5, 2, 8);
                 });
         }
 
         private static Bitmap CreateDepartmentIcon()
         {
             return CreateTileIcon(
-                Color.FromArgb(8, 145, 178),
+                Color.FromArgb(13, 148, 136),
                 graphics =>
                 {
+                    using Pen pen = CreateGlyphPen(1.45f);
                     using SolidBrush brush = new(Color.White);
-                    graphics.FillRoundedRectangle(brush, new Rectangle(3, 3, 10, 3), 2);
-                    graphics.FillRoundedRectangle(brush, new Rectangle(4, 7, 8, 3), 2);
-                    graphics.FillRoundedRectangle(brush, new Rectangle(5, 11, 6, 2), 1);
+
+                    graphics.DrawRoundedRectangle(pen, new Rectangle(4, 4, 12, 11), 2);
+                    graphics.DrawLine(pen, 10f, 4.75f, 10f, 14.25f);
+                    graphics.DrawLine(pen, 4.75f, 9.5f, 10f, 9.5f);
+                    graphics.FillRectangle(brush, 6f, 6f, 2f, 1.75f);
+                    graphics.FillRectangle(brush, 11.75f, 6f, 2f, 1.75f);
                 });
         }
 
-        private static Bitmap CreateEquipmentIcon()
+        private static Bitmap CreateSystemIcon()
         {
             return CreateTileIcon(
-                Color.FromArgb(5, 150, 105),
+                Color.FromArgb(37, 99, 235),
                 graphics =>
                 {
-                    using Pen pen = new(Color.White, 1.6f)
-                    {
-                        StartCap = LineCap.Round,
-                        EndCap = LineCap.Round
-                    };
+                    using Pen pen = CreateGlyphPen(1.55f);
+                    using SolidBrush brush = new(Color.White);
 
-                    graphics.DrawEllipse(pen, 4.5f, 4.5f, 7f, 7f);
-                    graphics.DrawLine(pen, 8f, 2.5f, 8f, 4.25f);
-                    graphics.DrawLine(pen, 8f, 11.75f, 8f, 13.5f);
-                    graphics.DrawLine(pen, 2.5f, 8f, 4.25f, 8f);
-                    graphics.DrawLine(pen, 11.75f, 8f, 13.5f, 8f);
+                    graphics.DrawLine(pen, 6.5f, 6.75f, 10f, 6.75f);
+                    graphics.DrawLine(pen, 10f, 6.75f, 13.5f, 10.25f);
+                    graphics.DrawLine(pen, 10f, 6.75f, 10f, 13.25f);
+                    FillNodeCircle(graphics, brush, 4.75f, 5f);
+                    FillNodeCircle(graphics, brush, 8.25f, 5f);
+                    FillNodeCircle(graphics, brush, 11.75f, 8.5f);
+                    FillNodeCircle(graphics, brush, 8.25f, 12f);
                 });
         }
 
-        private static Bitmap CreateCabinetIcon()
+        private static Bitmap CreatePanelIcon()
         {
             return CreateTileIcon(
-                Color.FromArgb(30, 64, 175),
+                Color.FromArgb(51, 65, 85),
                 graphics =>
                 {
-                    using Pen pen = new(Color.White, 1.4f);
+                    using Pen pen = CreateGlyphPen(1.4f);
                     using SolidBrush brush = new(Color.White);
-                    graphics.DrawRoundedRectangle(pen, new Rectangle(4, 2, 8, 12), 2);
-                    graphics.DrawLine(pen, 8, 2.5f, 8, 13.5f);
-                    graphics.FillEllipse(brush, 9.25f, 7f, 1.5f, 1.5f);
+
+                    graphics.DrawRoundedRectangle(pen, new Rectangle(5, 3, 10, 14), 2);
+                    graphics.DrawLine(pen, 10.5f, 3.75f, 10.5f, 16.25f);
+                    graphics.FillEllipse(brush, 12f, 10.25f, 1.75f, 1.75f);
+                    graphics.FillEllipse(brush, 7f, 6.25f, 1.75f, 1.75f);
+                    graphics.FillEllipse(brush, 7f, 9.5f, 1.75f, 1.75f);
                 });
         }
 
         private static Bitmap CreateDeviceIcon()
         {
             return CreateTileIcon(
-                Color.FromArgb(59, 130, 246),
+                Color.FromArgb(5, 150, 105),
                 graphics =>
                 {
-                    using Pen pen = new(Color.White, 1.2f);
+                    using Pen pen = CreateGlyphPen(1.35f);
                     using SolidBrush brush = new(Color.White);
-                    graphics.DrawRoundedRectangle(pen, new Rectangle(4, 4, 8, 8), 2);
-                    graphics.FillRectangle(brush, 6, 6, 1.5f, 1.5f);
-                    graphics.FillRectangle(brush, 8.25f, 6, 1.5f, 1.5f);
-                    graphics.FillRectangle(brush, 6, 8.25f, 1.5f, 1.5f);
-                    graphics.FillRectangle(brush, 8.25f, 8.25f, 1.5f, 1.5f);
-                    graphics.DrawLine(pen, 2.5f, 6f, 4f, 6f);
-                    graphics.DrawLine(pen, 2.5f, 10f, 4f, 10f);
-                    graphics.DrawLine(pen, 12f, 6f, 13.5f, 6f);
-                    graphics.DrawLine(pen, 12f, 10f, 13.5f, 10f);
-                });
-        }
 
-        private static Bitmap CreateModuleIcon()
-        {
-            return CreateTileIcon(
-                Color.FromArgb(71, 85, 105),
-                graphics =>
-                {
-                    using SolidBrush brush = new(Color.White);
-                    graphics.FillRoundedRectangle(brush, new Rectangle(3, 4, 10, 8), 2);
-                    using SolidBrush accentBrush = new(Color.FromArgb(71, 85, 105));
-                    graphics.FillRectangle(accentBrush, 5, 6, 1.5f, 4);
-                    graphics.FillRectangle(accentBrush, 7.25f, 6, 1.5f, 4);
-                    graphics.FillRectangle(accentBrush, 9.5f, 6, 1.5f, 4);
-                });
-        }
-
-        private static Bitmap CreateNoteIcon()
-        {
-            return CreateTileIcon(
-                Color.FromArgb(100, 116, 139),
-                graphics =>
-                {
-                    using SolidBrush brush = new(Color.White);
-                    PointF[] foldedCorner =
-                    {
-                        new(10.5f, 3f),
-                        new(13f, 5.5f),
-                        new(10.5f, 5.5f)
-                    };
-
-                    graphics.FillRectangle(brush, 4, 3, 7, 10);
-                    graphics.FillPolygon(brush, foldedCorner);
-                    using Pen pen = new(Color.FromArgb(100, 116, 139), 1.1f);
-                    graphics.DrawLine(pen, 5.5f, 7f, 10.5f, 7f);
-                    graphics.DrawLine(pen, 5.5f, 9.5f, 10.5f, 9.5f);
+                    graphics.DrawRoundedRectangle(pen, new Rectangle(4, 5, 12, 9), 2);
+                    graphics.DrawRectangle(pen, 6.25f, 7f, 4.5f, 2.75f);
+                    graphics.FillEllipse(brush, 12.5f, 8f, 1.75f, 1.75f);
+                    graphics.DrawLine(pen, 6.5f, 14f, 6.5f, 16.25f);
+                    graphics.DrawLine(pen, 10f, 14f, 10f, 16.25f);
+                    graphics.DrawLine(pen, 13.5f, 14f, 13.5f, 16.25f);
+                    graphics.DrawLine(pen, 4f, 9.5f, 2.25f, 9.5f);
+                    graphics.DrawLine(pen, 16f, 9.5f, 17.75f, 9.5f);
                 });
         }
 
@@ -180,13 +147,15 @@ namespace AsutpKnowledgeBase.UiServices
         {
             return ApplyBadge(
                 baseIcon,
-                badgeBounds: new RectangleF(9.25f, 9.25f, 5.5f, 5.5f),
-                drawBadge: graphics =>
+                VariantBadgeBounds,
+                drawBadge: (graphics, badgeBounds) =>
                 {
                     using SolidBrush badgeBrush = new(Color.FromArgb(15, 23, 42));
-                    using Pen borderPen = new(Color.White, 0.9f);
-                    graphics.FillEllipse(badgeBrush, 9.25f, 9.25f, 5.5f, 5.5f);
-                    graphics.DrawEllipse(borderPen, 9.25f, 9.25f, 5.5f, 5.5f);
+                    using Pen borderPen = new(Color.White, 0.95f);
+                    Rectangle badgeRectangle = Rectangle.Round(badgeBounds);
+
+                    graphics.FillRoundedRectangle(badgeBrush, badgeRectangle, 2);
+                    graphics.DrawRoundedRectangle(borderPen, badgeRectangle, 2);
                 });
         }
 
@@ -194,17 +163,23 @@ namespace AsutpKnowledgeBase.UiServices
         {
             return ApplyBadge(
                 baseIcon,
-                badgeBounds: new RectangleF(9.25f, 9.25f, 5.5f, 5.5f),
-                drawBadge: graphics =>
+                VariantBadgeBounds,
+                drawBadge: (graphics, badgeBounds) =>
                 {
                     using SolidBrush badgeBrush = new(Color.White);
-                    using Pen borderPen = new(Color.FromArgb(15, 23, 42), 0.9f);
-                    graphics.FillEllipse(badgeBrush, 9.25f, 9.25f, 5.5f, 5.5f);
-                    graphics.DrawEllipse(borderPen, 9.25f, 9.25f, 5.5f, 5.5f);
+                    using SolidBrush centerBrush = new(Color.FromArgb(15, 23, 42));
+                    using Pen borderPen = new(Color.FromArgb(15, 23, 42), 0.95f);
+
+                    graphics.FillEllipse(badgeBrush, badgeBounds);
+                    graphics.DrawEllipse(borderPen, badgeBounds);
+                    graphics.FillEllipse(centerBrush, badgeBounds.Left + 2.3f, badgeBounds.Top + 2.3f, 2.4f, 2.4f);
                 });
         }
 
-        private static Bitmap ApplyBadge(Bitmap baseIcon, RectangleF badgeBounds, Action<Graphics> drawBadge)
+        private static Bitmap ApplyBadge(
+            Bitmap baseIcon,
+            RectangleF badgeBounds,
+            Action<Graphics, RectangleF> drawBadge)
         {
             using (baseIcon)
             {
@@ -213,24 +188,41 @@ namespace AsutpKnowledgeBase.UiServices
                 graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 using SolidBrush backdropBrush = new(Color.White);
                 graphics.FillEllipse(backdropBrush, badgeBounds);
-                drawBadge(graphics);
+                drawBadge(graphics, badgeBounds);
                 return bitmap;
             }
         }
 
         private static Bitmap CreateTileIcon(Color accentColor, Action<Graphics> drawGlyph)
         {
-            var bitmap = new Bitmap(16, 16);
+            var bitmap = new Bitmap(IconSize, IconSize);
             using Graphics graphics = Graphics.FromImage(bitmap);
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
             graphics.Clear(Color.Transparent);
 
-            using GraphicsPath path = CreateRoundedRectanglePath(new Rectangle(1, 1, 14, 14), 4);
+            using GraphicsPath path = CreateRoundedRectanglePath(TileBounds, 5);
             using SolidBrush brush = new(accentColor);
+            using Pen borderPen = new(Color.FromArgb(90, 15, 23, 42), 1f);
             graphics.FillPath(brush, path);
+            graphics.DrawPath(borderPen, path);
 
             drawGlyph(graphics);
             return bitmap;
+        }
+
+        private static Pen CreateGlyphPen(float width)
+        {
+            return new Pen(Color.White, width)
+            {
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round,
+                LineJoin = LineJoin.Round
+            };
+        }
+
+        private static void FillNodeCircle(Graphics graphics, Brush brush, float left, float top)
+        {
+            graphics.FillEllipse(brush, left, top, 3.5f, 3.5f);
         }
 
         private static GraphicsPath CreateRoundedRectanglePath(Rectangle bounds, int radius)
