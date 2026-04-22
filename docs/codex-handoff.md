@@ -30,6 +30,7 @@
     - `LevelIndex >= 4` -> device
   - deeper levels intentionally reuse the device icon to keep the tree legible
   - icon colors are moderately differentiated by type: teal department, blue system, slate panel, green device
+  - container/leaf badge dots were removed from the icon artwork; expandability is now indicated only by the chevron
 - Manual smoke verification for the current tree rendering is now positive:
   - old redraw artifacts are no longer observed
   - text no longer overlaps the icons

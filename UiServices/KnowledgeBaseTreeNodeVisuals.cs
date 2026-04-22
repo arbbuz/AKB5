@@ -12,8 +12,6 @@ namespace AsutpKnowledgeBase.UiServices
         private const string DeviceKey = "device";
 
         private static readonly Rectangle TileBounds = new(1, 1, 18, 18);
-        private static readonly RectangleF VariantBadgeBounds = new(11.75f, 11.75f, 7f, 7f);
-
         public static ImageList CreateImageList()
         {
             var imageList = new ImageList
@@ -145,51 +143,19 @@ namespace AsutpKnowledgeBase.UiServices
 
         private static Bitmap CreateContainerVariant(Bitmap baseIcon)
         {
-            return ApplyBadge(
-                baseIcon,
-                VariantBadgeBounds,
-                drawBadge: (graphics, badgeBounds) =>
-                {
-                    using SolidBrush badgeBrush = new(Color.FromArgb(15, 23, 42));
-                    using Pen borderPen = new(Color.White, 0.95f);
-                    Rectangle badgeRectangle = Rectangle.Round(badgeBounds);
-
-                    graphics.FillRoundedRectangle(badgeBrush, badgeRectangle, 2);
-                    graphics.DrawRoundedRectangle(borderPen, badgeRectangle, 2);
-                });
+            return CloneIcon(baseIcon);
         }
 
         private static Bitmap CreateLeafVariant(Bitmap baseIcon)
         {
-            return ApplyBadge(
-                baseIcon,
-                VariantBadgeBounds,
-                drawBadge: (graphics, badgeBounds) =>
-                {
-                    using SolidBrush badgeBrush = new(Color.White);
-                    using SolidBrush centerBrush = new(Color.FromArgb(15, 23, 42));
-                    using Pen borderPen = new(Color.FromArgb(15, 23, 42), 0.95f);
-
-                    graphics.FillEllipse(badgeBrush, badgeBounds);
-                    graphics.DrawEllipse(borderPen, badgeBounds);
-                    graphics.FillEllipse(centerBrush, badgeBounds.Left + 2.3f, badgeBounds.Top + 2.3f, 2.4f, 2.4f);
-                });
+            return CloneIcon(baseIcon);
         }
 
-        private static Bitmap ApplyBadge(
-            Bitmap baseIcon,
-            RectangleF badgeBounds,
-            Action<Graphics, RectangleF> drawBadge)
+        private static Bitmap CloneIcon(Bitmap baseIcon)
         {
             using (baseIcon)
             {
-                var bitmap = new Bitmap(baseIcon);
-                using Graphics graphics = Graphics.FromImage(bitmap);
-                graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                using SolidBrush backdropBrush = new(Color.White);
-                graphics.FillEllipse(backdropBrush, badgeBounds);
-                drawBadge(graphics, badgeBounds);
-                return bitmap;
+                return new Bitmap(baseIcon);
             }
         }
 
