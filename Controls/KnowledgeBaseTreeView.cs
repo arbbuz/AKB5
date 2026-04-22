@@ -8,12 +8,16 @@ namespace AsutpKnowledgeBase
         private const int TvmFirst = 0x1100;
         private const int TvmSetExtendedStyle = TvmFirst + 44;
         private const int TvsExDoubleBuffer = 0x0004;
+        private const int ExpandGlyphSize = 8;
+        private const int ExpandGlyphGap = 4;
+        private const int ContentGap = 6;
 
         private static readonly Color HoverBackColor = Color.FromArgb(241, 245, 249);
         private static readonly Color SelectedBackColor = Color.FromArgb(37, 99, 235);
         private static readonly Color SelectedInactiveBackColor = Color.FromArgb(219, 234, 254);
         private static readonly Color SelectedBorderColor = Color.FromArgb(29, 78, 216);
         private static readonly Color TextColor = Color.FromArgb(31, 41, 55);
+        private static readonly Color GlyphColor = Color.FromArgb(71, 85, 105);
         private static readonly Color SelectedTextColor = Color.White;
         private static readonly Color SelectedInactiveTextColor = Color.FromArgb(30, 64, 175);
 
@@ -82,7 +86,7 @@ namespace AsutpKnowledgeBase
             bool shouldToggle = e.Button == MouseButtons.Left &&
                 clickedNode != null &&
                 clickedNode.Nodes.Count > 0 &&
-                GetNodeIconBounds(clickedNode).Contains(e.Location);
+                GetExpandGlyphHitBounds(clickedNode).Contains(e.Location);
 
             base.OnMouseDown(e);
 
@@ -109,7 +113,8 @@ namespace AsutpKnowledgeBase
                 return;
 
             Rectangle iconBounds = GetNodeIconBounds(labelBounds);
-            Rectangle textBounds = GetTextBounds(labelBounds, rowBounds, iconBounds);
+            Rectangle expandGlyphBounds = GetExpandGlyphBounds(node, labelBounds);
+            Rectangle textBounds = GetTextBounds(labelBounds, rowBounds, iconBounds, expandGlyphBounds);
             Rectangle contentBounds = GetContentBounds(rowBounds, iconBounds);
 
             bool isSelected = (e.State & TreeNodeStates.Selected) == TreeNodeStates.Selected;
@@ -123,6 +128,7 @@ namespace AsutpKnowledgeBase
             e.Graphics.FillRectangle(clearBrush, rowBounds);
             DrawNodeBackground(e.Graphics, contentBounds, isFocusedSelection, isSelected, isHovered);
             DrawNodeIcon(e.Graphics, node, iconBounds, isSelected);
+            DrawExpandGlyph(e.Graphics, node, expandGlyphBounds, isFocusedSelection, isSelected);
             DrawNodeText(e.Graphics, node, textBounds, isFocusedSelection, isSelected);
             e.Graphics.SetClip(previousClip, CombineMode.Replace);
         }
@@ -263,6 +269,50 @@ namespace AsutpKnowledgeBase
                 TextFormatFlags.PreserveGraphicsClipping);
         }
 
+        private static void DrawExpandGlyph(
+            Graphics graphics,
+            TreeNode node,
+            Rectangle glyphBounds,
+            bool isFocusedSelection,
+            bool isSelected)
+        {
+            if (glyphBounds.IsEmpty || node.Nodes.Count == 0)
+                return;
+
+            Color glyphColor = isFocusedSelection
+                ? SelectedTextColor
+                : isSelected
+                    ? SelectedInactiveTextColor
+                    : GlyphColor;
+
+            PointF[] points = node.IsExpanded
+                ? new[]
+                {
+                    new PointF(glyphBounds.Left + 1.5f, glyphBounds.Top + 2.5f),
+                    new PointF(glyphBounds.Left + glyphBounds.Width / 2f, glyphBounds.Bottom - 2.0f),
+                    new PointF(glyphBounds.Right - 1.5f, glyphBounds.Top + 2.5f)
+                }
+                : new[]
+                {
+                    new PointF(glyphBounds.Left + 2.5f, glyphBounds.Top + 1.5f),
+                    new PointF(glyphBounds.Right - 2.0f, glyphBounds.Top + glyphBounds.Height / 2f),
+                    new PointF(glyphBounds.Left + 2.5f, glyphBounds.Bottom - 1.5f)
+                };
+
+            SmoothingMode previousSmoothingMode = graphics.SmoothingMode;
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+            using Pen pen = new(glyphColor, 1.8f)
+            {
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round,
+                LineJoin = LineJoin.Round
+            };
+            graphics.DrawLines(pen, points);
+
+            graphics.SmoothingMode = previousSmoothingMode;
+        }
+
         private Image? ResolveNodeImage(TreeNode node, bool isSelected)
         {
             if (ImageList == null)
@@ -302,6 +352,33 @@ namespace AsutpKnowledgeBase
             return new Rectangle(left, iconTop, imageSize.Width, imageSize.Height);
         }
 
+        private Rectangle GetExpandGlyphBounds(TreeNode node)
+        {
+            Rectangle labelBounds = GetLabelBounds(node, node.Bounds);
+            return GetExpandGlyphBounds(node, labelBounds);
+        }
+
+        private Rectangle GetExpandGlyphBounds(TreeNode node, Rectangle labelBounds)
+        {
+            if (node.Nodes.Count == 0)
+                return Rectangle.Empty;
+
+            Rectangle iconBounds = GetNodeIconBounds(labelBounds);
+            int left = iconBounds.Right + ExpandGlyphGap;
+            int top = labelBounds.Top + Math.Max(0, (Math.Max(labelBounds.Height, ItemHeight) - ExpandGlyphSize) / 2);
+            return new Rectangle(left, top, ExpandGlyphSize, ExpandGlyphSize);
+        }
+
+        private Rectangle GetExpandGlyphHitBounds(TreeNode node)
+        {
+            Rectangle bounds = GetExpandGlyphBounds(node);
+            if (bounds.IsEmpty)
+                return Rectangle.Empty;
+
+            bounds.Inflate(4, 4);
+            return bounds;
+        }
+
         private static Rectangle GetLabelBounds(TreeNode node, Rectangle fallbackBounds)
         {
             Rectangle labelBounds = node.Bounds;
@@ -316,9 +393,16 @@ namespace AsutpKnowledgeBase
             return new Rectangle(0, bounds.Top, ClientSize.Width, Math.Max(1, Math.Max(bounds.Height, ItemHeight)));
         }
 
-        private Rectangle GetTextBounds(Rectangle labelBounds, Rectangle rowBounds, Rectangle iconBounds)
+        private Rectangle GetTextBounds(
+            Rectangle labelBounds,
+            Rectangle rowBounds,
+            Rectangle iconBounds,
+            Rectangle expandGlyphBounds)
         {
-            int left = Math.Max(labelBounds.Left, iconBounds.Right + 6);
+            int left = Math.Max(labelBounds.Left, iconBounds.Right + ContentGap);
+            if (!expandGlyphBounds.IsEmpty)
+                left = Math.Max(left, expandGlyphBounds.Right + ContentGap);
+
             return new Rectangle(
                 left,
                 rowBounds.Top,

@@ -21,18 +21,21 @@ namespace AsutpKnowledgeBase.UiServices
                 TransparentColor = Color.Transparent
             };
 
-            imageList.Images.Add(WorkshopKey, CreateWorkshopIcon());
-            imageList.Images.Add(DepartmentKey, CreateDepartmentIcon());
-            imageList.Images.Add(EquipmentKey, CreateEquipmentIcon());
-            imageList.Images.Add(CabinetKey, CreateCabinetIcon());
-            imageList.Images.Add(DeviceKey, CreateDeviceIcon());
-            imageList.Images.Add(ModuleKey, CreateModuleIcon());
-            imageList.Images.Add(NoteKey, CreateNoteIcon());
+            AddNodeTypeIcons(imageList, WorkshopKey, CreateWorkshopIcon);
+            AddNodeTypeIcons(imageList, DepartmentKey, CreateDepartmentIcon);
+            AddNodeTypeIcons(imageList, EquipmentKey, CreateEquipmentIcon);
+            AddNodeTypeIcons(imageList, CabinetKey, CreateCabinetIcon);
+            AddNodeTypeIcons(imageList, DeviceKey, CreateDeviceIcon);
+            AddNodeTypeIcons(imageList, ModuleKey, CreateModuleIcon);
+            AddNodeTypeIcons(imageList, NoteKey, CreateNoteIcon);
 
             return imageList;
         }
 
-        public static string GetImageKey(int levelIndex) => levelIndex switch
+        public static string GetImageKey(int levelIndex, bool hasChildren)
+            => BuildVariantKey(GetBaseImageKey(levelIndex), hasChildren);
+
+        private static string GetBaseImageKey(int levelIndex) => levelIndex switch
         {
             <= 0 => WorkshopKey,
             1 => DepartmentKey,
@@ -42,6 +45,18 @@ namespace AsutpKnowledgeBase.UiServices
             5 => ModuleKey,
             _ => NoteKey
         };
+
+        private static void AddNodeTypeIcons(
+            ImageList imageList,
+            string baseKey,
+            Func<Bitmap> createBaseIcon)
+        {
+            imageList.Images.Add(BuildVariantKey(baseKey, hasChildren: true), CreateContainerVariant(createBaseIcon()));
+            imageList.Images.Add(BuildVariantKey(baseKey, hasChildren: false), CreateLeafVariant(createBaseIcon()));
+        }
+
+        private static string BuildVariantKey(string baseKey, bool hasChildren)
+            => $"{baseKey}-{(hasChildren ? "container" : "leaf")}";
 
         private static Bitmap CreateWorkshopIcon()
         {
@@ -159,6 +174,48 @@ namespace AsutpKnowledgeBase.UiServices
                     graphics.DrawLine(pen, 5.5f, 7f, 10.5f, 7f);
                     graphics.DrawLine(pen, 5.5f, 9.5f, 10.5f, 9.5f);
                 });
+        }
+
+        private static Bitmap CreateContainerVariant(Bitmap baseIcon)
+        {
+            return ApplyBadge(
+                baseIcon,
+                badgeBounds: new RectangleF(9.25f, 9.25f, 5.5f, 5.5f),
+                drawBadge: graphics =>
+                {
+                    using SolidBrush badgeBrush = new(Color.FromArgb(15, 23, 42));
+                    using Pen borderPen = new(Color.White, 0.9f);
+                    graphics.FillEllipse(badgeBrush, 9.25f, 9.25f, 5.5f, 5.5f);
+                    graphics.DrawEllipse(borderPen, 9.25f, 9.25f, 5.5f, 5.5f);
+                });
+        }
+
+        private static Bitmap CreateLeafVariant(Bitmap baseIcon)
+        {
+            return ApplyBadge(
+                baseIcon,
+                badgeBounds: new RectangleF(9.25f, 9.25f, 5.5f, 5.5f),
+                drawBadge: graphics =>
+                {
+                    using SolidBrush badgeBrush = new(Color.White);
+                    using Pen borderPen = new(Color.FromArgb(15, 23, 42), 0.9f);
+                    graphics.FillEllipse(badgeBrush, 9.25f, 9.25f, 5.5f, 5.5f);
+                    graphics.DrawEllipse(borderPen, 9.25f, 9.25f, 5.5f, 5.5f);
+                });
+        }
+
+        private static Bitmap ApplyBadge(Bitmap baseIcon, RectangleF badgeBounds, Action<Graphics> drawBadge)
+        {
+            using (baseIcon)
+            {
+                var bitmap = new Bitmap(baseIcon);
+                using Graphics graphics = Graphics.FromImage(bitmap);
+                graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                using SolidBrush backdropBrush = new(Color.White);
+                graphics.FillEllipse(backdropBrush, badgeBounds);
+                drawBadge(graphics);
+                return bitmap;
+            }
         }
 
         private static Bitmap CreateTileIcon(Color accentColor, Action<Graphics> drawGlyph)

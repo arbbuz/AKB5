@@ -2,8 +2,8 @@
 
 - Local Windows repo for the current session: `C:\Users\Olga\AKB5`
 - Active working branch: `interface`
-- Current local task in this session: TreeView redraw stabilization and label/icon spacing fix
-- Current status: task completed, worktree clean, latest verified branch state is on `interface`
+- Current local task in this session: restore fast visual distinction between expandable and leaf nodes in the owner-drawn TreeView
+- Current status: local code changes are present and verified by build/tests, but not committed yet in this session
 
 # Current repo state
 
@@ -14,9 +14,15 @@
   - text/icon geometry now uses real `node.Bounds` when available instead of trusting `e.Bounds` alone
   - text starts at `max(labelBounds.Left, iconBounds.Right + padding)` so it cannot paint into the icon area
 - This targets the regression where stale pixels disappeared but labels visually ran into the icons
+- The TreeView now also restores hierarchy affordances without re-enabling stock WinForms expand glyphs:
+  - expandable nodes draw a custom chevron between icon and text
+  - only nodes with children get that chevron
+  - node icons are now split into `container` and `leaf` variants per level
+  - expand/collapse by mouse now targets the chevron hit area instead of the node icon
 - Manual smoke verification for the current tree rendering is now positive:
   - old redraw artifacts are no longer observed
   - text no longer overlaps the icons
+- Manual verification for the new chevron/container-vs-leaf distinction has not been run yet
 
 # Decisions already made
 
@@ -27,6 +33,8 @@
 # Files already relevant to the task
 
 - `Controls/KnowledgeBaseTreeView.cs`
+- `UiServices/KnowledgeBaseTreeNodeVisuals.cs`
+- `UiServices/KnowledgeBaseTreeViewService.cs`
 - `docs/codex-handoff.md`
 
 # Validation performed in this session
@@ -51,16 +59,21 @@ Observed results:
 # Known risks / open questions
 
 - GitHub connector data available in this session did not expose workflow-run confirmation for commit `d8d41d9`, so the end-to-end artifact check still depends on GitHub Actions UI
+- No real WinForms smoke test has been run yet for:
+  - chevron visibility for nodes with children
+  - absence of chevrons for leaf nodes
+  - container-vs-leaf icon distinction readability
+  - click behavior on the new chevron hit area
 
 # Recommended next step
 
-If the next session continues from this state, the next useful check is GitHub Actions verification:
+If the next session continues from this state, the next useful check is a real Windows UI smoke test:
 
-1. `Windows Build` starts on the `push`
-2. job `publish-win-x64` runs after `build-and-test`
-3. artifact `asutpkb-win-x64-single-file` is uploaded
-4. artifact contains `asutpKB.exe`
-5. the artifact corresponds to the already manually verified tree rendering fix
+1. Expandable nodes visibly show a chevron
+2. Leaf nodes do not show a chevron
+3. Container and leaf icon variants are visually distinct enough at normal DPI
+4. Clicking the chevron expands/collapses the node reliably
+5. The redraw artifact fix still holds after these visual changes
 
 # Commands to run before finishing future implementation work
 

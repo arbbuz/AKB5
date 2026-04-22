@@ -170,7 +170,8 @@ namespace AsutpKnowledgeBase.UiServices
             ISet<KbNode>? expandedNodes,
             ref TreeNode? selectedTreeNode)
         {
-            string imageKey = KnowledgeBaseTreeNodeVisuals.GetImageKey(node.LevelIndex);
+            bool hasChildren = node.Children.Count > 0;
+            string imageKey = KnowledgeBaseTreeNodeVisuals.GetImageKey(node.LevelIndex, hasChildren);
             var treeNode = new TreeNode(node.Name)
             {
                 Tag = node,
