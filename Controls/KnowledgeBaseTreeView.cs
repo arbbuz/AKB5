@@ -103,12 +103,13 @@ namespace AsutpKnowledgeBase
             e.DrawDefault = false;
 
             TreeNode node = e.Node;
-            Rectangle rowBounds = GetRowBounds(e.Bounds);
+            Rectangle labelBounds = GetLabelBounds(node, e.Bounds);
+            Rectangle rowBounds = GetRowBounds(labelBounds);
             if (rowBounds.IsEmpty)
                 return;
 
-            Rectangle textBounds = GetTextBounds(e.Bounds, rowBounds);
-            Rectangle iconBounds = GetNodeIconBounds(e.Bounds);
+            Rectangle iconBounds = GetNodeIconBounds(labelBounds);
+            Rectangle textBounds = GetTextBounds(labelBounds, rowBounds, iconBounds);
             Rectangle contentBounds = GetContentBounds(rowBounds, iconBounds);
 
             bool isSelected = (e.State & TreeNodeStates.Selected) == TreeNodeStates.Selected;
@@ -301,6 +302,12 @@ namespace AsutpKnowledgeBase
             return new Rectangle(left, iconTop, imageSize.Width, imageSize.Height);
         }
 
+        private static Rectangle GetLabelBounds(TreeNode node, Rectangle fallbackBounds)
+        {
+            Rectangle labelBounds = node.Bounds;
+            return labelBounds.IsEmpty ? fallbackBounds : labelBounds;
+        }
+
         private Rectangle GetRowBounds(Rectangle bounds)
         {
             if (bounds.IsEmpty)
@@ -309,12 +316,13 @@ namespace AsutpKnowledgeBase
             return new Rectangle(0, bounds.Top, ClientSize.Width, Math.Max(1, Math.Max(bounds.Height, ItemHeight)));
         }
 
-        private Rectangle GetTextBounds(Rectangle labelBounds, Rectangle rowBounds)
+        private Rectangle GetTextBounds(Rectangle labelBounds, Rectangle rowBounds, Rectangle iconBounds)
         {
+            int left = Math.Max(labelBounds.Left, iconBounds.Right + 6);
             return new Rectangle(
-                labelBounds.Left,
+                left,
                 rowBounds.Top,
-                Math.Max(0, ClientSize.Width - labelBounds.Left - 8),
+                Math.Max(0, ClientSize.Width - left - 8),
                 rowBounds.Height);
         }
 
