@@ -3,9 +3,7 @@ name: Windows Build
 on:
   push:
     branches:
-      - development
-      - main
-      - icon
+      - interface
   pull_request:
   workflow_dispatch:
 
