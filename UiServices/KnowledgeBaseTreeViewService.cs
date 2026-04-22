@@ -69,6 +69,8 @@ namespace AsutpKnowledgeBase.UiServices
                 ExpandToNode(selectedTreeNode);
                 treeView.SelectedNode = selectedTreeNode;
             }
+
+            RefreshTreeViewVisuals(treeView);
         }
 
         public HashSet<KbNode> CaptureExpandedNodes(TreeView treeView)
@@ -143,6 +145,23 @@ namespace AsutpKnowledgeBase.UiServices
         {
             ResetSearchResults();
             return "Поиск очищен";
+        }
+
+        public static void RefreshTreeViewVisuals(TreeView treeView)
+        {
+            if (treeView.IsDisposed)
+                return;
+
+            if (treeView is KnowledgeBaseTreeView knowledgeBaseTreeView)
+            {
+                knowledgeBaseTreeView.RefreshTreeVisuals();
+                return;
+            }
+
+            treeView.Invalidate();
+
+            if (treeView.IsHandleCreated)
+                treeView.Update();
         }
 
         private TreeNode BuildTreeNode(
@@ -226,6 +245,7 @@ namespace AsutpKnowledgeBase.UiServices
             ExpandToNode(node);
             treeView.SelectedNode = node;
             treeView.Focus();
+            RefreshTreeViewVisuals(treeView);
         }
 
         private void CollectExpandedNodes(TreeNodeCollection nodes, ISet<KbNode> expandedNodes)

@@ -345,6 +345,8 @@ namespace AsutpKnowledgeBase
 
             if (hadTreeFocus)
                 tvTree.Focus();
+
+            KnowledgeBaseTreeViewService.RefreshTreeViewVisuals(tvTree);
         }
 
         private bool IsSearchTextInputFocused() =>
