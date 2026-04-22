@@ -17,6 +17,7 @@ namespace AsutpKnowledgeBase
             btnSearch.Click += (s, e) => PerformSearch();
             btnSearchPrev.Click += (s, e) => NavigateSearch(-1);
             btnSearchNext.Click += (s, e) => NavigateSearch(1);
+            txtSearch.TextBox.PreviewKeyDown += TxtSearch_PreviewKeyDown;
             txtSearch.TextBox.KeyDown += TxtSearch_KeyDown;
             btnBrowsePhoto.Click += BtnBrowsePhoto_Click;
             btnOpenPhoto.Click += BtnOpenPhoto_Click;
@@ -62,6 +63,12 @@ namespace AsutpKnowledgeBase
             return focusedControl is TextBoxBase;
         }
 
+        private static void TxtSearch_PreviewKeyDown(object? sender, PreviewKeyDownEventArgs e)
+        {
+            if (e.KeyCode == Keys.Escape)
+                e.IsInputKey = true;
+        }
+
         private void TxtSearch_KeyDown(object? sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Enter)
@@ -74,10 +81,16 @@ namespace AsutpKnowledgeBase
             if (e.KeyCode == Keys.Escape)
             {
                 e.SuppressKeyPress = true;
-                txtSearch.Clear();
-                ClearSearch();
-                UpdateUI();
+                ClearSearchInput();
             }
+        }
+
+        private void ClearSearchInput()
+        {
+            txtSearch.Clear();
+            ClearSearch();
+            UpdateUI();
+            txtSearch.TextBox.Focus();
         }
 
         private void BtnOpen_Click(object? sender, EventArgs e)

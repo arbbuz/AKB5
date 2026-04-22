@@ -1,3 +1,5 @@
+using AsutpKnowledgeBase.UiServices;
+
 namespace AsutpKnowledgeBase
 {
     public partial class MainForm
@@ -127,14 +129,13 @@ namespace AsutpKnowledgeBase
                 Padding = new Padding(10)
             };
 
-            tvTree = new TreeView
+            tvTree = new KnowledgeBaseTreeView
             {
                 Dock = DockStyle.Fill,
                 CheckBoxes = false,
                 Margin = new Padding(0),
-                Font = new Font("Microsoft Sans Serif", 10),
                 AllowDrop = true,
-                HideSelection = false
+                ImageList = KnowledgeBaseTreeNodeVisuals.CreateImageList()
             };
 
             toolTip.SetToolTip(tvTree, "Drag & Drop для перемещения, ПКМ для меню");

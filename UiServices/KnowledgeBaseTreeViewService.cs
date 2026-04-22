@@ -151,7 +151,13 @@ namespace AsutpKnowledgeBase.UiServices
             ISet<KbNode>? expandedNodes,
             ref TreeNode? selectedTreeNode)
         {
-            var treeNode = new TreeNode(node.Name) { Tag = node };
+            string imageKey = KnowledgeBaseTreeNodeVisuals.GetImageKey(node.LevelIndex);
+            var treeNode = new TreeNode(node.Name)
+            {
+                Tag = node,
+                ImageKey = imageKey,
+                SelectedImageKey = imageKey
+            };
 
             if (ReferenceEquals(node, nodeToSelect))
                 selectedTreeNode = treeNode;

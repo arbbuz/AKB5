@@ -313,6 +313,17 @@ namespace AsutpKnowledgeBase
                 });
         }
 
+        protected override bool ProcessDialogKey(Keys keyData)
+        {
+            if (keyData == Keys.Escape && IsSearchTextInputFocused())
+            {
+                ClearSearchInput();
+                return true;
+            }
+
+            return base.ProcessDialogKey(keyData);
+        }
+
         private void CollapseTreeToRoots()
         {
             TreeNode? rootNodeToKeepVisible = tvTree.SelectedNode is { } selectedNode
@@ -335,6 +346,10 @@ namespace AsutpKnowledgeBase
             if (hadTreeFocus)
                 tvTree.Focus();
         }
+
+        private bool IsSearchTextInputFocused() =>
+            txtSearch?.TextBox is { IsDisposed: false } searchTextBox &&
+            searchTextBox.ContainsFocus;
 
         private void SetTechnicalFieldsVisibility(bool visible)
         {
