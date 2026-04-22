@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - icon
+      - interface
   pull_request:
   workflow_dispatch:
 
