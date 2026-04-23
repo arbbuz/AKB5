@@ -188,7 +188,7 @@ namespace AsutpKnowledgeBase.Services
             {
                 WorksheetCell.String("Можно редактировать", ReadOnlyStyleIndex),
                 WorksheetCell.String(
-                    "Levels.LevelName, Workshops.WorkshopName, Workshops.IsLastSelected и поля узлов NodeName, Description, Location, PhotoPath, IpAddress, SchemaLink.",
+                    "Workshops.WorkshopName, Workshops.IsLastSelected и поля узлов NodeName, Description, Location, PhotoPath, IpAddress, SchemaLink. Лист Levels сохранён как legacy-слой совместимости и обычно не требует правки.",
                     WrappedReadOnlyStyleIndex)
             };
             yield return new[]

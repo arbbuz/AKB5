@@ -58,7 +58,7 @@ public class KnowledgeBaseExcelExchangeServiceTests
         Assert.Contains(instructionRows, row => row.SequenceEqual(new[]
         {
             "Можно редактировать",
-            "Levels.LevelName, Workshops.WorkshopName, Workshops.IsLastSelected и поля узлов NodeName, Description, Location, PhotoPath, IpAddress, SchemaLink."
+            "Workshops.WorkshopName, Workshops.IsLastSelected и поля узлов NodeName, Description, Location, PhotoPath, IpAddress, SchemaLink. Лист Levels сохранён как legacy-слой совместимости и обычно не требует правки."
         }));
         Assert.Contains(metaRows, row => row.SequenceEqual(new[] { "FormatId", KnowledgeBaseExcelExchangeService.WorkbookFormatId }));
         Assert.Contains(metaRows, row => row.SequenceEqual(new[] { "FormatVersion", KnowledgeBaseExcelExchangeService.WorkbookFormatVersion.ToString() }));

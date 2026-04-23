@@ -5,7 +5,6 @@ namespace AsutpKnowledgeBase.Services
     public enum KnowledgeBaseTreeMutationFailure
     {
         None,
-        NoLevelsConfigured,
         InvalidNodeName,
         DepthLimitExceeded,
         ClipboardUnavailable,
@@ -74,13 +73,6 @@ namespace AsutpKnowledgeBase.Services
             string nodeName,
             List<KbNode> currentRoots)
         {
-            if (_session.Config.MaxLevels <= 0)
-            {
-                return Failure(
-                    KnowledgeBaseTreeMutationFailure.NoLevelsConfigured,
-                    "Сначала настройте уровни.");
-            }
-
             string normalizedName = nodeName.Trim();
             if (string.IsNullOrWhiteSpace(normalizedName))
             {

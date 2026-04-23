@@ -39,7 +39,6 @@ namespace AsutpKnowledgeBase
             menuNewWorkshop = new ToolStripMenuItem("🏭 Новый цех", null, BtnAddWorkshop_Click);
             menuDeleteWorkshop = new ToolStripMenuItem("🗑 Удалить цех", null, BtnDeleteWorkshop_Click);
             menuRenameWorkshop = new ToolStripMenuItem("✏️ Переименовать цех", null, BtnRenameWorkshop_Click);
-            var menuSetupLevels = new ToolStripMenuItem("⚙️ Настроить уровни", null, BtnSetup_Click);
             var menuOpenDb = new ToolStripMenuItem("📂 Открыть базу...", null, BtnOpen_Click);
             var menuReloadDb = new ToolStripMenuItem("🔄 Обновить из файла", null, BtnLoad_Click);
             var menuSaveAs = new ToolStripMenuItem("💾 Сохранить как...", null, BtnSaveAs_Click);
@@ -51,7 +50,6 @@ namespace AsutpKnowledgeBase
                 menuNewWorkshop,
                 menuDeleteWorkshop,
                 menuRenameWorkshop,
-                menuSetupLevels,
                 new ToolStripSeparator(),
                 menuOpenDb,
                 menuReloadDb,
@@ -159,7 +157,7 @@ namespace AsutpKnowledgeBase
                 AutoSize = false,
                 Size = new Size(220, 25),
                 Margin = new Padding(0, 1, 4, 1),
-                ToolTipText = "Поиск по имени, пути и уровню"
+                ToolTipText = "Поиск по имени и пути"
             };
             txtSearch.TextBox.PlaceholderText = "Поиск";
 
@@ -230,15 +228,6 @@ namespace AsutpKnowledgeBase
                 Font = new Font("Segoe UI Semibold", 18F, FontStyle.Bold),
                 AutoEllipsis = true
             };
-            lblSelectedNodeLevelValue = new Label
-            {
-                Dock = DockStyle.Top,
-                Height = 24,
-                ForeColor = Color.DimGray,
-                Font = new Font("Segoe UI", 10F, FontStyle.Regular)
-            };
-
-            pnlHeader.Controls.Add(lblSelectedNodeLevelValue);
             pnlHeader.Controls.Add(lblSelectedNodeNameValue);
             tblSelectedNodeCard.Controls.Add(pnlHeader, 0, 0);
 

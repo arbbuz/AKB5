@@ -14,6 +14,9 @@ public class KnowledgeBaseDataServiceTests
         Assert.Equal("Новый цех", data.LastWorkshop);
         Assert.True(data.Workshops.ContainsKey("Новый цех"));
         Assert.Empty(data.Workshops["Новый цех"]);
+        Assert.Equal(10, data.Config.MaxLevels);
+        Assert.Equal("Уровень 1", data.Config.LevelNames[0]);
+        Assert.Equal("Уровень 10", data.Config.LevelNames[9]);
     }
 
     [Fact]

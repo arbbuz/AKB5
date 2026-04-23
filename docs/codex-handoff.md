@@ -2,8 +2,8 @@
 
 - Local Windows repo for the current session: `C:\Users\Olga\AKB5`
 - Active working branch: `interface`
-- Latest pushed UI commit on this branch: `7b7a37d` (`Remove tree icon badges`)
-- Current session outcome: product direction was clarified and converted into a concrete multi-phase implementation plan in root `Roadmap.md`
+- Latest pushed roadmap commit before the current implementation pass: `fc8f6e5` (`Add typed workspace roadmap`)
+- Current session outcome: `Phase 0` implemented locally and validated
 
 # Current repo state
 
@@ -46,23 +46,21 @@
 
 # Immediate next implementation target
 
-Start `Phase 0` from `Roadmap.md`:
+`Phase 0` is now implemented locally:
 
-1. Remove user-facing level setup from WinForms UI
-2. Stop presenting levels as a user concept
-3. Keep technical depth control internally
-4. Preserve JSON and Excel `v3` compatibility while doing so
+1. remove user-facing level setup from WinForms UI
+2. stop presenting levels as a user concept
+3. keep technical depth control internally
+4. preserve JSON and Excel `v3` compatibility while doing so
 
 # Files now especially relevant
 
 - `Roadmap.md`
 - `AGENTS.md`
 - `docs/codex-handoff.md`
-- `Forms/SetupForm.cs`
 - `Forms/MainForm.Layout.cs`
 - `Forms/MainForm.Events.cs`
 - `UiServices/KnowledgeBaseWorkshopUiWorkflowService.cs`
-- `Services/KnowledgeBaseConfigurationWorkflowService.cs`
 - `Services/KnowledgeBaseFormStateService.cs`
 - `Models/KbNode.cs`
 - `Models/KbNodeDetails.cs`
@@ -70,13 +68,20 @@ Start `Phase 0` from `Roadmap.md`:
 - `Services/KnowledgeBaseTreeMutationWorkflowService.cs`
 - `Services/KnowledgeBaseExcelWorkbookParser.cs`
 - `Services/KnowledgeBaseXlsxWriter.cs`
+- `README.md`
+- `docs/workbook-v3.md`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseFormStateServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseDataServiceTests.cs`
+- deleted in this phase:
+  - `Forms/SetupForm.cs`
+  - `Services/KnowledgeBaseConfigurationWorkflowService.cs`
+  - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseConfigurationWorkflowServiceTests.cs`
 
 # Validation performed in this session
 
-- No build/test run was needed for the roadmap itself because this session only added planning documentation
-- The latest code validation before this planning step remains:
-  - `dotnet build`: passed
-  - `dotnet test`: passed, `141/141`
+- `dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore`: passed
+- `dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-build --no-restore`: passed
+- current automated result: `141/141`
 
 # Known strategic risks
 

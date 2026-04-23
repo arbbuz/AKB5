@@ -224,9 +224,6 @@ namespace AsutpKnowledgeBase
         private void BtnRenameWorkshop_Click(object? sender, EventArgs e)
             => _workshopUiWorkflowService.RenameCurrentWorkshop(CreateWorkshopUiWorkflowContext());
 
-        private void BtnSetup_Click(object? sender, EventArgs e)
-            => _workshopUiWorkflowService.ConfigureLevels(CreateWorkshopUiWorkflowContext());
-
         private void TvTree_AfterSelect(object? sender, TreeViewEventArgs e) => UpdateUI();
 
         private void MainForm_FormClosing(object? sender, FormClosingEventArgs e)

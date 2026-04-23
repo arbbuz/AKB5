@@ -12,17 +12,11 @@ namespace AsutpKnowledgeBase.Services
         public static KbConfig CreateDefaultConfig() =>
             new()
             {
-                MaxLevels = 7,
-                LevelNames = new List<string>
-                {
-                    "Цех",
-                    "Отделение",
-                    "Оборудование",
-                    "Щит",
-                    "Устройства",
-                    "Модули",
-                    "Примечание"
-                }
+                MaxLevels = 10,
+                LevelNames = Enumerable
+                    .Range(1, 10)
+                    .Select(static level => $"Уровень {level}")
+                    .ToList()
             };
 
         public static SavedData CreateDefaultData() =>

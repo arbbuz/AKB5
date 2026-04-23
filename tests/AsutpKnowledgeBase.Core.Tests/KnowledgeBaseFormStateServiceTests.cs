@@ -54,11 +54,6 @@ public class KnowledgeBaseFormStateServiceTests
     [Fact]
     public void Build_ReturnsSelectedNodeStatusAndDirtyTitle()
     {
-        var config = new KbConfig
-        {
-            MaxLevels = 3,
-            LevelNames = new List<string> { "Цех", "Отделение", "Оборудование" }
-        };
         var selectedNode = new KbNode
         {
             Name = "Насос",
@@ -80,7 +75,6 @@ public class KnowledgeBaseFormStateServiceTests
             currentWorkshop: "Цех 7",
             lastSavedWorkshop: "Цех 7",
             totalNodes: 5,
-            config: config,
             currentRoots: new List<KbNode> { selectedNode },
             selectedNode: selectedNode);
 
@@ -97,7 +91,7 @@ public class KnowledgeBaseFormStateServiceTests
     }
 
     [Fact]
-    public void Build_UsesFallbackLevelNameWhenConfigDoesNotContainIt()
+    public void Build_UsesNodePathEvenWhenLegacyLevelNamesAreIncomplete()
     {
         var node = new KbNode { Name = "Узел", LevelIndex = 4 };
         var state = _service.Build(
@@ -107,7 +101,6 @@ public class KnowledgeBaseFormStateServiceTests
             currentWorkshop: "Цех 2",
             lastSavedWorkshop: "Цех 2",
             totalNodes: 3,
-            config: new KbConfig { MaxLevels = 1, LevelNames = new List<string> { "Цех" } },
             currentRoots: new List<KbNode> { node },
             selectedNode: node);
 
@@ -125,7 +118,6 @@ public class KnowledgeBaseFormStateServiceTests
             currentWorkshop: "Цех 3",
             lastSavedWorkshop: "Цех 3",
             totalNodes: 8,
-            config: new KbConfig { MaxLevels = 6, LevelNames = new List<string>() },
             currentRoots: new List<KbNode>(),
             selectedNode: null);
 
@@ -147,7 +139,6 @@ public class KnowledgeBaseFormStateServiceTests
             currentWorkshop: "Цех 9",
             lastSavedWorkshop: "Цех 9",
             totalNodes: 4,
-            config: new KbConfig { MaxLevels = 3, LevelNames = new List<string> { "Цех", "Линия", "Щит" } },
             currentRoots: new List<KbNode>(),
             selectedNode: null);
 
@@ -177,7 +168,6 @@ public class KnowledgeBaseFormStateServiceTests
             currentWorkshop: "Цех 1",
             lastSavedWorkshop: "Цех 1",
             totalNodes: 1,
-            config: new KbConfig { MaxLevels = 3, LevelNames = new List<string> { "Цех", "Линия", "Щит" } },
             currentRoots: new List<KbNode> { selectedNode },
             selectedNode: selectedNode);
 

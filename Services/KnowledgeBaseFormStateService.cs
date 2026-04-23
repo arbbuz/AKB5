@@ -10,8 +10,6 @@ namespace AsutpKnowledgeBase.Services
 
         public string Name { get; init; } = string.Empty;
 
-        public string LevelName { get; init; } = string.Empty;
-
         public string FullPath { get; init; } = string.Empty;
 
         public string ChildrenCountText { get; init; } = string.Empty;
@@ -67,7 +65,6 @@ namespace AsutpKnowledgeBase.Services
             string currentWorkshop,
             string lastSavedWorkshop,
             int totalNodes,
-            KbConfig config,
             IReadOnlyList<KbNode> currentRoots,
             KbNode? selectedNode)
         {
@@ -77,7 +74,7 @@ namespace AsutpKnowledgeBase.Services
                 currentDataFileName = "(без файла)";
 
             string saveStateText = BuildSaveStateText(isDirty, requiresSave, fileExists);
-            var selectedNodeState = BuildSelectedNodeState(config, currentRoots, selectedNode);
+            var selectedNodeState = BuildSelectedNodeState(currentRoots, selectedNode);
 
             return new KnowledgeBaseFormState
             {
@@ -156,7 +153,6 @@ namespace AsutpKnowledgeBase.Services
         }
 
         private KnowledgeBaseSelectedNodeState BuildSelectedNodeState(
-            KbConfig config,
             IReadOnlyList<KbNode> currentRoots,
             KbNode? selectedNode)
         {
@@ -167,7 +163,6 @@ namespace AsutpKnowledgeBase.Services
                     HasSelection = false,
                     EmptyStateText = "Ничего не выбрано. Выберите узел в дереве слева.",
                     Name = "—",
-                    LevelName = "—",
                     FullPath = "—",
                     ChildrenCountText = "—"
                 };
@@ -177,7 +172,6 @@ namespace AsutpKnowledgeBase.Services
             {
                 HasSelection = true,
                 Name = selectedNode.Name,
-                LevelName = _nodePresentationService.GetLevelName(config, selectedNode.LevelIndex),
                 FullPath = _nodePresentationService.BuildNodePath(currentRoots, selectedNode),
                 ChildrenCountText = selectedNode.Children.Count.ToString(),
                 Description = selectedNode.Details?.Description ?? string.Empty,

@@ -64,7 +64,6 @@ namespace AsutpKnowledgeBase
         private Label lblSelectedNodeEmptyState = null!;
         private TableLayoutPanel tblSelectedNodeCard = null!;
         private Label lblSelectedNodeNameValue = null!;
-        private Label lblSelectedNodeLevelValue = null!;
         private TextBox txtSelectedNodePath = null!;
         private Label lblSelectedNodeChildrenValue = null!;
         private TextBox txtNodeDescription = null!;
@@ -110,7 +109,6 @@ namespace AsutpKnowledgeBase
             _workshopUiWorkflowService = new KnowledgeBaseWorkshopUiWorkflowService(
                 _session,
                 _sessionWorkflowService,
-                new KnowledgeBaseConfigurationWorkflowService(),
                 _history);
             _treeMutationWorkflowService = new KnowledgeBaseTreeMutationWorkflowService(
                 _session,
@@ -147,7 +145,6 @@ namespace AsutpKnowledgeBase
 
                 lblSelectedNodeEmptyState.Text = selectedNodeState.EmptyStateText;
                 lblSelectedNodeNameValue.Text = selectedNodeState.Name;
-                lblSelectedNodeLevelValue.Text = selectedNodeState.LevelName;
                 txtSelectedNodePath.Text = selectedNodeState.FullPath;
                 lblSelectedNodeChildrenValue.Text = selectedNodeState.ChildrenCountText;
                 txtNodeDescription.Text = selectedNodeState.Description;
@@ -194,7 +191,6 @@ namespace AsutpKnowledgeBase
                 _currentWorkshop,
                 _lastSavedWorkshop,
                 tvTree.GetNodeCount(true),
-                _config,
                 currentRoots,
                 tvTree.SelectedNode?.Tag as KbNode);
         }

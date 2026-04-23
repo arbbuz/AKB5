@@ -22,24 +22,21 @@ namespace AsutpKnowledgeBase.UiServices
 
     /// <summary>
     /// Координирует WinForms-специфичные screen-level сценарии
-    /// по переключению/добавлению/переименованию/удалению цехов и настройке уровней.
+    /// по переключению/добавлению/переименованию/удалению цехов.
     /// </summary>
     public class KnowledgeBaseWorkshopUiWorkflowService
     {
         private readonly KnowledgeBaseSessionService _session;
         private readonly KnowledgeBaseSessionWorkflowService _sessionWorkflowService;
-        private readonly KnowledgeBaseConfigurationWorkflowService _configurationWorkflowService;
         private readonly UndoRedoService _history;
 
         public KnowledgeBaseWorkshopUiWorkflowService(
             KnowledgeBaseSessionService session,
             KnowledgeBaseSessionWorkflowService sessionWorkflowService,
-            KnowledgeBaseConfigurationWorkflowService configurationWorkflowService,
             UndoRedoService history)
         {
             _session = session;
             _sessionWorkflowService = sessionWorkflowService;
-            _configurationWorkflowService = configurationWorkflowService;
             _history = history;
         }
 
@@ -171,35 +168,6 @@ namespace AsutpKnowledgeBase.UiServices
             context.UpdateDirtyState();
             context.UpdateUi();
             context.SetStatusText($"🗑 Удален цех: {currentWorkshop}");
-        }
-
-        public void ConfigureLevels(KnowledgeBaseWorkshopUiWorkflowContext context)
-        {
-            using var setup = new SetupForm(_session.Config);
-            if (setup.ShowDialog(context.Owner) != DialogResult.OK)
-                return;
-
-            var updateResult = _configurationWorkflowService.ValidateAndNormalize(setup.Config, _session.Workshops);
-            if (!updateResult.IsSuccess)
-            {
-                MessageBox.Show(
-                    context.Owner,
-                    updateResult.ErrorMessage,
-                    "Некорректная конфигурация",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
-            }
-
-            string historySnapshot = _session.SerializeSnapshot(
-                context.GetPersistedTreeData(),
-                includeCurrentWorkshop: true);
-
-            _session.UpdateConfig(updateResult.Config);
-            _history.SaveState(historySnapshot);
-            context.UpdateDirtyState();
-            context.UpdateUi();
-            context.SetStatusText($"💡 Уровни: {string.Join(" → ", _session.Config.LevelNames)}");
         }
 
         private static void ShowWorkshopFailure(

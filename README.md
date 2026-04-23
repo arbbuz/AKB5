@@ -46,10 +46,11 @@ Workbook состоит из:
 
 Коротко по редактированию:
 
-- редактируемые поля: `Levels.LevelName`, `Workshops.WorkshopName`, `Workshops.IsLastSelected`, `Nodes.NodeName`, `Nodes.Description`, `Nodes.Location`, `Nodes.PhotoPath`, `Nodes.IpAddress`, `Nodes.SchemaLink`
+- редактируемые поля: `Workshops.WorkshopName`, `Workshops.IsLastSelected`, `Nodes.NodeName`, `Nodes.Description`, `Nodes.Location`, `Nodes.PhotoPath`, `Nodes.IpAddress`, `Nodes.SchemaLink`
 - технические поля: `WorkshopOrder`, `WorkshopId`, `NodesSheetKey`, `NodeId`, `ParentNodeId`, `SiblingOrder`, `LevelIndex`
 - производные/display-only поля: `Meta.LastWorkshop`, `Nodes.LevelName`, `Nodes.Path`
-- поддерживаемые ручные изменения: rename уровней, rename цехов, rename узлов, правка карточки узла, смена выбранного цеха, перестановка колонок, добавление лишних пользовательских колонок, rename tab у листа узлов без поломки sheet metadata
+- `Levels.LevelName` сохранён в workbook `v3` как legacy-слой совместимости и больше не используется приложением как пользовательская настройка интерфейса
+- поддерживаемые ручные изменения: rename цехов, rename узлов, правка карточки узла, смена выбранного цеха, перестановка колонок, добавление лишних пользовательских колонок, rename tab у листа узлов без поломки sheet metadata
 - не поддерживаются: правки `FormatId/FormatVersion`, ручная коррекция технических идентификаторов и порядков, удаление обязательных листов/колонок, поломка связи `WorkshopId`/`NodesSheetKey`, возврат к legacy `v1/v2`
 
 Совместимость:
