@@ -6,13 +6,14 @@ namespace AsutpKnowledgeBase.Core.Tests;
 public class KnowledgeBaseWorkshopTreeProjectionTests
 {
     [Fact]
-    public void Create_HidesSingleLevelZeroRoot_WhenWorkshopNameMatches()
+    public void Create_HidesSingleWorkshopRoot_WhenWorkshopNameMatches()
     {
         var wrapperRoot = new KbNode
         {
             Name = "Цех 1",
             LevelIndex = 0,
-            Children = { new KbNode { Name = "Отделение", LevelIndex = 1 } }
+            NodeType = KbNodeType.WorkshopRoot,
+            Children = { new KbNode { Name = "Отделение", LevelIndex = 1, NodeType = KbNodeType.Department } }
         };
 
         var projection = KnowledgeBaseWorkshopTreeProjection.Create(
@@ -26,13 +27,14 @@ public class KnowledgeBaseWorkshopTreeProjectionTests
     }
 
     [Fact]
-    public void Create_HidesSingleLevelZeroRoot_WhenWorkshopNameDiffers()
+    public void Create_HidesSingleWorkshopRoot_WhenWorkshopNameDiffers()
     {
         var wrapperRoot = new KbNode
         {
             Name = "Энергоцех",
             LevelIndex = 0,
-            Children = { new KbNode { Name = "Отделение", LevelIndex = 1 } }
+            NodeType = KbNodeType.WorkshopRoot,
+            Children = { new KbNode { Name = "Отделение", LevelIndex = 1, NodeType = KbNodeType.Department } }
         };
 
         var projection = KnowledgeBaseWorkshopTreeProjection.Create(
@@ -56,6 +58,7 @@ public class KnowledgeBaseWorkshopTreeProjectionTests
         Assert.NotNull(projection.HiddenWrapperRoot);
         Assert.Equal("Цех 1", projection.HiddenWrapperRoot!.Name);
         Assert.Equal(0, projection.HiddenWrapperRoot.LevelIndex);
+        Assert.Equal(KbNodeType.WorkshopRoot, projection.HiddenWrapperRoot.NodeType);
         Assert.Empty(projection.VisibleRoots);
     }
 
@@ -66,8 +69,8 @@ public class KnowledgeBaseWorkshopTreeProjectionTests
             "Цех 1",
             new List<KbNode>
             {
-                new() { Name = "Цех 1", LevelIndex = 0 },
-                new() { Name = "Отделение", LevelIndex = 0 }
+                new() { Name = "Цех 1", LevelIndex = 0, NodeType = KbNodeType.WorkshopRoot },
+                new() { Name = "Отделение", LevelIndex = 0, NodeType = KbNodeType.Department }
             });
 
         Assert.False(projection.HasHiddenWrapper);
@@ -75,14 +78,35 @@ public class KnowledgeBaseWorkshopTreeProjectionTests
     }
 
     [Fact]
-    public void Create_HidesMatchingRootEvenWhenWrapperContainsDetails()
+    public void Create_DoesNotHideSingleNonWorkshopRoot()
+    {
+        var visibleRoot = new KbNode
+        {
+            Name = "Линия 1",
+            LevelIndex = 0,
+            NodeType = KbNodeType.System,
+            Children = { new KbNode { Name = "Щит 1", LevelIndex = 1, NodeType = KbNodeType.Cabinet } }
+        };
+
+        var projection = KnowledgeBaseWorkshopTreeProjection.Create(
+            "Цех 1",
+            new List<KbNode> { visibleRoot });
+
+        Assert.False(projection.HasHiddenWrapper);
+        Assert.Single(projection.VisibleRoots);
+        Assert.Same(visibleRoot, projection.VisibleRoots[0]);
+    }
+
+    [Fact]
+    public void Create_HidesWorkshopRootEvenWhenWrapperContainsDetails()
     {
         var wrapperRoot = new KbNode
         {
             Name = "Цех 1",
             LevelIndex = 0,
+            NodeType = KbNodeType.WorkshopRoot,
             Details = new KbNodeDetails { Description = "Корень цеха" },
-            Children = { new KbNode { Name = "Отделение", LevelIndex = 1 } }
+            Children = { new KbNode { Name = "Отделение", LevelIndex = 1, NodeType = KbNodeType.Department } }
         };
 
         var projection = KnowledgeBaseWorkshopTreeProjection.Create(
@@ -96,7 +120,7 @@ public class KnowledgeBaseWorkshopTreeProjectionTests
     }
 
     [Fact]
-    public void Create_DoesNotHideWhenMatchingRootIsNotLevelZero()
+    public void Create_DoesNotHideWhenWorkshopRootIsNotLevelZero()
     {
         var projection = KnowledgeBaseWorkshopTreeProjection.Create(
             "Цех 1",
@@ -106,7 +130,8 @@ public class KnowledgeBaseWorkshopTreeProjectionTests
                 {
                     Name = "Цех 1",
                     LevelIndex = 1,
-                    Children = { new KbNode { Name = "Участок", LevelIndex = 2 } }
+                    NodeType = KbNodeType.WorkshopRoot,
+                    Children = { new KbNode { Name = "Участок", LevelIndex = 2, NodeType = KbNodeType.Department } }
                 }
             });
 
@@ -123,12 +148,14 @@ public class KnowledgeBaseWorkshopTreeProjectionTests
         {
             Name = "Отделение",
             LevelIndex = 1,
-            Children = { new KbNode { Name = "Участок", LevelIndex = 2 } }
+            NodeType = KbNodeType.Department,
+            Children = { new KbNode { Name = "Участок", LevelIndex = 2, NodeType = KbNodeType.System } }
         };
         var wrapperRoot = new KbNode
         {
             Name = "Цех 1",
             LevelIndex = 0,
+            NodeType = KbNodeType.WorkshopRoot,
             Children = { child }
         };
         var projection = KnowledgeBaseWorkshopTreeProjection.Create(
@@ -162,7 +189,8 @@ public class KnowledgeBaseWorkshopTreeProjectionTests
         var wrapperRoot = new KbNode
         {
             Name = "Новый цех",
-            LevelIndex = 0
+            LevelIndex = 0,
+            NodeType = KbNodeType.WorkshopRoot
         };
         var projection = KnowledgeBaseWorkshopTreeProjection.Create(
             "Новый цех",
@@ -182,7 +210,8 @@ public class KnowledgeBaseWorkshopTreeProjectionTests
         {
             Name = "Цех 1",
             LevelIndex = 0,
-            Children = { new KbNode { Name = "Отделение", LevelIndex = 1 } }
+            NodeType = KbNodeType.WorkshopRoot,
+            Children = { new KbNode { Name = "Отделение", LevelIndex = 1, NodeType = KbNodeType.Department } }
         };
         var projection = KnowledgeBaseWorkshopTreeProjection.Create(
             "Цех 1",
@@ -194,11 +223,12 @@ public class KnowledgeBaseWorkshopTreeProjectionTests
     [Fact]
     public void ResolveActualParent_ForVisibleRootWithoutVisibleParent_ReturnsHiddenWrapper()
     {
-        var child = new KbNode { Name = "Отделение", LevelIndex = 1 };
+        var child = new KbNode { Name = "Отделение", LevelIndex = 1, NodeType = KbNodeType.Department };
         var wrapperRoot = new KbNode
         {
             Name = "Цех 1",
             LevelIndex = 0,
+            NodeType = KbNodeType.WorkshopRoot,
             Children = { child }
         };
         var projection = KnowledgeBaseWorkshopTreeProjection.Create(

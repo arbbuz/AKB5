@@ -44,7 +44,7 @@ namespace AsutpKnowledgeBase.Services
             CreateKnowledgeBaseService().DeleteNode(workshopName, nodeToRemove);
 
         public void CopyNode(KbNode node) =>
-            ClipboardNode = CreateKnowledgeBaseService().CloneNode(node);
+            ClipboardNode = CreateKnowledgeBaseService().CloneNode(node, preserveNodeIds: false);
 
         public bool CanPasteNode(KbNode? parentNode) =>
             ClipboardNode != null &&
@@ -54,7 +54,7 @@ namespace AsutpKnowledgeBase.Services
         public KbNode PasteNode(KbNode parentNode)
         {
             var service = CreateKnowledgeBaseService();
-            var newNode = service.CloneNode(ClipboardNode!);
+            var newNode = service.CloneNode(ClipboardNode!, preserveNodeIds: false);
             service.AddChildNode(parentNode, newNode);
             return newNode;
         }

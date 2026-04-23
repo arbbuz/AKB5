@@ -2,98 +2,89 @@
 
 - Local Windows repo for the current session: `C:\Users\Olga\AKB5`
 - Active working branch: `interface`
-- Latest pushed roadmap commit before the current implementation pass: `fc8f6e5` (`Add typed workspace roadmap`)
-- Current session outcome: `Phase 0` implemented locally and validated
+- `Phase 0` is complete locally.
+- `Phase 1` is complete locally and validated on the current worktree.
+- Latest validation in this session:
+  - `dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore`
+  - `dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore`
+  - automated result: `143/143`
+
+# Current objective
+
+- Start `Phase 2` screen-host work from the now-stabilized typed foundation.
+- Keep JSON as the source of truth.
+- Preserve Excel workbook `v3` compatibility while the typed UI is introduced incrementally.
 
 # Current repo state
 
-- `AKB5` remains a WinForms desktop app on `.NET 8`
-- JSON remains the source of truth
-- Excel workbook `v3` remains the current exchange format
-- Windows CI publish is configured for both `icon` and `interface`
-- The TreeView rendering work already accepted by the user is now:
-  - redraw-artifact fix kept in place
-  - safe text/icon spacing in owner-draw kept in place
-  - custom chevron kept as the only expandability marker
-  - semantic `20x20` icons for department/system/panel/device
-  - `ItemHeight = 30`
+- `AKB5` remains a WinForms desktop app on `.NET 8`.
+- The left tree still uses the hidden workshop-root projection, but the wrapper is now recognized by explicit `NodeType.WorkshopRoot` instead of the old shape-only heuristic.
+- The domain model now contains:
+  - `KbNode.NodeId`
+  - `KbNode.NodeType`
+- `SavedData.CurrentSchemaVersion` is now `3`.
+- Legacy JSON/schema data is normalized through `KnowledgeBaseDataService.NormalizeSavedData(...)`.
+- Missing legacy node IDs are generated deterministically from workshop name + sibling path.
+- New copied/pasted nodes receive fresh GUID-based `NodeId` values.
+- `NodeType` now drives:
+  - technical-field visibility and cleanup in form-state/UI logic
+  - Excel import/export technical-field behavior
+  - tree icon selection
+- Excel `v3` now reads and writes a read-only `NodeType` column while keeping `Levels` as a legacy transition sheet.
 
-# Architecture decisions now fixed
+# Decisions already made
 
-- The left tree stays as the physical navigator
-- The right side will become a type-driven workspace
-- User-facing level configuration and level renaming should be removed from the UI
-- `LevelIndex` stays only as an internal technical coordinate
-- `NodeType` must become the main driver of screen selection and behavior
-- Excel `v3` keeps `Levels` as a legacy transition layer
-- Preferred technical depth strategy:
-  - hidden `MaxLevels`
-  - default value `10`
-  - if safe future increases prove too invasive, first typed release may temporarily behave like a fixed depth of `10`
-- The first `Network` tab version is file-based, not interactive
-- File-based `Network` must include:
-  - large preview in the form
-  - `Open original`
+- Keep WinForms architecture; do not rewrite the app.
+- Keep JSON storage as the primary persisted model.
+- Keep Excel `v3` as a legacy transition exchange format.
+- Keep `LevelIndex` as an internal technical coordinate only.
+- Use `NodeType` instead of `LevelIndex >= 2` when deciding whether technical fields are applicable.
+- Preserve existing node IDs when loading/importing data that already has them.
+- Generate missing `NodeId` values during normalization/migration instead of rejecting legacy data.
+- Copy/paste should preserve structure and `NodeType`, but must assign new `NodeId` values.
 
-# New planning artifact
+# Files already relevant to the task
 
-- Root roadmap file created: `Roadmap.md`
-- That file is now the authoritative implementation sequence for the next major development wave
-- Any new AI session should read:
-  1. `AGENTS.md`
-  2. `docs/codex-handoff.md`
-  3. `Roadmap.md`
-
-# Immediate next implementation target
-
-`Phase 0` is now implemented locally:
-
-1. remove user-facing level setup from WinForms UI
-2. stop presenting levels as a user concept
-3. keep technical depth control internally
-4. preserve JSON and Excel `v3` compatibility while doing so
-
-# Files now especially relevant
-
-- `Roadmap.md`
-- `AGENTS.md`
-- `docs/codex-handoff.md`
-- `Forms/MainForm.Layout.cs`
-- `Forms/MainForm.Events.cs`
-- `UiServices/KnowledgeBaseWorkshopUiWorkflowService.cs`
-- `Services/KnowledgeBaseFormStateService.cs`
 - `Models/KbNode.cs`
-- `Models/KbNodeDetails.cs`
+- `Models/KbNodeType.cs`
 - `Models/SavedData.cs`
-- `Services/KnowledgeBaseTreeMutationWorkflowService.cs`
+- `Services/KnowledgeBaseNodeMetadataService.cs`
+- `Services/KnowledgeBaseDataService.cs`
+- `Services/JsonStorageService.cs`
+- `Services/KnowledgeBaseService.cs`
+- `Services/KnowledgeBaseSessionService.cs`
+- `Services/KnowledgeBaseTreeController.cs`
+- `Services/KnowledgeBaseWorkshopTreeProjection.cs`
 - `Services/KnowledgeBaseExcelWorkbookParser.cs`
 - `Services/KnowledgeBaseXlsxWriter.cs`
-- `README.md`
-- `docs/workbook-v3.md`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseFormStateServiceTests.cs`
+- `Services/KnowledgeBaseFormStateService.cs`
+- `Forms/MainForm.NodeDetails.cs`
+- `UiServices/KnowledgeBaseTreeNodeVisuals.cs`
+- `UiServices/KnowledgeBaseTreeViewService.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseDataServiceTests.cs`
-- deleted in this phase:
-  - `Forms/SetupForm.cs`
-  - `Services/KnowledgeBaseConfigurationWorkflowService.cs`
-  - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseConfigurationWorkflowServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/JsonStorageServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseExcelExchangeServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseFormStateServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseServiceTests.cs`
+- `Roadmap.md`
 
-# Validation performed in this session
+# Known risks / open questions
 
-- `dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore`: passed
-- `dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-build --no-restore`: passed
-- current automated result: `141/141`
+- The right panel is still the legacy flat/details card. `Phase 2` has not started.
+- Automated coverage now checks the new normalization rules, JSON save/load, Excel exchange, and `NodeType`-driven technical fields, but not every possible future typed workflow.
+- `README.md` still needs a later refresh if the user wants public-facing docs to match the current `Phase 1` foundation exactly.
 
-# Known strategic risks
+# Recommended next step
 
-- The domain model still has no persistent `NodeId`, while future composition/docs/network features require stable cross-links
-- The current right panel is still level-driven/flat and must be replaced with a screen host
-- `LevelIndex` is still used in several behavior rules, especially for technical fields and depth checks
-- Excel `v3` can remain a transition layer, but it is not sufficient as the long-term typed-data format
-- Embedded preview for image-based network files is straightforward; embedded PDF preview is a separate dependency decision and should not be assumed for the first network phase
+- Start `Phase 2`:
+  - introduce a screen resolver by `NodeType`
+  - replace the flat right panel with a typed host while keeping a safe `Info` fallback
+  - keep JSON source-of-truth compatibility and workbook `v3` readability intact
+- Refresh `README.md` later if user-facing docs also need to reflect the typed foundation.
 
 # Commands to run before finishing future implementation work
 
 ```powershell
 dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore
-dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-build --no-restore
+dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore
 ```

@@ -113,6 +113,9 @@ namespace AsutpKnowledgeBase.Services
             if (candidate.LevelIndex != 0)
                 return false;
 
+            if (candidate.NodeType != KbNodeType.WorkshopRoot)
+                return false;
+
             hiddenWrapperRoot = candidate;
             return true;
         }
@@ -120,8 +123,10 @@ namespace AsutpKnowledgeBase.Services
         private static KbNode CreateVirtualHiddenWrapperRoot(string workshopName) =>
             new()
             {
+                NodeId = KnowledgeBaseNodeMetadataService.CreateNewNodeId(),
                 Name = workshopName.Trim(),
-                LevelIndex = 0
+                LevelIndex = 0,
+                NodeType = KbNodeType.WorkshopRoot
             };
     }
 }

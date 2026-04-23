@@ -168,6 +168,8 @@ namespace AsutpKnowledgeBase.Services
                 };
             }
 
+            bool supportsTechnicalFields = KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(selectedNode.NodeType);
+
             return new KnowledgeBaseSelectedNodeState
             {
                 HasSelection = true,
@@ -177,9 +179,9 @@ namespace AsutpKnowledgeBase.Services
                 Description = selectedNode.Details?.Description ?? string.Empty,
                 Location = selectedNode.Details?.Location ?? string.Empty,
                 PhotoPath = selectedNode.Details?.PhotoPath ?? string.Empty,
-                IpAddress = selectedNode.LevelIndex >= 2 ? selectedNode.Details?.IpAddress ?? string.Empty : string.Empty,
-                SchemaLink = selectedNode.LevelIndex >= 2 ? selectedNode.Details?.SchemaLink ?? string.Empty : string.Empty,
-                ShowTechnicalFields = selectedNode.LevelIndex >= 2
+                IpAddress = supportsTechnicalFields ? selectedNode.Details?.IpAddress ?? string.Empty : string.Empty,
+                SchemaLink = supportsTechnicalFields ? selectedNode.Details?.SchemaLink ?? string.Empty : string.Empty,
+                ShowTechnicalFields = supportsTechnicalFields
             };
         }
     }

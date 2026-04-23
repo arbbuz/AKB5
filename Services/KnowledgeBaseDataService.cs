@@ -22,6 +22,7 @@ namespace AsutpKnowledgeBase.Services
         public static SavedData CreateDefaultData() =>
             new()
             {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
                 Config = CreateDefaultConfig(),
                 Workshops = new Dictionary<string, List<KbNode>>(WorkshopNameComparer)
                 {
@@ -29,6 +30,28 @@ namespace AsutpKnowledgeBase.Services
                 },
                 LastWorkshop = "Новый цех"
             };
+
+        public static SavedData NormalizeSavedData(SavedData? data)
+        {
+            var source = data ?? CreateDefaultData();
+            var normalizedConfig = NormalizeConfig(source.Config);
+            var normalizedWorkshops = NormalizeWorkshops(source.Workshops);
+            var reindexService = new KnowledgeBaseService(normalizedConfig, normalizedWorkshops);
+
+            foreach (var roots in normalizedWorkshops.Values)
+            {
+                foreach (var root in roots)
+                    reindexService.ReindexSubtree(root, 0);
+            }
+
+            return new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = normalizedConfig,
+                Workshops = normalizedWorkshops,
+                LastWorkshop = ResolveWorkshop(normalizedWorkshops, source.LastWorkshop)
+            };
+        }
 
         public static string NormalizeWorkshopName(string? workshopName) =>
             workshopName?.Trim() ?? string.Empty;
@@ -132,6 +155,7 @@ namespace AsutpKnowledgeBase.Services
                 throw new InvalidOperationException(workshopValidationError);
 
             var normalized = new Dictionary<string, List<KbNode>>(WorkshopNameComparer);
+            var usedNodeIds = new HashSet<string>(StringComparer.Ordinal);
 
             if (workshops != null)
             {
@@ -142,7 +166,7 @@ namespace AsutpKnowledgeBase.Services
 
                     string workshopName = NormalizeWorkshopName(pair.Key);
                     var workshopNodes = pair.Value ?? new List<KbNode>();
-                    NormalizeNodes(workshopNodes);
+                    NormalizeNodes(workshopName, workshopNodes, usedNodeIds);
                     normalized.Add(workshopName, workshopNodes);
                 }
             }
@@ -170,6 +194,7 @@ namespace AsutpKnowledgeBase.Services
         {
             var data = new SavedData
             {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
                 Config = config,
                 Workshops = workshops,
                 LastWorkshop = includeCurrentWorkshop ? currentWorkshop : string.Empty
@@ -178,28 +203,36 @@ namespace AsutpKnowledgeBase.Services
             return JsonSerializer.Serialize(data, SnapshotOptions);
         }
 
-        private static void NormalizeNodes(IEnumerable<KbNode> nodes)
+        private static void NormalizeNodes(string workshopName, IList<KbNode> nodes, ISet<string> usedNodeIds)
         {
+            KnowledgeBaseNodeMetadataService.NormalizePersistentWorkshopNodes(workshopName, nodes, usedNodeIds);
+
             foreach (var node in nodes)
-                NormalizeNode(node);
+                NormalizeNodeDetailsRecursive(node);
         }
 
-        private static void NormalizeNode(KbNode node)
+        private static void NormalizeNodeDetailsRecursive(KbNode node)
         {
             node.Name ??= string.Empty;
-            node.Details = NormalizeDetails(node.Details, node.LevelIndex);
+            node.Details = NormalizeDetails(node.Details, node.NodeType);
             node.Children ??= new List<KbNode>();
-            NormalizeNodes(node.Children);
+
+            foreach (var child in node.Children)
+                NormalizeNodeDetailsRecursive(child);
         }
 
-        private static KbNodeDetails NormalizeDetails(KbNodeDetails? details, int levelIndex) =>
+        private static KbNodeDetails NormalizeDetails(KbNodeDetails? details, KbNodeType nodeType) =>
             new()
             {
                 Description = details?.Description ?? string.Empty,
                 Location = details?.Location ?? string.Empty,
                 PhotoPath = details?.PhotoPath ?? string.Empty,
-                IpAddress = levelIndex >= 2 ? details?.IpAddress ?? string.Empty : string.Empty,
-                SchemaLink = levelIndex >= 2 ? details?.SchemaLink ?? string.Empty : string.Empty
+                IpAddress = KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(nodeType)
+                    ? details?.IpAddress ?? string.Empty
+                    : string.Empty,
+                SchemaLink = KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(nodeType)
+                    ? details?.SchemaLink ?? string.Empty
+                    : string.Empty
             };
     }
 }

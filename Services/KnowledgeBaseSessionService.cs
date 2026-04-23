@@ -36,11 +36,10 @@ namespace AsutpKnowledgeBase.Services
             if (workshopValidationError != null)
                 throw new InvalidOperationException(workshopValidationError);
 
-            Config = KnowledgeBaseDataService.NormalizeConfig(data.Config);
-            Workshops = KnowledgeBaseDataService.NormalizeWorkshops(data.Workshops);
-
-            ReindexAllWorkshops();
-            CurrentWorkshop = KnowledgeBaseDataService.ResolveWorkshop(Workshops, data.LastWorkshop);
+            var normalizedData = KnowledgeBaseDataService.NormalizeSavedData(data);
+            Config = normalizedData.Config;
+            Workshops = normalizedData.Workshops;
+            CurrentWorkshop = normalizedData.LastWorkshop;
 
             if (recordAsSavedState)
                 RecordSavedState(GetCurrentWorkshopNodes());
@@ -51,12 +50,13 @@ namespace AsutpKnowledgeBase.Services
         public SavedData CreateSaveData(List<KbNode> currentWorkshopRoots)
         {
             SyncCurrentWorkshop(currentWorkshopRoots);
-            return new SavedData
+            return KnowledgeBaseDataService.NormalizeSavedData(new SavedData
             {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
                 Config = Config,
                 Workshops = Workshops,
                 LastWorkshop = CurrentWorkshop
-            };
+            });
         }
 
         public string SerializeSnapshot(List<KbNode> currentWorkshopRoots, bool includeCurrentWorkshop)
@@ -131,8 +131,10 @@ namespace AsutpKnowledgeBase.Services
             [
                 new KbNode
                 {
+                    NodeId = KnowledgeBaseNodeMetadataService.CreateNewNodeId(),
                     Name = normalizedWorkshop,
-                    LevelIndex = 0
+                    LevelIndex = 0,
+                    NodeType = KbNodeType.WorkshopRoot
                 }
             ];
             CurrentWorkshop = normalizedWorkshop;
@@ -157,7 +159,7 @@ namespace AsutpKnowledgeBase.Services
             if (!Workshops.TryGetValue(resolvedCurrentWorkshop, out var roots))
                 return false;
 
-            RenameTechnicalWrapperIfNeeded(resolvedCurrentWorkshop, normalizedWorkshop, roots);
+            RenameTechnicalWrapperIfNeeded(normalizedWorkshop, roots);
             Workshops = ReplaceWorkshopKey(resolvedCurrentWorkshop, normalizedWorkshop);
             CurrentWorkshop = normalizedWorkshop;
             return true;
@@ -207,7 +209,6 @@ namespace AsutpKnowledgeBase.Services
         }
 
         private static void RenameTechnicalWrapperIfNeeded(
-            string currentWorkshop,
             string renamedWorkshop,
             List<KbNode> roots)
         {
@@ -215,23 +216,10 @@ namespace AsutpKnowledgeBase.Services
                 return;
 
             var root = roots[0];
-            if (root.LevelIndex != 0)
-                return;
-
-            if (!KnowledgeBaseDataService.WorkshopNamesEqual(root.Name, currentWorkshop))
+            if (root.NodeType != KbNodeType.WorkshopRoot)
                 return;
 
             root.Name = renamedWorkshop;
-        }
-
-        private void ReindexAllWorkshops()
-        {
-            var service = new KnowledgeBaseService(Config, Workshops);
-            foreach (var roots in Workshops.Values)
-            {
-                foreach (var root in roots)
-                    service.ReindexSubtree(root, 0);
-            }
         }
     }
 }

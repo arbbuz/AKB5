@@ -126,7 +126,7 @@ public class KnowledgeBaseServiceTests
     }
 
     [Fact]
-    public void ReindexSubtree_ClearsTechnicalFieldsForUpperLevels()
+    public void ReindexSubtree_PreservesTechnicalFieldsForTechnicalNodeTypesAcrossLevels()
     {
         var service = new KnowledgeBaseService(
             new KbConfig { MaxLevels = 5, LevelNames = new List<string>() },
@@ -159,10 +159,46 @@ public class KnowledgeBaseServiceTests
         service.ReindexSubtree(node, 1);
 
         Assert.Equal(1, node.LevelIndex);
-        Assert.Equal(string.Empty, node.Details.IpAddress);
-        Assert.Equal(string.Empty, node.Details.SchemaLink);
+        Assert.Equal(KbNodeType.Cabinet, node.NodeType);
+        Assert.Equal("10.10.0.5", node.Details.IpAddress);
+        Assert.Equal("https://intra/cabinet", node.Details.SchemaLink);
         Assert.Equal(2, node.Children[0].LevelIndex);
+        Assert.Equal(KbNodeType.Module, node.Children[0].NodeType);
         Assert.Equal("10.10.0.6", node.Children[0].Details.IpAddress);
         Assert.Equal("https://intra/module", node.Children[0].Details.SchemaLink);
+    }
+
+    [Fact]
+    public void AddChildNode_UsesParentNodeTypeWhenInferringNewNodeType()
+    {
+        var service = new KnowledgeBaseService(
+            new KbConfig { MaxLevels = 6, LevelNames = new List<string>() },
+            new Dictionary<string, List<KbNode>>());
+
+        var controller = new KbNode
+        {
+            NodeId = "controller-1",
+            Name = "PLC",
+            LevelIndex = 3,
+            NodeType = KbNodeType.Controller
+        };
+
+        var newChild = new KbNode
+        {
+            Name = "Новый узел",
+            Details = new KbNodeDetails
+            {
+                IpAddress = "10.0.0.5",
+                SchemaLink = "https://intra/module"
+            }
+        };
+
+        service.AddChildNode(controller, newChild);
+
+        Assert.Equal(4, newChild.LevelIndex);
+        Assert.Equal(KbNodeType.Module, newChild.NodeType);
+        Assert.False(string.IsNullOrWhiteSpace(newChild.NodeId));
+        Assert.Equal("10.0.0.5", newChild.Details.IpAddress);
+        Assert.Equal("https://intra/module", newChild.Details.SchemaLink);
     }
 }

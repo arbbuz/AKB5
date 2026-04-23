@@ -108,7 +108,7 @@ public class KnowledgeBaseExcelExchangeServiceTests
     }
 
     [Fact]
-    public void BuildWorkbookPackage_StoresNumericColumnsAsNumericCells()
+    public void BuildWorkbookPackage_StoresControlColumnsWithExpectedCellTypes()
     {
         var service = new KnowledgeBaseExcelExchangeService();
 
@@ -125,8 +125,8 @@ public class KnowledgeBaseExcelExchangeServiceTests
         Assert.Equal("1", workshopOrderCell.Value);
         Assert.Equal("b", selectedWorkshopCell.Type);
         Assert.Equal("1", selectedWorkshopCell.Value);
-        Assert.Null(nodeIdCell.Type);
-        Assert.Equal("1", nodeIdCell.Value);
+        Assert.Equal("inlineStr", nodeIdCell.Type);
+        Assert.Matches("^[0-9a-f]{32}$", nodeIdCell.Value);
     }
 
     [Fact]
@@ -155,9 +155,10 @@ public class KnowledgeBaseExcelExchangeServiceTests
         Assert.False(IsCellLocked(packageBytes, "Levels", rowIndex: 2, cellIndex: 2));
         Assert.False(IsCellLocked(packageBytes, "Workshops", rowIndex: 2, cellIndex: 3));
         Assert.False(IsCellLocked(packageBytes, "Workshops", rowIndex: 2, cellIndex: 4));
-        Assert.False(IsWorkshopNodeCellLocked(packageBytes, "W1", rowIndex: 2, cellIndex: 6));
+        Assert.True(IsWorkshopNodeCellLocked(packageBytes, "W1", rowIndex: 2, cellIndex: 6));
         Assert.False(IsWorkshopNodeCellLocked(packageBytes, "W1", rowIndex: 2, cellIndex: 7));
         Assert.False(IsWorkshopNodeCellLocked(packageBytes, "W1", rowIndex: 2, cellIndex: 8));
+        Assert.False(IsWorkshopNodeCellLocked(packageBytes, "W1", rowIndex: 2, cellIndex: 9));
         Assert.True(IsCellLocked(packageBytes, "Levels", rowIndex: 2, cellIndex: 1));
         Assert.True(IsWorkshopNodeCellLocked(packageBytes, "W1", rowIndex: 2, cellIndex: 1));
     }
@@ -550,7 +551,7 @@ public class KnowledgeBaseExcelExchangeServiceTests
         var service = new KnowledgeBaseExcelExchangeService();
 
         byte[] packageBytes = service.BuildWorkbookPackage(CreateSampleData());
-        packageBytes = UpdateMetaPropertyValue(packageBytes, "SchemaVersion", "3");
+        packageBytes = UpdateMetaPropertyValue(packageBytes, "SchemaVersion", "4");
 
         var result = service.ImportFromPackage(packageBytes);
 

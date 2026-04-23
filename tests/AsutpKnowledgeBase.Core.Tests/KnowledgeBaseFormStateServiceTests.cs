@@ -58,6 +58,7 @@ public class KnowledgeBaseFormStateServiceTests
         {
             Name = "Насос",
             LevelIndex = 2,
+            NodeType = KbNodeType.Device,
             Details = new KbNodeDetails
             {
                 Description = "Основной насос",
@@ -151,11 +152,12 @@ public class KnowledgeBaseFormStateServiceTests
     {
         var selectedNode = new KbNode
         {
-            Name = "Линия 1",
+            Name = "Отделение 1",
             LevelIndex = 1,
+            NodeType = KbNodeType.Department,
             Details = new KbNodeDetails
             {
-                Description = "Производственная линия",
+                Description = "Верхний уровень дерева",
                 IpAddress = "10.10.10.10",
                 SchemaLink = "https://intra/line-1"
             }
@@ -174,7 +176,7 @@ public class KnowledgeBaseFormStateServiceTests
         Assert.False(state.SelectedNode.ShowTechnicalFields);
         Assert.Equal(string.Empty, state.SelectedNode.IpAddress);
         Assert.Equal(string.Empty, state.SelectedNode.SchemaLink);
-        Assert.Equal("Производственная линия", state.SelectedNode.Description);
+        Assert.Equal("Верхний уровень дерева", state.SelectedNode.Description);
     }
 
     [Fact]

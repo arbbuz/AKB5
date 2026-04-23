@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using AsutpKnowledgeBase.Models;
+using AsutpKnowledgeBase.Services;
 
 namespace AsutpKnowledgeBase
 {
@@ -13,7 +14,7 @@ namespace AsutpKnowledgeBase
             selectedNode.Details ??= new KbNodeDetails();
             updateDetails(selectedNode.Details);
 
-            if (selectedNode.LevelIndex < 2)
+            if (!KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(selectedNode.NodeType))
             {
                 selectedNode.Details.IpAddress = string.Empty;
                 selectedNode.Details.SchemaLink = string.Empty;

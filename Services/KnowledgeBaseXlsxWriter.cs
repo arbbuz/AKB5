@@ -25,15 +25,20 @@ namespace AsutpKnowledgeBase.Services
 
         public byte[] BuildWorkbookPackage(SavedData data)
         {
-            var normalizedConfig = KnowledgeBaseDataService.NormalizeConfig(data.Config);
-            var normalizedWorkshops = KnowledgeBaseDataService.NormalizeWorkshops(CloneWorkshops(data.Workshops));
-            string lastWorkshop = KnowledgeBaseDataService.ResolveWorkshop(normalizedWorkshops, data.LastWorkshop);
+            var normalizedData = KnowledgeBaseDataService.NormalizeSavedData(new SavedData
+            {
+                SchemaVersion = data.SchemaVersion,
+                Config = data.Config,
+                Workshops = CloneWorkshops(data.Workshops),
+                LastWorkshop = data.LastWorkshop
+            });
+            var normalizedConfig = normalizedData.Config;
+            var normalizedWorkshops = normalizedData.Workshops;
+            string lastWorkshop = normalizedData.LastWorkshop;
             var workshopExports = BuildWorkshopExports(normalizedWorkshops, lastWorkshop);
             string lastWorkshopId = workshopExports
                 .Single(workshop => string.Equals(workshop.WorkshopName, lastWorkshop, StringComparison.Ordinal))
                 .WorkshopId;
-
-            int nextNodeId = 1;
             var worksheets = new List<WorksheetDefinition>
             {
                 BuildInstructionsWorksheet(),
@@ -41,7 +46,7 @@ namespace AsutpKnowledgeBase.Services
                     MetaSheetName,
                     BuildTabularRows(
                         headers: new[] { "Property", "Value" },
-                        rows: BuildMetaRows(data.SchemaVersion, lastWorkshop, lastWorkshopId)),
+                        rows: BuildMetaRows(normalizedData.SchemaVersion, lastWorkshop, lastWorkshopId)),
                     BuildMetaColumns(),
                     1,
                     true),
@@ -67,7 +72,7 @@ namespace AsutpKnowledgeBase.Services
             {
                 worksheets.Add(new WorksheetDefinition(
                     workshop.SheetTabName,
-                    BuildWorkshopNodesSheetRows(normalizedConfig, workshop, ref nextNodeId),
+                    BuildWorkshopNodesSheetRows(normalizedConfig, workshop),
                     BuildWorkshopNodeColumns(),
                     6,
                     true));
@@ -163,8 +168,10 @@ namespace AsutpKnowledgeBase.Services
             var details = source.Details ?? new KbNodeDetails();
             return new KbNode
             {
+                NodeId = source.NodeId,
                 Name = source.Name,
                 LevelIndex = source.LevelIndex,
+                NodeType = source.NodeType,
                 Details = new KbNodeDetails
                 {
                     Description = details.Description,
@@ -255,8 +262,7 @@ namespace AsutpKnowledgeBase.Services
 
         private static IReadOnlyList<IReadOnlyList<WorksheetCell>> BuildWorkshopNodesSheetRows(
             KbConfig config,
-            WorkshopExportRow workshop,
-            ref int nextNodeId)
+            WorkshopExportRow workshop)
         {
             var rows = new List<IReadOnlyList<WorksheetCell>>
             {
@@ -276,6 +282,7 @@ namespace AsutpKnowledgeBase.Services
                     WorksheetCell.String("SiblingOrder", HeaderStyleIndex),
                     WorksheetCell.String("LevelIndex", HeaderStyleIndex),
                     WorksheetCell.String("LevelName", HeaderStyleIndex),
+                    WorksheetCell.String("NodeType", HeaderStyleIndex),
                     WorksheetCell.String("NodeName", HeaderStyleIndex),
                     WorksheetCell.String("Description", HeaderStyleIndex),
                     WorksheetCell.String("Location", HeaderStyleIndex),
@@ -294,8 +301,7 @@ namespace AsutpKnowledgeBase.Services
                     workshop.RootNodes[index],
                     parentNodeId: null,
                     siblingOrder: index + 1,
-                    currentPath: workshop.RootNodes[index].Name,
-                    nextNodeId: ref nextNodeId);
+                    currentPath: workshop.RootNodes[index].Name);
             }
 
             return rows;
@@ -305,26 +311,24 @@ namespace AsutpKnowledgeBase.Services
             ICollection<IReadOnlyList<WorksheetCell>> rows,
             KbConfig config,
             KbNode node,
-            int? parentNodeId,
+            string? parentNodeId,
             int siblingOrder,
-            string currentPath,
-            ref int nextNodeId)
+            string currentPath)
         {
-            int nodeId = nextNodeId;
-            nextNodeId++;
             var details = node.Details ?? new KbNodeDetails();
-            string ipAddress = node.LevelIndex >= 2 ? details.IpAddress : string.Empty;
-            string schemaLink = node.LevelIndex >= 2 ? details.SchemaLink : string.Empty;
+            string ipAddress = KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(node.NodeType) ? details.IpAddress : string.Empty;
+            string schemaLink = KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(node.NodeType) ? details.SchemaLink : string.Empty;
 
             rows.Add(new[]
             {
-                WorksheetCell.Number(nodeId, ReadOnlyStyleIndex),
-                parentNodeId.HasValue
-                    ? WorksheetCell.Number(parentNodeId.Value, ReadOnlyStyleIndex)
+                WorksheetCell.String(node.NodeId, ReadOnlyStyleIndex),
+                !string.IsNullOrWhiteSpace(parentNodeId)
+                    ? WorksheetCell.String(parentNodeId, ReadOnlyStyleIndex)
                     : WorksheetCell.String(string.Empty, ReadOnlyStyleIndex),
                 WorksheetCell.Number(siblingOrder, ReadOnlyStyleIndex),
                 WorksheetCell.Number(node.LevelIndex, ReadOnlyStyleIndex),
                 WorksheetCell.String(GetLevelName(config, node.LevelIndex), ReadOnlyStyleIndex),
+                WorksheetCell.String(node.NodeType.ToString(), ReadOnlyStyleIndex),
                 WorksheetCell.String(node.Name, EditableStyleIndex),
                 WorksheetCell.String(details.Description, EditableStyleIndex),
                 WorksheetCell.String(details.Location, EditableStyleIndex),
@@ -341,10 +345,9 @@ namespace AsutpKnowledgeBase.Services
                     rows,
                     config,
                     child,
-                    nodeId,
+                    node.NodeId,
                     childIndex + 1,
-                    $"{currentPath} / {child.Name}",
-                    ref nextNodeId);
+                    $"{currentPath} / {child.Name}");
             }
         }
 
@@ -668,13 +671,14 @@ namespace AsutpKnowledgeBase.Services
                 new WorksheetColumnDefinition(3U, 3U, 12D, true),
                 new WorksheetColumnDefinition(4U, 4U, 12D, true),
                 new WorksheetColumnDefinition(5U, 5U, 18D, false),
-                new WorksheetColumnDefinition(6U, 6U, 30D, false),
-                new WorksheetColumnDefinition(7U, 7U, 42D, false),
-                new WorksheetColumnDefinition(8U, 8U, 28D, false),
-                new WorksheetColumnDefinition(9U, 9U, 38D, false),
-                new WorksheetColumnDefinition(10U, 10U, 20D, false),
-                new WorksheetColumnDefinition(11U, 11U, 28D, false),
-                new WorksheetColumnDefinition(12U, 12U, 48D, false)
+                new WorksheetColumnDefinition(6U, 6U, 18D, false),
+                new WorksheetColumnDefinition(7U, 7U, 30D, false),
+                new WorksheetColumnDefinition(8U, 8U, 42D, false),
+                new WorksheetColumnDefinition(9U, 9U, 28D, false),
+                new WorksheetColumnDefinition(10U, 10U, 38D, false),
+                new WorksheetColumnDefinition(11U, 11U, 20D, false),
+                new WorksheetColumnDefinition(12U, 12U, 28D, false),
+                new WorksheetColumnDefinition(13U, 13U, 48D, false)
             };
 
         private static string GetLevelName(KbConfig config, int levelIndex) =>

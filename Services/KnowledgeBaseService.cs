@@ -23,13 +23,13 @@ namespace AsutpKnowledgeBase.Services
             if (!_workshops.ContainsKey(workshopName))
                 _workshops[workshopName] = new List<KbNode>();
 
-            ReindexSubtree(node, 0);
+            ReindexSubtree(node, 0, parentNodeType: null);
             _workshops[workshopName].Add(node);
         }
 
         public void AddChildNode(KbNode parentNode, KbNode childNode)
         {
-            ReindexSubtree(childNode, parentNode.LevelIndex + 1);
+            ReindexSubtree(childNode, parentNode.LevelIndex + 1, parentNode.NodeType);
             parentNode.Children.Add(childNode);
         }
 
@@ -120,25 +120,20 @@ namespace AsutpKnowledgeBase.Services
 
         public void ReindexSubtree(KbNode node, int levelIndex)
         {
-            node.LevelIndex = levelIndex;
-            node.Details ??= new KbNodeDetails();
-            if (levelIndex < 2)
-            {
-                node.Details.IpAddress = string.Empty;
-                node.Details.SchemaLink = string.Empty;
-            }
-
-            foreach (var child in node.Children)
-                ReindexSubtree(child, levelIndex + 1);
+            ReindexSubtree(node, levelIndex, parentNodeType: null);
         }
 
-        public KbNode CloneNode(KbNode node)
+        public KbNode CloneNode(KbNode node, bool preserveNodeIds = true)
         {
             var details = node.Details ?? new KbNodeDetails();
             var clone = new KbNode
             {
+                NodeId = preserveNodeIds
+                    ? node.NodeId
+                    : KnowledgeBaseNodeMetadataService.CreateNewNodeId(),
                 Name = node.Name,
                 LevelIndex = node.LevelIndex,
+                NodeType = node.NodeType,
                 Details = new KbNodeDetails
                 {
                     Description = details.Description,
@@ -150,9 +145,14 @@ namespace AsutpKnowledgeBase.Services
             };
 
             foreach (var child in node.Children)
-                clone.Children.Add(CloneNode(child));
+                clone.Children.Add(CloneNode(child, preserveNodeIds));
 
             return clone;
+        }
+
+        private void ReindexSubtree(KbNode node, int levelIndex, KbNodeType? parentNodeType)
+        {
+            KnowledgeBaseNodeMetadataService.NormalizeRuntimeSubtree(node, levelIndex, parentNodeType);
         }
     }
 }

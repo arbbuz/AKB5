@@ -65,6 +65,100 @@ public class KnowledgeBaseDataServiceTests
     }
 
     [Fact]
+    public void NormalizeSavedData_AssignsStableNodeIdsAndResolvedNodeTypesForLegacyNodes()
+    {
+        var legacyData = new SavedData
+        {
+            SchemaVersion = 2,
+            Config = new KbConfig
+            {
+                MaxLevels = 3,
+                LevelNames = new List<string> { "Цех", "Линия", "Щит" }
+            },
+            Workshops = new Dictionary<string, List<KbNode>>
+            {
+                ["Цех 1"] = new List<KbNode>
+                {
+                    new()
+                    {
+                        Name = "Линия 1",
+                        LevelIndex = 0,
+                        Children =
+                        {
+                            new KbNode
+                            {
+                                Name = "Щит 1",
+                                LevelIndex = 1
+                            }
+                        }
+                    },
+                    new()
+                    {
+                        Name = "Линия 2",
+                        LevelIndex = 0
+                    }
+                }
+            },
+            LastWorkshop = "Цех 1"
+        };
+
+        var first = KnowledgeBaseDataService.NormalizeSavedData(Clone(legacyData));
+        var second = KnowledgeBaseDataService.NormalizeSavedData(Clone(legacyData));
+
+        var firstRoot = Assert.Single(first.Workshops["Цех 1"].Where(node => node.Name == "Линия 1"));
+        var secondRoot = Assert.Single(second.Workshops["Цех 1"].Where(node => node.Name == "Линия 1"));
+        var firstChild = Assert.Single(firstRoot.Children);
+        var secondChild = Assert.Single(secondRoot.Children);
+
+        Assert.Equal(SavedData.CurrentSchemaVersion, first.SchemaVersion);
+        Assert.False(string.IsNullOrWhiteSpace(firstRoot.NodeId));
+        Assert.False(string.IsNullOrWhiteSpace(firstChild.NodeId));
+        Assert.Equal(firstRoot.NodeId, secondRoot.NodeId);
+        Assert.Equal(firstChild.NodeId, secondChild.NodeId);
+        Assert.Equal(KbNodeType.System, firstRoot.NodeType);
+        Assert.Equal(KbNodeType.Cabinet, firstChild.NodeType);
+    }
+
+    [Fact]
+    public void NormalizeSavedData_ClearsTechnicalFieldsForNonTechnicalNodeTypes()
+    {
+        var normalized = KnowledgeBaseDataService.NormalizeSavedData(
+            new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = new KbConfig
+                {
+                    MaxLevels = 4,
+                    LevelNames = new List<string> { "Цех", "Линия", "Участок", "Документы" }
+                },
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех 1"] = new List<KbNode>
+                    {
+                        new()
+                        {
+                            NodeId = "doc-root",
+                            Name = "Документы",
+                            LevelIndex = 3,
+                            NodeType = KbNodeType.DocumentNode,
+                            Details = new KbNodeDetails
+                            {
+                                IpAddress = "10.10.10.10",
+                                SchemaLink = "https://intra/docs"
+                            }
+                        }
+                    }
+                },
+                LastWorkshop = "Цех 1"
+            });
+
+        var node = Assert.Single(normalized.Workshops["Цех 1"]);
+        Assert.Equal(KbNodeType.DocumentNode, node.NodeType);
+        Assert.Equal(string.Empty, node.Details.IpAddress);
+        Assert.Equal(string.Empty, node.Details.SchemaLink);
+    }
+
+    [Fact]
     public void ResolveWorkshop_UsesPreferredWorkshopWhenItExists()
     {
         var workshops = new Dictionary<string, List<KbNode>>
@@ -95,4 +189,7 @@ public class KnowledgeBaseDataServiceTests
         Assert.NotNull(restored);
         Assert.Equal(string.Empty, restored!.LastWorkshop);
     }
+
+    private static SavedData Clone(SavedData source) =>
+        JsonSerializer.Deserialize<SavedData>(JsonSerializer.Serialize(source))!;
 }

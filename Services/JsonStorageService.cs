@@ -145,6 +145,7 @@ namespace AsutpKnowledgeBase.Services
             errorMessage = null;
             string tempPath = $"{SavePath}.tmp";
             string backupPath = GetBackupPath(SavePath);
+            var normalizedData = KnowledgeBaseDataService.NormalizeSavedData(data);
 
             _logger.Log(
                 "JsonSaveStarted",
@@ -154,7 +155,7 @@ namespace AsutpKnowledgeBase.Services
                     ("path", SavePath),
                     ("backupPath", backupPath),
                     ("tempPath", tempPath),
-                    ("schemaVersion", data.SchemaVersion)));
+                    ("schemaVersion", normalizedData.SchemaVersion)));
 
             try
             {
@@ -162,7 +163,7 @@ namespace AsutpKnowledgeBase.Services
                 if (!string.IsNullOrWhiteSpace(directory))
                     Directory.CreateDirectory(directory);
 
-                var json = JsonSerializer.Serialize(data, SerializerOptions);
+                var json = JsonSerializer.Serialize(normalizedData, SerializerOptions);
                 File.WriteAllText(tempPath, json);
 
                 if (File.Exists(SavePath))
@@ -178,7 +179,7 @@ namespace AsutpKnowledgeBase.Services
                         ("path", SavePath),
                         ("backupPath", backupPath),
                         ("tempPath", tempPath),
-                        ("schemaVersion", data.SchemaVersion)));
+                        ("schemaVersion", normalizedData.SchemaVersion)));
 
                 return true;
             }
@@ -203,7 +204,7 @@ namespace AsutpKnowledgeBase.Services
                         ("path", SavePath),
                         ("backupPath", backupPath),
                         ("tempPath", tempPath),
-                        ("schemaVersion", data.SchemaVersion)));
+                        ("schemaVersion", normalizedData.SchemaVersion)));
 
                 return false;
             }
@@ -232,6 +233,8 @@ namespace AsutpKnowledgeBase.Services
 
                 data = JsonSerializer.Deserialize<SavedData>(json, SerializerOptions);
                 errorMessage = ValidateData(data);
+                if (errorMessage == null)
+                    data = KnowledgeBaseDataService.NormalizeSavedData(data);
                 return errorMessage == null;
             }
             catch (Exception ex)

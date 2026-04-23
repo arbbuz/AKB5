@@ -1,4 +1,5 @@
 using System.Drawing.Drawing2D;
+using AsutpKnowledgeBase.Models;
 
 namespace AsutpKnowledgeBase.UiServices
 {
@@ -30,15 +31,19 @@ namespace AsutpKnowledgeBase.UiServices
             return imageList;
         }
 
-        public static string GetImageKey(int levelIndex, bool hasChildren)
-            => BuildVariantKey(GetBaseImageKey(levelIndex), hasChildren);
+        public static string GetImageKey(KbNodeType nodeType, bool hasChildren)
+            => BuildVariantKey(GetBaseImageKey(nodeType), hasChildren);
 
-        private static string GetBaseImageKey(int levelIndex) => levelIndex switch
+        private static string GetBaseImageKey(KbNodeType nodeType) => nodeType switch
         {
-            <= 0 => WorkshopKey,
-            1 => DepartmentKey,
-            2 => SystemKey,
-            3 => PanelKey,
+            KbNodeType.WorkshopRoot => WorkshopKey,
+            KbNodeType.Department => DepartmentKey,
+            KbNodeType.System => SystemKey,
+            KbNodeType.Cabinet => PanelKey,
+            KbNodeType.Controller => DeviceKey,
+            KbNodeType.Module => DeviceKey,
+            KbNodeType.DocumentNode => SystemKey,
+            KbNodeType.Unknown => DeviceKey,
             _ => DeviceKey
         };
 

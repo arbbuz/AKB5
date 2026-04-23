@@ -54,6 +54,7 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
         var addedNode = Assert.Single(wrapperRoot.Children);
         Assert.Equal("Цех 1", wrapperRoot.Name);
         Assert.Equal(0, wrapperRoot.LevelIndex);
+        Assert.Equal(KbNodeType.WorkshopRoot, wrapperRoot.NodeType);
         Assert.Equal("Отделение", addedNode.Name);
         Assert.Equal(1, addedNode.LevelIndex);
         Assert.Same(wrapperRoot, result.ViewState.CurrentRoots[0]);
@@ -85,7 +86,12 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
     [Fact]
     public void AddNode_WhenUsingHiddenWrapperParent_AddsVisibleChildInsideWorkshopWrapper()
     {
-        var wrapperRoot = new KbNode { Name = "Цех 1", LevelIndex = 0 };
+        var wrapperRoot = new KbNode
+        {
+            Name = "Цех 1",
+            LevelIndex = 0,
+            NodeType = KbNodeType.WorkshopRoot
+        };
         var session = CreateSession(
             new Dictionary<string, List<KbNode>>
             {
@@ -176,6 +182,7 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
         {
             Name = "Цех 1",
             LevelIndex = 0,
+            NodeType = KbNodeType.WorkshopRoot,
             Children = { draggedNode, targetNode }
         };
         var session = CreateSession(

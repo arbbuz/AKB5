@@ -2,6 +2,7 @@
 
 Last updated: 2026-04-23
 Branch baseline: `interface`
+Implementation status: `Phase 0 complete, Phase 1 complete locally`
 
 ## Goal
 
@@ -39,11 +40,12 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 ## Current technical reality
 
 - JSON is still the source of truth.
-- Current JSON schema version is `2`.
-- The domain node currently has `Name`, `LevelIndex`, `Details`, `Children`, but no persistent `NodeId` and no `NodeType`.
+- Current JSON schema version is `3`.
+- The domain node now has `NodeId` and `NodeType`; legacy data is normalized/migrated on load.
+- Hidden workshop wrappers are now identified through explicit `NodeType.WorkshopRoot` in projection/session workflows.
 - Current right panel is still one flat card with summary/common/technical fields.
 - Current search only matches the node name.
-- Current Excel `v3` already carries technical `NodeId`/`ParentNodeId`, but the domain model does not preserve node IDs after import.
+- Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition.
 
 ## Hidden-level strategy
 
@@ -515,9 +517,9 @@ Keep JSON source-of-truth compatibility and preserve Excel v3 as a legacy transi
 
 ## Immediate next step
 
-Start Phase 0:
+Start Phase 2:
 
-- remove user-facing level setup from the WinForms UI
-- hide level naming from the main UX
-- keep technical depth control internally
-- update docs and tests accordingly
+- introduce a screen resolver by `NodeType`
+- replace the flat right panel with a typed host and keep a safe `Info` fallback
+- keep JSON source-of-truth compatibility and Excel `v3` compatibility intact
+- update docs/tests as the new screen host lands

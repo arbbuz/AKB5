@@ -188,7 +188,7 @@ public class JsonStorageServiceTests
             var service = new JsonStorageService(path);
             File.WriteAllText(path, """
             {
-              "SchemaVersion": 3,
+              "SchemaVersion": 4,
               "Config": {
                 "MaxLevels": 1,
                 "LevelNames": ["Цех"]
@@ -284,8 +284,43 @@ public class JsonStorageServiceTests
         }
     }
 
-    private static SavedData CreateSampleData(string lastWorkshop) =>
-        new()
+    private static SavedData CreateSampleData(string lastWorkshop)
+    {
+        var workshops = new Dictionary<string, List<KbNode>>
+        {
+            ["Цех 1"] = new List<KbNode>
+            {
+                new()
+                {
+                    Name = "Линия 1",
+                    LevelIndex = 0,
+                    Details = new KbNodeDetails
+                    {
+                        Description = "Схема 1",
+                        Location = "Корпус А"
+                    },
+                    Children =
+                    {
+                        new KbNode
+                        {
+                            Name = "Щит 1",
+                            LevelIndex = 1,
+                            Details = new KbNodeDetails
+                            {
+                                PhotoPath = @"\\server\photos\shield-1.jpg",
+                                IpAddress = "10.10.0.15",
+                                SchemaLink = "https://intra/schemes/shield-1"
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        if (!string.IsNullOrWhiteSpace(lastWorkshop) && !workshops.ContainsKey(lastWorkshop))
+            workshops[lastWorkshop] = new List<KbNode>();
+
+        return new SavedData
         {
             SchemaVersion = SavedData.CurrentSchemaVersion,
             Config = new KbConfig
@@ -293,38 +328,10 @@ public class JsonStorageServiceTests
                 MaxLevels = 3,
                 LevelNames = new List<string> { "Цех", "Линия", "Щит" }
             },
-            Workshops = new Dictionary<string, List<KbNode>>
-            {
-                ["Цех 1"] = new List<KbNode>
-                {
-                    new()
-                    {
-                        Name = "Линия 1",
-                        LevelIndex = 0,
-                        Details = new KbNodeDetails
-                        {
-                            Description = "Схема 1",
-                            Location = "Корпус А"
-                        },
-                        Children =
-                        {
-                            new KbNode
-                            {
-                                Name = "Щит 1",
-                                LevelIndex = 1,
-                                Details = new KbNodeDetails
-                                {
-                                    PhotoPath = @"\\server\photos\shield-1.jpg",
-                                    IpAddress = "10.10.0.15",
-                                    SchemaLink = "https://intra/schemes/shield-1"
-                                }
-                            }
-                        }
-                    }
-                }
-            },
+            Workshops = workshops,
             LastWorkshop = lastWorkshop
         };
+    }
 
     private static string CreateTempDirectory()
     {

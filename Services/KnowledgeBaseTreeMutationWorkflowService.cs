@@ -90,7 +90,7 @@ namespace AsutpKnowledgeBase.Services
 
             string historySnapshot = CaptureHistorySnapshot(currentRoots);
             var newNode = _treeController.AddNode(workshopName, parentNode, normalizedName);
-            PersistVirtualWorkshopWrapperIfNeeded(workshopName, parentNode, currentRoots);
+            PersistVirtualWorkshopWrapperIfNeeded(parentNode, currentRoots);
             _history.SaveState(historySnapshot);
 
             return Success($"➕ Добавлено: {newNode.Name}", newNode);
@@ -212,17 +212,13 @@ namespace AsutpKnowledgeBase.Services
             _session.SerializeSnapshot(currentRoots, includeCurrentWorkshop: true);
 
         private void PersistVirtualWorkshopWrapperIfNeeded(
-            string workshopName,
             KbNode? parentNode,
             List<KbNode> currentRoots)
         {
             if (parentNode == null || currentRoots.Count != 0)
                 return;
 
-            if (parentNode.LevelIndex != 0)
-                return;
-
-            if (!KnowledgeBaseDataService.WorkshopNamesEqual(parentNode.Name, workshopName))
+            if (parentNode.NodeType != KbNodeType.WorkshopRoot)
                 return;
 
             currentRoots.Add(parentNode);

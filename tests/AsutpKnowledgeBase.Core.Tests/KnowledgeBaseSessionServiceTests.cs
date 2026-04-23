@@ -107,7 +107,8 @@ public class KnowledgeBaseSessionServiceTests
         {
             Name = "Цех 1",
             LevelIndex = 0,
-            Children = { new KbNode { Name = "Отделение", LevelIndex = 1 } }
+            NodeType = KbNodeType.WorkshopRoot,
+            Children = { new KbNode { Name = "Отделение", LevelIndex = 1, NodeType = KbNodeType.Department } }
         };
         var session = new KnowledgeBaseSessionService();
         session.ApplyLoadedData(
@@ -152,6 +153,7 @@ public class KnowledgeBaseSessionServiceTests
         var root = Assert.Single(session.Workshops["Новый цех"]);
         Assert.Equal("Новый цех", root.Name);
         Assert.Equal(0, root.LevelIndex);
+        Assert.Equal(KbNodeType.WorkshopRoot, root.NodeType);
     }
 
     [Fact]
@@ -169,7 +171,8 @@ public class KnowledgeBaseSessionServiceTests
                         {
                             Name = "Цех 1",
                             LevelIndex = 0,
-                            Children = { new KbNode { Name = "Отделение", LevelIndex = 1 } }
+                            NodeType = KbNodeType.WorkshopRoot,
+                            Children = { new KbNode { Name = "Отделение", LevelIndex = 1, NodeType = KbNodeType.Department } }
                         }
                     ],
                     ["Цех 2"] = new()
@@ -183,7 +186,39 @@ public class KnowledgeBaseSessionServiceTests
         Assert.False(session.Workshops.ContainsKey("Цех 1"));
         var wrapper = Assert.Single(session.Workshops["Новый цех"]);
         Assert.Equal("Новый цех", wrapper.Name);
+        Assert.Equal(KbNodeType.WorkshopRoot, wrapper.NodeType);
         Assert.Equal("Отделение", wrapper.Children.Single().Name);
+    }
+
+    [Fact]
+    public void TryRenameCurrentWorkshop_DoesNotRenameSingleNonWrapperRoot()
+    {
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(
+            new SavedData
+            {
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех 1"] =
+                    [
+                        new KbNode
+                        {
+                            Name = "Линия 1",
+                            LevelIndex = 0,
+                            NodeType = KbNodeType.System
+                        }
+                    ],
+                    ["Цех 2"] = new()
+                },
+                LastWorkshop = "Цех 1"
+            },
+            recordAsSavedState: true);
+
+        Assert.True(session.TryRenameCurrentWorkshop("Новый цех", session.GetCurrentWorkshopNodes()));
+
+        var root = Assert.Single(session.Workshops["Новый цех"]);
+        Assert.Equal("Линия 1", root.Name);
+        Assert.Equal(KbNodeType.System, root.NodeType);
     }
 
     [Fact]

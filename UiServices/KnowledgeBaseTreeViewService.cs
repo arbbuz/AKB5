@@ -171,7 +171,7 @@ namespace AsutpKnowledgeBase.UiServices
             ref TreeNode? selectedTreeNode)
         {
             bool hasChildren = node.Children.Count > 0;
-            string imageKey = KnowledgeBaseTreeNodeVisuals.GetImageKey(node.LevelIndex, hasChildren);
+            string imageKey = KnowledgeBaseTreeNodeVisuals.GetImageKey(node.NodeType, hasChildren);
             var treeNode = new TreeNode(node.Name)
             {
                 Tag = node,

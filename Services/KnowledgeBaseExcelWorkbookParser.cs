@@ -45,13 +45,13 @@ namespace AsutpKnowledgeBase.Services
             var nodeSheets = ParseWorkshopNodeSheets(workbook);
             var roots = BuildNodeTree(config, workshops, ParseNodes(nodeSheets, workshops));
 
-            return new SavedData
+            return KnowledgeBaseDataService.NormalizeSavedData(new SavedData
             {
                 SchemaVersion = meta.SchemaVersion,
                 Config = config,
                 Workshops = roots,
                 LastWorkshop = workshops.LastWorkshop
-            };
+            });
         }
 
         private static ParsedMeta ParseMeta(WorksheetTable table)
@@ -361,6 +361,7 @@ namespace AsutpKnowledgeBase.Services
                     ParentNodeId: ReadOptionalCell(row, nodeTable, "ParentNodeId"),
                     SiblingOrder: ParsePositiveInt(ReadRequiredCell(row, nodeTable, "SiblingOrder"), "Nodes.SiblingOrder"),
                     LevelIndex: ParseNonNegativeInt(ReadRequiredCell(row, nodeTable, "LevelIndex"), "Nodes.LevelIndex"),
+                    NodeType: ParseOptionalNodeType(ReadOptionalCell(row, nodeTable, "NodeType")),
                     NodeName: ReadRequiredCell(row, nodeTable, "NodeName"),
                     Description: ReadOptionalCell(row, nodeTable, "Description"),
                     Location: ReadOptionalCell(row, nodeTable, "Location"),
@@ -550,15 +551,17 @@ namespace AsutpKnowledgeBase.Services
 
             var node = new KbNode
             {
+                NodeId = row.NodeId,
                 Name = row.NodeName,
                 LevelIndex = row.LevelIndex,
+                NodeType = row.NodeType,
                 Details = new KbNodeDetails
                 {
                     Description = row.Description,
                     Location = row.Location,
                     PhotoPath = row.PhotoPath,
-                    IpAddress = row.LevelIndex >= 2 ? row.IpAddress : string.Empty,
-                    SchemaLink = row.LevelIndex >= 2 ? row.SchemaLink : string.Empty
+                    IpAddress = KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(row.NodeType) ? row.IpAddress : string.Empty,
+                    SchemaLink = KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(row.NodeType) ? row.SchemaLink : string.Empty
                 }
             };
 
@@ -895,6 +898,22 @@ namespace AsutpKnowledgeBase.Services
             };
         }
 
+        private static KbNodeType ParseOptionalNodeType(string value)
+        {
+            string normalized = value.Trim();
+            if (string.IsNullOrWhiteSpace(normalized))
+                return KbNodeType.Unknown;
+
+            if (Enum.TryParse<KbNodeType>(normalized, ignoreCase: true, out var parsed) &&
+                Enum.IsDefined(typeof(KbNodeType), parsed))
+            {
+                return parsed;
+            }
+
+            throw new KnowledgeBaseExcelImportException(
+                $"Значение 'Nodes.NodeType' не распознано: '{value}'.");
+        }
+
         private sealed record ParsedMeta(int SchemaVersion, string LastWorkshopId, string LastWorkshop);
 
         private sealed record ParsedWorkshopRow(
@@ -925,6 +944,7 @@ namespace AsutpKnowledgeBase.Services
             string ParentNodeId,
             int SiblingOrder,
             int LevelIndex,
+            KbNodeType NodeType,
             string NodeName,
             string Description,
             string Location,
