@@ -21,6 +21,10 @@ namespace AsutpKnowledgeBase
             txtSearch.TextBox.KeyDown += TxtSearch_KeyDown;
             selectedNodeInfoScreen.BrowsePhotoRequested += BtnBrowsePhoto_Click;
             selectedNodeInfoScreen.OpenPhotoRequested += BtnOpenPhoto_Click;
+            selectedNodeCompositionScreen.AddSlottedRequested += AddSlottedCompositionEntry;
+            selectedNodeCompositionScreen.AddAuxiliaryRequested += AddAuxiliaryCompositionEntry;
+            selectedNodeCompositionScreen.EditSelectedRequested += EditSelectedCompositionEntry;
+            selectedNodeCompositionScreen.DeleteSelectedRequested += DeleteSelectedCompositionEntry;
 
             btnUndo.Click += (s, e) => UndoAction();
             btnRedo.Click += (s, e) => RedoAction();

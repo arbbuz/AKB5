@@ -80,7 +80,7 @@ namespace AsutpKnowledgeBase.Services
                     {
                         Kind = KnowledgeBaseNodeWorkspaceTabKind.Composition,
                         Title = "Composition",
-                        Description = "Phase 3 will introduce the Composition screen for this node type."
+                        Description = "Shows typed composition entries for this node type."
                     },
                     new KnowledgeBaseNodeWorkspaceTabState
                     {

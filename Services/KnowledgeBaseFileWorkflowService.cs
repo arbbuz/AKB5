@@ -241,6 +241,7 @@ namespace AsutpKnowledgeBase.Services
                 SchemaVersion = data.SchemaVersion,
                 Config = normalizedConfig,
                 Workshops = normalizedWorkshops,
+                CompositionEntries = data.CompositionEntries ?? new List<KbCompositionEntry>(),
                 LastWorkshop = lastWorkshop
             };
 

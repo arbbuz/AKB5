@@ -22,6 +22,7 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseWorkshopUiWorkflowService _workshopUiWorkflowService;
         private readonly KnowledgeBaseTreeController _treeController;
         private readonly KnowledgeBaseTreeMutationWorkflowService _treeMutationWorkflowService;
+        private readonly KnowledgeBaseCompositionMutationService _compositionMutationService = new();
         private readonly KnowledgeBaseFormStateService _formStateService = new();
         private readonly KnowledgeBaseTreeViewService _treeViewService = new();
         private readonly UndoRedoService _history = new(50);
@@ -68,7 +69,7 @@ namespace AsutpKnowledgeBase
         private TabPage tabSelectedNodeDocsAndSoftware = null!;
         private TabPage tabSelectedNodeNetwork = null!;
         private KnowledgeBaseInfoScreenControl selectedNodeInfoScreen = null!;
-        private Label lblSelectedNodeCompositionPlaceholder = null!;
+        private KnowledgeBaseCompositionScreenControl selectedNodeCompositionScreen = null!;
         private Label lblSelectedNodeDocsPlaceholder = null!;
         private Label lblSelectedNodeNetworkPlaceholder = null!;
 
@@ -143,7 +144,10 @@ namespace AsutpKnowledgeBase
 
                 lblSelectedNodeEmptyState.Text = selectedNodeState.EmptyStateText;
                 if (hasSelection)
+                {
                     selectedNodeInfoScreen.ApplyState(selectedNodeState);
+                    selectedNodeCompositionScreen.ApplyState(selectedNodeState.Composition);
+                }
 
                 ScheduleDeferredLayout();
             }
@@ -182,7 +186,8 @@ namespace AsutpKnowledgeBase
                 _lastSavedWorkshop,
                 tvTree.GetNodeCount(true),
                 currentRoots,
-                tvTree.SelectedNode?.Tag as KbNode);
+                tvTree.SelectedNode?.Tag as KbNode,
+                _session.CompositionEntries);
         }
 
         private void ApplyFormState(KnowledgeBaseFormState formState, bool refreshSelectedNodeState)

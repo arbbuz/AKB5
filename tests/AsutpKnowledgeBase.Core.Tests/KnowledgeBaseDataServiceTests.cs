@@ -159,6 +159,60 @@ public class KnowledgeBaseDataServiceTests
     }
 
     [Fact]
+    public void NormalizeSavedData_NormalizesCompositionEntries()
+    {
+        var normalized = KnowledgeBaseDataService.NormalizeSavedData(
+            new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = new KbConfig
+                {
+                    MaxLevels = 2,
+                    LevelNames = new List<string> { "Цех", "Шкаф" }
+                },
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех 1"] = new List<KbNode>
+                    {
+                        new()
+                        {
+                            NodeId = "cabinet-1",
+                            Name = "Шкаф 1",
+                            LevelIndex = 0,
+                            NodeType = KbNodeType.Cabinet
+                        }
+                    }
+                },
+                CompositionEntries = new List<KbCompositionEntry>
+                {
+                    new()
+                    {
+                        ParentNodeId = " cabinet-1 ",
+                        SlotNumber = -1,
+                        PositionOrder = -2,
+                        ComponentType = " CPU ",
+                        Model = " PLC-1 ",
+                        Notes = " Main "
+                    },
+                    new()
+                    {
+                        ParentNodeId = "   "
+                    }
+                },
+                LastWorkshop = "Цех 1"
+            });
+
+        var entry = Assert.Single(normalized.CompositionEntries);
+        Assert.Equal("cabinet-1", entry.ParentNodeId);
+        Assert.Null(entry.SlotNumber);
+        Assert.Equal(0, entry.PositionOrder);
+        Assert.Equal("CPU", entry.ComponentType);
+        Assert.Equal("PLC-1", entry.Model);
+        Assert.Equal("Main", entry.Notes);
+        Assert.False(string.IsNullOrWhiteSpace(entry.EntryId));
+    }
+
+    [Fact]
     public void ResolveWorkshop_UsesPreferredWorkshopWhenItExists()
     {
         var workshops = new Dictionary<string, List<KbNode>>

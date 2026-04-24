@@ -5,14 +5,15 @@
 - `Phase 0` is complete locally.
 - `Phase 1` is complete locally and validated on the current worktree.
 - `Phase 2` is complete locally and validated on the current worktree.
+- `Phase 3` is complete locally and validated on the current worktree.
 - Latest validation in this session:
   - `dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore`
   - `dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore`
-  - automated result: `146/146`
+  - automated result: `156/156`
 
 # Current objective
 
-- Start `Phase 3` composition-model work from the now-complete typed screen host.
+- Start `Phase 3B` template/copy workflow work from the now-complete typed `Composition` screen.
 - Keep JSON as the source of truth.
 - Preserve Excel workbook `v3` compatibility while typed data is introduced incrementally.
 
@@ -33,8 +34,15 @@
   - tree icon selection
 - The right panel now routes by `NodeType`:
   - `Department` / `System` / legacy-safe cases stay on a clean `Info` screen
-  - `Cabinet` / `Device` / `Controller` / `Module` switch to a tab host with placeholder `Composition`, `Documentation and Software`, and `Network` tabs
+  - `Cabinet` / `Device` / `Controller` / `Module` switch to a tab host with live `Composition`, plus placeholder `Documentation and Software` and `Network` tabs
 - The generic `Info` screen now lives in reusable `Controls/KnowledgeBaseInfoScreenControl.cs` and is reparented between the standalone host and the `Info` tab instead of being hardcoded directly inside `MainForm`.
+- `SavedData` now contains `CompositionEntries`, and session/file workflow paths persist typed composition independently from tree child order.
+- The `Composition` tab now:
+  - resolves typed entries from `SavedData.CompositionEntries`
+  - sorts them by `SlotNumber` and `PositionOrder`
+  - renders slots separately from auxiliary equipment
+  - keeps legacy child nodes as a read-only fallback projection until typed entries are filled
+  - supports add/edit/delete through a dedicated composition-entry dialog
 - Excel `v3` now reads and writes a read-only `NodeType` column while keeping `Levels` as a legacy transition sheet.
 
 # Decisions already made
@@ -63,10 +71,15 @@
 - `Services/KnowledgeBaseExcelWorkbookParser.cs`
 - `Services/KnowledgeBaseXlsxWriter.cs`
 - `Services/KnowledgeBaseFormStateService.cs`
+- `Services/KnowledgeBaseCompositionStateService.cs`
+- `Services/KnowledgeBaseCompositionMutationService.cs`
 - `Forms/MainForm.NodeDetails.cs`
+- `Forms/MainForm.Composition.cs`
 - `Forms/MainForm.Events.cs`
 - `Forms/MainForm.Layout.cs`
 - `Forms/MainForm.WorkspaceHost.cs`
+- `Forms/KnowledgeBaseCompositionEntryDialog.cs`
+- `Controls/KnowledgeBaseCompositionScreenControl.cs`
 - `Controls/KnowledgeBaseInfoScreenControl.cs`
 - `UiServices/KnowledgeBaseTreeNodeVisuals.cs`
 - `UiServices/KnowledgeBaseTreeViewService.cs`
@@ -74,21 +87,24 @@
 - `tests/AsutpKnowledgeBase.Core.Tests/JsonStorageServiceTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseExcelExchangeServiceTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseFormStateServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseCompositionStateServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseCompositionMutationServiceTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseServiceTests.cs`
 - `Roadmap.md`
 
 # Known risks / open questions
 
-- `Phase 2` is complete, but the new tab host still contains placeholder screens. Real typed content for `Composition`, `Documentation and Software`, and `Network` belongs to later roadmap phases.
-- The reusable `Info` screen is now integrated, but no dedicated typed view-model/components exist yet for the non-Info tabs.
-- Automated coverage now checks the new normalization rules, JSON save/load, Excel exchange, and `NodeType`-driven technical fields, but not every possible future typed workflow.
-- `README.md` still needs a later refresh if the user wants public-facing docs to match the current `Phase 1` foundation exactly.
+- `Phase 3` is complete locally, but `Phase 3B` template/copy workflows do not exist yet. Composition still has to be entered manually.
+- `Documentation and Software` and `Network` are still placeholder tabs and belong to later roadmap phases.
+- Excel `v3` compatibility is preserved, but workbook exchange still does not carry typed composition entries; JSON remains the only source of truth for them.
+- `README.md` still needs a later refresh if the user wants public-facing docs to match the current typed foundation and `Composition` workflow.
 
 # Recommended next step
 
-- Start `Phase 3`:
-  - introduce the composition data model for cabinet-focused workflows
-  - connect the `Composition` tab to typed composition state instead of placeholders
+- Start `Phase 3B`:
+  - add cabinet/controller templates
+  - add `create from template`
+  - add `copy composition from existing object`
   - keep JSON source-of-truth compatibility and workbook `v3` readability intact
 - Refresh `README.md` later if user-facing docs also need to reflect the typed foundation.
 

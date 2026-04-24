@@ -30,6 +30,7 @@ namespace AsutpKnowledgeBase.Services
                 SchemaVersion = data.SchemaVersion,
                 Config = data.Config,
                 Workshops = CloneWorkshops(data.Workshops),
+                CompositionEntries = data.CompositionEntries,
                 LastWorkshop = data.LastWorkshop
             });
             var normalizedConfig = normalizedData.Config;

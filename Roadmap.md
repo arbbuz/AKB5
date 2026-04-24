@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-24
 Branch baseline: `interface`
-Implementation status: `Phase 0 complete, Phase 1 complete locally, Phase 2 complete locally`
+Implementation status: `Phase 0 complete, Phase 1 complete locally, Phase 2 complete locally, Phase 3 complete locally`
 
 ## Goal
 
@@ -45,6 +45,9 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - Hidden workshop wrappers are now identified through explicit `NodeType.WorkshopRoot` in projection/session workflows.
 - `Phase 2` is complete locally: the right panel now routes by `NodeType` into a clean `Info` screen or an engineering tab host.
 - The generic `Info` screen is now extracted into a reusable control so the same UI can be hosted standalone or inside the `Info` tab.
+- `Phase 3` is complete locally: `Composition` now uses a dedicated typed model stored in `SavedData.CompositionEntries`.
+- The `Composition` screen now shows slots separately from auxiliary equipment and supports in-app add/edit/delete for typed entries.
+- Composition ordering is now resolved by `SlotNumber` + `PositionOrder`, independent of child-node order in the left tree.
 - Current search only matches the node name.
 - Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition.
 
@@ -518,9 +521,10 @@ Keep JSON source-of-truth compatibility and preserve Excel v3 as a legacy transi
 
 ## Immediate next step
 
-Continue Phase 3:
+Continue Phase 3B:
 
-- introduce the composition data model for cabinet-focused workflows
-- connect the `Composition` tab to typed composition state instead of placeholders
+- add cabinet/controller templates
+- add `create from template`
+- add `copy composition from existing object`
 - keep JSON source-of-truth compatibility and Excel `v3` compatibility intact
-- update docs/tests as the new screen host lands
+- update docs/tests as template workflows land

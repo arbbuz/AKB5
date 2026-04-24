@@ -90,9 +90,6 @@ namespace AsutpKnowledgeBase
         {
             switch (tab.Kind)
             {
-                case KnowledgeBaseNodeWorkspaceTabKind.Composition:
-                    lblSelectedNodeCompositionPlaceholder.Text = tab.Description;
-                    break;
                 case KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware:
                     lblSelectedNodeDocsPlaceholder.Text = tab.Description;
                     break;

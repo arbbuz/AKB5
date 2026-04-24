@@ -27,6 +27,8 @@ namespace AsutpKnowledgeBase.Services
         public bool ShowTechnicalFields { get; init; }
 
         public KnowledgeBaseNodeWorkspaceState Workspace { get; init; } = new();
+
+        public KnowledgeBaseCompositionState Composition { get; init; } = new();
     }
 
     public class KnowledgeBaseFormState
@@ -60,6 +62,7 @@ namespace AsutpKnowledgeBase.Services
     {
         private readonly KnowledgeBaseNodePresentationService _nodePresentationService = new();
         private readonly KnowledgeBaseNodeWorkspaceResolverService _nodeWorkspaceResolverService = new();
+        private readonly KnowledgeBaseCompositionStateService _compositionStateService = new();
 
         public KnowledgeBaseFormState Build(
             bool isDirty,
@@ -69,7 +72,8 @@ namespace AsutpKnowledgeBase.Services
             string lastSavedWorkshop,
             int totalNodes,
             IReadOnlyList<KbNode> currentRoots,
-            KbNode? selectedNode)
+            KbNode? selectedNode,
+            IReadOnlyList<KbCompositionEntry>? compositionEntries = null)
         {
             bool fileExists = File.Exists(currentDataPath);
             string currentDataFileName = Path.GetFileName(currentDataPath);
@@ -77,7 +81,7 @@ namespace AsutpKnowledgeBase.Services
                 currentDataFileName = "(без файла)";
 
             string saveStateText = BuildSaveStateText(isDirty, requiresSave, fileExists);
-            var selectedNodeState = BuildSelectedNodeState(currentRoots, selectedNode);
+            var selectedNodeState = BuildSelectedNodeState(currentRoots, selectedNode, compositionEntries);
 
             return new KnowledgeBaseFormState
             {
@@ -157,7 +161,8 @@ namespace AsutpKnowledgeBase.Services
 
         private KnowledgeBaseSelectedNodeState BuildSelectedNodeState(
             IReadOnlyList<KbNode> currentRoots,
-            KbNode? selectedNode)
+            KbNode? selectedNode,
+            IReadOnlyList<KbCompositionEntry>? compositionEntries)
         {
             if (selectedNode == null)
             {
@@ -185,7 +190,8 @@ namespace AsutpKnowledgeBase.Services
                 IpAddress = supportsTechnicalFields ? selectedNode.Details?.IpAddress ?? string.Empty : string.Empty,
                 SchemaLink = supportsTechnicalFields ? selectedNode.Details?.SchemaLink ?? string.Empty : string.Empty,
                 ShowTechnicalFields = supportsTechnicalFields,
-                Workspace = _nodeWorkspaceResolverService.Resolve(selectedNode.NodeType)
+                Workspace = _nodeWorkspaceResolverService.Resolve(selectedNode.NodeType),
+                Composition = _compositionStateService.Build(selectedNode, compositionEntries)
             };
         }
     }

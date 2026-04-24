@@ -232,11 +232,15 @@ namespace AsutpKnowledgeBase
                 Tag = KnowledgeBaseNodeWorkspaceTabKind.Network
             };
 
-            lblSelectedNodeCompositionPlaceholder = CreateWorkspacePlaceholderLabel();
             lblSelectedNodeDocsPlaceholder = CreateWorkspacePlaceholderLabel();
             lblSelectedNodeNetworkPlaceholder = CreateWorkspacePlaceholderLabel();
 
-            tabSelectedNodeComposition.Controls.Add(lblSelectedNodeCompositionPlaceholder);
+            selectedNodeCompositionScreen = new KnowledgeBaseCompositionScreenControl
+            {
+                Dock = DockStyle.Fill
+            };
+
+            tabSelectedNodeComposition.Controls.Add(selectedNodeCompositionScreen);
             tabSelectedNodeDocsAndSoftware.Controls.Add(lblSelectedNodeDocsPlaceholder);
             tabSelectedNodeNetwork.Controls.Add(lblSelectedNodeNetworkPlaceholder);
 

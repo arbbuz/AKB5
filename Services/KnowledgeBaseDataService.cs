@@ -28,6 +28,7 @@ namespace AsutpKnowledgeBase.Services
                 {
                     ["Новый цех"] = new List<KbNode>()
                 },
+                CompositionEntries = new List<KbCompositionEntry>(),
                 LastWorkshop = "Новый цех"
             };
 
@@ -36,6 +37,7 @@ namespace AsutpKnowledgeBase.Services
             var source = data ?? CreateDefaultData();
             var normalizedConfig = NormalizeConfig(source.Config);
             var normalizedWorkshops = NormalizeWorkshops(source.Workshops);
+            var normalizedCompositionEntries = NormalizeCompositionEntries(source.CompositionEntries);
             var reindexService = new KnowledgeBaseService(normalizedConfig, normalizedWorkshops);
 
             foreach (var roots in normalizedWorkshops.Values)
@@ -49,6 +51,7 @@ namespace AsutpKnowledgeBase.Services
                 SchemaVersion = SavedData.CurrentSchemaVersion,
                 Config = normalizedConfig,
                 Workshops = normalizedWorkshops,
+                CompositionEntries = normalizedCompositionEntries,
                 LastWorkshop = ResolveWorkshop(normalizedWorkshops, source.LastWorkshop)
             };
         }
@@ -190,6 +193,19 @@ namespace AsutpKnowledgeBase.Services
             KbConfig config,
             Dictionary<string, List<KbNode>> workshops,
             string currentWorkshop,
+            bool includeCurrentWorkshop) =>
+            SerializeSnapshot(
+                config,
+                workshops,
+                compositionEntries: null,
+                currentWorkshop,
+                includeCurrentWorkshop);
+
+        public static string SerializeSnapshot(
+            KbConfig config,
+            Dictionary<string, List<KbNode>> workshops,
+            IReadOnlyList<KbCompositionEntry>? compositionEntries,
+            string currentWorkshop,
             bool includeCurrentWorkshop)
         {
             var data = new SavedData
@@ -197,6 +213,7 @@ namespace AsutpKnowledgeBase.Services
                 SchemaVersion = SavedData.CurrentSchemaVersion,
                 Config = config,
                 Workshops = workshops,
+                CompositionEntries = compositionEntries?.ToList() ?? new List<KbCompositionEntry>(),
                 LastWorkshop = includeCurrentWorkshop ? currentWorkshop : string.Empty
             };
 
@@ -234,5 +251,78 @@ namespace AsutpKnowledgeBase.Services
                     ? details?.SchemaLink ?? string.Empty
                     : string.Empty
             };
+
+        private static List<KbCompositionEntry> NormalizeCompositionEntries(IEnumerable<KbCompositionEntry>? entries)
+        {
+            var normalized = new List<KbCompositionEntry>();
+            if (entries == null)
+                return normalized;
+
+            var usedEntryIds = new HashSet<string>(StringComparer.Ordinal);
+            int normalizedIndex = 0;
+
+            foreach (var entry in entries)
+            {
+                if (entry == null)
+                    continue;
+
+                string parentNodeId = entry.ParentNodeId?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(parentNodeId))
+                    continue;
+
+                int positionOrder = entry.PositionOrder >= 0
+                    ? entry.PositionOrder
+                    : normalizedIndex;
+
+                normalized.Add(new KbCompositionEntry
+                {
+                    EntryId = NormalizeCompositionEntryId(
+                        entry.EntryId,
+                        parentNodeId,
+                        entry.SlotNumber,
+                        positionOrder,
+                        usedEntryIds),
+                    ParentNodeId = parentNodeId,
+                    SlotNumber = entry.SlotNumber is > 0 ? entry.SlotNumber : null,
+                    PositionOrder = positionOrder,
+                    ComponentType = entry.ComponentType?.Trim() ?? string.Empty,
+                    Model = entry.Model?.Trim() ?? string.Empty,
+                    IpAddress = entry.IpAddress?.Trim() ?? string.Empty,
+                    LastCalibrationAt = entry.LastCalibrationAt,
+                    NextCalibrationAt = entry.NextCalibrationAt,
+                    Notes = entry.Notes?.Trim() ?? string.Empty
+                });
+
+                normalizedIndex++;
+            }
+
+            return normalized;
+        }
+
+        private static string NormalizeCompositionEntryId(
+            string? entryId,
+            string parentNodeId,
+            int? slotNumber,
+            int positionOrder,
+            ISet<string> usedEntryIds)
+        {
+            string normalizedExistingId = entryId?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(normalizedExistingId) && usedEntryIds.Add(normalizedExistingId))
+                return normalizedExistingId;
+
+            string deterministicId = $"comp-{parentNodeId}-{slotNumber?.ToString() ?? "aux"}-{positionOrder}";
+            if (usedEntryIds.Add(deterministicId))
+                return deterministicId;
+
+            int suffix = 2;
+            while (true)
+            {
+                string candidate = $"{deterministicId}-{suffix}";
+                if (usedEntryIds.Add(candidate))
+                    return candidate;
+
+                suffix++;
+            }
+        }
     }
 }

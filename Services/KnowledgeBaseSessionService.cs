@@ -15,6 +15,8 @@ namespace AsutpKnowledgeBase.Services
         public Dictionary<string, List<KbNode>> Workshops { get; private set; } =
             new(KnowledgeBaseDataService.WorkshopNameComparer);
 
+        public List<KbCompositionEntry> CompositionEntries { get; private set; } = new();
+
         public string CurrentWorkshop { get; private set; } = string.Empty;
 
         public string LastSavedWorkshop { get; private set; } = string.Empty;
@@ -39,6 +41,7 @@ namespace AsutpKnowledgeBase.Services
             var normalizedData = KnowledgeBaseDataService.NormalizeSavedData(data);
             Config = normalizedData.Config;
             Workshops = normalizedData.Workshops;
+            CompositionEntries = normalizedData.CompositionEntries;
             CurrentWorkshop = normalizedData.LastWorkshop;
 
             if (recordAsSavedState)
@@ -55,6 +58,7 @@ namespace AsutpKnowledgeBase.Services
                 SchemaVersion = SavedData.CurrentSchemaVersion,
                 Config = Config,
                 Workshops = Workshops,
+                CompositionEntries = CompositionEntries,
                 LastWorkshop = CurrentWorkshop
             });
         }
@@ -65,6 +69,7 @@ namespace AsutpKnowledgeBase.Services
             return KnowledgeBaseDataService.SerializeSnapshot(
                 Config,
                 Workshops,
+                CompositionEntries,
                 CurrentWorkshop,
                 includeCurrentWorkshop);
         }
@@ -191,6 +196,16 @@ namespace AsutpKnowledgeBase.Services
         }
 
         public void UpdateConfig(KbConfig config) => Config = config;
+
+        public void ReplaceCompositionEntries(IEnumerable<KbCompositionEntry> compositionEntries) =>
+            CompositionEntries = KnowledgeBaseDataService.NormalizeSavedData(new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = Config,
+                Workshops = Workshops,
+                CompositionEntries = compositionEntries?.ToList() ?? new List<KbCompositionEntry>(),
+                LastWorkshop = CurrentWorkshop
+            }).CompositionEntries;
 
         public void SetRequiresSave(bool requiresSave) => RequiresSave = requiresSave;
 
