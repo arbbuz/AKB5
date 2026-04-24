@@ -4,7 +4,7 @@
 - Active working branch: `interface`
 - `Phase 0` is complete locally.
 - `Phase 1` is complete locally and validated on the current worktree.
-- `Phase 2` is in progress locally.
+- `Phase 2` is complete locally and validated on the current worktree.
 - Latest validation in this session:
   - `dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore`
   - `dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore`
@@ -12,9 +12,9 @@
 
 # Current objective
 
-- Continue `Phase 2` screen-host work from the now-stabilized typed foundation.
+- Start `Phase 3` composition-model work from the now-complete typed screen host.
 - Keep JSON as the source of truth.
-- Preserve Excel workbook `v3` compatibility while the typed UI is introduced incrementally.
+- Preserve Excel workbook `v3` compatibility while typed data is introduced incrementally.
 
 # Current repo state
 
@@ -31,9 +31,10 @@
   - technical-field visibility and cleanup in form-state/UI logic
   - Excel import/export technical-field behavior
   - tree icon selection
-- The right panel now starts routing by `NodeType`:
+- The right panel now routes by `NodeType`:
   - `Department` / `System` / legacy-safe cases stay on a clean `Info` screen
   - `Cabinet` / `Device` / `Controller` / `Module` switch to a tab host with placeholder `Composition`, `Documentation and Software`, and `Network` tabs
+- The generic `Info` screen now lives in reusable `Controls/KnowledgeBaseInfoScreenControl.cs` and is reparented between the standalone host and the `Info` tab instead of being hardcoded directly inside `MainForm`.
 - Excel `v3` now reads and writes a read-only `NodeType` column while keeping `Levels` as a legacy transition sheet.
 
 # Decisions already made
@@ -63,6 +64,10 @@
 - `Services/KnowledgeBaseXlsxWriter.cs`
 - `Services/KnowledgeBaseFormStateService.cs`
 - `Forms/MainForm.NodeDetails.cs`
+- `Forms/MainForm.Events.cs`
+- `Forms/MainForm.Layout.cs`
+- `Forms/MainForm.WorkspaceHost.cs`
+- `Controls/KnowledgeBaseInfoScreenControl.cs`
 - `UiServices/KnowledgeBaseTreeNodeVisuals.cs`
 - `UiServices/KnowledgeBaseTreeViewService.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseDataServiceTests.cs`
@@ -74,15 +79,16 @@
 
 # Known risks / open questions
 
-- `Phase 2` has started, but the new tab host still contains placeholder screens. Real typed content for `Composition`, `Documentation and Software`, and `Network` belongs to later roadmap phases.
+- `Phase 2` is complete, but the new tab host still contains placeholder screens. Real typed content for `Composition`, `Documentation and Software`, and `Network` belongs to later roadmap phases.
+- The reusable `Info` screen is now integrated, but no dedicated typed view-model/components exist yet for the non-Info tabs.
 - Automated coverage now checks the new normalization rules, JSON save/load, Excel exchange, and `NodeType`-driven technical fields, but not every possible future typed workflow.
 - `README.md` still needs a later refresh if the user wants public-facing docs to match the current `Phase 1` foundation exactly.
 
 # Recommended next step
 
-- Continue `Phase 2`:
-  - deepen the new screen resolver by `NodeType`
-  - refine the typed host and safe `Info` fallback in the right panel
+- Start `Phase 3`:
+  - introduce the composition data model for cabinet-focused workflows
+  - connect the `Composition` tab to typed composition state instead of placeholders
   - keep JSON source-of-truth compatibility and workbook `v3` readability intact
 - Refresh `README.md` later if user-facing docs also need to reflect the typed foundation.
 

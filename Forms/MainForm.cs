@@ -43,7 +43,6 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem menuDeleteWorkshop = null!;
 
         private SplitContainer splitMain = null!;
-        private TableLayoutPanel tblDetailsLeftColumn = null!;
         private ComboBox cmbWorkshops = null!;
         private TreeView tvTree = null!;
         private ToolStripTextBox txtSearch = null!;
@@ -68,21 +67,10 @@ namespace AsutpKnowledgeBase
         private TabPage tabSelectedNodeComposition = null!;
         private TabPage tabSelectedNodeDocsAndSoftware = null!;
         private TabPage tabSelectedNodeNetwork = null!;
-        private TableLayoutPanel tblSelectedNodeCard = null!;
-        private Label lblSelectedNodeNameValue = null!;
+        private KnowledgeBaseInfoScreenControl selectedNodeInfoScreen = null!;
         private Label lblSelectedNodeCompositionPlaceholder = null!;
         private Label lblSelectedNodeDocsPlaceholder = null!;
         private Label lblSelectedNodeNetworkPlaceholder = null!;
-        private TextBox txtSelectedNodePath = null!;
-        private Label lblSelectedNodeChildrenValue = null!;
-        private TextBox txtNodeDescription = null!;
-        private TextBox txtNodeLocation = null!;
-        private TextBox txtNodePhotoPath = null!;
-        private TextBox txtNodeIpAddress = null!;
-        private TextBox txtNodeSchemaLink = null!;
-        private GroupBox grpTechnicalFields = null!;
-        private Button btnBrowsePhoto = null!;
-        private Button btnOpenPhoto = null!;
 
         private KbConfig _config => _session.Config;
         private string _currentWorkshop => _session.CurrentWorkshop;
@@ -150,21 +138,13 @@ namespace AsutpKnowledgeBase
             {
                 bool hasSelection = selectedNodeState.HasSelection;
                 lblSelectedNodeEmptyState.Visible = !hasSelection;
-                tblSelectedNodeCard.Visible = hasSelection;
+                selectedNodeInfoScreen.Visible = hasSelection;
                 ApplyWorkspaceState(selectedNodeState);
 
                 lblSelectedNodeEmptyState.Text = selectedNodeState.EmptyStateText;
-                lblSelectedNodeNameValue.Text = selectedNodeState.Name;
-                txtSelectedNodePath.Text = selectedNodeState.FullPath;
-                lblSelectedNodeChildrenValue.Text = selectedNodeState.ChildrenCountText;
-                txtNodeDescription.Text = selectedNodeState.Description;
-                txtNodeLocation.Text = selectedNodeState.Location;
-                txtNodePhotoPath.Text = selectedNodeState.PhotoPath;
-                txtNodeIpAddress.Text = selectedNodeState.IpAddress;
-                txtNodeSchemaLink.Text = selectedNodeState.SchemaLink;
-                SetTechnicalFieldsVisibility(hasSelection && selectedNodeState.ShowTechnicalFields);
+                if (hasSelection)
+                    selectedNodeInfoScreen.ApplyState(selectedNodeState);
 
-                UpdatePhotoControlsState(selectedNodeState.PhotoPath);
                 ScheduleDeferredLayout();
             }
             finally
@@ -358,17 +338,6 @@ namespace AsutpKnowledgeBase
         private bool IsSearchTextInputFocused() =>
             txtSearch?.TextBox is { IsDisposed: false } searchTextBox &&
             searchTextBox.ContainsFocus;
-
-        private void SetTechnicalFieldsVisibility(bool visible)
-        {
-            grpTechnicalFields.Visible = visible;
-
-            if (tblDetailsLeftColumn.RowStyles.Count <= 2)
-                return;
-
-            tblDetailsLeftColumn.RowStyles[2].Height = visible ? 150F : 0F;
-            tblDetailsLeftColumn.PerformLayout();
-        }
 
         private static void ApplySplitLayout(
             SplitContainer splitContainer,

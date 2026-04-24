@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-04-23
+Last updated: 2026-04-24
 Branch baseline: `interface`
-Implementation status: `Phase 0 complete, Phase 1 complete locally, Phase 2 in progress locally`
+Implementation status: `Phase 0 complete, Phase 1 complete locally, Phase 2 complete locally`
 
 ## Goal
 
@@ -43,7 +43,8 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - Current JSON schema version is `3`.
 - The domain node now has `NodeId` and `NodeType`; legacy data is normalized/migrated on load.
 - Hidden workshop wrappers are now identified through explicit `NodeType.WorkshopRoot` in projection/session workflows.
-- `Phase 2` has started: the right panel now routes by `NodeType` into a clean `Info` screen or an engineering tab host.
+- `Phase 2` is complete locally: the right panel now routes by `NodeType` into a clean `Info` screen or an engineering tab host.
+- The generic `Info` screen is now extracted into a reusable control so the same UI can be hosted standalone or inside the `Info` tab.
 - Current search only matches the node name.
 - Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition.
 
@@ -517,9 +518,9 @@ Keep JSON source-of-truth compatibility and preserve Excel v3 as a legacy transi
 
 ## Immediate next step
 
-Continue Phase 2:
+Continue Phase 3:
 
-- deepen the new screen resolver by `NodeType`
-- keep refining the typed host and safe `Info` fallback
+- introduce the composition data model for cabinet-focused workflows
+- connect the `Composition` tab to typed composition state instead of placeholders
 - keep JSON source-of-truth compatibility and Excel `v3` compatibility intact
 - update docs/tests as the new screen host lands

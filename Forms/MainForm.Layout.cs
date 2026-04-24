@@ -36,7 +36,7 @@ namespace AsutpKnowledgeBase
                 ImageScalingSize = new Size(18, 18)
             };
 
-            menuFile = new ToolStripMenuItem("📁 Файл");
+            menuFile = new ToolStripMenuItem("📃 Файл");
             menuNewWorkshop = new ToolStripMenuItem("🏭 Новый цех", null, BtnAddWorkshop_Click);
             menuDeleteWorkshop = new ToolStripMenuItem("🗑 Удалить цех", null, BtnDeleteWorkshop_Click);
             menuRenameWorkshop = new ToolStripMenuItem("✏️ Переименовать цех", null, BtnRenameWorkshop_Click);
@@ -240,78 +240,13 @@ namespace AsutpKnowledgeBase
             tabSelectedNodeDocsAndSoftware.Controls.Add(lblSelectedNodeDocsPlaceholder);
             tabSelectedNodeNetwork.Controls.Add(lblSelectedNodeNetworkPlaceholder);
 
-            tblSelectedNodeCard = new TableLayoutPanel
+            selectedNodeInfoScreen = new KnowledgeBaseInfoScreenControl
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(16),
-                ColumnCount = 1,
-                RowCount = 2,
                 Visible = false
             };
-            tblSelectedNodeCard.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            tblSelectedNodeCard.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            tblSelectedNodeCard.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-            var pnlHeader = new Panel
-            {
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0, 0, 0, 12),
-                Padding = new Padding(0, 0, 0, 8)
-            };
-
-            lblSelectedNodeNameValue = new Label
-            {
-                Dock = DockStyle.Top,
-                Height = 38,
-                Font = new Font("Segoe UI Semibold", 18F, FontStyle.Bold),
-                AutoEllipsis = true
-            };
-            pnlHeader.Controls.Add(lblSelectedNodeNameValue);
-            tblSelectedNodeCard.Controls.Add(pnlHeader, 0, 0);
-
-            tblDetailsLeftColumn = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 1,
-                RowCount = 3,
-                Margin = new Padding(0)
-            };
-            tblDetailsLeftColumn.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            tblDetailsLeftColumn.RowStyles.Add(new RowStyle(SizeType.Absolute, 144F));
-            tblDetailsLeftColumn.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            tblDetailsLeftColumn.RowStyles.Add(new RowStyle(SizeType.Absolute, 0F));
-
-            var grpSummary = new GroupBox
-            {
-                Text = "Сводка",
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0, 0, 0, 12)
-            };
-            grpSummary.Controls.Add(CreateSummaryLayout());
-            tblDetailsLeftColumn.Controls.Add(grpSummary, 0, 0);
-
-            var grpCommonFields = new GroupBox
-            {
-                Text = "Карточка объекта",
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0, 0, 0, 12)
-            };
-            grpCommonFields.Controls.Add(CreateCommonFieldsLayout());
-            tblDetailsLeftColumn.Controls.Add(grpCommonFields, 0, 1);
-
-            grpTechnicalFields = new GroupBox
-            {
-                Text = "Технические поля",
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0),
-                Visible = false
-            };
-            grpTechnicalFields.Controls.Add(CreateTechnicalFieldsLayout());
-            tblDetailsLeftColumn.Controls.Add(grpTechnicalFields, 0, 2);
-
-            tblSelectedNodeCard.Controls.Add(tblDetailsLeftColumn, 0, 1);
-
-            pnlSelectedNodeInfoScreen.Controls.Add(tblSelectedNodeCard);
+            pnlSelectedNodeInfoScreen.Controls.Add(selectedNodeInfoScreen);
             tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeInfo);
             tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeComposition);
             tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeDocsAndSoftware);
@@ -321,120 +256,6 @@ namespace AsutpKnowledgeBase
             pnlRight.Controls.Add(tabSelectedNodeWorkspace);
             pnlRight.Controls.Add(lblSelectedNodeEmptyState);
             splitMain.Panel2.Controls.Add(pnlRight);
-        }
-
-        private TableLayoutPanel CreateSummaryLayout()
-        {
-            var layout = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 2,
-                Padding = new Padding(10, 8, 10, 10)
-            };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110F));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 78F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
-
-            layout.Controls.Add(CreateFormLabel("Полный путь"), 0, 0);
-            txtSelectedNodePath = new TextBox
-            {
-                Dock = DockStyle.Fill,
-                Multiline = true,
-                ReadOnly = true,
-                BorderStyle = BorderStyle.FixedSingle,
-                BackColor = Color.White,
-                ScrollBars = ScrollBars.Vertical,
-                TabStop = false
-            };
-            layout.Controls.Add(txtSelectedNodePath, 1, 0);
-
-            layout.Controls.Add(CreateFormLabel("Дочерних"), 0, 1);
-            lblSelectedNodeChildrenValue = CreateReadOnlyValueLabel();
-            layout.Controls.Add(lblSelectedNodeChildrenValue, 1, 1);
-
-            return layout;
-        }
-
-        private TableLayoutPanel CreateCommonFieldsLayout()
-        {
-            var layout = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 7,
-                Padding = new Padding(10, 8, 10, 10)
-            };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 118F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
-
-            layout.Controls.Add(CreateFormLabel("Описание"), 0, 0);
-            txtNodeDescription = new TextBox
-            {
-                Dock = DockStyle.Fill,
-                Multiline = true,
-                ScrollBars = ScrollBars.Vertical
-            };
-            layout.Controls.Add(txtNodeDescription, 1, 0);
-            layout.SetRowSpan(txtNodeDescription, 2);
-
-            layout.Controls.Add(CreateFormLabel("Местоположение"), 0, 2);
-            txtNodeLocation = new TextBox { Dock = DockStyle.Fill };
-            layout.Controls.Add(txtNodeLocation, 1, 3);
-
-            layout.Controls.Add(CreateFormLabel("Фото"), 0, 4);
-            txtNodePhotoPath = new TextBox { Dock = DockStyle.Fill };
-            layout.Controls.Add(txtNodePhotoPath, 1, 5);
-
-            var buttonPanel = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
-                Margin = new Padding(0)
-            };
-            btnBrowsePhoto = new Button { Text = "Выбрать фото...", AutoSize = true };
-            btnOpenPhoto = new Button { Text = "Открыть фото", AutoSize = true, Enabled = false };
-            buttonPanel.Controls.Add(btnBrowsePhoto);
-            buttonPanel.Controls.Add(btnOpenPhoto);
-            layout.Controls.Add(buttonPanel, 1, 6);
-
-            return layout;
-        }
-
-        private TableLayoutPanel CreateTechnicalFieldsLayout()
-        {
-            var layout = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 4,
-                Padding = new Padding(10, 8, 10, 10)
-            };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-
-            layout.Controls.Add(CreateFormLabel("IP-адрес"), 0, 0);
-            txtNodeIpAddress = new TextBox { Dock = DockStyle.Fill };
-            layout.Controls.Add(txtNodeIpAddress, 1, 1);
-
-            layout.Controls.Add(CreateFormLabel("Ссылка на схему"), 0, 2);
-            txtNodeSchemaLink = new TextBox { Dock = DockStyle.Fill };
-            layout.Controls.Add(txtNodeSchemaLink, 1, 3);
-
-            return layout;
         }
 
         private void InitializeStatusBar()
@@ -499,23 +320,6 @@ namespace AsutpKnowledgeBase
                 AutoSize = true,
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 Margin = new Padding(0, 0, 0, 6)
-            };
-
-        private static Label CreateFormLabel(string text) =>
-            new()
-            {
-                Text = text,
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft,
-                Margin = new Padding(0, 0, 8, 0)
-            };
-
-        private static Label CreateReadOnlyValueLabel() =>
-            new()
-            {
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft,
-                AutoEllipsis = true
             };
 
         private static Label CreateWorkspacePlaceholderLabel() =>

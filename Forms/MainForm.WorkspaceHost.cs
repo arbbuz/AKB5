@@ -15,26 +15,26 @@ namespace AsutpKnowledgeBase
 
             if (selectedNodeState.Workspace.UseTabHost)
             {
-                MoveSelectedNodeCard(tabSelectedNodeInfo);
+                MoveSelectedNodeInfoScreen(tabSelectedNodeInfo);
                 ConfigureWorkspaceTabs(selectedNodeState.Workspace);
                 pnlSelectedNodeInfoScreen.Visible = false;
                 tabSelectedNodeWorkspace.Visible = true;
                 return;
             }
 
-            MoveSelectedNodeCard(pnlSelectedNodeInfoScreen);
+            MoveSelectedNodeInfoScreen(pnlSelectedNodeInfoScreen);
             pnlSelectedNodeInfoScreen.Visible = true;
             tabSelectedNodeWorkspace.Visible = false;
         }
 
-        private void MoveSelectedNodeCard(Control parent)
+        private void MoveSelectedNodeInfoScreen(Control parent)
         {
-            if (ReferenceEquals(tblSelectedNodeCard.Parent, parent))
+            if (ReferenceEquals(selectedNodeInfoScreen.Parent, parent))
                 return;
 
-            tblSelectedNodeCard.Parent?.Controls.Remove(tblSelectedNodeCard);
-            parent.Controls.Add(tblSelectedNodeCard);
-            tblSelectedNodeCard.Dock = DockStyle.Fill;
+            selectedNodeInfoScreen.Parent?.Controls.Remove(selectedNodeInfoScreen);
+            parent.Controls.Add(selectedNodeInfoScreen);
+            selectedNodeInfoScreen.Dock = DockStyle.Fill;
         }
 
         private void ConfigureWorkspaceTabs(KnowledgeBaseNodeWorkspaceState workspace)

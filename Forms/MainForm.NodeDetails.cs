@@ -38,12 +38,12 @@ namespace AsutpKnowledgeBase
             };
 
             if (dialog.ShowDialog(this) == DialogResult.OK)
-                txtNodePhotoPath.Text = dialog.FileName;
+                selectedNodeInfoScreen.PhotoPathText = dialog.FileName;
         }
 
         private void BtnOpenPhoto_Click(object? sender, EventArgs e)
         {
-            string photoPath = txtNodePhotoPath.Text.Trim();
+            string photoPath = selectedNodeInfoScreen.PhotoPathText.Trim();
             if (string.IsNullOrWhiteSpace(photoPath) || !File.Exists(photoPath))
             {
                 MessageBox.Show(
@@ -75,8 +75,6 @@ namespace AsutpKnowledgeBase
         }
 
         private void UpdatePhotoControlsState(string photoPath) =>
-            btnOpenPhoto.Enabled =
-                !string.IsNullOrWhiteSpace(photoPath) &&
-                File.Exists(photoPath.Trim());
+            selectedNodeInfoScreen.UpdatePhotoControlsState(photoPath);
     }
 }

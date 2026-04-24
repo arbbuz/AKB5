@@ -19,18 +19,23 @@ namespace AsutpKnowledgeBase
             btnSearchNext.Click += (s, e) => NavigateSearch(1);
             txtSearch.TextBox.PreviewKeyDown += TxtSearch_PreviewKeyDown;
             txtSearch.TextBox.KeyDown += TxtSearch_KeyDown;
-            btnBrowsePhoto.Click += BtnBrowsePhoto_Click;
-            btnOpenPhoto.Click += BtnOpenPhoto_Click;
+            selectedNodeInfoScreen.BrowsePhotoRequested += BtnBrowsePhoto_Click;
+            selectedNodeInfoScreen.OpenPhotoRequested += BtnOpenPhoto_Click;
 
             btnUndo.Click += (s, e) => UndoAction();
             btnRedo.Click += (s, e) => RedoAction();
             btnCollapseTree.Click += (s, e) => CollapseTreeToRoots();
 
-            txtNodeDescription.TextChanged += (s, e) => HandleNodeDetailsChanged(details => details.Description = txtNodeDescription.Text);
-            txtNodeLocation.TextChanged += (s, e) => HandleNodeDetailsChanged(details => details.Location = txtNodeLocation.Text);
-            txtNodePhotoPath.TextChanged += (s, e) => HandleNodeDetailsChanged(details => details.PhotoPath = txtNodePhotoPath.Text);
-            txtNodeIpAddress.TextChanged += (s, e) => HandleNodeDetailsChanged(details => details.IpAddress = txtNodeIpAddress.Text);
-            txtNodeSchemaLink.TextChanged += (s, e) => HandleNodeDetailsChanged(details => details.SchemaLink = txtNodeSchemaLink.Text);
+            selectedNodeInfoScreen.DescriptionChangedByUser +=
+                (s, e) => HandleNodeDetailsChanged(details => details.Description = selectedNodeInfoScreen.DescriptionText);
+            selectedNodeInfoScreen.LocationChangedByUser +=
+                (s, e) => HandleNodeDetailsChanged(details => details.Location = selectedNodeInfoScreen.LocationText);
+            selectedNodeInfoScreen.PhotoPathChangedByUser +=
+                (s, e) => HandleNodeDetailsChanged(details => details.PhotoPath = selectedNodeInfoScreen.PhotoPathText);
+            selectedNodeInfoScreen.IpAddressChangedByUser +=
+                (s, e) => HandleNodeDetailsChanged(details => details.IpAddress = selectedNodeInfoScreen.IpAddressText);
+            selectedNodeInfoScreen.SchemaLinkChangedByUser +=
+                (s, e) => HandleNodeDetailsChanged(details => details.SchemaLink = selectedNodeInfoScreen.SchemaLinkText);
 
             KeyPreview = true;
             KeyDown += (s, e) =>
