@@ -89,6 +89,7 @@ public class KnowledgeBaseFormStateServiceTests
         Assert.Equal("Основной насос", state.SelectedNode.Description);
         Assert.Equal("10.0.0.12", state.SelectedNode.IpAddress);
         Assert.True(state.SelectedNode.ShowTechnicalFields);
+        Assert.True(state.SelectedNode.Workspace.UseTabHost);
     }
 
     [Fact]
@@ -127,6 +128,7 @@ public class KnowledgeBaseFormStateServiceTests
         Assert.Equal("Ничего не выбрано. Выберите узел в дереве слева.", state.SelectedNode.EmptyStateText);
         Assert.Equal("Файл отсутствует на диске", state.SaveStateText);
         Assert.False(state.SelectedNode.ShowTechnicalFields);
+        Assert.False(state.SelectedNode.Workspace.UseTabHost);
         Assert.Equal(string.Empty, state.SelectedNode.Description);
     }
 
@@ -177,6 +179,7 @@ public class KnowledgeBaseFormStateServiceTests
         Assert.Equal(string.Empty, state.SelectedNode.IpAddress);
         Assert.Equal(string.Empty, state.SelectedNode.SchemaLink);
         Assert.Equal("Верхний уровень дерева", state.SelectedNode.Description);
+        Assert.False(state.SelectedNode.Workspace.UseTabHost);
     }
 
     [Fact]

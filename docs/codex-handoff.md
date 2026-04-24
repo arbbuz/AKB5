@@ -4,14 +4,15 @@
 - Active working branch: `interface`
 - `Phase 0` is complete locally.
 - `Phase 1` is complete locally and validated on the current worktree.
+- `Phase 2` is in progress locally.
 - Latest validation in this session:
   - `dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore`
   - `dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore`
-  - automated result: `143/143`
+  - automated result: `146/146`
 
 # Current objective
 
-- Start `Phase 2` screen-host work from the now-stabilized typed foundation.
+- Continue `Phase 2` screen-host work from the now-stabilized typed foundation.
 - Keep JSON as the source of truth.
 - Preserve Excel workbook `v3` compatibility while the typed UI is introduced incrementally.
 
@@ -30,6 +31,9 @@
   - technical-field visibility and cleanup in form-state/UI logic
   - Excel import/export technical-field behavior
   - tree icon selection
+- The right panel now starts routing by `NodeType`:
+  - `Department` / `System` / legacy-safe cases stay on a clean `Info` screen
+  - `Cabinet` / `Device` / `Controller` / `Module` switch to a tab host with placeholder `Composition`, `Documentation and Software`, and `Network` tabs
 - Excel `v3` now reads and writes a read-only `NodeType` column while keeping `Levels` as a legacy transition sheet.
 
 # Decisions already made
@@ -70,15 +74,15 @@
 
 # Known risks / open questions
 
-- The right panel is still the legacy flat/details card. `Phase 2` has not started.
+- `Phase 2` has started, but the new tab host still contains placeholder screens. Real typed content for `Composition`, `Documentation and Software`, and `Network` belongs to later roadmap phases.
 - Automated coverage now checks the new normalization rules, JSON save/load, Excel exchange, and `NodeType`-driven technical fields, but not every possible future typed workflow.
 - `README.md` still needs a later refresh if the user wants public-facing docs to match the current `Phase 1` foundation exactly.
 
 # Recommended next step
 
-- Start `Phase 2`:
-  - introduce a screen resolver by `NodeType`
-  - replace the flat right panel with a typed host while keeping a safe `Info` fallback
+- Continue `Phase 2`:
+  - deepen the new screen resolver by `NodeType`
+  - refine the typed host and safe `Info` fallback in the right panel
   - keep JSON source-of-truth compatibility and workbook `v3` readability intact
 - Refresh `README.md` later if user-facing docs also need to reflect the typed foundation.
 

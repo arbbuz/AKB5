@@ -1,3 +1,4 @@
+using AsutpKnowledgeBase.Services;
 using AsutpKnowledgeBase.UiServices;
 
 namespace AsutpKnowledgeBase
@@ -202,6 +203,43 @@ namespace AsutpKnowledgeBase
                 Padding = new Padding(24)
             };
 
+            pnlSelectedNodeInfoScreen = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Visible = false
+            };
+
+            tabSelectedNodeWorkspace = new TabControl
+            {
+                Dock = DockStyle.Fill,
+                Visible = false
+            };
+
+            tabSelectedNodeInfo = new TabPage("Info")
+            {
+                Tag = KnowledgeBaseNodeWorkspaceTabKind.Info
+            };
+            tabSelectedNodeComposition = new TabPage("Composition")
+            {
+                Tag = KnowledgeBaseNodeWorkspaceTabKind.Composition
+            };
+            tabSelectedNodeDocsAndSoftware = new TabPage("Documentation and Software")
+            {
+                Tag = KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware
+            };
+            tabSelectedNodeNetwork = new TabPage("Network")
+            {
+                Tag = KnowledgeBaseNodeWorkspaceTabKind.Network
+            };
+
+            lblSelectedNodeCompositionPlaceholder = CreateWorkspacePlaceholderLabel();
+            lblSelectedNodeDocsPlaceholder = CreateWorkspacePlaceholderLabel();
+            lblSelectedNodeNetworkPlaceholder = CreateWorkspacePlaceholderLabel();
+
+            tabSelectedNodeComposition.Controls.Add(lblSelectedNodeCompositionPlaceholder);
+            tabSelectedNodeDocsAndSoftware.Controls.Add(lblSelectedNodeDocsPlaceholder);
+            tabSelectedNodeNetwork.Controls.Add(lblSelectedNodeNetworkPlaceholder);
+
             tblSelectedNodeCard = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -273,7 +311,14 @@ namespace AsutpKnowledgeBase
 
             tblSelectedNodeCard.Controls.Add(tblDetailsLeftColumn, 0, 1);
 
-            pnlRight.Controls.Add(tblSelectedNodeCard);
+            pnlSelectedNodeInfoScreen.Controls.Add(tblSelectedNodeCard);
+            tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeInfo);
+            tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeComposition);
+            tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeDocsAndSoftware);
+            tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeNetwork);
+
+            pnlRight.Controls.Add(pnlSelectedNodeInfoScreen);
+            pnlRight.Controls.Add(tabSelectedNodeWorkspace);
             pnlRight.Controls.Add(lblSelectedNodeEmptyState);
             splitMain.Panel2.Controls.Add(pnlRight);
         }
@@ -471,6 +516,15 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
                 AutoEllipsis = true
+            };
+
+        private static Label CreateWorkspacePlaceholderLabel() =>
+            new()
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(24),
+                TextAlign = ContentAlignment.MiddleCenter,
+                ForeColor = Color.DimGray
             };
 
         private static ToolStripButton CreateSearchToolbarButton(Image image, string toolTipText) =>

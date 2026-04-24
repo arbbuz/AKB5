@@ -62,8 +62,17 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem ctxRename = null!;
         private ToolStripMenuItem ctxDelete = null!;
         private Label lblSelectedNodeEmptyState = null!;
+        private Panel pnlSelectedNodeInfoScreen = null!;
+        private TabControl tabSelectedNodeWorkspace = null!;
+        private TabPage tabSelectedNodeInfo = null!;
+        private TabPage tabSelectedNodeComposition = null!;
+        private TabPage tabSelectedNodeDocsAndSoftware = null!;
+        private TabPage tabSelectedNodeNetwork = null!;
         private TableLayoutPanel tblSelectedNodeCard = null!;
         private Label lblSelectedNodeNameValue = null!;
+        private Label lblSelectedNodeCompositionPlaceholder = null!;
+        private Label lblSelectedNodeDocsPlaceholder = null!;
+        private Label lblSelectedNodeNetworkPlaceholder = null!;
         private TextBox txtSelectedNodePath = null!;
         private Label lblSelectedNodeChildrenValue = null!;
         private TextBox txtNodeDescription = null!;
@@ -142,6 +151,7 @@ namespace AsutpKnowledgeBase
                 bool hasSelection = selectedNodeState.HasSelection;
                 lblSelectedNodeEmptyState.Visible = !hasSelection;
                 tblSelectedNodeCard.Visible = hasSelection;
+                ApplyWorkspaceState(selectedNodeState);
 
                 lblSelectedNodeEmptyState.Text = selectedNodeState.EmptyStateText;
                 lblSelectedNodeNameValue.Text = selectedNodeState.Name;

@@ -25,6 +25,8 @@ namespace AsutpKnowledgeBase.Services
         public string SchemaLink { get; init; } = string.Empty;
 
         public bool ShowTechnicalFields { get; init; }
+
+        public KnowledgeBaseNodeWorkspaceState Workspace { get; init; } = new();
     }
 
     public class KnowledgeBaseFormState
@@ -57,6 +59,7 @@ namespace AsutpKnowledgeBase.Services
     public class KnowledgeBaseFormStateService
     {
         private readonly KnowledgeBaseNodePresentationService _nodePresentationService = new();
+        private readonly KnowledgeBaseNodeWorkspaceResolverService _nodeWorkspaceResolverService = new();
 
         public KnowledgeBaseFormState Build(
             bool isDirty,
@@ -181,7 +184,8 @@ namespace AsutpKnowledgeBase.Services
                 PhotoPath = selectedNode.Details?.PhotoPath ?? string.Empty,
                 IpAddress = supportsTechnicalFields ? selectedNode.Details?.IpAddress ?? string.Empty : string.Empty,
                 SchemaLink = supportsTechnicalFields ? selectedNode.Details?.SchemaLink ?? string.Empty : string.Empty,
-                ShowTechnicalFields = supportsTechnicalFields
+                ShowTechnicalFields = supportsTechnicalFields,
+                Workspace = _nodeWorkspaceResolverService.Resolve(selectedNode.NodeType)
             };
         }
     }

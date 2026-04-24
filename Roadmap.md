@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-23
 Branch baseline: `interface`
-Implementation status: `Phase 0 complete, Phase 1 complete locally`
+Implementation status: `Phase 0 complete, Phase 1 complete locally, Phase 2 in progress locally`
 
 ## Goal
 
@@ -43,7 +43,7 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - Current JSON schema version is `3`.
 - The domain node now has `NodeId` and `NodeType`; legacy data is normalized/migrated on load.
 - Hidden workshop wrappers are now identified through explicit `NodeType.WorkshopRoot` in projection/session workflows.
-- Current right panel is still one flat card with summary/common/technical fields.
+- `Phase 2` has started: the right panel now routes by `NodeType` into a clean `Info` screen or an engineering tab host.
 - Current search only matches the node name.
 - Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition.
 
@@ -517,9 +517,9 @@ Keep JSON source-of-truth compatibility and preserve Excel v3 as a legacy transi
 
 ## Immediate next step
 
-Start Phase 2:
+Continue Phase 2:
 
-- introduce a screen resolver by `NodeType`
-- replace the flat right panel with a typed host and keep a safe `Info` fallback
+- deepen the new screen resolver by `NodeType`
+- keep refining the typed host and safe `Info` fallback
 - keep JSON source-of-truth compatibility and Excel `v3` compatibility intact
 - update docs/tests as the new screen host lands
