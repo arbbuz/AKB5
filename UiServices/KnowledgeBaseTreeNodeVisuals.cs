@@ -6,19 +6,13 @@ namespace AsutpKnowledgeBase.UiServices
     public static class KnowledgeBaseTreeNodeVisuals
     {
         private const int IconSize = 20;
-        private const int ExpandGlyphSize = 12;
         private const string WorkshopKey = "workshop";
         private const string DepartmentKey = "department";
         private const string SystemKey = "system";
-        private const string CabinetKey = "cabinet";
+        private const string PanelKey = "panel";
         private const string DeviceKey = "device";
-        private const string ControllerKey = "controller";
-        private const string ModuleKey = "module";
-        private const string DocumentKey = "document";
-        private const string UnknownKey = "unknown";
 
         private static readonly Rectangle TileBounds = new(1, 1, 18, 18);
-
         public static ImageList CreateImageList()
         {
             var imageList = new ImageList
@@ -31,34 +25,11 @@ namespace AsutpKnowledgeBase.UiServices
             AddNodeTypeIcons(imageList, WorkshopKey, CreateWorkshopIcon);
             AddNodeTypeIcons(imageList, DepartmentKey, CreateDepartmentIcon);
             AddNodeTypeIcons(imageList, SystemKey, CreateSystemIcon);
-            AddNodeTypeIcons(imageList, CabinetKey, CreateCabinetIcon);
+            AddNodeTypeIcons(imageList, PanelKey, CreatePanelIcon);
             AddNodeTypeIcons(imageList, DeviceKey, CreateDeviceIcon);
-            AddNodeTypeIcons(imageList, ControllerKey, CreateControllerIcon);
-            AddNodeTypeIcons(imageList, ModuleKey, CreateModuleIcon);
-            AddNodeTypeIcons(imageList, DocumentKey, CreateDocumentIcon);
-            AddNodeTypeIcons(imageList, UnknownKey, CreateUnknownIcon);
 
             return imageList;
         }
-
-        public static ImageList CreateExpandStateImageList()
-        {
-            var imageList = new ImageList
-            {
-                ColorDepth = ColorDepth.Depth32Bit,
-                ImageSize = new Size(ExpandGlyphSize, ExpandGlyphSize),
-                TransparentColor = Color.Transparent
-            };
-
-            imageList.Images.Add(CreateExpandStateGlyph(expanded: false));
-            imageList.Images.Add(CreateExpandStateGlyph(expanded: true));
-            return imageList;
-        }
-
-        public static int GetExpandStateImageIndex(bool hasChildren, bool isExpanded) =>
-            hasChildren
-                ? isExpanded ? 2 : 1
-                : 0;
 
         public static string GetImageKey(KbNodeType nodeType, bool hasChildren)
             => BuildVariantKey(GetBaseImageKey(nodeType), hasChildren);
@@ -68,13 +39,12 @@ namespace AsutpKnowledgeBase.UiServices
             KbNodeType.WorkshopRoot => WorkshopKey,
             KbNodeType.Department => DepartmentKey,
             KbNodeType.System => SystemKey,
-            KbNodeType.Cabinet => CabinetKey,
-            KbNodeType.Device => DeviceKey,
-            KbNodeType.Controller => ControllerKey,
-            KbNodeType.Module => ModuleKey,
-            KbNodeType.DocumentNode => DocumentKey,
-            KbNodeType.Unknown => UnknownKey,
-            _ => UnknownKey
+            KbNodeType.Cabinet => PanelKey,
+            KbNodeType.Controller => DeviceKey,
+            KbNodeType.Module => DeviceKey,
+            KbNodeType.DocumentNode => SystemKey,
+            KbNodeType.Unknown => DeviceKey,
+            _ => DeviceKey
         };
 
         private static void AddNodeTypeIcons(
@@ -139,7 +109,7 @@ namespace AsutpKnowledgeBase.UiServices
                 });
         }
 
-        private static Bitmap CreateCabinetIcon()
+        private static Bitmap CreatePanelIcon()
         {
             return CreateTileIcon(
                 Color.FromArgb(51, 65, 85),
@@ -159,24 +129,6 @@ namespace AsutpKnowledgeBase.UiServices
         private static Bitmap CreateDeviceIcon()
         {
             return CreateTileIcon(
-                Color.FromArgb(14, 116, 144),
-                graphics =>
-                {
-                    using Pen pen = CreateGlyphPen(1.4f);
-                    using SolidBrush brush = new(Color.White);
-
-                    graphics.DrawEllipse(pen, 5f, 5f, 8f, 8f);
-                    graphics.DrawLine(pen, 9f, 2.75f, 9f, 4.75f);
-                    graphics.DrawLine(pen, 9f, 13.25f, 9f, 15.25f);
-                    graphics.DrawLine(pen, 2.75f, 9f, 4.75f, 9f);
-                    graphics.DrawLine(pen, 13.25f, 9f, 15.25f, 9f);
-                    graphics.FillEllipse(brush, 8f, 8f, 2f, 2f);
-                });
-        }
-
-        private static Bitmap CreateControllerIcon()
-        {
-            return CreateTileIcon(
                 Color.FromArgb(5, 150, 105),
                 graphics =>
                 {
@@ -194,86 +146,14 @@ namespace AsutpKnowledgeBase.UiServices
                 });
         }
 
-        private static Bitmap CreateModuleIcon()
-        {
-            return CreateTileIcon(
-                Color.FromArgb(71, 85, 105),
-                graphics =>
-                {
-                    using SolidBrush brush = new(Color.White);
-                    graphics.FillRoundedRectangle(brush, new Rectangle(4, 5, 12, 9), 2);
-
-                    using SolidBrush accentBrush = new(Color.FromArgb(71, 85, 105));
-                    graphics.FillRectangle(accentBrush, 7f, 7f, 1.75f, 5f);
-                    graphics.FillRectangle(accentBrush, 10f, 7f, 1.75f, 5f);
-                    graphics.FillRectangle(accentBrush, 13f, 7f, 1.75f, 5f);
-                });
-        }
-
-        private static Bitmap CreateDocumentIcon()
-        {
-            return CreateTileIcon(
-                Color.FromArgb(100, 116, 139),
-                graphics =>
-                {
-                    using SolidBrush brush = new(Color.White);
-                    PointF[] foldedCorner =
-                    {
-                        new(12.5f, 4f),
-                        new(15.5f, 7f),
-                        new(12.5f, 7f)
-                    };
-
-                    graphics.FillRectangle(brush, 5f, 4f, 8f, 11f);
-                    graphics.FillPolygon(brush, foldedCorner);
-
-                    using Pen pen = new(Color.FromArgb(100, 116, 139), 1.1f);
-                    graphics.DrawLine(pen, 6.5f, 8.25f, 11.5f, 8.25f);
-                    graphics.DrawLine(pen, 6.5f, 10.75f, 11.5f, 10.75f);
-                });
-        }
-
-        private static Bitmap CreateUnknownIcon()
-        {
-            return CreateTileIcon(
-                Color.FromArgb(107, 114, 128),
-                graphics =>
-                {
-                    using Pen pen = CreateGlyphPen(1.35f);
-                    using SolidBrush brush = new(Color.White);
-
-                    graphics.DrawArc(pen, 6f, 4.75f, 6f, 5.5f, 205f, 250f);
-                    graphics.DrawLine(pen, 9f, 10.25f, 9f, 12.5f);
-                    graphics.FillEllipse(brush, 8f, 14.25f, 2f, 2f);
-                });
-        }
-
         private static Bitmap CreateContainerVariant(Bitmap baseIcon)
         {
-            return ApplyBadge(
-                baseIcon,
-                badgeBounds: new RectangleF(12.25f, 12.25f, 5.75f, 5.75f),
-                drawBadge: graphics =>
-                {
-                    using SolidBrush badgeBrush = new(Color.FromArgb(15, 23, 42));
-                    using Pen borderPen = new(Color.White, 0.9f);
-                    graphics.FillEllipse(badgeBrush, 12.25f, 12.25f, 5.75f, 5.75f);
-                    graphics.DrawEllipse(borderPen, 12.25f, 12.25f, 5.75f, 5.75f);
-                });
+            return CloneIcon(baseIcon);
         }
 
         private static Bitmap CreateLeafVariant(Bitmap baseIcon)
         {
-            return ApplyBadge(
-                baseIcon,
-                badgeBounds: new RectangleF(12.25f, 12.25f, 5.75f, 5.75f),
-                drawBadge: graphics =>
-                {
-                    using SolidBrush badgeBrush = new(Color.White);
-                    using Pen borderPen = new(Color.FromArgb(15, 23, 42), 0.9f);
-                    graphics.FillEllipse(badgeBrush, 12.25f, 12.25f, 5.75f, 5.75f);
-                    graphics.DrawEllipse(borderPen, 12.25f, 12.25f, 5.75f, 5.75f);
-                });
+            return CloneIcon(baseIcon);
         }
 
         private static Bitmap CloneIcon(Bitmap baseIcon)
@@ -282,52 +162,6 @@ namespace AsutpKnowledgeBase.UiServices
             {
                 return new Bitmap(baseIcon);
             }
-        }
-
-        private static Bitmap ApplyBadge(Bitmap baseIcon, RectangleF badgeBounds, Action<Graphics> drawBadge)
-        {
-            using (baseIcon)
-            {
-                var bitmap = new Bitmap(baseIcon);
-                using Graphics graphics = Graphics.FromImage(bitmap);
-                graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                using SolidBrush backdropBrush = new(Color.White);
-                graphics.FillEllipse(backdropBrush, badgeBounds);
-                drawBadge(graphics);
-                return bitmap;
-            }
-        }
-
-        private static Bitmap CreateExpandStateGlyph(bool expanded)
-        {
-            var bitmap = new Bitmap(ExpandGlyphSize, ExpandGlyphSize);
-            using Graphics graphics = Graphics.FromImage(bitmap);
-            graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            graphics.Clear(Color.Transparent);
-
-            using Pen pen = new(Color.FromArgb(71, 85, 105), 1.8f)
-            {
-                StartCap = LineCap.Round,
-                EndCap = LineCap.Round,
-                LineJoin = LineJoin.Round
-            };
-
-            PointF[] points = expanded
-                ? new[]
-                {
-                    new PointF(2.25f, 4f),
-                    new PointF(6f, 7.5f),
-                    new PointF(9.75f, 4f)
-                }
-                : new[]
-                {
-                    new PointF(4f, 2.25f),
-                    new PointF(7.5f, 6f),
-                    new PointF(4f, 9.75f)
-                };
-
-            graphics.DrawLines(pen, points);
-            return bitmap;
         }
 
         private static Bitmap CreateTileIcon(Color accentColor, Action<Graphics> drawGlyph)

@@ -159,6 +159,9 @@ namespace AsutpKnowledgeBase.UiServices
             }
 
             treeView.Invalidate();
+
+            if (treeView.IsHandleCreated)
+                treeView.Update();
         }
 
         private TreeNode BuildTreeNode(
@@ -173,10 +176,7 @@ namespace AsutpKnowledgeBase.UiServices
             {
                 Tag = node,
                 ImageKey = imageKey,
-                SelectedImageKey = imageKey,
-                StateImageIndex = KnowledgeBaseTreeNodeVisuals.GetExpandStateImageIndex(
-                    hasChildren,
-                    isExpanded: false)
+                SelectedImageKey = imageKey
             };
 
             if (ReferenceEquals(node, nodeToSelect))
