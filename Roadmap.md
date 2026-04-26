@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-04-24
+Last updated: 2026-04-26
 Branch baseline: `interface`
-Implementation status: `Phase 0 complete, Phase 1 complete locally, Phase 2 complete locally, Phase 3 complete locally`
+Implementation status: `Phase 0 complete, Phase 1 complete on interface, Phase 2 complete on interface, Phase 3 complete on interface, next unfinished phase is Phase 3B; current local code baseline was intentionally rolled back to ec5c04e (Windows Build 86)`
 
 ## Goal
 
@@ -26,7 +26,6 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 9. File-based `Network` must provide:
    - a large preview inside the form
    - an `Open original` action
-
 ## Non-negotiable architecture rules
 
 1. `NodeType` must become more important than `LevelIndex`.
@@ -43,13 +42,15 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - Current JSON schema version is `3`.
 - The domain node now has `NodeId` and `NodeType`; legacy data is normalized/migrated on load.
 - Hidden workshop wrappers are now identified through explicit `NodeType.WorkshopRoot` in projection/session workflows.
-- `Phase 2` is complete locally: the right panel now routes by `NodeType` into a clean `Info` screen or an engineering tab host.
+- `Phase 2` is complete on `interface`: the right panel now routes by `NodeType` into a clean `Info` screen or an engineering tab host.
 - The generic `Info` screen is now extracted into a reusable control so the same UI can be hosted standalone or inside the `Info` tab.
-- `Phase 3` is complete locally: `Composition` now uses a dedicated typed model stored in `SavedData.CompositionEntries`.
+- `Phase 3` is complete on `interface`: `Composition` now uses a dedicated typed model stored in `SavedData.CompositionEntries`.
 - The `Composition` screen now shows slots separately from auxiliary equipment and supports in-app add/edit/delete for typed entries.
 - Composition ordering is now resolved by `SlotNumber` + `PositionOrder`, independent of child-node order in the left tree.
+- The current local code tree was intentionally rolled back to match commit `ec5c04e` (`Windows Build 86`), so later tree/drag stabilization experiments are not part of the active code baseline right now.
 - Current search only matches the node name.
 - Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition.
+- Current CI workflow also verifies `dotnet format --verify-no-changes` for the app project, core project, and tests before `build` / `test`.
 
 ## Hidden-level strategy
 

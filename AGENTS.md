@@ -6,14 +6,19 @@
 - Root app project: `asutpKB.csproj` with `TargetFramework=net8.0-windows` and `UseWindowsForms=true`.
 - Entry point: `Program.cs`, which boots `MainForm`.
 - Current engineering mode: pragmatic refactoring and stabilization, not rewrite.
+- The active roadmap implementation branch is currently `interface`; `main` remains the stable branch.
+- Roadmap phases `0`, `1`, `2`, and `3` are already implemented on `interface`. The next unfinished roadmap phase is `Phase 3B`.
+- The current local code baseline has been intentionally rolled back to the `Windows Build 86` application state, which matches commit `ec5c04e` in application code.
 - JSON remains the source of truth. Excel exchange is a separate import/export layer.
 - Current Excel implementation uses `DocumentFormat.OpenXml` and `WorkbookFormatVersion = 3`. Legacy `v1/v2` import is no longer supported.
+- CI now enforces `dotnet format --verify-no-changes` for the WinForms app, core library, and tests before `build`/`test`.
 - The active task context is always kept in `docs/codex-handoff.md`. Read it before planning changes.
 
 ## Repository map
 
 - `Program.cs`: application entry point.
 - `Forms/`: WinForms screens. `Forms/MainForm.cs` is the main shell and still contains screen-level orchestration.
+- `Controls/`: reusable WinForms controls, including the typed right-panel screens and the custom `KnowledgeBaseTreeView`.
 - `UiServices/`: WinForms-only workflow/services for dialogs, tree view binding, Excel UI actions, workshop/config flows.
 - `Models/`: domain models shared by app and tests.
 - `Services/`: non-UI logic, JSON storage, session/file workflows, tree workflows, Excel workbook parsing/reading/writing.
@@ -37,19 +42,23 @@
 
 1. `AGENTS.md`
 2. `docs/codex-handoff.md`
-3. `README.md`
-4. `asutpKB.csproj`
-5. `src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj`
-6. `tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj`
-7. `.github/workflows/windows-build.yml`
-8. Relevant implementation files for the active task:
-   `Services/KnowledgeBaseExcelExchangeService.cs`,
-   `Services/KnowledgeBaseXlsxWriter.cs`,
-   `Services/KnowledgeBaseXlsxReader.cs`,
-   `Services/KnowledgeBaseExcelWorkbookParser.cs`,
-   `UiServices/KnowledgeBaseExcelUiWorkflowService.cs`,
-   `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseExcelExchangeServiceTests.cs`
-9. Run `git status --short` before planning edits.
+3. `Roadmap.md`
+4. `README.md`
+5. `asutpKB.csproj`
+6. `src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj`
+7. `tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj`
+8. `.github/workflows/windows-build.yml`
+9. Relevant implementation files for the active task:
+   `Forms/MainForm.cs`,
+   `Forms/MainForm.Layout.cs`,
+   `Forms/MainForm.WorkspaceHost.cs`,
+   `Controls/KnowledgeBaseTreeView.cs`,
+   `UiServices/KnowledgeBaseTreeNodeVisuals.cs`,
+   `UiServices/KnowledgeBaseTreeViewService.cs`,
+   `Services/KnowledgeBaseCompositionStateService.cs`,
+   `Services/KnowledgeBaseCompositionMutationService.cs`,
+   plus task-specific files listed in `docs/codex-handoff.md`
+10. Run `git status --short` before planning edits.
 
 ## Build / test / publish commands
 
@@ -59,6 +68,9 @@ Use the same commands as the existing CI workflow when `.NET SDK` is available:
 git status --short
 dotnet restore asutpKB.csproj
 dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj
+dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet format src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
+dotnet format tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
 dotnet build asutpKB.csproj --configuration Release --no-restore
 dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore
 dotnet publish asutpKB.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/publish/win-x64
@@ -73,12 +85,11 @@ Publish:
 ## Git branch workflow
 
 - `main` is the stable branch. Do not use it as the default working branch for ordinary task implementation.
-- `development` is the default integration branch for ongoing Codex work in this repository.
-- For new tasks, prefer the clean worktree on `development` and keep `main` clean for verification and release-oriented checks.
-- After completing a task, push the resulting changes to `development`.
-- Only when the user explicitly asks to "push to main" should Codex prepare a PR from `development` to `main`.
+- `interface` is the current active integration branch for the typed-workspace roadmap work tracked in `docs/codex-handoff.md` and `Roadmap.md`.
+- For tasks that continue the current roadmap stream, stay on `interface` unless the user explicitly redirects the work to another branch.
+- Only when the user explicitly asks to "push to main" should Codex prepare a PR or handoff from the active working branch to `main`.
 - Do not push task branches directly to `main` unless the user explicitly overrides this workflow.
-- If another local branch/worktree contains unfinished changes, keep them isolated and do not mix them into `development` without the user's approval.
+- If another local branch/worktree contains unfinished changes, keep them isolated and do not mix them into `interface` without the user's approval.
 
 ## Validation policy before completion
 
