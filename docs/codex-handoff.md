@@ -4,12 +4,12 @@
 - Local Windows repo for the current session: `C:\Users\Olga\AKB5`
 - Active working branch: `interface`
 - Current local branch state:
-  - local `HEAD`: `60f3d5b` (`Update docs for Windows Build 86 rollback`)
-  - branch is currently aligned with `origin/interface`
-  - working tree currently contains a local documentation-only edit in `docs/codex-handoff.md`
+  - local `HEAD`: `f8914eb` (`Revert "Restore tree chevrons without regressing window drag"`)
+  - branch is ahead of `origin/interface` by `2` local revert commits
+  - local documentation-only edits are present in `AGENTS.md`, `Roadmap.md`, and `docs/codex-handoff.md`
 - Code baseline after the rollback:
-  - `git diff --name-only ec5c04e HEAD` contains only `AGENTS.md`, `Roadmap.md`, and `docs/codex-handoff.md`
-  - application code still matches commit `ec5c04e` exactly
+  - `git diff --name-only ec5c04e HEAD` is empty
+  - application code now matches commit `ec5c04e` exactly
   - this means the current code baseline is the `Windows Build 86` application state
 - Roadmap status on that code baseline:
   - `Phase 0` complete
@@ -21,9 +21,8 @@
   - the later local/pushed experiments from `050a946` and `4fcb6a1` are intentionally not part of the current code state anymore
   - this includes the later tree-chevron/tree-visual and drag/resize stabilization work
 - Validation status:
-  - `dotnet build asutpKB.csproj --configuration Release` succeeded on the current local tree
-  - `dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release` passed (`156` tests)
-  - build/test emitted existing analyzer and offline NuGet vulnerability warnings, but no errors
+  - no new `build` / `test` / `format` run was executed after the rollback in this session
+  - the only hard guarantee for the rollback itself is code equality to `ec5c04e`
 
 # Current objective
 
@@ -58,10 +57,6 @@
   - `Controls/KnowledgeBaseTreeView.cs` is back to the older custom owner-draw implementation from `ec5c04e`
   - `Forms/MainForm.cs` no longer contains the later `WM_ENTERSIZEMOVE` / `WM_EXITSIZEMOVE` redraw-suppression logic
   - later custom `StateImageList` chevron work is not part of the current code state
-- Current drag-related fix in progress on the local working tree:
-  - `Forms/MainForm.cs` now reintroduces a minimal interactive move/resize guard around `WM_ENTERSIZEMOVE` / `WM_EXITSIZEMOVE`
-  - during system move/resize, deferred layout and child redraw are suspended and resumed on exit / capture loss / deactivate / close
-  - this is intended to stop the "window keeps moving after mouse release" symptom without reintroducing the reverted tree-chevron refactor
 - Current Excel state:
   - workbook format stays `v3`
   - Excel reads/writes `NodeId`
@@ -128,8 +123,7 @@
 - Because the branch was rolled back to `ec5c04e`, the later attempts to mitigate:
   - windowed drag lag / cursor ghosting
   - custom lightweight tree chevrons/icons
- are no longer present in code and should be considered unresolved unless reimplemented later.
-- The new local `MainForm` fix for interactive move/resize still needs manual desktop verification against the real UI symptom on Windows.
+  are no longer present in code and should be considered unresolved unless reimplemented later.
 - If this rollback is pushed, GitHub Actions may fail again on the format-verification step because commit `4fcb6a1` was also rolled back.
 - `README.md` still does not fully reflect the typed foundation, screen host, composition workflow, and the current rollback baseline.
 
@@ -143,11 +137,6 @@
   - add `create from template`
   - add `copy composition from existing object`
   - keep JSON source-of-truth compatibility and workbook `v3` readability intact
-- Before new feature work, manually regression-check the current local drag fix on Windows:
-  - fast title-bar drag and release
-  - release outside the form bounds
-  - repeat drag after release
-  - maximize/restore/close behavior
 
 # Commands to run before finishing future implementation work
 

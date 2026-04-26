@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using AsutpKnowledgeBase.Models;
 using AsutpKnowledgeBase.Services;
 using AsutpKnowledgeBase.UiServices;
@@ -13,15 +12,6 @@ namespace AsutpKnowledgeBase
         private const int DefaultSplitterDistance = 340;
         private const int NavigationPanelMinSize = 260;
         private const int DetailsPanelMinSize = 480;
-        private const int WmSetRedraw = 0x000B;
-        private const int WmCancelMode = 0x001F;
-        private const int WmCaptureChanged = 0x0215;
-        private const int WmEnterSizeMove = 0x0231;
-        private const int WmExitSizeMove = 0x0232;
-        private const uint RdwInvalidate = 0x0001;
-        private const uint RdwErase = 0x0004;
-        private const uint RdwAllChildren = 0x0080;
-        private const uint RdwFrame = 0x0400;
 
         private readonly IAppLogger _appLogger;
         private readonly KnowledgeBaseSessionService _session = new();
@@ -42,9 +32,6 @@ namespace AsutpKnowledgeBase
         private bool _isBindingWorkshops;
         private bool _isApplyingSelectedNodeState;
         private bool _isApplyingDeferredLayout;
-        private bool _isInInteractiveWindowMoveOrResize;
-        private bool _hasDeferredLayoutPendingAfterInteractiveMoveOrResize;
-        private readonly List<Control> _interactiveMoveRedrawSuspendedControls = new();
 
         private ToolStrip toolStrip = null!;
         private ToolStripButton btnUndo = null!;
@@ -91,17 +78,6 @@ namespace AsutpKnowledgeBase
         private string _lastSavedWorkshop => _session.LastSavedWorkshop;
         private bool _isDirty => _session.IsDirty;
         private bool _requiresSave => _session.RequiresSave;
-
-        [DllImport("user32.dll")]
-        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
-
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool RedrawWindow(
-            IntPtr hWnd,
-            IntPtr lprcUpdate,
-            IntPtr hrgnUpdate,
-            uint flags);
 
         public MainForm()
             : this(NullAppLogger.Instance)
@@ -242,16 +218,7 @@ namespace AsutpKnowledgeBase
 
         private void ScheduleDeferredLayout()
         {
-            if (!IsHandleCreated || IsDisposed)
-                return;
-
-            if (_isInInteractiveWindowMoveOrResize)
-            {
-                _hasDeferredLayoutPendingAfterInteractiveMoveOrResize = true;
-                return;
-            }
-
-            if (_isApplyingDeferredLayout)
+            if (!IsHandleCreated || _isApplyingDeferredLayout)
                 return;
 
             _isApplyingDeferredLayout = true;
@@ -270,118 +237,11 @@ namespace AsutpKnowledgeBase
 
         private void ApplyDeferredLayout()
         {
-            if (_isInInteractiveWindowMoveOrResize || IsDisposed)
-            {
-                _hasDeferredLayoutPendingAfterInteractiveMoveOrResize = true;
-                return;
-            }
-
             ApplySplitLayout(
                 splitMain,
                 panel1MinSize: NavigationPanelMinSize,
                 panel2MinSize: DetailsPanelMinSize,
                 desiredDistance: GetPreferredSplitterDistance());
-        }
-
-        protected override void WndProc(ref Message m)
-        {
-            if (m.Msg == WmEnterSizeMove)
-                BeginInteractiveWindowMoveOrResize();
-
-            base.WndProc(ref m);
-
-            if (m.Msg == WmExitSizeMove ||
-                m.Msg == WmCancelMode ||
-                m.Msg == WmCaptureChanged)
-            {
-                EndInteractiveWindowMoveOrResize();
-            }
-        }
-
-        protected override void OnDeactivate(EventArgs e)
-        {
-            EndInteractiveWindowMoveOrResize();
-            base.OnDeactivate(e);
-        }
-
-        protected override void OnFormClosed(FormClosedEventArgs e)
-        {
-            EndInteractiveWindowMoveOrResize(flushPendingLayout: false);
-            base.OnFormClosed(e);
-        }
-
-        private void BeginInteractiveWindowMoveOrResize()
-        {
-            if (_isInInteractiveWindowMoveOrResize || IsDisposed)
-                return;
-
-            _isInInteractiveWindowMoveOrResize = true;
-            _interactiveMoveRedrawSuspendedControls.Clear();
-
-            foreach (Control control in EnumerateInteractiveMoveRedrawControls(this))
-                SuspendControlRedraw(control);
-        }
-
-        private void EndInteractiveWindowMoveOrResize(bool flushPendingLayout = true)
-        {
-            if (!_isInInteractiveWindowMoveOrResize)
-            {
-                if (!flushPendingLayout)
-                    _hasDeferredLayoutPendingAfterInteractiveMoveOrResize = false;
-
-                return;
-            }
-
-            _isInInteractiveWindowMoveOrResize = false;
-
-            for (int index = _interactiveMoveRedrawSuspendedControls.Count - 1; index >= 0; index--)
-                ResumeControlRedraw(_interactiveMoveRedrawSuspendedControls[index]);
-
-            _interactiveMoveRedrawSuspendedControls.Clear();
-
-            if (IsHandleCreated && !IsDisposed)
-            {
-                RedrawWindow(
-                    Handle,
-                    IntPtr.Zero,
-                    IntPtr.Zero,
-                    RdwInvalidate | RdwErase | RdwAllChildren | RdwFrame);
-            }
-
-            bool hadPendingDeferredLayout = _hasDeferredLayoutPendingAfterInteractiveMoveOrResize;
-            _hasDeferredLayoutPendingAfterInteractiveMoveOrResize = false;
-
-            if (flushPendingLayout && hadPendingDeferredLayout)
-                ScheduleDeferredLayout();
-        }
-
-        private static IEnumerable<Control> EnumerateInteractiveMoveRedrawControls(Control root)
-        {
-            yield return root;
-
-            foreach (Control child in root.Controls)
-            {
-                foreach (Control nestedChild in EnumerateInteractiveMoveRedrawControls(child))
-                    yield return nestedChild;
-            }
-        }
-
-        private void SuspendControlRedraw(Control control)
-        {
-            if (control.IsDisposed || !control.IsHandleCreated)
-                return;
-
-            SendMessage(control.Handle, WmSetRedraw, IntPtr.Zero, IntPtr.Zero);
-            _interactiveMoveRedrawSuspendedControls.Add(control);
-        }
-
-        private static void ResumeControlRedraw(Control control)
-        {
-            if (control.IsDisposed || !control.IsHandleCreated)
-                return;
-
-            SendMessage(control.Handle, WmSetRedraw, (IntPtr)1, IntPtr.Zero);
-            control.Invalidate(invalidateChildren: true);
         }
 
         private int GetPreferredSplitterDistance()
