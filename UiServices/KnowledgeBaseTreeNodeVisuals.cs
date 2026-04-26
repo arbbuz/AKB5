@@ -6,6 +6,7 @@ namespace AsutpKnowledgeBase.UiServices
     public static class KnowledgeBaseTreeNodeVisuals
     {
         private const int IconSize = 20;
+        private const int ExpandGlyphSize = 12;
         private const string WorkshopKey = "workshop";
         private const string DepartmentKey = "department";
         private const string SystemKey = "system";
@@ -30,6 +31,26 @@ namespace AsutpKnowledgeBase.UiServices
 
             return imageList;
         }
+
+        public static ImageList CreateExpandStateImageList()
+        {
+            var imageList = new ImageList
+            {
+                ColorDepth = ColorDepth.Depth32Bit,
+                ImageSize = new Size(ExpandGlyphSize, ExpandGlyphSize),
+                TransparentColor = Color.Transparent
+            };
+
+            imageList.Images.Add(CreateEmptyExpandStateGlyph());
+            imageList.Images.Add(CreateExpandStateGlyph(expanded: false));
+            imageList.Images.Add(CreateExpandStateGlyph(expanded: true));
+            return imageList;
+        }
+
+        public static int GetExpandStateImageIndex(bool hasChildren, bool isExpanded) =>
+            hasChildren
+                ? isExpanded ? 2 : 1
+                : 0;
 
         public static string GetImageKey(KbNodeType nodeType, bool hasChildren)
             => BuildVariantKey(GetBaseImageKey(nodeType), hasChildren);
@@ -162,6 +183,46 @@ namespace AsutpKnowledgeBase.UiServices
             {
                 return new Bitmap(baseIcon);
             }
+        }
+
+        private static Bitmap CreateExpandStateGlyph(bool expanded)
+        {
+            var bitmap = new Bitmap(ExpandGlyphSize, ExpandGlyphSize);
+            using Graphics graphics = Graphics.FromImage(bitmap);
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            graphics.Clear(Color.Transparent);
+
+            using Pen pen = new(Color.FromArgb(71, 85, 105), 1.8f)
+            {
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round,
+                LineJoin = LineJoin.Round
+            };
+
+            PointF[] points = expanded
+                ? new[]
+                {
+                    new PointF(2.25f, 4f),
+                    new PointF(6f, 7.5f),
+                    new PointF(9.75f, 4f)
+                }
+                : new[]
+                {
+                    new PointF(4f, 2.25f),
+                    new PointF(7.5f, 6f),
+                    new PointF(4f, 9.75f)
+                };
+
+            graphics.DrawLines(pen, points);
+            return bitmap;
+        }
+
+        private static Bitmap CreateEmptyExpandStateGlyph()
+        {
+            var bitmap = new Bitmap(ExpandGlyphSize, ExpandGlyphSize);
+            using Graphics graphics = Graphics.FromImage(bitmap);
+            graphics.Clear(Color.Transparent);
+            return bitmap;
         }
 
         private static Bitmap CreateTileIcon(Color accentColor, Action<Graphics> drawGlyph)
