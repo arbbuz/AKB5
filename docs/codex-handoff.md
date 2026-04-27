@@ -6,60 +6,59 @@ Last updated: `2026-04-27`
 
 - Repository root: `C:\Users\Olga\AKB5`
 - Active branch: `interface`
-- Current work is being integrated directly into `interface`.
+- Current `HEAD`: `3222380`
+- Working tree is clean
 
 ## Latest accepted change set
 
-- Reset to `Info` when switching to a different object with workspace tabs.
-- Keyboard arrow navigation kept inside the tree.
-- Updated inner glyph for `L1` icon without changing tile shape or color.
-- `Forms/MainForm.cs`
-  - `CollapseTreeToRoots()` now explicitly synchronizes the right workspace with the node that remains selected after collapse.
-- `UiServices/KnowledgeBaseTreeNodeVisuals.cs`
-  - `L1/L2/L3` tree icons are now resolved by visible hierarchy depth, not only by stored `NodeType`.
-- `UiServices/KnowledgeBaseTreeViewService.cs`
-  - visible depth is passed while building `TreeView` nodes so icon selection matches actual placement in the tree.
+- Commit `3222380` (`Polish tree sync and add session knowledge harness`)
+- Workspace tabs reset to `Info` when switching to a different object
+- Keyboard arrow navigation stays inside the tree
+- `CollapseTreeToRoots()` now keeps the right workspace synchronized with the selected tree node
+- `L1/L2/L3` icons are resolved by visible tree depth instead of stale persisted `NodeType`
+- The session knowledge harness now lives in `docs/`
 
 ## Validated status
 
-Actually run on the current local state:
+Actually run on this accepted state:
 
 ```powershell
+dotnet format C:\Users\Olga\AKB5\asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet format C:\Users\Olga\AKB5\src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
+dotnet format C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
 dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore
 dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-build --no-restore
 ```
 
+- `dotnet format`: passed for app, core, and tests
 - `dotnet build`: passed
 - `dotnet test`: passed, `156/156`
-- Existing warnings remain, including `NU1900` when NuGet vulnerability metadata is unavailable.
+- Existing warnings remain, including `NU1900` when NuGet vulnerability metadata is unavailable
 
 ## Active objective
 
-- Continue small, user-verified UI corrections on `interface` without widening the change scope.
-- Continue roadmap work from `Phase 3B` after the accepted polish set is integrated.
+- Continue roadmap implementation from `Phase 3B`
+- Keep UI polish incremental and user-verified when needed
 
 ## Durable decisions already made
 
-- `interface` remains the active integration branch.
-- Treat `L1/L2/L3` as:
-  - `L1` = отделение
-  - `L2` = системы
-  - `L3` = шкаф
-- The drag-lag investigation is deferred as environment-specific unless it starts reproducing on multiple machines.
-- `docs/codex-handoff.md` is the single current-state file for future sessions.
+- `interface` remains the active integration branch
+- Use tree taxonomy:
+  - `L1` = department
+  - `L2` = system
+  - `L3` = cabinet
+- Treat drag-lag as an environment-specific investigation unless it reproduces on multiple machines with the same repo state
+- `docs/codex-handoff.md` is the single current-state file for future sessions
 
 ## Knowledge harness
 
-- Current state lives here: `docs/codex-handoff.md`
-- Active plans live in: `docs/plans.md`
-- Reusable insights live in: `docs/lessons-learned.md`
-- Durable decisions live in: `docs/decision-log.md`
-- On the explicit command `дистиллируй знания из сессии`, update those files in place:
-  - merge new knowledge into the right file
-  - replace stale statements
-  - do not create parallel notes or duplicate documents
+- Current state: `docs/codex-handoff.md`
+- Active plans: `docs/plans.md`
+- Reusable insights: `docs/lessons-learned.md`
+- Durable decisions: `docs/decision-log.md`
+- On the explicit command `дистиллируй знания из сессии`, update those files in place and replace stale information instead of appending session transcripts
 
-## Relevant files for the current task
+## Relevant files for the current task area
 
 - `Forms/MainForm.cs`
 - `Forms/MainForm.Events.cs`
@@ -72,5 +71,5 @@ dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledg
 
 ## Recommended next step
 
-- Continue implementation from `Phase 3B`.
-- Keep using the fixed `docs/` harness for state, plans, lessons learned, and durable decisions.
+- Continue implementation from `Phase 3B`
+- Keep using the fixed `docs/` harness for state, plans, lessons learned, and durable decisions
