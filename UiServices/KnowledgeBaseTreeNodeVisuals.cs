@@ -103,11 +103,21 @@ namespace AsutpKnowledgeBase.UiServices
                     using Pen pen = CreateGlyphPen(1.45f);
                     using SolidBrush brush = new(Color.White);
 
-                    graphics.DrawRoundedRectangle(pen, new Rectangle(4, 4, 12, 11), 2);
-                    graphics.DrawLine(pen, 10f, 4.75f, 10f, 14.25f);
-                    graphics.DrawLine(pen, 4.75f, 9.5f, 10f, 9.5f);
-                    graphics.FillRectangle(brush, 6f, 6f, 2f, 1.75f);
-                    graphics.FillRectangle(brush, 11.75f, 6f, 2f, 1.75f);
+                    graphics.DrawLine(pen, 4.25f, 14.25f, 15.75f, 14.25f);
+                    graphics.DrawLine(pen, 4.25f, 14.25f, 4.25f, 11.5f);
+                    graphics.DrawLine(pen, 4.25f, 11.5f, 6.6f, 8.8f);
+                    graphics.DrawLine(pen, 6.6f, 8.8f, 8.7f, 11f);
+                    graphics.DrawLine(pen, 8.7f, 11f, 10.8f, 8f);
+                    graphics.DrawLine(pen, 10.8f, 8f, 12.9f, 10.2f);
+                    graphics.DrawLine(pen, 12.9f, 10.2f, 15.75f, 7.2f);
+                    graphics.DrawLine(pen, 15.75f, 7.2f, 15.75f, 14.25f);
+
+                    graphics.DrawLine(pen, 5.75f, 6.25f, 5.75f, 10.8f);
+                    graphics.DrawLine(pen, 5f, 6.25f, 6.5f, 6.25f);
+
+                    graphics.FillRectangle(brush, 6.2f, 12f, 1.45f, 1.25f);
+                    graphics.FillRectangle(brush, 8.65f, 12f, 1.45f, 1.25f);
+                    graphics.FillRectangle(brush, 11.1f, 12f, 1.45f, 1.25f);
                 });
         }
 

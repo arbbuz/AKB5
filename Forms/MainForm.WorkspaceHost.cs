@@ -6,6 +6,10 @@ namespace AsutpKnowledgeBase
     {
         private void ApplyWorkspaceState(KnowledgeBaseSelectedNodeState selectedNodeState)
         {
+            string? currentNodeId = (tvTree.SelectedNode?.Tag as Models.KbNode)?.NodeId;
+            bool resetToInfoTab = !string.Equals(_lastSelectedWorkspaceNodeId, currentNodeId, StringComparison.Ordinal);
+            _lastSelectedWorkspaceNodeId = currentNodeId;
+
             if (!selectedNodeState.HasSelection)
             {
                 pnlSelectedNodeInfoScreen.Visible = false;
@@ -16,7 +20,7 @@ namespace AsutpKnowledgeBase
             if (selectedNodeState.Workspace.UseTabHost)
             {
                 MoveSelectedNodeInfoScreen(tabSelectedNodeInfo);
-                ConfigureWorkspaceTabs(selectedNodeState.Workspace);
+                ConfigureWorkspaceTabs(selectedNodeState.Workspace, resetToInfoTab);
                 pnlSelectedNodeInfoScreen.Visible = false;
                 tabSelectedNodeWorkspace.Visible = true;
                 return;
@@ -37,10 +41,10 @@ namespace AsutpKnowledgeBase
             selectedNodeInfoScreen.Dock = DockStyle.Fill;
         }
 
-        private void ConfigureWorkspaceTabs(KnowledgeBaseNodeWorkspaceState workspace)
+        private void ConfigureWorkspaceTabs(KnowledgeBaseNodeWorkspaceState workspace, bool resetToInfoTab)
         {
             KnowledgeBaseNodeWorkspaceTabKind? preferredTab =
-                tabSelectedNodeWorkspace.SelectedTab?.Tag is KnowledgeBaseNodeWorkspaceTabKind tabKind
+                !resetToInfoTab && tabSelectedNodeWorkspace.SelectedTab?.Tag is KnowledgeBaseNodeWorkspaceTabKind tabKind
                     ? tabKind
                     : null;
 
@@ -68,13 +72,28 @@ namespace AsutpKnowledgeBase
                     }
                 }
 
-                if (tabSelectedNodeWorkspace.TabPages.Count > 0)
-                    tabSelectedNodeWorkspace.SelectedIndex = 0;
+                SelectDefaultWorkspaceTab();
             }
             finally
             {
                 tabSelectedNodeWorkspace.ResumeLayout();
             }
+        }
+
+        private void SelectDefaultWorkspaceTab()
+        {
+            foreach (TabPage tabPage in tabSelectedNodeWorkspace.TabPages)
+            {
+                if (tabPage.Tag is KnowledgeBaseNodeWorkspaceTabKind tabKind &&
+                    tabKind == KnowledgeBaseNodeWorkspaceTabKind.Info)
+                {
+                    tabSelectedNodeWorkspace.SelectedTab = tabPage;
+                    return;
+                }
+            }
+
+            if (tabSelectedNodeWorkspace.TabPages.Count > 0)
+                tabSelectedNodeWorkspace.SelectedIndex = 0;
         }
 
         private TabPage GetWorkspaceTabPage(KnowledgeBaseNodeWorkspaceTabKind tabKind) => tabKind switch

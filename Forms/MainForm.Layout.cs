@@ -212,7 +212,8 @@ namespace AsutpKnowledgeBase
             tabSelectedNodeWorkspace = new TabControl
             {
                 Dock = DockStyle.Fill,
-                Visible = false
+                Visible = false,
+                TabStop = false
             };
 
             tabSelectedNodeInfo = new TabPage("Info")

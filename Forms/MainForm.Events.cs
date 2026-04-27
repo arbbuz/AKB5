@@ -233,7 +233,14 @@ namespace AsutpKnowledgeBase
         private void BtnRenameWorkshop_Click(object? sender, EventArgs e)
             => _workshopUiWorkflowService.RenameCurrentWorkshop(CreateWorkshopUiWorkflowContext());
 
-        private void TvTree_AfterSelect(object? sender, TreeViewEventArgs e) => UpdateUI();
+        private void TvTree_AfterSelect(object? sender, TreeViewEventArgs e)
+        {
+            bool keepTreeFocus = tvTree.ContainsFocus;
+            UpdateUI();
+
+            if (keepTreeFocus && tvTree.CanFocus && !tvTree.Focused)
+                tvTree.Focus();
+        }
 
         private void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
         {

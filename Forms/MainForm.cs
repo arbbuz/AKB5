@@ -28,6 +28,7 @@ namespace AsutpKnowledgeBase
         private readonly UndoRedoService _history = new(50);
         private readonly KnowledgeBaseWindowLayoutStateService _windowLayoutStateService;
         private int? _savedSplitterDistance;
+        private string? _lastSelectedWorkspaceNodeId;
 
         private bool _isBindingWorkshops;
         private bool _isApplyingSelectedNodeState;
