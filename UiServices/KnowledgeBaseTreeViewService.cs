@@ -51,7 +51,17 @@ namespace AsutpKnowledgeBase.UiServices
             treeView.Nodes.Clear();
 
             foreach (var node in _currentProjection.VisibleRoots)
-                treeView.Nodes.Add(BuildTreeNode(node, nodeToSelect, expandedNodes, ref selectedTreeNode));
+            {
+                bool visibleRootIsWorkshopRoot = node.NodeType == KbNodeType.WorkshopRoot;
+                treeView.Nodes.Add(
+                    BuildTreeNode(
+                        node,
+                        nodeToSelect,
+                        expandedNodes,
+                        visibleDepth: 0,
+                        visibleRootIsWorkshopRoot,
+                        ref selectedTreeNode));
+            }
 
             treeView.Sort();
             treeView.EndUpdate();
@@ -165,10 +175,13 @@ namespace AsutpKnowledgeBase.UiServices
             KbNode node,
             KbNode? nodeToSelect,
             ISet<KbNode>? expandedNodes,
+            int visibleDepth,
+            bool visibleRootIsWorkshopRoot,
             ref TreeNode? selectedTreeNode)
         {
             bool hasChildren = node.Children.Count > 0;
-            string imageKey = KnowledgeBaseTreeNodeVisuals.GetImageKey(node.NodeType, hasChildren);
+            int hierarchyLevel = visibleRootIsWorkshopRoot ? visibleDepth - 1 : visibleDepth;
+            string imageKey = KnowledgeBaseTreeNodeVisuals.GetImageKey(node, hierarchyLevel, hasChildren);
             var treeNode = new TreeNode(node.Name)
             {
                 Tag = node,
@@ -183,7 +196,16 @@ namespace AsutpKnowledgeBase.UiServices
                 selectedTreeNode = treeNode;
 
             foreach (var child in node.Children)
-                treeNode.Nodes.Add(BuildTreeNode(child, nodeToSelect, expandedNodes, ref selectedTreeNode));
+            {
+                treeNode.Nodes.Add(
+                    BuildTreeNode(
+                        child,
+                        nodeToSelect,
+                        expandedNodes,
+                        visibleDepth + 1,
+                        visibleRootIsWorkshopRoot,
+                        ref selectedTreeNode));
+            }
 
             if (expandedNodes?.Contains(node) == true)
                 treeNode.Expand();

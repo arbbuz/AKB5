@@ -52,8 +52,25 @@ namespace AsutpKnowledgeBase.UiServices
                 ? isExpanded ? 2 : 1
                 : 0;
 
+        public static string GetImageKey(KbNode node, int hierarchyLevel, bool hasChildren) =>
+            BuildVariantKey(GetBaseImageKey(GetIconNodeType(node, hierarchyLevel)), hasChildren);
+
         public static string GetImageKey(KbNodeType nodeType, bool hasChildren)
             => BuildVariantKey(GetBaseImageKey(nodeType), hasChildren);
+
+        private static KbNodeType GetIconNodeType(KbNode node, int hierarchyLevel)
+        {
+            if (node.NodeType == KbNodeType.WorkshopRoot)
+                return KbNodeType.WorkshopRoot;
+
+            return hierarchyLevel switch
+            {
+                0 => KbNodeType.Department,
+                1 => KbNodeType.System,
+                2 => KbNodeType.Cabinet,
+                _ => node.NodeType
+            };
+        }
 
         private static string GetBaseImageKey(KbNodeType nodeType) => nodeType switch
         {

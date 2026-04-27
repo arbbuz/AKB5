@@ -1,0 +1,17 @@
+# Plans
+
+Last updated: `2026-04-27`
+
+## Active plan
+
+- Continue roadmap implementation from `Phase 3B`.
+- Keep UI adjustments incremental and user-verified.
+
+## Next plan after current polish
+
+- Use `дистиллируй знания из сессии` after substantial sessions to refresh the harness in `docs/`.
+
+## Update rule
+
+- Keep only active and near-term plans here.
+- Remove completed items instead of growing a history log.

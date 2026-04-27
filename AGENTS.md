@@ -13,6 +13,11 @@
 - Current Excel implementation uses `DocumentFormat.OpenXml` and `WorkbookFormatVersion = 3`. Legacy `v1/v2` import is no longer supported.
 - CI now enforces `dotnet format --verify-no-changes` for the WinForms app, core library, and tests before `build`/`test`.
 - The active task context is always kept in `docs/codex-handoff.md`. Read it before planning changes.
+- The session knowledge harness is split by role:
+  - `docs/codex-handoff.md` for current state
+  - `docs/plans.md` for active plans
+  - `docs/lessons-learned.md` for reusable patterns and insights
+  - `docs/decision-log.md` for durable decisions and working agreements
 
 ## Repository map
 
@@ -25,7 +30,7 @@
 - `src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj`: core library project. It currently links `../../Models/**/*.cs` and `../../Services/**/*.cs`; source files are not physically moved there yet.
 - `tests/AsutpKnowledgeBase.Core.Tests/`: xUnit tests for core logic.
 - `.github/workflows/windows-build.yml`: the only CI workflow currently in repo.
-- `docs/`: AI handoff system. Use `docs/codex-handoff.md` as the current task state, `docs/codex-handoff-template.md` for new handoffs, and `docs/codex-start-prompt.md` to start a clean AI session.
+- `docs/`: AI handoff and knowledge harness. Use `docs/codex-handoff.md` as the current task state, `docs/plans.md` for active plans, `docs/lessons-learned.md` for distilled insights, `docs/decision-log.md` for durable decisions, `docs/codex-handoff-template.md` for new handoffs, and `docs/codex-start-prompt.md` to start a clean AI session.
 - `scripts/`: repository automation entrypoints, including publish flow for the root WinForms app.
 
 ## Architecture boundaries
@@ -42,13 +47,16 @@
 
 1. `AGENTS.md`
 2. `docs/codex-handoff.md`
-3. `Roadmap.md`
-4. `README.md`
-5. `asutpKB.csproj`
-6. `src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj`
-7. `tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj`
-8. `.github/workflows/windows-build.yml`
-9. Relevant implementation files for the active task:
+3. `docs/decision-log.md`
+4. `docs/plans.md`
+5. `docs/lessons-learned.md`
+6. `Roadmap.md`
+7. `README.md`
+8. `asutpKB.csproj`
+9. `src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj`
+10. `tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj`
+11. `.github/workflows/windows-build.yml`
+12. Relevant implementation files for the active task:
    `Forms/MainForm.cs`,
    `Forms/MainForm.Layout.cs`,
    `Forms/MainForm.WorkspaceHost.cs`,
@@ -58,7 +66,7 @@
    `Services/KnowledgeBaseCompositionStateService.cs`,
    `Services/KnowledgeBaseCompositionMutationService.cs`,
    plus task-specific files listed in `docs/codex-handoff.md`
-10. Run `git status --short` before planning edits.
+13. Run `git status --short` before planning edits.
 
 ## Build / test / publish commands
 
@@ -128,3 +136,14 @@ Be explicit about what was inspected, what was executed, and what was not verifi
 - Keep the handoff concise and current. Replace stale statements instead of appending a transcript.
 - If validation was not run, say so in the handoff.
 - If nothing relevant changed, leave the handoff consistent and do not add noise.
+
+## Session knowledge distillation
+
+- On the explicit user command `дистиллируй знания из сессии`, distill reusable knowledge from the current session into the fixed harness files in `docs/`.
+- Sort information by role instead of chronology:
+  - current status -> `docs/codex-handoff.md`
+  - active next steps -> `docs/plans.md`
+  - reusable patterns/insights -> `docs/lessons-learned.md`
+  - durable decisions/agreements -> `docs/decision-log.md`
+- Update existing files in place. Do not create duplicate session notes for the same purpose.
+- Replace stale information instead of appending obsolete history.

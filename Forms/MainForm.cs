@@ -318,26 +318,35 @@ namespace AsutpKnowledgeBase
 
         private void CollapseTreeToRoots()
         {
-            TreeNode? rootNodeToKeepVisible = tvTree.SelectedNode is { } selectedNode
+            TreeNode? preferredRootNode = tvTree.SelectedNode is { } selectedNode
                 ? GetRootTreeNode(selectedNode)
                 : null;
-            bool hadTreeFocus = tvTree.Focused;
+            bool hadTreeFocus = tvTree.ContainsFocus;
 
             tvTree.BeginUpdate();
             try
             {
                 tvTree.CollapseAll();
-                if (rootNodeToKeepVisible != null && !ReferenceEquals(tvTree.SelectedNode, rootNodeToKeepVisible))
-                    tvTree.SelectedNode = rootNodeToKeepVisible;
             }
             finally
             {
                 tvTree.EndUpdate();
             }
 
+            TreeNode? nextSelectedNode =
+                preferredRootNode != null && ReferenceEquals(preferredRootNode.TreeView, tvTree)
+                    ? preferredRootNode
+                    : tvTree.Nodes.Count > 0
+                        ? tvTree.Nodes[0]
+                        : null;
+
+            if (!ReferenceEquals(tvTree.SelectedNode, nextSelectedNode))
+                tvTree.SelectedNode = nextSelectedNode;
+
             if (hadTreeFocus)
                 tvTree.Focus();
 
+            UpdateUI();
             KnowledgeBaseTreeViewService.RefreshTreeViewVisuals(tvTree);
         }
 
