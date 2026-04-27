@@ -1,29 +1,25 @@
 # Latest update
 
-- Date: `2026-04-26`
+- Date: `2026-04-27`
 - Local Windows repo for the current session: `C:\Users\Olga\AKB5`
 - Active working branch: `interface`
 - Current branch state:
-  - local `HEAD`: `e7a5169` (`Revert "Stop deferred redraw during interactive window move"`)
+  - local `HEAD`: `64a753e` (`Simplify tree repaint path to reduce drag lag`)
   - local branch is aligned with `origin/interface`
-  - current uncommitted edits are:
-    - `Controls/KnowledgeBaseTreeView.cs`
-    - `UiServices/KnowledgeBaseTreeNodeVisuals.cs`
-    - `UiServices/KnowledgeBaseTreeViewService.cs`
-    - `docs/codex-handoff.md`
-- Validation completed on the current local tree:
-  - `dotnet format C:\Users\Olga\AKB5\asutpKB.csproj --verify-no-changes --severity error --no-restore`
-  - `dotnet format C:\Users\Olga\AKB5\src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore`
-  - `dotnet format C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore`
+  - working tree is intended to stay on the clean `64a753e` baseline for continued feature work
+- Latest validation already completed on this branch state:
   - `dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore`
   - `dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-build --no-restore`
   - result: build passed, tests passed (`156/156`)
-- Manual Windows GUI verification of the drag symptom has not yet been performed in this session.
+- Manual drag-lag conclusion for this session:
+  - the symptom reproduced on one development PC
+  - the same `64a753e` build was tested on another PC and worked correctly
+  - drag-lag investigation is therefore deferred as a machine-specific environment problem, not a release-blocking `interface` code regression
 
 # Current objective
 
-- Fix the long-standing window drag lag in the WinForms desktop UI.
-- Keep the patch minimal and avoid broad UI rewrites.
+- Continue normal feature development from the clean `interface` baseline.
+- Treat the drag-lag issue as deferred environmental investigation unless it starts reproducing across multiple machines again.
 - Do not reintroduce the previous full-window redraw suppression experiment from `MainForm`; it caused the gray-background regression and did not address the real bottleneck.
 
 # Drag bug analysis
@@ -40,6 +36,9 @@
   - later tree fixes added synchronous repaint pressure through `Update()`
   - when the OS is already repainting the form during title-bar movement, this extra work can make the window visually lag behind the actual mouse-release moment
   - that lag looks like post-release inertia even though the OS drag loop has already ended
+- Current disposition:
+  - do not spend more delivery time on this path during feature work
+  - if investigation resumes later, start from environment-level comparison and trace capture, not from `MouseUp` / custom drag-state hypotheses
 
 # Relevant history
 
