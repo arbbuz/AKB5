@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Branch baseline: `interface`
-Implementation status: `Phase 0 complete on interface, Phase 1 complete on interface, Phase 2 complete on interface, Phase 3 complete on interface, Phase 3B complete on interface, Phase 4 complete on interface, Phase 5 complete on interface, next unfinished phase is Phase 6`
+Implementation status: `Phase 0 complete on interface, Phase 1 complete on interface, Phase 2 complete on interface, Phase 3 complete on interface, Phase 3B complete on interface, Phase 4 complete on interface, Phase 5 complete on interface, Phase 6 complete on interface, next unfinished phase is Phase 7`
 
 ## Goal
 
@@ -19,7 +19,7 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 2. The right panel becomes type-driven and can differ by object kind.
 3. User-facing level configuration and level renaming are removed from the UI.
 4. `LevelIndex` stays in the model as a hidden technical mechanism.
-5. Excel workbook `v3` keeps the `Levels` sheet as a legacy transition layer.
+5. Excel workbook `v3` stays a legacy transition layer and is no longer the main direction of future feature work.
 6. `MaxLevels` should be hidden from the user.
 7. Preferred default for hidden `MaxLevels` is `10`.
 8. The first version of the `Network` tab is file-based, not interactive.
@@ -35,7 +35,7 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 4. A persistent `NodeId` must exist in the domain model and JSON before composition/doc/network features are built.
 5. Do not store all future data in one bloated `KbNodeDetails` object.
 6. Do not overload the left tree with composition or network data just to avoid creating proper models.
-7. Excel `v3` compatibility must be preserved during the transition; major typed data can move to a later workbook format.
+7. Excel `v3` compatibility must be preserved during the transition, but new feature investment should prefer report/template workflows over broader bidirectional workbook exchange.
 
 ## Current technical reality
 
@@ -55,9 +55,12 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - `Phase 5` is complete on `interface`: search indexes `Tree`, `Card`, `Composition`, and `Docs/Software` data and exposes scopes `All`, `Tree`, `Card`, `Composition`, and `Docs/Software`.
 - Search results now navigate back to the owning tree node and can switch the workspace to the preferred tab for the matched domain.
 - User-facing interface text on `interface` is now normalized to Russian; new UI work should keep Russian-only labels, prompts, and status text.
-- On 2026-04-28, the current `Phase 5` + localization worktree passed verification build, passed `dotnet test` (`171/171`), and the visible `Phase 5` workflow was manually checked locally with no obvious bugs found before the localization follow-up.
-- Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition.
+- `Phase 6` is complete on `interface`: `Network` now uses typed file references, image preview inside the form, and `Open original` for server/file paths.
+- The `Phase 6` `Network` screen uses separate `Файлы` and `Предпросмотр` tabs; node load returns to `Файлы`, and automatic switching to `Предпросмотр` is not part of the accepted UX.
+- On 2026-04-28, the current `Phase 6` worktree passed verification build, passed `dotnet test` (`177/177`), and `asutpKB.exe` startup was rechecked after the final `Network` UX fixes.
+- Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition, but further workbook modernization is no longer the preferred next phase.
 - Current CI workflow also verifies `dotnet format --verify-no-changes` for the app project, core project, and tests before `build` / `test`.
+- The next roadmap phase is now maintenance-schedule generation, not typed-data workbook redesign.
 
 ## Hidden-level strategy
 
@@ -417,28 +420,68 @@ Acceptance:
 - the user can preview an image-based network scheme directly in the right panel
 - the original file can always be opened via shell
 
-### Phase 7. Excel and exchange modernization
+### Phase 7. Maintenance schedule generation
 
 Complexity: `High`
 
 Goals:
 
-- stop overloading legacy workbook `v3` with data it was not designed for
+- generate an enterprise-ready monthly maintenance schedule for equipment entered in the tree
+- keep the output Excel workbook visually identical to the approved plant form
+- make the first release work as a yearly accumulating workbook with one sheet per month
 
 Main changes:
 
-- keep `v3` readable during transition
-- design a future workbook format with dedicated sheets, for example:
-  - `Nodes`
-  - `Composition`
-  - `Documents`
-  - `Software`
-  - `NetworkFiles`
-- make typed data round-trip reliably
+- use a template-driven Excel workflow instead of extending the legacy exchange workbook
+- add a dedicated typed maintenance-planning model keyed to tree nodes
+- store separate integer labor-hour norms for `ТО1`, `ТО2`, and `ТО3` where relevant
+- add inventory number support to the `Lvl2` summary/card workflow
+- generate/update one workbook per `workshop + year` with `12` month sheets
+- keep `план` and blank `факт` rows exactly as required by the approved form
+- compute monthly allocation only across working days of the Russian production calendar
+- keep day load at `<= 8` hours
+- raise a warning/error when the selected month cannot fit inside the requested total hour budget
+
+Confirmed planning rules for the first implementation:
+
+- planning unit is a tree node
+- hierarchy should follow the current assumption:
+  - `Lvl2` node becomes the numbered parent row with inventory number
+  - child engineering nodes become the `план/факт` detail rows
+- only the `план` data is generated by the program; `факт` stays blank in the workbook for manual paper-side filling
+- `ТО1` means monthly maintenance
+- `ТО2` means semiannual maintenance
+- `ТО3` means annual maintenance
+- until a formal yearly schedule source exists, `ТО2` / `ТО3` month placement should come from a deterministic per-node cycle offset that can later be replaced without redesigning the planner
+- sample inconsistencies are treated as manual historical noise, not as the business rule
+
+Recommended implementation slices:
+
+- `Phase 7A. Domain and template foundation`
+  - add inventory number to `Lvl2` summary
+  - define typed maintenance settings per planned node, including separate integer hour norms for `ТО1`, `ТО2`, and `ТО3`
+  - prepare a cleaned internal Excel template derived from the approved sample
+- `Phase 7B. Russian production calendar`
+  - implement reusable workday calculation for `5/2`
+  - exclude Saturdays, Sundays, and official Russian non-working holidays
+  - keep the calendar data replaceable by year without rewriting planner logic
+- `Phase 7C. Monthly planning engine`
+  - select workshop, month, year, and total monthly hour budget
+  - determine which nodes require `ТО1`, `ТО2`, or `ТО3`
+  - allocate integer hours to working days with `<= 8` hours per day
+- `Phase 7D. Year workbook export`
+  - create or update the yearly accumulating workbook
+  - write only the selected month sheet while preserving the rest of the workbook
+  - preserve formulas, merges, print layout, and signature blocks from the template
+- `Phase 7E. Future yearly schedule source`
+  - keep the monthly planner extensible so a later yearly schedule can become the source of `ТО1/ТО2/ТО3` placement without redesigning the whole phase
 
 Acceptance:
 
-- typed data can be exported/imported without flattening it into fragile ad hoc columns
+- the user can choose a workshop, month, year, and hour budget and receive a ready Excel file in the approved form
+- the generated workbook preserves the visual structure of the enterprise sample
+- the monthly planner respects workdays only and enforces the `<= 8` hours-per-day rule
+- the design stays extensible for a future externally provided yearly maintenance schedule
 
 ### Optional future phase. Interactive network topology
 
@@ -486,6 +529,8 @@ Minimum required coverage:
 - composition ordering tests
 - search tests for each scope
 - exchange tests proving `v3` remains readable
+- maintenance planner tests for workday filtering, daily hour cap, and month-budget overflow behavior
+- template-export tests proving generated workbooks preserve required structure
 
 Manual UI checks will still be required for:
 
@@ -493,6 +538,7 @@ Manual UI checks will still be required for:
 - tab visibility rules
 - large file/image preview behavior
 - real data density in cabinet composition
+- generated monthly maintenance workbook compared against the approved sample
 
 ## Recommended implementation order for the next coding sessions
 
@@ -505,11 +551,11 @@ Completed on `interface`:
 5. Phase 3B
 6. Phase 4
 7. Phase 5
+8. Phase 6
 
 Remaining:
 
-1. Phase 6
-2. Phase 7
+1. Phase 7
 
 ## AI handoff / next-dialog instructions
 
@@ -528,15 +574,14 @@ Read AGENTS.md, docs/codex-handoff.md, and Roadmap.md.
 We are on branch interface.
 Continue implementation from the next unfinished roadmap phase.
 Do not redesign the roadmap unless you find a concrete technical contradiction in the codebase.
-Keep JSON source-of-truth compatibility and preserve Excel v3 as a legacy transition layer.
+Keep JSON source-of-truth compatibility and treat Excel v3 as a legacy transition layer.
 ```
 
 ## Immediate next step
 
-Continue Phase 6:
+Continue Phase 7:
 
-- replace the current `Network` placeholder with a typed file-reference workflow
-- support image preview inside the right panel and `Open original`
-- reuse existing file/open patterns where possible before introducing new preview dependencies
-- keep JSON source-of-truth compatibility and Excel `v3` compatibility intact
-- keep all new user-facing UI text in Russian
+- build the maintenance-schedule domain model and template-driven export workflow
+- add `Lvl2` inventory number support needed by the approved maintenance form
+- keep workbook `v3` readable as legacy, but do not expand it as the main feature direction
+- keep JSON source-of-truth compatibility and preserve Russian-only UI

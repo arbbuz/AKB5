@@ -215,6 +215,34 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
                     Path = "\\\\srv\\network\\topology-3.png"
                 }
             });
+        session.ReplaceMaintenanceScheduleProfiles(
+            new[]
+            {
+                new KbMaintenanceScheduleProfile
+                {
+                    OwnerNodeId = "cabinet-1",
+                    IsIncludedInSchedule = true,
+                    To1Hours = 2,
+                    To2Hours = 4,
+                    To3Hours = 8
+                },
+                new KbMaintenanceScheduleProfile
+                {
+                    OwnerNodeId = "controller-1",
+                    IsIncludedInSchedule = true,
+                    To1Hours = 1,
+                    To2Hours = 2,
+                    To3Hours = 3
+                },
+                new KbMaintenanceScheduleProfile
+                {
+                    OwnerNodeId = "cabinet-2",
+                    IsIncludedInSchedule = true,
+                    To1Hours = 2,
+                    To2Hours = 2,
+                    To3Hours = 2
+                }
+            });
 
         var history = new UndoRedoService();
         var controller = new KnowledgeBaseTreeController(session);
@@ -232,6 +260,8 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
         Assert.Equal("cabinet-2", remainingSoftware.OwnerNodeId);
         var remainingNetwork = Assert.Single(session.NetworkFileReferences);
         Assert.Equal("cabinet-2", remainingNetwork.OwnerNodeId);
+        var remainingMaintenanceProfile = Assert.Single(session.MaintenanceScheduleProfiles);
+        Assert.Equal("cabinet-2", remainingMaintenanceProfile.OwnerNodeId);
     }
 
     [Fact]

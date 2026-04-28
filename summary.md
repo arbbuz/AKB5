@@ -11,6 +11,4 @@ Use the knowledge harness in `docs/`:
 - reusable lessons: `docs/lessons-learned.md`
 - durable decisions: `docs/decision-log.md`
 
-If you need to refresh project knowledge after a working session, use the command:
-
-`РґРёСЃС‚РёР»Р»РёСЂСѓР№ Р·РЅР°РЅРёСЏ РёР· СЃРµСЃСЃРёРё`
+If you need to refresh project knowledge after a working session, use an explicit session-knowledge refresh request.

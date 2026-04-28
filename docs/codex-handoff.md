@@ -6,8 +6,8 @@ Last updated: `2026-04-28`
 
 - Repository root: `C:\Users\Olga\AKB5`
 - Active integration branch: `interface`
-- Implemented on this branch: `Phase 0`, `Phase 1`, `Phase 2`, `Phase 3`, `Phase 3B`, `Phase 4`, `Phase 5`
-- Next unfinished roadmap phase: `Phase 6`
+- Implemented on this branch: `Phase 0`, `Phase 1`, `Phase 2`, `Phase 3`, `Phase 3B`, `Phase 4`, `Phase 5`, `Phase 6`
+- Next unfinished roadmap phase: `Phase 7`
 
 ## Integrated feature state
 
@@ -34,8 +34,16 @@ Last updated: `2026-04-28`
   - indexed matches now cover `Tree`, `Card`, `Composition`, and `Docs/Software`
   - search scopes are `All`, `Tree`, `Card`, `Composition`, and `Docs/Software`
   - search navigation resolves to the owning tree node and preferred workspace tab
+- `Phase 6` is active in the branch:
+  - typed network file references live in `Models/KbNetworkFileReference.cs` and `Models/KbNetworkPreviewKind.cs`
+  - top-level JSON/session persistence includes `NetworkFileReferences`
+  - the `Network` workflow is wired through `Controls/KnowledgeBaseNetworkScreenControl.cs`, `Forms/MainForm.Network.cs`, and `Forms/KnowledgeBaseNetworkFileReferenceDialog.cs`
+  - the first release is file-based, not interactive-topology-based
+  - embedded preview is currently limited to `jpg`, `jpeg`, `png`, `bmp`, and `gif`
+  - non-image files stay metadata-only in-form and rely on `Open original`
+  - the screen uses separate `Файлы` and `Предпросмотр` tabs; loading a node opens `Файлы`, and automatic switching to `Предпросмотр` is not part of the accepted UX
 - User-facing program UI on `interface` is now Russian-only; future UI changes should keep labels, prompts, dialogs, and status text in Russian
-- Deleting a node removes typed composition, document links, and software records for the whole deleted subtree
+- Deleting a node removes typed composition, document links, software records, and network file references for the whole deleted subtree
 - `summary.md` is only a pointer into the docs harness and is not a second current-state source
 
 ## Validated status
@@ -48,16 +56,18 @@ $env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet test C:\Users\Olga
 ```
 
 - Verification `dotnet build`: passed
-- `dotnet test`: passed, `171/171`
+- `dotnet test`: passed, `177/177`
 - The build used an isolated output path because a running local app instance can lock the default `bin\Release` outputs
-- User manual verification on `2026-04-28`: no obvious bugs were found in the visible `Phase 5` search workflow before the later UI-localization pass
-- `dotnet format --verify-no-changes` was not rerun after the latest localization edits
+- A standard `Release` build into the default output was also rechecked after the later `Phase 6` UX fixes
+- `asutpKB.exe` startup was checked after the final `Phase 6` `Network`-tab layout changes
+- `dotnet format --verify-no-changes` was not rerun after the latest `Phase 6` changes
 - Existing warnings remain, including `NU1900` when NuGet vulnerability metadata is unavailable offline
 
 ## Active objective
 
-- Continue roadmap implementation from `Phase 6`
-- Replace the current `Network` placeholder with a typed file-based workflow while preserving JSON source-of-truth and Excel `v3` compatibility
+- Continue roadmap implementation from `Phase 7`
+- Replace the old workbook-modernization direction with maintenance-schedule generation while keeping JSON source-of-truth
+- Build a template-driven yearly workbook for monthly maintenance schedules using the approved enterprise form
 
 ## Durable decisions already made
 
@@ -72,6 +82,20 @@ $env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet test C:\Users\Olga
 - `Phase 5` search scopes are fixed to `All`, `Tree`, `Card`, `Composition`, and `Docs/Software`
 - Search results must continue to navigate to the owning tree node instead of to detached screen-only records
 - User-facing program UI should use Russian only
+- `Phase 6` `Network` stays file-based in the first release; do not expand it into an interactive topology editor inside this roadmap slice
+- `Phase 6` preview support is intentionally limited to image formats already covered by the in-form workflow; non-image files keep `Open original`
+- `Phase 6` opens `Файлы` on node load by default; automatic switching to `Предпросмотр` is not part of the accepted UX
+- The old `Phase 7` Excel/exchange-modernization target is superseded by maintenance-schedule generation
+- The first maintenance-schedule release should use a yearly accumulating workbook with `12` month sheets based on the approved sample form
+- Maintenance planning rules currently fixed for implementation:
+  - planning unit is a tree node
+  - `Lvl2` node becomes the numbered parent row with inventory number
+  - child engineering nodes become the `план/факт` detail rows
+  - the application generates only `план`; `факт` remains blank for manual filling on the printed form
+  - `ТО1` is monthly, `ТО2` is semiannual, `ТО3` is annual
+  - planned nodes will need separate integer hour norms for `ТО1`, `ТО2`, and `ТО3`
+  - until a formal yearly schedule source exists, `ТО2` / `ТО3` placement should come from a deterministic per-node cycle offset
+  - inconsistencies in the historical sample workbook are treated as manual noise, not as the rule source
 - `docs/codex-handoff.md` remains the single current-state file for future sessions
 
 ## Knowledge harness
@@ -80,35 +104,36 @@ $env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet test C:\Users\Olga
 - Active plans: `docs/plans.md`
 - Reusable insights: `docs/lessons-learned.md`
 - Durable decisions: `docs/decision-log.md`
-- On the explicit command `РґРёСЃС‚РёР»Р»РёСЂСѓР№ Р·РЅР°РЅРёСЏ РёР· СЃРµСЃСЃРёРё`, update those files in place and replace stale information instead of appending transcripts
+- On the explicit user request to distill session knowledge, update those files in place and replace stale information instead of appending transcripts
 
 ## Relevant files for the current task area
 
-- `Forms/MainForm.cs`
-- `Forms/MainForm.Layout.cs`
-- `Forms/MainForm.Events.cs`
-- `Forms/MainForm.WorkspaceHost.cs`
-- `Forms/MainForm.NodeDetails.cs`
-- `Controls/KnowledgeBaseInfoScreenControl.cs`
-- `Services/KnowledgeBaseNodeWorkspaceResolverService.cs`
-- `Services/KnowledgeBaseFormStateService.cs`
-- `UiServices/KnowledgeBaseFileUiWorkflowService.cs`
 - `Models/SavedData.cs`
+- `Services/JsonStorageService.cs`
+- `Services/KnowledgeBaseDataService.cs`
+- `Services/KnowledgeBaseExcelExchangeService.cs`
+- `Services/KnowledgeBaseExcelWorkbookParser.cs`
+- `Services/KnowledgeBaseXlsxReader.cs`
+- `Services/KnowledgeBaseXlsxWriter.cs`
+- `Services/KnowledgeBaseSessionService.cs`
+- `C:\Users\Olga\Downloads\123.xlsx`
+- `docs/workbook-v3.md`
 - `Roadmap.md`
 
 ## Known limits / open follow-up
 
-- `Phase 6` has not started yet; the `Network` tab is still a placeholder/description-only surface
+- `Phase 7` implementation has not started yet; only the business direction and the sample-form analysis are fixed
 - The current docs/software UI is intentionally limited to supported engineering node types and does not yet cover all node categories
-- `copy composition from existing object` currently copies only typed composition entries; it does not copy docs/software records
+- `copy composition from existing object` currently copies only typed composition entries; it does not copy docs/software records or network file references
+- `Network` does not provide embedded PDF preview or interactive topology editing in the current phase
 - A standard `dotnet build` into the default `Release` output can fail if `asutpKB.exe` is still running and holding DLL locks
+- A future externally provided yearly maintenance schedule may later replace the temporary rule-based source of `ТО1` / `ТО2` / `ТО3` month placement
 
 ## Recommended next step
 
-- Start `Phase 6` network work from `Roadmap.md`
-- Add typed network file references for supported engineering nodes
-- Provide large in-form image preview and an `Open original` action
-- Reuse existing photo/open workflow patterns before introducing new preview dependencies
+- Start `Phase 7` maintenance-schedule work from `Roadmap.md`
+- Add the `Lvl2` inventory-number field and define typed maintenance settings for planned nodes
+- Prepare a cleaned internal Excel template derived from `123.xlsx`
 - Keep all new user-facing strings in Russian
 
 ## Commands to run before finishing future implementation work

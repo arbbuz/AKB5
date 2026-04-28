@@ -18,6 +18,8 @@ namespace AsutpKnowledgeBase.Services
             _ => false
         };
 
+        public static bool SupportsInventoryNumber(KbNodeType nodeType) => nodeType == KbNodeType.System;
+
         public static void NormalizePersistentWorkshopNodes(string workshopName, IList<KbNode> nodes, ISet<string> usedNodeIds)
         {
             var siblingPath = new List<int>();
@@ -176,6 +178,9 @@ namespace AsutpKnowledgeBase.Services
 
         private static void NormalizeTechnicalFields(KbNode node)
         {
+            if (!SupportsInventoryNumber(node.NodeType))
+                node.Details.InventoryNumber = string.Empty;
+
             if (SupportsTechnicalFields(node.NodeType))
                 return;
 

@@ -51,6 +51,27 @@ public class KnowledgeBaseTreeSearchServiceTests
     }
 
     [Fact]
+    public void FindMatches_WhenCardScopeMatchesInventoryNumber_ReturnsCardMatch()
+    {
+        var fixture = CreateFixture();
+
+        var matches = _service.FindMatches(
+            fixture.Roots,
+            CreateConfig(),
+            "inv-42",
+            KnowledgeBaseSearchScope.Card,
+            fixture.CompositionEntries,
+            fixture.DocumentLinks,
+            fixture.SoftwareRecords);
+
+        var match = Assert.Single(matches);
+        Assert.Equal(KnowledgeBaseSearchDomain.Card, match.Domain);
+        Assert.Equal(KnowledgeBaseNodeWorkspaceTabKind.Info, match.PreferredTabKind);
+        Assert.Equal("инвентарный номер", match.MatchFieldLabel);
+        Assert.Equal("Линия аммиака", match.Node.Name);
+    }
+
+    [Fact]
     public void FindMatches_WhenCompositionScopeMatchesModel_ReturnsOwningNodeMatch()
     {
         var fixture = CreateFixture();
@@ -138,7 +159,7 @@ public class KnowledgeBaseTreeSearchServiceTests
         new()
         {
             MaxLevels = 4,
-            LevelNames = new List<string> { "Линии", "Щиты", "Модули", "Примечания" }
+            LevelNames = new List<string> { "Линии", "Шкафы", "Модули", "Примечания" }
         };
 
     private static SearchFixture CreateFixture()
@@ -190,6 +211,10 @@ public class KnowledgeBaseTreeSearchServiceTests
                 Name = "Линия аммиака",
                 LevelIndex = 0,
                 NodeType = KbNodeType.System,
+                Details = new KbNodeDetails
+                {
+                    InventoryNumber = "INV-42"
+                },
                 Children = new List<KbNode> { pump, cabinet }
             }
         };
@@ -199,7 +224,7 @@ public class KnowledgeBaseTreeSearchServiceTests
             Roots = roots,
             CompositionEntries = new List<KbCompositionEntry>
             {
-                new KbCompositionEntry
+                new()
                 {
                     EntryId = "comp-1",
                     ParentNodeId = cabinet.NodeId,
@@ -210,7 +235,7 @@ public class KnowledgeBaseTreeSearchServiceTests
                     IpAddress = "192.168.0.101",
                     Notes = "Датчик давления"
                 },
-                new KbCompositionEntry
+                new()
                 {
                     EntryId = "comp-2",
                     ParentNodeId = cabinet.NodeId,
@@ -222,7 +247,7 @@ public class KnowledgeBaseTreeSearchServiceTests
             },
             DocumentLinks = new List<KbDocumentLink>
             {
-                new KbDocumentLink
+                new()
                 {
                     DocumentId = "doc-1",
                     OwnerNodeId = cabinet.NodeId,
@@ -230,7 +255,7 @@ public class KnowledgeBaseTreeSearchServiceTests
                     Title = "Схема шкафа АВР",
                     Path = @"\\server\docs\avr-scheme.pdf"
                 },
-                new KbDocumentLink
+                new()
                 {
                     DocumentId = "doc-2",
                     OwnerNodeId = cabinet.NodeId,
@@ -241,7 +266,7 @@ public class KnowledgeBaseTreeSearchServiceTests
             },
             SoftwareRecords = new List<KbSoftwareRecord>
             {
-                new KbSoftwareRecord
+                new()
                 {
                     SoftwareId = "soft-1",
                     OwnerNodeId = cabinet.NodeId,

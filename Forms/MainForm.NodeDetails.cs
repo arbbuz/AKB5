@@ -14,6 +14,9 @@ namespace AsutpKnowledgeBase
             selectedNode.Details ??= new KbNodeDetails();
             updateDetails(selectedNode.Details);
 
+            if (!KnowledgeBaseNodeMetadataService.SupportsInventoryNumber(selectedNode.NodeType))
+                selectedNode.Details.InventoryNumber = string.Empty;
+
             if (!KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(selectedNode.NodeType))
             {
                 selectedNode.Details.IpAddress = string.Empty;

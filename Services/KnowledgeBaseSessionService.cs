@@ -23,6 +23,8 @@ namespace AsutpKnowledgeBase.Services
 
         public List<KbNetworkFileReference> NetworkFileReferences { get; private set; } = new();
 
+        public List<KbMaintenanceScheduleProfile> MaintenanceScheduleProfiles { get; private set; } = new();
+
         public string CurrentWorkshop { get; private set; } = string.Empty;
 
         public string LastSavedWorkshop { get; private set; } = string.Empty;
@@ -51,6 +53,7 @@ namespace AsutpKnowledgeBase.Services
             DocumentLinks = normalizedData.DocumentLinks;
             SoftwareRecords = normalizedData.SoftwareRecords;
             NetworkFileReferences = normalizedData.NetworkFileReferences;
+            MaintenanceScheduleProfiles = normalizedData.MaintenanceScheduleProfiles;
             CurrentWorkshop = normalizedData.LastWorkshop;
 
             if (recordAsSavedState)
@@ -71,6 +74,7 @@ namespace AsutpKnowledgeBase.Services
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = SoftwareRecords,
                 NetworkFileReferences = NetworkFileReferences,
+                MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 LastWorkshop = CurrentWorkshop
             });
         }
@@ -85,6 +89,7 @@ namespace AsutpKnowledgeBase.Services
                 DocumentLinks,
                 SoftwareRecords,
                 NetworkFileReferences,
+                MaintenanceScheduleProfiles,
                 CurrentWorkshop,
                 includeCurrentWorkshop);
         }
@@ -222,6 +227,7 @@ namespace AsutpKnowledgeBase.Services
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = SoftwareRecords,
                 NetworkFileReferences = NetworkFileReferences,
+                MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 LastWorkshop = CurrentWorkshop
             }).CompositionEntries;
 
@@ -235,6 +241,7 @@ namespace AsutpKnowledgeBase.Services
                 DocumentLinks = documentLinks?.ToList() ?? new List<KbDocumentLink>(),
                 SoftwareRecords = SoftwareRecords,
                 NetworkFileReferences = NetworkFileReferences,
+                MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 LastWorkshop = CurrentWorkshop
             }).DocumentLinks;
 
@@ -248,6 +255,7 @@ namespace AsutpKnowledgeBase.Services
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = softwareRecords?.ToList() ?? new List<KbSoftwareRecord>(),
                 NetworkFileReferences = NetworkFileReferences,
+                MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 LastWorkshop = CurrentWorkshop
             }).SoftwareRecords;
 
@@ -261,8 +269,23 @@ namespace AsutpKnowledgeBase.Services
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = SoftwareRecords,
                 NetworkFileReferences = networkFileReferences?.ToList() ?? new List<KbNetworkFileReference>(),
+                MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 LastWorkshop = CurrentWorkshop
             }).NetworkFileReferences;
+
+        public void ReplaceMaintenanceScheduleProfiles(IEnumerable<KbMaintenanceScheduleProfile> maintenanceScheduleProfiles) =>
+            MaintenanceScheduleProfiles = KnowledgeBaseDataService.NormalizeSavedData(new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = Config,
+                Workshops = Workshops,
+                CompositionEntries = CompositionEntries,
+                DocumentLinks = DocumentLinks,
+                SoftwareRecords = SoftwareRecords,
+                NetworkFileReferences = NetworkFileReferences,
+                MaintenanceScheduleProfiles = maintenanceScheduleProfiles?.ToList() ?? new List<KbMaintenanceScheduleProfile>(),
+                LastWorkshop = CurrentWorkshop
+            }).MaintenanceScheduleProfiles;
 
         public void SetRequiresSave(bool requiresSave) => RequiresSave = requiresSave;
 

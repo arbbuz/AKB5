@@ -18,6 +18,8 @@ namespace AsutpKnowledgeBase.Services
 
         public string Location { get; init; } = string.Empty;
 
+        public string InventoryNumber { get; init; } = string.Empty;
+
         public string PhotoPath { get; init; } = string.Empty;
 
         public string IpAddress { get; init; } = string.Empty;
@@ -25,6 +27,8 @@ namespace AsutpKnowledgeBase.Services
         public string SchemaLink { get; init; } = string.Empty;
 
         public bool ShowTechnicalFields { get; init; }
+
+        public bool ShowInventoryNumber { get; init; }
 
         public KnowledgeBaseNodeWorkspaceState Workspace { get; init; } = new();
 
@@ -195,6 +199,7 @@ namespace AsutpKnowledgeBase.Services
             }
 
             bool supportsTechnicalFields = KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(selectedNode.NodeType);
+            bool supportsInventoryNumber = KnowledgeBaseNodeMetadataService.SupportsInventoryNumber(selectedNode.NodeType);
 
             return new KnowledgeBaseSelectedNodeState
             {
@@ -204,10 +209,12 @@ namespace AsutpKnowledgeBase.Services
                 ChildrenCountText = selectedNode.Children.Count.ToString(),
                 Description = selectedNode.Details?.Description ?? string.Empty,
                 Location = selectedNode.Details?.Location ?? string.Empty,
+                InventoryNumber = supportsInventoryNumber ? selectedNode.Details?.InventoryNumber ?? string.Empty : string.Empty,
                 PhotoPath = selectedNode.Details?.PhotoPath ?? string.Empty,
                 IpAddress = supportsTechnicalFields ? selectedNode.Details?.IpAddress ?? string.Empty : string.Empty,
                 SchemaLink = supportsTechnicalFields ? selectedNode.Details?.SchemaLink ?? string.Empty : string.Empty,
                 ShowTechnicalFields = supportsTechnicalFields,
+                ShowInventoryNumber = supportsInventoryNumber,
                 Workspace = _nodeWorkspaceResolverService.Resolve(selectedNode.NodeType),
                 Composition = _compositionStateService.Build(selectedNode, compositionEntries),
                 DocsAndSoftware = _docsAndSoftwareStateService.Build(

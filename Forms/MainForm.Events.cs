@@ -47,6 +47,8 @@ namespace AsutpKnowledgeBase
                 (s, e) => HandleNodeDetailsChanged(details => details.Description = selectedNodeInfoScreen.DescriptionText);
             selectedNodeInfoScreen.LocationChangedByUser +=
                 (s, e) => HandleNodeDetailsChanged(details => details.Location = selectedNodeInfoScreen.LocationText);
+            selectedNodeInfoScreen.InventoryNumberChangedByUser +=
+                (s, e) => HandleNodeDetailsChanged(details => details.InventoryNumber = selectedNodeInfoScreen.InventoryNumberText);
             selectedNodeInfoScreen.PhotoPathChangedByUser +=
                 (s, e) => HandleNodeDetailsChanged(details => details.PhotoPath = selectedNodeInfoScreen.PhotoPathText);
             selectedNodeInfoScreen.IpAddressChangedByUser +=

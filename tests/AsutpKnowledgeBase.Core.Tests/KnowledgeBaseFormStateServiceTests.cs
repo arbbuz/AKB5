@@ -183,6 +183,48 @@ public class KnowledgeBaseFormStateServiceTests
     }
 
     [Fact]
+    public void Build_ShowsInventoryNumberOnlyForSystemNodes()
+    {
+        var selectedNode = new KbNode
+        {
+            Name = "Линия 1",
+            LevelIndex = 1,
+            NodeType = KbNodeType.System,
+            Details = new KbNodeDetails
+            {
+                InventoryNumber = "INV-100"
+            }
+        };
+
+        var state = _service.Build(
+            isDirty: false,
+            requiresSave: false,
+            currentDataPath: "/tmp/system.json",
+            currentWorkshop: "Цех 1",
+            lastSavedWorkshop: "Цех 1",
+            totalNodes: 1,
+            currentRoots: new List<KbNode> { selectedNode },
+            selectedNode: selectedNode);
+
+        Assert.True(state.SelectedNode.ShowInventoryNumber);
+        Assert.Equal("INV-100", state.SelectedNode.InventoryNumber);
+
+        selectedNode.NodeType = KbNodeType.Cabinet;
+        var cabinetState = _service.Build(
+            isDirty: false,
+            requiresSave: false,
+            currentDataPath: "/tmp/cabinet.json",
+            currentWorkshop: "Цех 1",
+            lastSavedWorkshop: "Цех 1",
+            totalNodes: 1,
+            currentRoots: new List<KbNode> { selectedNode },
+            selectedNode: selectedNode);
+
+        Assert.False(cabinetState.SelectedNode.ShowInventoryNumber);
+        Assert.Equal(string.Empty, cabinetState.SelectedNode.InventoryNumber);
+    }
+
+    [Fact]
     public void CloseDecisions_DistinguishPromptAndSilentSave()
     {
         Assert.True(_service.RequiresSavePromptBeforeContinue(isDirty: true, requiresSave: false));

@@ -167,6 +167,14 @@ namespace AsutpKnowledgeBase.Services
                 node,
                 KnowledgeBaseSearchDomain.Card,
                 searchText,
+                "инвентарный номер",
+                details.InventoryNumber,
+                nodePath);
+            AddMatchIfContains(
+                matches,
+                node,
+                KnowledgeBaseSearchDomain.Card,
+                searchText,
                 "фото",
                 details.PhotoPath,
                 nodePath);

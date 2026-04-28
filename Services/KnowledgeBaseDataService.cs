@@ -32,6 +32,7 @@ namespace AsutpKnowledgeBase.Services
                 DocumentLinks = new List<KbDocumentLink>(),
                 SoftwareRecords = new List<KbSoftwareRecord>(),
                 NetworkFileReferences = new List<KbNetworkFileReference>(),
+                MaintenanceScheduleProfiles = new List<KbMaintenanceScheduleProfile>(),
                 LastWorkshop = "Новый цех"
             };
 
@@ -44,6 +45,7 @@ namespace AsutpKnowledgeBase.Services
             var normalizedDocumentLinks = NormalizeDocumentLinks(source.DocumentLinks);
             var normalizedSoftwareRecords = NormalizeSoftwareRecords(source.SoftwareRecords);
             var normalizedNetworkFileReferences = NormalizeNetworkFileReferences(source.NetworkFileReferences);
+            var normalizedMaintenanceScheduleProfiles = NormalizeMaintenanceScheduleProfiles(source.MaintenanceScheduleProfiles);
             var reindexService = new KnowledgeBaseService(normalizedConfig, normalizedWorkshops);
 
             foreach (var roots in normalizedWorkshops.Values)
@@ -61,6 +63,7 @@ namespace AsutpKnowledgeBase.Services
                 DocumentLinks = normalizedDocumentLinks,
                 SoftwareRecords = normalizedSoftwareRecords,
                 NetworkFileReferences = normalizedNetworkFileReferences,
+                MaintenanceScheduleProfiles = normalizedMaintenanceScheduleProfiles,
                 LastWorkshop = ResolveWorkshop(normalizedWorkshops, source.LastWorkshop)
             };
         }
@@ -210,6 +213,7 @@ namespace AsutpKnowledgeBase.Services
                 documentLinks: null,
                 softwareRecords: null,
                 networkFileReferences: null,
+                maintenanceScheduleProfiles: null,
                 currentWorkshop,
                 includeCurrentWorkshop);
 
@@ -220,6 +224,7 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbDocumentLink>? documentLinks,
             IReadOnlyList<KbSoftwareRecord>? softwareRecords,
             IReadOnlyList<KbNetworkFileReference>? networkFileReferences,
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
             string currentWorkshop,
             bool includeCurrentWorkshop)
         {
@@ -232,6 +237,7 @@ namespace AsutpKnowledgeBase.Services
                 DocumentLinks = documentLinks?.ToList() ?? new List<KbDocumentLink>(),
                 SoftwareRecords = softwareRecords?.ToList() ?? new List<KbSoftwareRecord>(),
                 NetworkFileReferences = networkFileReferences?.ToList() ?? new List<KbNetworkFileReference>(),
+                MaintenanceScheduleProfiles = maintenanceScheduleProfiles?.ToList() ?? new List<KbMaintenanceScheduleProfile>(),
                 LastWorkshop = includeCurrentWorkshop ? currentWorkshop : string.Empty
             };
 
@@ -261,6 +267,9 @@ namespace AsutpKnowledgeBase.Services
             {
                 Description = details?.Description ?? string.Empty,
                 Location = details?.Location ?? string.Empty,
+                InventoryNumber = KnowledgeBaseNodeMetadataService.SupportsInventoryNumber(nodeType)
+                    ? details?.InventoryNumber ?? string.Empty
+                    : string.Empty,
                 PhotoPath = details?.PhotoPath ?? string.Empty,
                 IpAddress = KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(nodeType)
                     ? details?.IpAddress ?? string.Empty
@@ -434,6 +443,46 @@ namespace AsutpKnowledgeBase.Services
                     Title = reference.Title?.Trim() ?? string.Empty,
                     Path = path,
                     PreviewKind = KnowledgeBaseNetworkPreviewService.ResolvePreviewKind(path)
+                });
+
+                normalizedIndex++;
+            }
+
+            return normalized;
+        }
+
+        private static List<KbMaintenanceScheduleProfile> NormalizeMaintenanceScheduleProfiles(
+            IEnumerable<KbMaintenanceScheduleProfile>? profiles)
+        {
+            var normalized = new List<KbMaintenanceScheduleProfile>();
+            if (profiles == null)
+                return normalized;
+
+            var usedProfileIds = new HashSet<string>(StringComparer.Ordinal);
+            int normalizedIndex = 0;
+
+            foreach (var profile in profiles)
+            {
+                if (profile == null)
+                    continue;
+
+                string ownerNodeId = profile.OwnerNodeId?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(ownerNodeId))
+                    continue;
+
+                normalized.Add(new KbMaintenanceScheduleProfile
+                {
+                    MaintenanceProfileId = NormalizeOwnedRecordId(
+                        profile.MaintenanceProfileId,
+                        "maintenance",
+                        ownerNodeId,
+                        normalizedIndex.ToString(),
+                        usedProfileIds),
+                    OwnerNodeId = ownerNodeId,
+                    IsIncludedInSchedule = profile.IsIncludedInSchedule,
+                    To1Hours = Math.Max(0, profile.To1Hours),
+                    To2Hours = Math.Max(0, profile.To2Hours),
+                    To3Hours = Math.Max(0, profile.To3Hours)
                 });
 
                 normalizedIndex++;

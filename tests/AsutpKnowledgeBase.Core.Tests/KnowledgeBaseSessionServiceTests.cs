@@ -210,6 +210,47 @@ public class KnowledgeBaseSessionServiceTests
     }
 
     [Fact]
+    public void RefreshDirtyState_MaintenanceScheduleProfilesAffectSnapshot()
+    {
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(
+            new SavedData
+            {
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Р¦РµС… 1"] = new()
+                    {
+                        new KbNode
+                        {
+                            NodeId = "system-1",
+                            Name = "Line 1",
+                            LevelIndex = 0,
+                            NodeType = KbNodeType.System
+                        }
+                    }
+                },
+                LastWorkshop = "Р¦РµС… 1"
+            },
+            recordAsSavedState: true);
+
+        session.ReplaceMaintenanceScheduleProfiles(
+            new[]
+            {
+                new KbMaintenanceScheduleProfile
+                {
+                    OwnerNodeId = "system-1",
+                    IsIncludedInSchedule = true,
+                    To1Hours = 2,
+                    To2Hours = 4,
+                    To3Hours = 8
+                }
+            });
+        session.RefreshDirtyState(session.GetCurrentWorkshopNodes());
+
+        Assert.True(session.IsDirty);
+    }
+
+    [Fact]
     public void TryAddWorkshop_RejectsDuplicateNamesIgnoringTrimAndCase()
     {
         var session = new KnowledgeBaseSessionService();

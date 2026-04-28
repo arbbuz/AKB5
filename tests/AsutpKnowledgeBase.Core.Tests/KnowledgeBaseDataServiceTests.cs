@@ -159,6 +159,52 @@ public class KnowledgeBaseDataServiceTests
     }
 
     [Fact]
+    public void NormalizeSavedData_PreservesInventoryNumberOnlyForSystemNodes()
+    {
+        var normalized = KnowledgeBaseDataService.NormalizeSavedData(
+            new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Shop 1"] = new()
+                    {
+                        new KbNode
+                        {
+                            NodeId = "system-1",
+                            Name = "Line 1",
+                            LevelIndex = 0,
+                            NodeType = KbNodeType.System,
+                            Details = new KbNodeDetails
+                            {
+                                InventoryNumber = " INV-001 "
+                            },
+                            Children =
+                            {
+                                new KbNode
+                                {
+                                    NodeId = "cabinet-1",
+                                    Name = "Cabinet 1",
+                                    LevelIndex = 1,
+                                    NodeType = KbNodeType.Cabinet,
+                                    Details = new KbNodeDetails
+                                    {
+                                        InventoryNumber = " INV-CHILD "
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                LastWorkshop = "Shop 1"
+            });
+
+        var systemNode = Assert.Single(normalized.Workshops["Shop 1"]);
+        Assert.Equal(" INV-001 ", systemNode.Details.InventoryNumber);
+        Assert.Equal(string.Empty, systemNode.Children.Single().Details.InventoryNumber);
+    }
+
+    [Fact]
     public void NormalizeSavedData_NormalizesCompositionEntries()
     {
         var normalized = KnowledgeBaseDataService.NormalizeSavedData(
@@ -339,6 +385,54 @@ public class KnowledgeBaseDataServiceTests
         Assert.Equal("\\\\srv\\network\\topology.png", reference.Path);
         Assert.Equal(KbNetworkPreviewKind.Image, reference.PreviewKind);
         Assert.False(string.IsNullOrWhiteSpace(reference.NetworkAssetId));
+    }
+
+    [Fact]
+    public void NormalizeSavedData_NormalizesMaintenanceScheduleProfiles()
+    {
+        var normalized = KnowledgeBaseDataService.NormalizeSavedData(
+            new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Shop 1"] = new()
+                    {
+                        new KbNode
+                        {
+                            NodeId = "system-1",
+                            Name = "Line 1",
+                            LevelIndex = 0,
+                            NodeType = KbNodeType.System
+                        }
+                    }
+                },
+                MaintenanceScheduleProfiles = new List<KbMaintenanceScheduleProfile>
+                {
+                    new()
+                    {
+                        OwnerNodeId = " system-1 ",
+                        IsIncludedInSchedule = true,
+                        To1Hours = 2,
+                        To2Hours = -4,
+                        To3Hours = 8
+                    },
+                    new()
+                    {
+                        OwnerNodeId = "   ",
+                        To1Hours = 1
+                    }
+                },
+                LastWorkshop = "Shop 1"
+            });
+
+        var profile = Assert.Single(normalized.MaintenanceScheduleProfiles);
+        Assert.Equal("system-1", profile.OwnerNodeId);
+        Assert.True(profile.IsIncludedInSchedule);
+        Assert.Equal(2, profile.To1Hours);
+        Assert.Equal(0, profile.To2Hours);
+        Assert.Equal(8, profile.To3Hours);
+        Assert.False(string.IsNullOrWhiteSpace(profile.MaintenanceProfileId));
     }
 
     [Fact]

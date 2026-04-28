@@ -31,7 +31,6 @@ namespace AsutpKnowledgeBase
 
         private KnowledgeBaseNetworkState _currentState = new();
         private bool _isSynchronizingSelection;
-        private bool _suppressAutoOpenPreview;
         private Image? _previewImage;
 
         public KnowledgeBaseNetworkScreenControl()
@@ -90,27 +89,19 @@ namespace AsutpKnowledgeBase
             _currentState = state ?? _emptyState;
             string previousSelectionId = SelectedItemId;
 
-            _suppressAutoOpenPreview = true;
-            try
-            {
-                if (_contentTabs.SelectedTab != _filesPage)
-                    _contentTabs.SelectedTab = _filesPage;
+            if (_contentTabs.SelectedTab != _filesPage)
+                _contentTabs.SelectedTab = _filesPage;
 
-                _lblSource.Text = _currentState.SourceText;
-                _lblSummary.Text = _currentState.HasEntries
-                    ? $"Файлов сети: {_currentState.FileReferencesCount}"
-                    : _currentState.EmptyStateText;
+            _lblSource.Text = _currentState.SourceText;
+            _lblSummary.Text = _currentState.HasEntries
+                ? $"Файлов сети: {_currentState.FileReferencesCount}"
+                : _currentState.EmptyStateText;
 
-                PopulateEntries(previousSelectionId);
-                EnsureSelection();
-                SelectedItemId = ResolveSelectedItemId();
-                UpdateButtonStates();
-                UpdatePreview();
-            }
-            finally
-            {
-                _suppressAutoOpenPreview = false;
-            }
+            PopulateEntries(previousSelectionId);
+            EnsureSelection();
+            SelectedItemId = ResolveSelectedItemId();
+            UpdateButtonStates();
+            UpdatePreview();
         }
 
         protected override void Dispose(bool disposing)
@@ -128,7 +119,7 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill
             };
 
-            _filesPage = new TabPage("Файлы сети");
+            _filesPage = new TabPage("Файлы");
             _filesPage.Controls.Add(CreateFilesPageLayout());
 
             _previewPage = new TabPage("Предпросмотр");
@@ -333,7 +324,6 @@ namespace AsutpKnowledgeBase
                 SelectedItemId = ResolveSelectedItemId();
                 UpdateButtonStates();
                 UpdatePreview();
-                ActivatePreviewTabIfNeeded();
             }
             finally
             {
@@ -479,15 +469,6 @@ namespace AsutpKnowledgeBase
             _lvFiles.Columns[0].Width = titleWidth;
             _lvFiles.Columns[1].Width = previewWidth;
             _lvFiles.Columns[2].Width = pathWidth;
-        }
-
-        private void ActivatePreviewTabIfNeeded()
-        {
-            if (_suppressAutoOpenPreview || string.IsNullOrWhiteSpace(SelectedItemId))
-                return;
-
-            if (_contentTabs.SelectedTab == _filesPage)
-                _contentTabs.SelectedTab = _previewPage;
         }
 
         private static ListView CreateFilesListView()

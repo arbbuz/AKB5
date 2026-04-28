@@ -351,6 +351,12 @@ namespace AsutpKnowledgeBase.Services
                 .ToList();
             if (remainingNetworkFileReferences.Count != _session.NetworkFileReferences.Count)
                 _session.ReplaceNetworkFileReferences(remainingNetworkFileReferences);
+
+            var remainingMaintenanceScheduleProfiles = _session.MaintenanceScheduleProfiles
+                .Where(profile => !removedNodeIds.Contains(profile.OwnerNodeId))
+                .ToList();
+            if (remainingMaintenanceScheduleProfiles.Count != _session.MaintenanceScheduleProfiles.Count)
+                _session.ReplaceMaintenanceScheduleProfiles(remainingMaintenanceScheduleProfiles);
         }
 
         private static HashSet<string> CollectSubtreeNodeIds(KbNode root)

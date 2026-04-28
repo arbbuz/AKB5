@@ -7,6 +7,8 @@ namespace AsutpKnowledgeBase
         private Label _lblSelectedNodeNameValue = null!;
         private TextBox _txtSelectedNodePath = null!;
         private Label _lblSelectedNodeChildrenValue = null!;
+        private Label _lblNodeInventoryNumber = null!;
+        private TextBox _txtNodeInventoryNumber = null!;
         private TextBox _txtNodeDescription = null!;
         private TextBox _txtNodeLocation = null!;
         private TextBox _txtNodePhotoPath = null!;
@@ -97,6 +99,8 @@ namespace AsutpKnowledgeBase
 
         public event EventHandler? LocationChangedByUser;
 
+        public event EventHandler? InventoryNumberChangedByUser;
+
         public event EventHandler? PhotoPathChangedByUser;
 
         public event EventHandler? IpAddressChangedByUser;
@@ -110,6 +114,8 @@ namespace AsutpKnowledgeBase
         public string DescriptionText => _txtNodeDescription.Text;
 
         public string LocationText => _txtNodeLocation.Text;
+
+        public string InventoryNumberText => _txtNodeInventoryNumber.Text;
 
         public string PhotoPathText
         {
@@ -128,9 +134,11 @@ namespace AsutpKnowledgeBase
             _lblSelectedNodeChildrenValue.Text = selectedNodeState.ChildrenCountText;
             _txtNodeDescription.Text = selectedNodeState.Description;
             _txtNodeLocation.Text = selectedNodeState.Location;
+            _txtNodeInventoryNumber.Text = selectedNodeState.InventoryNumber;
             _txtNodePhotoPath.Text = selectedNodeState.PhotoPath;
             _txtNodeIpAddress.Text = selectedNodeState.IpAddress;
             _txtNodeSchemaLink.Text = selectedNodeState.SchemaLink;
+            SetInventoryNumberVisibility(selectedNodeState.ShowInventoryNumber);
             SetTechnicalFieldsVisibility(selectedNodeState.ShowTechnicalFields);
             UpdatePhotoControlsState(selectedNodeState.PhotoPath);
         }
@@ -146,13 +154,14 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 2,
-                RowCount = 2,
+                RowCount = 3,
                 Padding = new Padding(10, 8, 10, 10)
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 78F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 0F));
 
             layout.Controls.Add(CreateFormLabel("Полный путь"), 0, 0);
             _txtSelectedNodePath = new TextBox
@@ -170,6 +179,18 @@ namespace AsutpKnowledgeBase
             layout.Controls.Add(CreateFormLabel("Дочерних"), 0, 1);
             _lblSelectedNodeChildrenValue = CreateReadOnlyValueLabel();
             layout.Controls.Add(_lblSelectedNodeChildrenValue, 1, 1);
+
+            _lblNodeInventoryNumber = CreateFormLabel("Инв. номер");
+            _lblNodeInventoryNumber.Visible = false;
+            layout.Controls.Add(_lblNodeInventoryNumber, 0, 2);
+
+            _txtNodeInventoryNumber = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Visible = false
+            };
+            _txtNodeInventoryNumber.TextChanged += (_, _) => InventoryNumberChangedByUser?.Invoke(this, EventArgs.Empty);
+            layout.Controls.Add(_txtNodeInventoryNumber, 1, 2);
 
             return layout;
         }
@@ -266,6 +287,19 @@ namespace AsutpKnowledgeBase
             _grpTechnicalFields.Visible = visible;
             _tblDetailsLeftColumn.RowStyles[2].Height = visible ? 150F : 0F;
             _tblDetailsLeftColumn.PerformLayout();
+        }
+
+        private void SetInventoryNumberVisibility(bool visible)
+        {
+            if (_txtNodeInventoryNumber.Parent is TableLayoutPanel summaryLayout && summaryLayout.RowStyles.Count > 2)
+                summaryLayout.RowStyles[2].Height = visible ? 30F : 0F;
+
+            _lblNodeInventoryNumber.Visible = visible;
+            _txtNodeInventoryNumber.Visible = visible;
+            _txtNodeInventoryNumber.Enabled = visible;
+
+            if (!visible)
+                _txtNodeInventoryNumber.Text = string.Empty;
         }
 
         private static Label CreateFormLabel(string text) =>

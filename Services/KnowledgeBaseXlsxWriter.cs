@@ -177,6 +177,7 @@ namespace AsutpKnowledgeBase.Services
                 {
                     Description = details.Description,
                     Location = details.Location,
+                    InventoryNumber = details.InventoryNumber,
                     PhotoPath = details.PhotoPath,
                     IpAddress = details.IpAddress,
                     SchemaLink = details.SchemaLink

@@ -6,6 +6,8 @@ namespace AsutpKnowledgeBase.Models
 
         public string Location { get; set; } = string.Empty;
 
+        public string InventoryNumber { get; set; } = string.Empty;
+
         public string PhotoPath { get; set; } = string.Empty;
 
         public string IpAddress { get; set; } = string.Empty;
