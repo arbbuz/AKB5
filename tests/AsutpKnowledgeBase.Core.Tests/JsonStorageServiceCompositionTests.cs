@@ -135,6 +135,93 @@ public class JsonStorageServiceCompositionTests
         }
     }
 
+    [Fact]
+    public void SaveAndLoad_RoundTripsDocumentAndSoftwareRecords()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "kb.json");
+            var service = new JsonStorageService(path);
+            var data = new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = new KbConfig
+                {
+                    MaxLevels = 2,
+                    LevelNames = new List<string> { "Shop", "Cabinet" }
+                },
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Shop 1"] = new List<KbNode>
+                    {
+                        new()
+                        {
+                            NodeId = "cabinet-1",
+                            Name = "Cabinet 1",
+                            LevelIndex = 0,
+                            NodeType = KbNodeType.Cabinet
+                        }
+                    }
+                },
+                DocumentLinks = new List<KbDocumentLink>
+                {
+                    new()
+                    {
+                        DocumentId = "doc-1",
+                        OwnerNodeId = "cabinet-1",
+                        Kind = KbDocumentKind.SchemeLink,
+                        Title = "Wiring Diagram",
+                        Path = "\\\\srv\\docs\\wiring.pdf",
+                        UpdatedAt = new DateTime(2026, 4, 1)
+                    }
+                },
+                SoftwareRecords = new List<KbSoftwareRecord>
+                {
+                    new()
+                    {
+                        SoftwareId = "software-1",
+                        OwnerNodeId = "cabinet-1",
+                        Title = "PLC Backup",
+                        Path = "\\\\srv\\backup\\plc.zip",
+                        AddedAt = new DateTime(2026, 4, 1),
+                        LastChangedAt = new DateTime(2026, 4, 2),
+                        LastBackupAt = new DateTime(2026, 4, 3),
+                        Notes = "Main backup"
+                    }
+                },
+                LastWorkshop = "Shop 1"
+            };
+
+            Assert.True(service.Save(data, out var errorMessage));
+            Assert.Null(errorMessage);
+
+            var loaded = service.Load();
+
+            Assert.True(loaded.IsSuccess);
+            var link = Assert.Single(loaded.Data!.DocumentLinks);
+            Assert.Equal("doc-1", link.DocumentId);
+            Assert.Equal("cabinet-1", link.OwnerNodeId);
+            Assert.Equal(KbDocumentKind.SchemeLink, link.Kind);
+            Assert.Equal("Wiring Diagram", link.Title);
+
+            var record = Assert.Single(loaded.Data.SoftwareRecords);
+            Assert.Equal("software-1", record.SoftwareId);
+            Assert.Equal("cabinet-1", record.OwnerNodeId);
+            Assert.Equal("PLC Backup", record.Title);
+            Assert.Equal("\\\\srv\\backup\\plc.zip", record.Path);
+            Assert.Equal(new DateTime(2026, 4, 1), record.AddedAt);
+            Assert.Equal(new DateTime(2026, 4, 2), record.LastChangedAt);
+            Assert.Equal(new DateTime(2026, 4, 3), record.LastBackupAt);
+            Assert.Equal("Main backup", record.Notes);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
     private static string CreateTempDirectory()
     {
         string path = Path.Combine(Path.GetTempPath(), $"asutp-composition-tests-{Guid.NewGuid():N}");

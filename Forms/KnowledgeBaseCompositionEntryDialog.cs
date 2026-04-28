@@ -28,6 +28,7 @@ namespace AsutpKnowledgeBase
             MaximizeBox = false;
             ShowInTaskbar = false;
             ClientSize = new Size(620, 430);
+            AppIconProvider.Apply(this);
 
             var layout = new TableLayoutPanel
             {
@@ -47,7 +48,7 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 DropDownStyle = ComboBoxStyle.DropDownList
             };
-            _cmbEntryKind.Items.AddRange(["Слот", "Вспомогательное"]);
+            _cmbEntryKind.Items.AddRange(["Слот", "Оборудование"]);
             _cmbEntryKind.SelectedIndexChanged += (_, _) => UpdateEntryKindState();
             layout.Controls.Add(CreateLabel("Тип позиции"), 0, 0);
             layout.Controls.Add(_cmbEntryKind, 1, 0);
@@ -107,7 +108,7 @@ namespace AsutpKnowledgeBase
                 Height = 120,
                 Text = existingEntry?.Notes ?? string.Empty
             };
-            layout.Controls.Add(CreateLabel("Примечания"), 0, 8);
+            layout.Controls.Add(CreateLabel("Примечание"), 0, 8);
             layout.Controls.Add(_txtNotes, 1, 8);
 
             var buttonsPanel = new FlowLayoutPanel
@@ -158,8 +159,8 @@ namespace AsutpKnowledgeBase
             {
                 MessageBox.Show(
                     this,
-                    "Укажите хотя бы тип компонента или модель.",
-                    "Composition",
+                    "Укажите тип компонента или модель.",
+                    "Состав",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 return;

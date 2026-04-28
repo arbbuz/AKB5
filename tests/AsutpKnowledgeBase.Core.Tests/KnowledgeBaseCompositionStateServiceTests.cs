@@ -59,7 +59,7 @@ public class KnowledgeBaseCompositionStateServiceTests
         Assert.Equal(2, state.SlottedEntryStates.Count);
         Assert.Single(state.AuxiliaryEntryStates);
         Assert.True(state.SupportsEditing);
-        Assert.Contains("typed composition", state.SourceText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("JSON", state.SourceText, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public class KnowledgeBaseCompositionStateServiceTests
         Assert.Empty(state.SlottedEntryStates);
         Assert.Single(state.AuxiliaryEntryStates);
         Assert.True(state.SupportsEditing);
-        Assert.Contains("legacy", state.SourceText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("дочерние узлы", state.SourceText, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

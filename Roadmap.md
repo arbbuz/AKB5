@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-04-26
+Last updated: 2026-04-28
 Branch baseline: `interface`
-Implementation status: `Phase 0 complete, Phase 1 complete on interface, Phase 2 complete on interface, Phase 3 complete on interface, next unfinished phase is Phase 3B; current local code baseline was intentionally rolled back to ec5c04e (Windows Build 86)`
+Implementation status: `Phase 0 complete on interface, Phase 1 complete on interface, Phase 2 complete on interface, Phase 3 complete on interface, Phase 3B complete on interface, Phase 4 complete on interface, next unfinished phase is Phase 5`
 
 ## Goal
 
@@ -47,7 +47,11 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - `Phase 3` is complete on `interface`: `Composition` now uses a dedicated typed model stored in `SavedData.CompositionEntries`.
 - The `Composition` screen now shows slots separately from auxiliary equipment and supports in-app add/edit/delete for typed entries.
 - Composition ordering is now resolved by `SlotNumber` + `PositionOrder`, independent of child-node order in the left tree.
-- The current local code tree was intentionally rolled back to match commit `ec5c04e` (`Windows Build 86`), so later tree/drag stabilization experiments are not part of the active code baseline right now.
+- `Phase 3B` is complete on `interface`: built-in cabinet/controller templates and `copy composition from existing object` are available for typed composition workflows.
+- `Phase 4` is complete on `interface`: `Documentation and Software` uses dedicated typed records stored in top-level `DocumentLinks` and `SoftwareRecords` collections keyed by `OwnerNodeId`.
+- The `Documentation and Software` screen is intentionally separate from `Composition`: it manages scheme links, instruction links, and software-folder links rather than slot-style entries.
+- The current `Phase 4` software UX records the date a software link was added (`AddedAt`); legacy software timestamps/notes remain compatibility-only persistence fields and are not part of the main editing UI.
+- On 2026-04-28, the current `Phase 4` worktree passed `dotnet build`, passed `dotnet test` (`169/169`), and was manually checked locally with no obvious bugs found.
 - Current search only matches the node name.
 - Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition.
 - Current CI workflow also verifies `dotnet format --verify-no-changes` for the app project, core project, and tests before `build` / `test`.
@@ -112,8 +116,7 @@ New typed data should live in dedicated models:
   - `OwnerNodeId`
   - `Title`
   - `Path`
-  - `BackupRecordedAt`
-  - `Notes`
+  - `AddedAt`
 
 - `KbNetworkFileReference`
   - `NetworkAssetId`
@@ -323,6 +326,7 @@ Complexity: `Medium`
 Goals:
 
 - gather engineering references in one place without polluting the base card
+- keep documentation/software management separate from the slot-oriented `Composition` workflow
 
 Main changes:
 
@@ -330,14 +334,15 @@ Main changes:
 - add typed lists for:
   - scheme links
   - manuals/instructions
-  - software/backup references
-- store `last changed / last backup` timestamps on software records
+  - links to folders with current software versions
+- store the date a software link was added
 - provide open actions for file/server paths
 
 Acceptance:
 
 - a node can store multiple document/software entries
-- timestamps are explicit and do not depend on file name conventions
+- software-link added dates are explicit and do not depend on file name conventions
+- docs/software data is not modeled as a second `Composition` screen
 
 ### Phase 5. Search redesign
 
@@ -488,17 +493,20 @@ Manual UI checks will still be required for:
 
 ## Recommended implementation order for the next coding sessions
 
+Completed on `interface`:
+
 1. Phase 0
 2. Phase 1
 3. Phase 2
 4. Phase 3
 5. Phase 3B
 6. Phase 4
-7. Phase 5
-8. Phase 6
-9. Phase 7
 
-Do not start Phase 3 or later before Phase 1 is complete.
+Remaining:
+
+1. Phase 5
+2. Phase 6
+3. Phase 7
 
 ## AI handoff / next-dialog instructions
 
@@ -522,10 +530,10 @@ Keep JSON source-of-truth compatibility and preserve Excel v3 as a legacy transi
 
 ## Immediate next step
 
-Continue Phase 3B:
+Continue Phase 5:
 
-- add cabinet/controller templates
-- add `create from template`
-- add `copy composition from existing object`
+- redesign search around actual data domains instead of node-name-only matching
+- index `Tree`, `Card`, `Composition`, and `Docs/Software`
+- expose scope-aware search while preserving navigation back to the owning tree node
 - keep JSON source-of-truth compatibility and Excel `v3` compatibility intact
-- update docs/tests as template workflows land
+- update docs/tests as search redesign lands

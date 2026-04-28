@@ -240,9 +240,13 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Fill
             };
+            selectedNodeDocsAndSoftwareScreen = new KnowledgeBaseDocsAndSoftwareScreenControl
+            {
+                Dock = DockStyle.Fill
+            };
 
             tabSelectedNodeComposition.Controls.Add(selectedNodeCompositionScreen);
-            tabSelectedNodeDocsAndSoftware.Controls.Add(lblSelectedNodeDocsPlaceholder);
+            tabSelectedNodeDocsAndSoftware.Controls.Add(selectedNodeDocsAndSoftwareScreen);
             tabSelectedNodeNetwork.Controls.Add(lblSelectedNodeNetworkPlaceholder);
 
             selectedNodeInfoScreen = new KnowledgeBaseInfoScreenControl

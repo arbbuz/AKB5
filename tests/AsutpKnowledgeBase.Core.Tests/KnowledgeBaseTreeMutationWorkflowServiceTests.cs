@@ -143,6 +143,74 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
     }
 
     [Fact]
+    public void DeleteNode_RemovesTypedRecordsForWholeDeletedSubtree()
+    {
+        var childNode = new KbNode
+        {
+            NodeId = "controller-1",
+            Name = "Controller 1",
+            LevelIndex = 1,
+            NodeType = KbNodeType.Controller
+        };
+        var root1 = new KbNode
+        {
+            NodeId = "cabinet-1",
+            Name = "Cabinet 1",
+            LevelIndex = 0,
+            NodeType = KbNodeType.Cabinet,
+            Children = { childNode }
+        };
+        var root2 = new KbNode
+        {
+            NodeId = "cabinet-2",
+            Name = "Cabinet 2",
+            LevelIndex = 0,
+            NodeType = KbNodeType.Cabinet
+        };
+        var session = CreateSession(
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Р¦РµС… 1"] = new List<KbNode> { root1, root2 }
+            });
+        session.ReplaceCompositionEntries(
+            new[]
+            {
+                new KbCompositionEntry { ParentNodeId = "cabinet-1", ComponentType = "CPU" },
+                new KbCompositionEntry { ParentNodeId = "controller-1", ComponentType = "Module" },
+                new KbCompositionEntry { ParentNodeId = "cabinet-2", ComponentType = "CPU" }
+            });
+        session.ReplaceDocumentLinks(
+            new[]
+            {
+                new KbDocumentLink { OwnerNodeId = "cabinet-1", Kind = KbDocumentKind.Manual, Title = "Manual", Path = "\\\\srv\\manual.pdf" },
+                new KbDocumentLink { OwnerNodeId = "controller-1", Kind = KbDocumentKind.SchemeLink, Title = "Scheme", Path = "\\\\srv\\scheme.pdf" },
+                new KbDocumentLink { OwnerNodeId = "cabinet-2", Kind = KbDocumentKind.Manual, Title = "Other", Path = "\\\\srv\\other.pdf" }
+            });
+        session.ReplaceSoftwareRecords(
+            new[]
+            {
+                new KbSoftwareRecord { OwnerNodeId = "cabinet-1", Title = "Backup 1", Path = "\\\\srv\\backup1.zip" },
+                new KbSoftwareRecord { OwnerNodeId = "controller-1", Title = "Backup 2", Path = "\\\\srv\\backup2.zip" },
+                new KbSoftwareRecord { OwnerNodeId = "cabinet-2", Title = "Backup 3", Path = "\\\\srv\\backup3.zip" }
+            });
+
+        var history = new UndoRedoService();
+        var controller = new KnowledgeBaseTreeController(session);
+        var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
+        var workflow = new KnowledgeBaseTreeMutationWorkflowService(session, sessionWorkflow, controller, history);
+
+        var result = workflow.DeleteNode(session.CurrentWorkshop, root1, session.GetCurrentWorkshopNodes());
+
+        Assert.True(result.IsSuccess);
+        var remainingComposition = Assert.Single(session.CompositionEntries);
+        Assert.Equal("cabinet-2", remainingComposition.ParentNodeId);
+        var remainingDocument = Assert.Single(session.DocumentLinks);
+        Assert.Equal("cabinet-2", remainingDocument.OwnerNodeId);
+        var remainingSoftware = Assert.Single(session.SoftwareRecords);
+        Assert.Equal("cabinet-2", remainingSoftware.OwnerNodeId);
+    }
+
+    [Fact]
     public void MoveNode_WhenTargetIsDescendant_ReturnsCycleFailure()
     {
         var root = new KbNode { Name = "Линия 1", LevelIndex = 0 };

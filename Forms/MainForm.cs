@@ -23,7 +23,10 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseTreeController _treeController;
         private readonly KnowledgeBaseTreeMutationWorkflowService _treeMutationWorkflowService;
         private readonly KnowledgeBaseCompositionMutationService _compositionMutationService = new();
+        private readonly KnowledgeBaseCompositionTemplateService _compositionTemplateService = new();
+        private readonly KnowledgeBaseDocsAndSoftwareMutationService _docsAndSoftwareMutationService = new();
         private readonly KnowledgeBaseFormStateService _formStateService = new();
+        private readonly KnowledgeBaseNodePresentationService _nodePresentationService = new();
         private readonly KnowledgeBaseTreeViewService _treeViewService = new();
         private readonly UndoRedoService _history = new(50);
         private readonly KnowledgeBaseWindowLayoutStateService _windowLayoutStateService;
@@ -58,6 +61,7 @@ namespace AsutpKnowledgeBase
         private ToolTip toolTip = null!;
         private ToolStripMenuItem ctxAdd = null!;
         private ToolStripMenuItem ctxAddChild = null!;
+        private ToolStripMenuItem ctxAddFromTemplate = null!;
         private ToolStripMenuItem ctxCopy = null!;
         private ToolStripMenuItem ctxPaste = null!;
         private ToolStripMenuItem ctxRename = null!;
@@ -71,6 +75,7 @@ namespace AsutpKnowledgeBase
         private TabPage tabSelectedNodeNetwork = null!;
         private KnowledgeBaseInfoScreenControl selectedNodeInfoScreen = null!;
         private KnowledgeBaseCompositionScreenControl selectedNodeCompositionScreen = null!;
+        private KnowledgeBaseDocsAndSoftwareScreenControl selectedNodeDocsAndSoftwareScreen = null!;
         private Label lblSelectedNodeDocsPlaceholder = null!;
         private Label lblSelectedNodeNetworkPlaceholder = null!;
 
@@ -91,6 +96,7 @@ namespace AsutpKnowledgeBase
             _treeController = new KnowledgeBaseTreeController(_session);
             _windowLayoutStateService = new KnowledgeBaseWindowLayoutStateService(logger: _appLogger);
             InitializeComponent();
+            InitializeTemplateContextMenuItem();
             AppIconProvider.Apply(this);
             _savedSplitterDistance = _windowLayoutStateService.LoadSplitterDistance();
             RestoreSavedWindowLayout();
@@ -148,6 +154,7 @@ namespace AsutpKnowledgeBase
                 {
                     selectedNodeInfoScreen.ApplyState(selectedNodeState);
                     selectedNodeCompositionScreen.ApplyState(selectedNodeState.Composition);
+                    selectedNodeDocsAndSoftwareScreen.ApplyState(selectedNodeState.DocsAndSoftware);
                 }
 
                 ScheduleDeferredLayout();
@@ -188,7 +195,9 @@ namespace AsutpKnowledgeBase
                 tvTree.GetNodeCount(true),
                 currentRoots,
                 tvTree.SelectedNode?.Tag as KbNode,
-                _session.CompositionEntries);
+                _session.CompositionEntries,
+                _session.DocumentLinks,
+                _session.SoftwareRecords);
         }
 
         private void ApplyFormState(KnowledgeBaseFormState formState, bool refreshSelectedNodeState)
@@ -205,6 +214,7 @@ namespace AsutpKnowledgeBase
             ctxDelete.Enabled = hasSelection;
             ctxAdd.Enabled = _treeMutationWorkflowService.CanAddNode(GetEffectiveParentForRootOperations());
             ctxAddChild.Enabled = hasSelection && _treeMutationWorkflowService.CanAddNode(selectedNode!);
+            ctxAddFromTemplate.Enabled = hasSelection && _treeMutationWorkflowService.CanAddNodeFromTemplate(selectedNode!);
             ctxPaste.Enabled = hasSelection && _treeMutationWorkflowService.CanPasteNode(selectedNode!);
             menuRenameWorkshop.Enabled = !string.IsNullOrWhiteSpace(_currentWorkshop);
             menuDeleteWorkshop.Enabled = !string.IsNullOrWhiteSpace(_currentWorkshop) && _session.Workshops.Count > 1;
@@ -385,6 +395,20 @@ namespace AsutpKnowledgeBase
                 current = current.Parent;
 
             return current;
+        }
+
+        private void InitializeTemplateContextMenuItem()
+        {
+            if (tvTree.ContextMenuStrip == null)
+                return;
+
+            ctxAddFromTemplate = new ToolStripMenuItem(
+                "в§© Р”РѕР±Р°РІРёС‚СЊ РёР· С€Р°Р±Р»РѕРЅР°...",
+                null,
+                (s, e) => AddChildNodeFromTemplate());
+
+            ctxAddFromTemplate.Text = "Добавить из шаблона...";
+            tvTree.ContextMenuStrip.Items.Insert(2, ctxAddFromTemplate);
         }
     }
 }

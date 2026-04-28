@@ -213,6 +213,85 @@ public class KnowledgeBaseDataServiceTests
     }
 
     [Fact]
+    public void NormalizeSavedData_NormalizesDocumentAndSoftwareRecords()
+    {
+        var normalized = KnowledgeBaseDataService.NormalizeSavedData(
+            new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = new KbConfig
+                {
+                    MaxLevels = 2,
+                    LevelNames = new List<string> { "Shop", "Cabinet" }
+                },
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Shop 1"] = new List<KbNode>
+                    {
+                        new()
+                        {
+                            NodeId = "cabinet-1",
+                            Name = "Cabinet 1",
+                            LevelIndex = 0,
+                            NodeType = KbNodeType.Cabinet
+                        }
+                    }
+                },
+                DocumentLinks = new List<KbDocumentLink>
+                {
+                    new()
+                    {
+                        OwnerNodeId = " cabinet-1 ",
+                        Kind = (KbDocumentKind)999,
+                        Title = " Wiring Diagram ",
+                        Path = " \\\\srv\\docs\\wiring.pdf ",
+                        UpdatedAt = new DateTime(2026, 4, 3, 15, 0, 0)
+                    },
+                    new()
+                    {
+                        OwnerNodeId = "   "
+                    }
+                },
+                SoftwareRecords = new List<KbSoftwareRecord>
+                {
+                    new()
+                    {
+                        OwnerNodeId = " cabinet-1 ",
+                        Title = " PLC Backup ",
+                        Path = " \\\\srv\\backup\\plc.zip ",
+                        AddedAt = new DateTime(2026, 4, 2, 9, 0, 0),
+                        LastChangedAt = new DateTime(2026, 4, 4, 9, 0, 0),
+                        LastBackupAt = new DateTime(2026, 4, 5, 9, 0, 0),
+                        Notes = " weekly "
+                    },
+                    new()
+                    {
+                        OwnerNodeId = string.Empty
+                    }
+                },
+                LastWorkshop = "Shop 1"
+            });
+
+        var link = Assert.Single(normalized.DocumentLinks);
+        Assert.Equal("cabinet-1", link.OwnerNodeId);
+        Assert.Equal(KbDocumentKind.Manual, link.Kind);
+        Assert.Equal("Wiring Diagram", link.Title);
+        Assert.Equal("\\\\srv\\docs\\wiring.pdf", link.Path);
+        Assert.Equal(new DateTime(2026, 4, 3), link.UpdatedAt);
+        Assert.False(string.IsNullOrWhiteSpace(link.DocumentId));
+
+        var record = Assert.Single(normalized.SoftwareRecords);
+        Assert.Equal("cabinet-1", record.OwnerNodeId);
+        Assert.Equal("PLC Backup", record.Title);
+        Assert.Equal("\\\\srv\\backup\\plc.zip", record.Path);
+        Assert.Equal(new DateTime(2026, 4, 2), record.AddedAt);
+        Assert.Equal(new DateTime(2026, 4, 4), record.LastChangedAt);
+        Assert.Equal(new DateTime(2026, 4, 5), record.LastBackupAt);
+        Assert.Equal("weekly", record.Notes);
+        Assert.False(string.IsNullOrWhiteSpace(record.SoftwareId));
+    }
+
+    [Fact]
     public void ResolveWorkshop_UsesPreferredWorkshopWhenItExists()
     {
         var workshops = new Dictionary<string, List<KbNode>>

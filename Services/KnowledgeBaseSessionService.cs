@@ -17,6 +17,10 @@ namespace AsutpKnowledgeBase.Services
 
         public List<KbCompositionEntry> CompositionEntries { get; private set; } = new();
 
+        public List<KbDocumentLink> DocumentLinks { get; private set; } = new();
+
+        public List<KbSoftwareRecord> SoftwareRecords { get; private set; } = new();
+
         public string CurrentWorkshop { get; private set; } = string.Empty;
 
         public string LastSavedWorkshop { get; private set; } = string.Empty;
@@ -42,6 +46,8 @@ namespace AsutpKnowledgeBase.Services
             Config = normalizedData.Config;
             Workshops = normalizedData.Workshops;
             CompositionEntries = normalizedData.CompositionEntries;
+            DocumentLinks = normalizedData.DocumentLinks;
+            SoftwareRecords = normalizedData.SoftwareRecords;
             CurrentWorkshop = normalizedData.LastWorkshop;
 
             if (recordAsSavedState)
@@ -59,6 +65,8 @@ namespace AsutpKnowledgeBase.Services
                 Config = Config,
                 Workshops = Workshops,
                 CompositionEntries = CompositionEntries,
+                DocumentLinks = DocumentLinks,
+                SoftwareRecords = SoftwareRecords,
                 LastWorkshop = CurrentWorkshop
             });
         }
@@ -70,6 +78,8 @@ namespace AsutpKnowledgeBase.Services
                 Config,
                 Workshops,
                 CompositionEntries,
+                DocumentLinks,
+                SoftwareRecords,
                 CurrentWorkshop,
                 includeCurrentWorkshop);
         }
@@ -204,8 +214,34 @@ namespace AsutpKnowledgeBase.Services
                 Config = Config,
                 Workshops = Workshops,
                 CompositionEntries = compositionEntries?.ToList() ?? new List<KbCompositionEntry>(),
+                DocumentLinks = DocumentLinks,
+                SoftwareRecords = SoftwareRecords,
                 LastWorkshop = CurrentWorkshop
             }).CompositionEntries;
+
+        public void ReplaceDocumentLinks(IEnumerable<KbDocumentLink> documentLinks) =>
+            DocumentLinks = KnowledgeBaseDataService.NormalizeSavedData(new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = Config,
+                Workshops = Workshops,
+                CompositionEntries = CompositionEntries,
+                DocumentLinks = documentLinks?.ToList() ?? new List<KbDocumentLink>(),
+                SoftwareRecords = SoftwareRecords,
+                LastWorkshop = CurrentWorkshop
+            }).DocumentLinks;
+
+        public void ReplaceSoftwareRecords(IEnumerable<KbSoftwareRecord> softwareRecords) =>
+            SoftwareRecords = KnowledgeBaseDataService.NormalizeSavedData(new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = Config,
+                Workshops = Workshops,
+                CompositionEntries = CompositionEntries,
+                DocumentLinks = DocumentLinks,
+                SoftwareRecords = softwareRecords?.ToList() ?? new List<KbSoftwareRecord>(),
+                LastWorkshop = CurrentWorkshop
+            }).SoftwareRecords;
 
         public void SetRequiresSave(bool requiresSave) => RequiresSave = requiresSave;
 

@@ -29,6 +29,8 @@ namespace AsutpKnowledgeBase.Services
         public KnowledgeBaseNodeWorkspaceState Workspace { get; init; } = new();
 
         public KnowledgeBaseCompositionState Composition { get; init; } = new();
+
+        public KnowledgeBaseDocsAndSoftwareState DocsAndSoftware { get; init; } = new();
     }
 
     public class KnowledgeBaseFormState
@@ -63,6 +65,7 @@ namespace AsutpKnowledgeBase.Services
         private readonly KnowledgeBaseNodePresentationService _nodePresentationService = new();
         private readonly KnowledgeBaseNodeWorkspaceResolverService _nodeWorkspaceResolverService = new();
         private readonly KnowledgeBaseCompositionStateService _compositionStateService = new();
+        private readonly KnowledgeBaseDocsAndSoftwareStateService _docsAndSoftwareStateService = new();
 
         public KnowledgeBaseFormState Build(
             bool isDirty,
@@ -73,7 +76,9 @@ namespace AsutpKnowledgeBase.Services
             int totalNodes,
             IReadOnlyList<KbNode> currentRoots,
             KbNode? selectedNode,
-            IReadOnlyList<KbCompositionEntry>? compositionEntries = null)
+            IReadOnlyList<KbCompositionEntry>? compositionEntries = null,
+            IReadOnlyList<KbDocumentLink>? documentLinks = null,
+            IReadOnlyList<KbSoftwareRecord>? softwareRecords = null)
         {
             bool fileExists = File.Exists(currentDataPath);
             string currentDataFileName = Path.GetFileName(currentDataPath);
@@ -81,7 +86,12 @@ namespace AsutpKnowledgeBase.Services
                 currentDataFileName = "(без файла)";
 
             string saveStateText = BuildSaveStateText(isDirty, requiresSave, fileExists);
-            var selectedNodeState = BuildSelectedNodeState(currentRoots, selectedNode, compositionEntries);
+            var selectedNodeState = BuildSelectedNodeState(
+                currentRoots,
+                selectedNode,
+                compositionEntries,
+                documentLinks,
+                softwareRecords);
 
             return new KnowledgeBaseFormState
             {
@@ -162,7 +172,9 @@ namespace AsutpKnowledgeBase.Services
         private KnowledgeBaseSelectedNodeState BuildSelectedNodeState(
             IReadOnlyList<KbNode> currentRoots,
             KbNode? selectedNode,
-            IReadOnlyList<KbCompositionEntry>? compositionEntries)
+            IReadOnlyList<KbCompositionEntry>? compositionEntries,
+            IReadOnlyList<KbDocumentLink>? documentLinks,
+            IReadOnlyList<KbSoftwareRecord>? softwareRecords)
         {
             if (selectedNode == null)
             {
@@ -191,7 +203,11 @@ namespace AsutpKnowledgeBase.Services
                 SchemaLink = supportsTechnicalFields ? selectedNode.Details?.SchemaLink ?? string.Empty : string.Empty,
                 ShowTechnicalFields = supportsTechnicalFields,
                 Workspace = _nodeWorkspaceResolverService.Resolve(selectedNode.NodeType),
-                Composition = _compositionStateService.Build(selectedNode, compositionEntries)
+                Composition = _compositionStateService.Build(selectedNode, compositionEntries),
+                DocsAndSoftware = _docsAndSoftwareStateService.Build(
+                    selectedNode,
+                    documentLinks,
+                    softwareRecords)
             };
         }
     }

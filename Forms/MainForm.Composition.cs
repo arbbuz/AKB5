@@ -19,7 +19,7 @@ namespace AsutpKnowledgeBase
                     PositionOrder = 0
                 },
                 "Добавить слот состава",
-                "Добавлена слотовая позиция в Composition.");
+                "Позиция в слоте добавлена.");
         }
 
         private void AddAuxiliaryCompositionEntry(object? sender, EventArgs e)
@@ -35,8 +35,73 @@ namespace AsutpKnowledgeBase
                     SlotNumber = null,
                     PositionOrder = GetNextAuxiliaryOrder(parentNode.NodeId)
                 },
-                "Добавить вспомогательное оборудование",
-                "Добавлена вспомогательная позиция в Composition.");
+                "Добавить оборудование",
+                "Оборудование добавлено в состав.");
+        }
+
+        private void ApplyCompositionTemplate(object? sender, EventArgs e)
+        {
+            if (!TryGetCompositionParentNode(out var parentNode))
+                return;
+
+            var templates = _compositionTemplateService.GetTemplates(parentNode.NodeType);
+            if (templates.Count == 0)
+            {
+                MessageBox.Show(
+                    this,
+                    "Для выбранного типа узла нет доступных шаблонов состава.",
+                    "Состав",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            using var dialog = new KnowledgeBaseCompositionTemplateDialog(
+                "Применить шаблон состава",
+                "Выберите шаблон для текущего объекта:",
+                templates,
+                collectNodeName: false);
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            if (!ConfirmReplaceCompositionEntries(parentNode))
+                return;
+
+            ApplyCompositionTransfer(
+                _compositionTemplateService.ApplyTemplate(parentNode, _session.CompositionEntries, dialog.SelectedTemplateId),
+                "Состав заполнен по шаблону.");
+        }
+
+        private void CopyCompositionFromExistingObject(object? sender, EventArgs e)
+        {
+            if (!TryGetCompositionParentNode(out var parentNode))
+                return;
+
+            var options = BuildCopySourceOptions(parentNode);
+            if (options.Count == 0)
+            {
+                MessageBox.Show(
+                    this,
+                    "В текущем цехе нет подходящих объектов с заполненным составом.",
+                    "Состав",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            using var dialog = new KnowledgeBaseCompositionCopySourceDialog(options);
+            if (dialog.ShowDialog(this) != DialogResult.OK || dialog.SelectedSourceNode == null)
+                return;
+
+            if (!ConfirmReplaceCompositionEntries(parentNode))
+                return;
+
+            ApplyCompositionTransfer(
+                _compositionTemplateService.CopyComposition(
+                    parentNode,
+                    _session.CompositionEntries,
+                    dialog.SelectedSourceNode),
+                "Состав скопирован из выбранного объекта.");
         }
 
         private void EditSelectedCompositionEntry(object? sender, EventArgs e)
@@ -49,8 +114,8 @@ namespace AsutpKnowledgeBase
             {
                 MessageBox.Show(
                     this,
-                    "Выберите typed composition entry для изменения.",
-                    "Composition",
+                    "Выберите запись состава для изменения.",
+                    "Состав",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 return;
@@ -60,7 +125,7 @@ namespace AsutpKnowledgeBase
                 parentNode,
                 CloneCompositionEntry(selectedEntry),
                 "Изменить запись состава",
-                "Запись Composition обновлена.");
+                "Запись состава обновлена.");
         }
 
         private void DeleteSelectedCompositionEntry(object? sender, EventArgs e)
@@ -73,8 +138,8 @@ namespace AsutpKnowledgeBase
             {
                 MessageBox.Show(
                     this,
-                    "Выберите typed composition entry для удаления.",
-                    "Composition",
+                    "Выберите запись состава для удаления.",
+                    "Состав",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 return;
@@ -82,8 +147,8 @@ namespace AsutpKnowledgeBase
 
             var confirmResult = MessageBox.Show(
                 this,
-                $"Удалить запись состава \"{selectedEntry.Model}\"?",
-                "Composition",
+                $"Удалить запись состава \"{GetCompositionEntryDisplayName(selectedEntry)}\"?",
+                "Состав",
                 MessageBoxButtons.OKCancel,
                 MessageBoxIcon.Warning);
             if (confirmResult != DialogResult.OK)
@@ -91,7 +156,7 @@ namespace AsutpKnowledgeBase
 
             ApplyCompositionMutation(
                 _compositionMutationService.DeleteEntry(parentNode, _session.CompositionEntries, selectedEntry.EntryId),
-                "Запись Composition удалена.");
+                "Запись состава удалена.");
         }
 
         private void EditCompositionEntryCore(
@@ -118,7 +183,7 @@ namespace AsutpKnowledgeBase
                 MessageBox.Show(
                     this,
                     result.ErrorMessage,
-                    "Composition",
+                    "Состав",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
                 return;
@@ -128,6 +193,40 @@ namespace AsutpKnowledgeBase
             UpdateDirtyState();
             UpdateUI();
             SetLastActionText(successStatusText);
+        }
+
+        private void ApplyCompositionTransfer(
+            KnowledgeBaseCompositionTransferResult result,
+            string successStatusText)
+        {
+            if (!result.IsSuccess)
+            {
+                MessageBox.Show(
+                    this,
+                    result.ErrorMessage,
+                    "Состав",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            _session.ReplaceCompositionEntries(result.CompositionEntries);
+            UpdateDirtyState();
+            UpdateUI();
+            SetLastActionText(successStatusText);
+        }
+
+        private bool ConfirmReplaceCompositionEntries(KbNode parentNode)
+        {
+            if (CountTypedCompositionEntries(parentNode.NodeId) == 0)
+                return true;
+
+            return MessageBox.Show(
+                this,
+                "Текущий состав будет заменен. Продолжить?",
+                "Состав",
+                MessageBoxButtons.OKCancel,
+                MessageBoxIcon.Warning) == DialogResult.OK;
         }
 
         private bool TryGetCompositionParentNode(out KbNode parentNode)
@@ -142,8 +241,8 @@ namespace AsutpKnowledgeBase
 
             MessageBox.Show(
                 this,
-                "Composition доступен только для шкафов и typed engineering узлов.",
-                "Composition",
+                "Вкладка \"Состав\" доступна только для шкафов, устройств, контроллеров и модулей.",
+                "Состав",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
             return false;
@@ -159,6 +258,50 @@ namespace AsutpKnowledgeBase
                 string.Equals(entry.EntryId, selectedEntryId, StringComparison.Ordinal) &&
                 string.Equals(entry.ParentNodeId, parentNode.NodeId, StringComparison.Ordinal));
         }
+
+        private IReadOnlyList<KnowledgeBaseCompositionCopySourceOption> BuildCopySourceOptions(KbNode targetNode)
+        {
+            var options = new List<KnowledgeBaseCompositionCopySourceOption>();
+            var roots = GetVisibleTreeData();
+            CollectCopySourceOptions(roots, roots, targetNode, options);
+
+            return options
+                .OrderBy(option => option.DisplayText, KnowledgeBaseNaturalStringComparer.Instance)
+                .ToList();
+        }
+
+        private void CollectCopySourceOptions(
+            IReadOnlyList<KbNode> roots,
+            IEnumerable<KbNode> nodes,
+            KbNode targetNode,
+            ICollection<KnowledgeBaseCompositionCopySourceOption> options)
+        {
+            foreach (var node in nodes)
+            {
+                if (!ReferenceEquals(node, targetNode) &&
+                    node.NodeType == targetNode.NodeType &&
+                    CountTypedCompositionEntries(node.NodeId) > 0)
+                {
+                    int entryCount = CountTypedCompositionEntries(node.NodeId);
+                    string path = _nodePresentationService.BuildNodePath(roots, node);
+                    options.Add(new KnowledgeBaseCompositionCopySourceOption
+                    {
+                        Node = node,
+                        DisplayText = path,
+                        Description =
+                            $"Путь: {path}{Environment.NewLine}" +
+                            $"Тип узла: {node.NodeType}{Environment.NewLine}" +
+                            $"Записей состава: {entryCount}"
+                    });
+                }
+
+                CollectCopySourceOptions(roots, node.Children, targetNode, options);
+            }
+        }
+
+        private int CountTypedCompositionEntries(string parentNodeId) =>
+            _session.CompositionEntries.Count(entry =>
+                string.Equals(entry.ParentNodeId, parentNodeId, StringComparison.Ordinal));
 
         private int GetNextSlotNumber(string parentNodeId)
         {
@@ -182,6 +325,19 @@ namespace AsutpKnowledgeBase
                 .Max();
 
             return (maxOrder ?? -1) + 1;
+        }
+
+        private static string GetCompositionEntryDisplayName(KbCompositionEntry entry)
+        {
+            string model = entry.Model?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(model))
+                return model;
+
+            string componentType = entry.ComponentType?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(componentType))
+                return componentType;
+
+            return "без названия";
         }
 
         private static KbCompositionEntry CloneCompositionEntry(KbCompositionEntry entry) =>

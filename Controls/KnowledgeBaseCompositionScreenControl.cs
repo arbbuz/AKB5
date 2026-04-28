@@ -10,6 +10,8 @@ namespace AsutpKnowledgeBase
         private Label _lblSummary = null!;
         private Button _btnAddSlotted = null!;
         private Button _btnAddAuxiliary = null!;
+        private Button _btnApplyTemplate = null!;
+        private Button _btnCopyFromExisting = null!;
         private Button _btnEditSelected = null!;
         private Button _btnDeleteSelected = null!;
         private ListView _lvSlottedEntries = null!;
@@ -58,15 +60,19 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Top,
                 FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
+                WrapContents = true,
                 AutoSize = true,
                 Margin = new Padding(0, 0, 0, 12)
             };
 
             _btnAddSlotted = CreateActionButton("Добавить слот...");
             _btnAddSlotted.Click += (_, _) => AddSlottedRequested?.Invoke(this, EventArgs.Empty);
-            _btnAddAuxiliary = CreateActionButton("Добавить вспомогательное...");
+            _btnAddAuxiliary = CreateActionButton("Добавить оборудование...");
             _btnAddAuxiliary.Click += (_, _) => AddAuxiliaryRequested?.Invoke(this, EventArgs.Empty);
+            _btnApplyTemplate = CreateActionButton("Применить шаблон...");
+            _btnApplyTemplate.Click += (_, _) => ApplyTemplateRequested?.Invoke(this, EventArgs.Empty);
+            _btnCopyFromExisting = CreateActionButton("Копировать из объекта...");
+            _btnCopyFromExisting.Click += (_, _) => CopyFromExistingRequested?.Invoke(this, EventArgs.Empty);
             _btnEditSelected = CreateActionButton("Изменить...");
             _btnEditSelected.Click += (_, _) => EditSelectedRequested?.Invoke(this, EventArgs.Empty);
             _btnDeleteSelected = CreateActionButton("Удалить");
@@ -74,6 +80,8 @@ namespace AsutpKnowledgeBase
 
             actionsPanel.Controls.Add(_btnAddSlotted);
             actionsPanel.Controls.Add(_btnAddAuxiliary);
+            actionsPanel.Controls.Add(_btnApplyTemplate);
+            actionsPanel.Controls.Add(_btnCopyFromExisting);
             actionsPanel.Controls.Add(_btnEditSelected);
             actionsPanel.Controls.Add(_btnDeleteSelected);
 
@@ -92,11 +100,11 @@ namespace AsutpKnowledgeBase
             _lvSlottedEntries.SelectedIndexChanged += (_, _) => HandleSelectionChanged(_lvSlottedEntries, _lvAuxiliaryEntries);
             _lvAuxiliaryEntries.SelectedIndexChanged += (_, _) => HandleSelectionChanged(_lvAuxiliaryEntries, _lvSlottedEntries);
 
-            _lblSlottedEmptyState = CreateEmptyStateLabel("Слотовые позиции пока не заполнены.");
-            _lblAuxiliaryEmptyState = CreateEmptyStateLabel("Вспомогательное оборудование пока не заполнено.");
+            _lblSlottedEmptyState = CreateEmptyStateLabel("Слоты пока не заполнены.");
+            _lblAuxiliaryEmptyState = CreateEmptyStateLabel("Оборудование пока не добавлено.");
 
             contentLayout.Controls.Add(CreateEntriesGroup("Слоты", _lvSlottedEntries, _lblSlottedEmptyState), 0, 0);
-            contentLayout.Controls.Add(CreateEntriesGroup("Вспомогательное оборудование", _lvAuxiliaryEntries, _lblAuxiliaryEmptyState), 0, 1);
+            contentLayout.Controls.Add(CreateEntriesGroup("Оборудование", _lvAuxiliaryEntries, _lblAuxiliaryEmptyState), 0, 1);
 
             layout.Controls.Add(_lblSource, 0, 0);
             layout.Controls.Add(_lblSummary, 0, 1);
@@ -111,6 +119,10 @@ namespace AsutpKnowledgeBase
 
         public event EventHandler? AddAuxiliaryRequested;
 
+        public event EventHandler? ApplyTemplateRequested;
+
+        public event EventHandler? CopyFromExistingRequested;
+
         public event EventHandler? EditSelectedRequested;
 
         public event EventHandler? DeleteSelectedRequested;
@@ -124,20 +136,20 @@ namespace AsutpKnowledgeBase
 
             _lblSource.Text = _currentState.SourceText;
             _lblSummary.Text = _currentState.HasEntries
-                ? $"Всего: {_currentState.TotalEntries} | Слотов: {_currentState.SlottedEntries} | Вспомогательных: {_currentState.AuxiliaryEntries}"
+                ? $"Всего: {_currentState.TotalEntries} | Слотов: {_currentState.SlottedEntries} | Оборудования: {_currentState.AuxiliaryEntries}"
                 : _currentState.EmptyStateText;
 
             PopulateEntries(
                 _lvSlottedEntries,
                 _lblSlottedEmptyState,
                 _currentState.SlottedEntryStates,
-                "Слотовые позиции пока не заполнены.",
+                "Слоты пока не заполнены.",
                 previouslySelectedEntryId);
             PopulateEntries(
                 _lvAuxiliaryEntries,
                 _lblAuxiliaryEmptyState,
                 _currentState.AuxiliaryEntryStates,
-                "Вспомогательное оборудование пока не заполнено.",
+                "Оборудование пока не добавлено.",
                 previouslySelectedEntryId);
 
             SelectedEntryId = ResolveSelectedEntryId();
@@ -229,6 +241,8 @@ namespace AsutpKnowledgeBase
 
             _btnAddSlotted.Enabled = canAdd;
             _btnAddAuxiliary.Enabled = canAdd;
+            _btnApplyTemplate.Enabled = canAdd && _currentState.CanApplyTemplates;
+            _btnCopyFromExisting.Enabled = canAdd;
             _btnEditSelected.Enabled = hasEditableSelection;
             _btnDeleteSelected.Enabled = hasEditableSelection;
         }
@@ -271,7 +285,7 @@ namespace AsutpKnowledgeBase
             listView.Columns.Add("IP", 120);
             listView.Columns.Add("Последняя калибровка", 140);
             listView.Columns.Add("Следующая калибровка", 140);
-            listView.Columns.Add("Примечания", 260);
+            listView.Columns.Add("Примечание", 260);
             return listView;
         }
 
@@ -291,7 +305,7 @@ namespace AsutpKnowledgeBase
             {
                 Text = text,
                 AutoSize = true,
-                Margin = new Padding(0, 0, 8, 0)
+                Margin = new Padding(0, 0, 8, 8)
             };
     }
 }

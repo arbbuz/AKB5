@@ -29,6 +29,8 @@ namespace AsutpKnowledgeBase.Services
                     ["Новый цех"] = new List<KbNode>()
                 },
                 CompositionEntries = new List<KbCompositionEntry>(),
+                DocumentLinks = new List<KbDocumentLink>(),
+                SoftwareRecords = new List<KbSoftwareRecord>(),
                 LastWorkshop = "Новый цех"
             };
 
@@ -38,6 +40,8 @@ namespace AsutpKnowledgeBase.Services
             var normalizedConfig = NormalizeConfig(source.Config);
             var normalizedWorkshops = NormalizeWorkshops(source.Workshops);
             var normalizedCompositionEntries = NormalizeCompositionEntries(source.CompositionEntries);
+            var normalizedDocumentLinks = NormalizeDocumentLinks(source.DocumentLinks);
+            var normalizedSoftwareRecords = NormalizeSoftwareRecords(source.SoftwareRecords);
             var reindexService = new KnowledgeBaseService(normalizedConfig, normalizedWorkshops);
 
             foreach (var roots in normalizedWorkshops.Values)
@@ -52,6 +56,8 @@ namespace AsutpKnowledgeBase.Services
                 Config = normalizedConfig,
                 Workshops = normalizedWorkshops,
                 CompositionEntries = normalizedCompositionEntries,
+                DocumentLinks = normalizedDocumentLinks,
+                SoftwareRecords = normalizedSoftwareRecords,
                 LastWorkshop = ResolveWorkshop(normalizedWorkshops, source.LastWorkshop)
             };
         }
@@ -198,6 +204,8 @@ namespace AsutpKnowledgeBase.Services
                 config,
                 workshops,
                 compositionEntries: null,
+                documentLinks: null,
+                softwareRecords: null,
                 currentWorkshop,
                 includeCurrentWorkshop);
 
@@ -205,6 +213,8 @@ namespace AsutpKnowledgeBase.Services
             KbConfig config,
             Dictionary<string, List<KbNode>> workshops,
             IReadOnlyList<KbCompositionEntry>? compositionEntries,
+            IReadOnlyList<KbDocumentLink>? documentLinks,
+            IReadOnlyList<KbSoftwareRecord>? softwareRecords,
             string currentWorkshop,
             bool includeCurrentWorkshop)
         {
@@ -214,6 +224,8 @@ namespace AsutpKnowledgeBase.Services
                 Config = config,
                 Workshops = workshops,
                 CompositionEntries = compositionEntries?.ToList() ?? new List<KbCompositionEntry>(),
+                DocumentLinks = documentLinks?.ToList() ?? new List<KbDocumentLink>(),
+                SoftwareRecords = softwareRecords?.ToList() ?? new List<KbSoftwareRecord>(),
                 LastWorkshop = includeCurrentWorkshop ? currentWorkshop : string.Empty
             };
 
@@ -299,6 +311,90 @@ namespace AsutpKnowledgeBase.Services
             return normalized;
         }
 
+        private static List<KbDocumentLink> NormalizeDocumentLinks(IEnumerable<KbDocumentLink>? links)
+        {
+            var normalized = new List<KbDocumentLink>();
+            if (links == null)
+                return normalized;
+
+            var usedDocumentIds = new HashSet<string>(StringComparer.Ordinal);
+            int normalizedIndex = 0;
+
+            foreach (var link in links)
+            {
+                if (link == null)
+                    continue;
+
+                string ownerNodeId = link.OwnerNodeId?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(ownerNodeId))
+                    continue;
+
+                KbDocumentKind kind = Enum.IsDefined(typeof(KbDocumentKind), link.Kind)
+                    ? link.Kind
+                    : KbDocumentKind.Manual;
+
+                normalized.Add(new KbDocumentLink
+                {
+                    DocumentId = NormalizeOwnedRecordId(
+                        link.DocumentId,
+                        "doc",
+                        ownerNodeId,
+                        $"{kind.ToString().ToLowerInvariant()}-{normalizedIndex}",
+                        usedDocumentIds),
+                    OwnerNodeId = ownerNodeId,
+                    Kind = kind,
+                    Title = link.Title?.Trim() ?? string.Empty,
+                    Path = link.Path?.Trim() ?? string.Empty,
+                    UpdatedAt = link.UpdatedAt?.Date
+                });
+
+                normalizedIndex++;
+            }
+
+            return normalized;
+        }
+
+        private static List<KbSoftwareRecord> NormalizeSoftwareRecords(IEnumerable<KbSoftwareRecord>? records)
+        {
+            var normalized = new List<KbSoftwareRecord>();
+            if (records == null)
+                return normalized;
+
+            var usedSoftwareIds = new HashSet<string>(StringComparer.Ordinal);
+            int normalizedIndex = 0;
+
+            foreach (var record in records)
+            {
+                if (record == null)
+                    continue;
+
+                string ownerNodeId = record.OwnerNodeId?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(ownerNodeId))
+                    continue;
+
+                normalized.Add(new KbSoftwareRecord
+                {
+                    SoftwareId = NormalizeOwnedRecordId(
+                        record.SoftwareId,
+                        "software",
+                        ownerNodeId,
+                        normalizedIndex.ToString(),
+                        usedSoftwareIds),
+                    OwnerNodeId = ownerNodeId,
+                    Title = record.Title?.Trim() ?? string.Empty,
+                    Path = record.Path?.Trim() ?? string.Empty,
+                    AddedAt = record.AddedAt?.Date,
+                    LastChangedAt = record.LastChangedAt?.Date,
+                    LastBackupAt = record.LastBackupAt?.Date,
+                    Notes = record.Notes?.Trim() ?? string.Empty
+                });
+
+                normalizedIndex++;
+            }
+
+            return normalized;
+        }
+
         private static string NormalizeCompositionEntryId(
             string? entryId,
             string parentNodeId,
@@ -319,6 +415,32 @@ namespace AsutpKnowledgeBase.Services
             {
                 string candidate = $"{deterministicId}-{suffix}";
                 if (usedEntryIds.Add(candidate))
+                    return candidate;
+
+                suffix++;
+            }
+        }
+
+        private static string NormalizeOwnedRecordId(
+            string? recordId,
+            string prefix,
+            string ownerNodeId,
+            string suffixSeed,
+            ISet<string> usedIds)
+        {
+            string normalizedExistingId = recordId?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(normalizedExistingId) && usedIds.Add(normalizedExistingId))
+                return normalizedExistingId;
+
+            string deterministicId = $"{prefix}-{ownerNodeId}-{suffixSeed}";
+            if (usedIds.Add(deterministicId))
+                return deterministicId;
+
+            int suffix = 2;
+            while (true)
+            {
+                string candidate = $"{deterministicId}-{suffix}";
+                if (usedIds.Add(candidate))
                     return candidate;
 
                 suffix++;

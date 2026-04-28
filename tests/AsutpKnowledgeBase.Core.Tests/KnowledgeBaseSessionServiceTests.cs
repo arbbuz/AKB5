@@ -131,6 +131,46 @@ public class KnowledgeBaseSessionServiceTests
     }
 
     [Fact]
+    public void RefreshDirtyState_DocumentLinksAffectSnapshot()
+    {
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(
+            new SavedData
+            {
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Р¦РµС… 1"] = new()
+                    {
+                        new KbNode
+                        {
+                            NodeId = "cabinet-1",
+                            Name = "Cabinet 1",
+                            LevelIndex = 0,
+                            NodeType = KbNodeType.Cabinet
+                        }
+                    }
+                },
+                LastWorkshop = "Р¦РµС… 1"
+            },
+            recordAsSavedState: true);
+
+        session.ReplaceDocumentLinks(
+            new[]
+            {
+                new KbDocumentLink
+                {
+                    OwnerNodeId = "cabinet-1",
+                    Kind = KbDocumentKind.Manual,
+                    Title = "Manual",
+                    Path = "\\\\srv\\manual.pdf"
+                }
+            });
+        session.RefreshDirtyState(session.GetCurrentWorkshopNodes());
+
+        Assert.True(session.IsDirty);
+    }
+
+    [Fact]
     public void TryAddWorkshop_RejectsDuplicateNamesIgnoringTrimAndCase()
     {
         var session = new KnowledgeBaseSessionService();

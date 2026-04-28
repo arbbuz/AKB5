@@ -30,6 +30,8 @@ namespace AsutpKnowledgeBase.Services
     {
         public bool SupportsEditing { get; init; }
 
+        public bool CanApplyTemplates { get; init; }
+
         public string SourceText { get; init; } = string.Empty;
 
         public string EmptyStateText { get; init; } = string.Empty;
@@ -62,22 +64,23 @@ namespace AsutpKnowledgeBase.Services
             {
                 return new KnowledgeBaseCompositionState
                 {
-                    EmptyStateText = "Вкладка Composition недоступна для выбранного узла."
+                    EmptyStateText = "Вкладка \"Состав\" недоступна для выбранного узла."
                 };
             }
 
             var typedEntries = GetOrderedTypedEntries(selectedNode.NodeId, compositionEntries);
             if (typedEntries.Count > 0)
-                return BuildTypedState(typedEntries);
+                return BuildTypedState(selectedNode.NodeType, typedEntries);
 
             if (selectedNode.Children.Count > 0)
                 return BuildLegacyFallbackState(selectedNode);
 
             return new KnowledgeBaseCompositionState
             {
+                CanApplyTemplates = SupportsTemplates(selectedNode.NodeType),
                 SupportsEditing = true,
-                SourceText = "Typed composition пока не заполнен.",
-                EmptyStateText = "Для этого узла ещё нет записей состава."
+                SourceText = "Записи состава еще не заполнены.",
+                EmptyStateText = "Для этого узла еще нет записей состава."
             };
         }
 
@@ -87,6 +90,13 @@ namespace AsutpKnowledgeBase.Services
             KbNodeType.Device => true,
             KbNodeType.Controller => true,
             KbNodeType.Module => true,
+            _ => false
+        };
+
+        public static bool SupportsTemplates(KbNodeType nodeType) => nodeType switch
+        {
+            KbNodeType.Cabinet => true,
+            KbNodeType.Controller => true,
             _ => false
         };
 
@@ -106,7 +116,9 @@ namespace AsutpKnowledgeBase.Services
                 .ToList();
         }
 
-        private static KnowledgeBaseCompositionState BuildTypedState(IReadOnlyList<KbCompositionEntry> typedEntries)
+        private static KnowledgeBaseCompositionState BuildTypedState(
+            KbNodeType nodeType,
+            IReadOnlyList<KbCompositionEntry> typedEntries)
         {
             var states = new List<KnowledgeBaseCompositionEntryState>(typedEntries.Count);
             var slottedStates = new List<KnowledgeBaseCompositionEntryState>();
@@ -125,7 +137,7 @@ namespace AsutpKnowledgeBase.Services
                     PositionText = entry.SlotNumber.HasValue
                         ? $"Слот {entry.SlotNumber.Value}"
                         : $"Позиция {auxiliaryIndex}",
-                    SlotText = entry.SlotNumber?.ToString(CultureInfo.InvariantCulture) ?? "—",
+                    SlotText = entry.SlotNumber?.ToString(CultureInfo.InvariantCulture) ?? "-",
                     ComponentTypeText = GetDisplayText(entry.ComponentType),
                     ComponentText = GetDisplayText(entry.Model),
                     IpAddressText = GetDisplayText(entry.IpAddress),
@@ -143,8 +155,9 @@ namespace AsutpKnowledgeBase.Services
 
             return new KnowledgeBaseCompositionState
             {
+                CanApplyTemplates = SupportsTemplates(nodeType),
                 SupportsEditing = true,
-                SourceText = "Показаны typed composition entries из JSON.",
+                SourceText = "Показаны записи состава из JSON.",
                 TotalEntries = states.Count,
                 SlottedEntries = typedEntries.Count(static entry => entry.SlotNumber.HasValue),
                 AuxiliaryEntries = typedEntries.Count(static entry => !entry.SlotNumber.HasValue),
@@ -168,12 +181,12 @@ namespace AsutpKnowledgeBase.Services
                     EntryId = string.Empty,
                     IsSlotted = false,
                     PositionText = $"Позиция {auxiliaryIndex}",
-                    SlotText = "—",
+                    SlotText = "-",
                     ComponentTypeText = child.NodeType.ToString(),
                     ComponentText = GetDisplayText(child.Name),
                     IpAddressText = GetDisplayText(child.Details?.IpAddress),
-                    LastCalibrationText = "—",
-                    NextCalibrationText = "—",
+                    LastCalibrationText = "-",
+                    NextCalibrationText = "-",
                     NotesText = GetDisplayText(child.Details?.Description)
                 };
 
@@ -183,8 +196,9 @@ namespace AsutpKnowledgeBase.Services
 
             return new KnowledgeBaseCompositionState
             {
+                CanApplyTemplates = SupportsTemplates(selectedNode.NodeType),
                 SupportsEditing = true,
-                SourceText = "Typed composition ещё не заполнен. Пока показана legacy-проекция дочерних узлов дерева.",
+                SourceText = "Записи состава еще не заполнены. Пока показаны дочерние узлы дерева.",
                 TotalEntries = states.Count,
                 SlottedEntries = 0,
                 AuxiliaryEntries = states.Count,
@@ -195,12 +209,12 @@ namespace AsutpKnowledgeBase.Services
 
         private static string GetDisplayText(string? value) =>
             string.IsNullOrWhiteSpace(value)
-                ? "—"
+                ? "-"
                 : value.Trim();
 
         private static string FormatDate(DateTime? value) =>
             value.HasValue
                 ? value.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
-                : "—";
+                : "-";
     }
 }

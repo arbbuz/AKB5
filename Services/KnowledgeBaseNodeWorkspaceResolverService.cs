@@ -86,7 +86,7 @@ namespace AsutpKnowledgeBase.Services
                     {
                         Kind = KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware,
                         Title = "Documentation and Software",
-                        Description = "Phase 4 will introduce document and software records for this node type."
+                        Description = "Shows typed document and software records for this node."
                     },
                     new KnowledgeBaseNodeWorkspaceTabState
                     {

@@ -23,8 +23,16 @@ namespace AsutpKnowledgeBase
             selectedNodeInfoScreen.OpenPhotoRequested += BtnOpenPhoto_Click;
             selectedNodeCompositionScreen.AddSlottedRequested += AddSlottedCompositionEntry;
             selectedNodeCompositionScreen.AddAuxiliaryRequested += AddAuxiliaryCompositionEntry;
+            selectedNodeCompositionScreen.ApplyTemplateRequested += ApplyCompositionTemplate;
+            selectedNodeCompositionScreen.CopyFromExistingRequested += CopyCompositionFromExistingObject;
             selectedNodeCompositionScreen.EditSelectedRequested += EditSelectedCompositionEntry;
             selectedNodeCompositionScreen.DeleteSelectedRequested += DeleteSelectedCompositionEntry;
+            selectedNodeDocsAndSoftwareScreen.AddSchemeRequested += AddSchemeDocumentLink;
+            selectedNodeDocsAndSoftwareScreen.AddDocumentRequested += AddManualOrInstructionLink;
+            selectedNodeDocsAndSoftwareScreen.AddSoftwareRequested += AddSoftwareRecord;
+            selectedNodeDocsAndSoftwareScreen.OpenSelectedRequested += OpenSelectedDocsAndSoftwareItem;
+            selectedNodeDocsAndSoftwareScreen.EditSelectedRequested += EditSelectedDocsAndSoftwareItem;
+            selectedNodeDocsAndSoftwareScreen.DeleteSelectedRequested += DeleteSelectedDocsAndSoftwareItem;
 
             btnUndo.Click += (s, e) => UndoAction();
             btnRedo.Click += (s, e) => RedoAction();
@@ -158,6 +166,9 @@ namespace AsutpKnowledgeBase
 
         private void AddChildNode()
             => _treeMutationUiWorkflowService.AddChildNode(CreateTreeMutationUiWorkflowContext());
+
+        private void AddChildNodeFromTemplate()
+            => _treeMutationUiWorkflowService.AddChildNodeFromTemplate(CreateTreeMutationUiWorkflowContext());
 
         private void DeleteNode()
             => _treeMutationUiWorkflowService.DeleteNode(CreateTreeMutationUiWorkflowContext());

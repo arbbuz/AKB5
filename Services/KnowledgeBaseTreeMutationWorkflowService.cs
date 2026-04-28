@@ -7,6 +7,7 @@ namespace AsutpKnowledgeBase.Services
         None,
         InvalidNodeName,
         DepthLimitExceeded,
+        TemplateUnavailable,
         ClipboardUnavailable,
         DeleteFailed,
         MoveWouldCreateCycle,
@@ -39,6 +40,7 @@ namespace AsutpKnowledgeBase.Services
         private readonly KnowledgeBaseSessionService _session;
         private readonly KnowledgeBaseSessionWorkflowService _sessionWorkflowService;
         private readonly KnowledgeBaseTreeController _treeController;
+        private readonly KnowledgeBaseCompositionTemplateService _compositionTemplateService = new();
         private readonly UndoRedoService _history;
 
         public KnowledgeBaseTreeMutationWorkflowService(
@@ -60,6 +62,10 @@ namespace AsutpKnowledgeBase.Services
         public bool CanRedo => _history.CanRedo;
 
         public bool CanAddNode(KbNode? parentNode) => _treeController.CanAddNode(parentNode);
+
+        public bool CanAddNodeFromTemplate(KbNode? parentNode) =>
+            _treeController.CanAddNode(parentNode) &&
+            _compositionTemplateService.TryResolveTemplateChildType(parentNode, out _);
 
         public bool CanPasteNode(KbNode? parentNode) => _treeController.CanPasteNode(parentNode);
 
@@ -96,12 +102,84 @@ namespace AsutpKnowledgeBase.Services
             return Success($"➕ Добавлено: {newNode.Name}", newNode);
         }
 
+        public KnowledgeBaseTreeMutationResult AddNodeFromTemplate(
+            string workshopName,
+            KbNode? parentNode,
+            string nodeName,
+            string templateId,
+            List<KbNode> currentRoots)
+        {
+            string normalizedName = nodeName.Trim();
+            if (string.IsNullOrWhiteSpace(normalizedName))
+            {
+                return Failure(
+                    KnowledgeBaseTreeMutationFailure.InvalidNodeName,
+                    "РќР°Р·РІР°РЅРёРµ СѓР·Р»Р° РЅРµ РґРѕР»Р¶РЅРѕ Р±С‹С‚СЊ РїСѓСЃС‚С‹Рј.");
+            }
+
+            if (!_treeController.CanAddNode(parentNode))
+            {
+                return Failure(
+                    KnowledgeBaseTreeMutationFailure.DepthLimitExceeded,
+                    $"Р”РѕСЃС‚РёРіРЅСѓС‚Р° РјР°РєСЃРёРјР°Р»СЊРЅР°СЏ РіР»СѓР±РёРЅР° ({_session.Config.MaxLevels}).");
+            }
+
+            if (!_compositionTemplateService.TryResolveTemplateChildType(parentNode, out var targetNodeType))
+            {
+                return Failure(
+                    KnowledgeBaseTreeMutationFailure.TemplateUnavailable,
+                    "Р”Р»СЏ РІС‹Р±СЂР°РЅРЅРѕРіРѕ СЂРѕРґРёС‚РµР»СЏ РЅРµС‚ РґРѕСЃС‚СѓРїРЅС‹С… С€Р°Р±Р»РѕРЅРѕРІ.");
+            }
+
+            var template = _compositionTemplateService.FindTemplate(templateId);
+            if (template == null || template.TargetNodeType != targetNodeType)
+            {
+                return Failure(
+                    KnowledgeBaseTreeMutationFailure.TemplateUnavailable,
+                    "Р’С‹Р±СЂР°РЅРЅС‹Р№ С€Р°Р±Р»РѕРЅ РЅРµРґРѕСЃС‚СѓРїРµРЅ РґР»СЏ СЌС‚РѕРіРѕ С‚РёРїР° СѓР·Р»Р°.");
+            }
+
+            string historySnapshot = CaptureHistorySnapshot(currentRoots);
+            var newNode = _treeController.AddNode(
+                workshopName,
+                parentNode,
+                new KbNode
+                {
+                    Name = normalizedName,
+                    NodeType = targetNodeType,
+                    Details = new KbNodeDetails
+                    {
+                        Location = KnowledgeBaseCompositionTemplateService.BuildInheritedLocation(parentNode)
+                    }
+                });
+
+            var templateResult = _compositionTemplateService.ApplyTemplate(
+                newNode,
+                _session.CompositionEntries,
+                template.TemplateId);
+            if (!templateResult.IsSuccess)
+            {
+                return Failure(
+                    KnowledgeBaseTreeMutationFailure.TemplateUnavailable,
+                    templateResult.ErrorMessage);
+            }
+
+            _session.ReplaceCompositionEntries(templateResult.CompositionEntries);
+            PersistVirtualWorkshopWrapperIfNeeded(parentNode, currentRoots);
+            _history.SaveState(historySnapshot);
+
+            return Success(
+                $"вћ• Р”РѕР±Р°РІР»РµРЅРѕ РїРѕ С€Р°Р±Р»РѕРЅСѓ: {newNode.Name}",
+                newNode);
+        }
+
         public KnowledgeBaseTreeMutationResult DeleteNode(
             string workshopName,
             KbNode nodeToRemove,
             List<KbNode> currentRoots)
         {
             string historySnapshot = CaptureHistorySnapshot(currentRoots);
+            var removedNodeIds = CollectSubtreeNodeIds(nodeToRemove);
             if (!_treeController.DeleteNode(workshopName, nodeToRemove))
             {
                 return Failure(
@@ -109,6 +187,7 @@ namespace AsutpKnowledgeBase.Services
                     "Не удалось удалить выбранный узел.");
             }
 
+            DeleteTypedDataForNodeIds(removedNodeIds);
             _history.SaveState(historySnapshot);
             return Success($"🗑 Удалено: {nodeToRemove.Name}");
         }
@@ -242,6 +321,47 @@ namespace AsutpKnowledgeBase.Services
                 StatusMessage = statusText,
                 ViewState = restoreResult.ViewState
             };
+        }
+
+        private void DeleteTypedDataForNodeIds(ISet<string> removedNodeIds)
+        {
+            if (removedNodeIds.Count == 0)
+                return;
+
+            var remainingCompositionEntries = _session.CompositionEntries
+                .Where(entry => !removedNodeIds.Contains(entry.ParentNodeId))
+                .ToList();
+            if (remainingCompositionEntries.Count != _session.CompositionEntries.Count)
+                _session.ReplaceCompositionEntries(remainingCompositionEntries);
+
+            var remainingDocumentLinks = _session.DocumentLinks
+                .Where(link => !removedNodeIds.Contains(link.OwnerNodeId))
+                .ToList();
+            if (remainingDocumentLinks.Count != _session.DocumentLinks.Count)
+                _session.ReplaceDocumentLinks(remainingDocumentLinks);
+
+            var remainingSoftwareRecords = _session.SoftwareRecords
+                .Where(record => !removedNodeIds.Contains(record.OwnerNodeId))
+                .ToList();
+            if (remainingSoftwareRecords.Count != _session.SoftwareRecords.Count)
+                _session.ReplaceSoftwareRecords(remainingSoftwareRecords);
+        }
+
+        private static HashSet<string> CollectSubtreeNodeIds(KbNode root)
+        {
+            var nodeIds = new HashSet<string>(StringComparer.Ordinal);
+            CollectSubtreeNodeIdsRecursive(root, nodeIds);
+            return nodeIds;
+        }
+
+        private static void CollectSubtreeNodeIdsRecursive(KbNode node, ISet<string> nodeIds)
+        {
+            string nodeId = node.NodeId?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(nodeId))
+                nodeIds.Add(nodeId);
+
+            foreach (var child in node.Children)
+                CollectSubtreeNodeIdsRecursive(child, nodeIds);
         }
 
         private KnowledgeBaseTreeMutationResult Success(string statusMessage, KbNode? affectedNode = null) =>

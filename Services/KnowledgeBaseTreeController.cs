@@ -27,10 +27,18 @@ namespace AsutpKnowledgeBase.Services
             return parentNode == null ? service.CanAddRootNode() : service.CanAddChild(parentNode);
         }
 
-        public KbNode AddNode(string workshopName, KbNode? parentNode, string nodeName)
+        public KbNode AddNode(string workshopName, KbNode? parentNode, string nodeName) =>
+            AddNode(
+                workshopName,
+                parentNode,
+                new KbNode
+                {
+                    Name = nodeName.Trim()
+                });
+
+        public KbNode AddNode(string workshopName, KbNode? parentNode, KbNode newNode)
         {
             var service = CreateKnowledgeBaseService();
-            var newNode = new KbNode { Name = nodeName.Trim() };
 
             if (parentNode == null)
                 service.AddRootNode(workshopName, newNode);

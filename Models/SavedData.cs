@@ -8,6 +8,8 @@ namespace AsutpKnowledgeBase.Models
         public KbConfig Config { get; set; } = new();
         public Dictionary<string, List<KbNode>> Workshops { get; set; } = new();
         public List<KbCompositionEntry> CompositionEntries { get; set; } = new();
+        public List<KbDocumentLink> DocumentLinks { get; set; } = new();
+        public List<KbSoftwareRecord> SoftwareRecords { get; set; } = new();
         public string LastWorkshop { get; set; } = string.Empty;
     }
 }
