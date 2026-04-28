@@ -21,6 +21,8 @@ namespace AsutpKnowledgeBase.Services
 
         public List<KbSoftwareRecord> SoftwareRecords { get; private set; } = new();
 
+        public List<KbNetworkFileReference> NetworkFileReferences { get; private set; } = new();
+
         public string CurrentWorkshop { get; private set; } = string.Empty;
 
         public string LastSavedWorkshop { get; private set; } = string.Empty;
@@ -48,6 +50,7 @@ namespace AsutpKnowledgeBase.Services
             CompositionEntries = normalizedData.CompositionEntries;
             DocumentLinks = normalizedData.DocumentLinks;
             SoftwareRecords = normalizedData.SoftwareRecords;
+            NetworkFileReferences = normalizedData.NetworkFileReferences;
             CurrentWorkshop = normalizedData.LastWorkshop;
 
             if (recordAsSavedState)
@@ -67,6 +70,7 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = CompositionEntries,
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = SoftwareRecords,
+                NetworkFileReferences = NetworkFileReferences,
                 LastWorkshop = CurrentWorkshop
             });
         }
@@ -80,6 +84,7 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries,
                 DocumentLinks,
                 SoftwareRecords,
+                NetworkFileReferences,
                 CurrentWorkshop,
                 includeCurrentWorkshop);
         }
@@ -216,6 +221,7 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = compositionEntries?.ToList() ?? new List<KbCompositionEntry>(),
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = SoftwareRecords,
+                NetworkFileReferences = NetworkFileReferences,
                 LastWorkshop = CurrentWorkshop
             }).CompositionEntries;
 
@@ -228,6 +234,7 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = CompositionEntries,
                 DocumentLinks = documentLinks?.ToList() ?? new List<KbDocumentLink>(),
                 SoftwareRecords = SoftwareRecords,
+                NetworkFileReferences = NetworkFileReferences,
                 LastWorkshop = CurrentWorkshop
             }).DocumentLinks;
 
@@ -240,8 +247,22 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = CompositionEntries,
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = softwareRecords?.ToList() ?? new List<KbSoftwareRecord>(),
+                NetworkFileReferences = NetworkFileReferences,
                 LastWorkshop = CurrentWorkshop
             }).SoftwareRecords;
+
+        public void ReplaceNetworkFileReferences(IEnumerable<KbNetworkFileReference> networkFileReferences) =>
+            NetworkFileReferences = KnowledgeBaseDataService.NormalizeSavedData(new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = Config,
+                Workshops = Workshops,
+                CompositionEntries = CompositionEntries,
+                DocumentLinks = DocumentLinks,
+                SoftwareRecords = SoftwareRecords,
+                NetworkFileReferences = networkFileReferences?.ToList() ?? new List<KbNetworkFileReference>(),
+                LastWorkshop = CurrentWorkshop
+            }).NetworkFileReferences;
 
         public void SetRequiresSave(bool requiresSave) => RequiresSave = requiresSave;
 

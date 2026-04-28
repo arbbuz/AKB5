@@ -31,6 +31,7 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = new List<KbCompositionEntry>(),
                 DocumentLinks = new List<KbDocumentLink>(),
                 SoftwareRecords = new List<KbSoftwareRecord>(),
+                NetworkFileReferences = new List<KbNetworkFileReference>(),
                 LastWorkshop = "Новый цех"
             };
 
@@ -42,6 +43,7 @@ namespace AsutpKnowledgeBase.Services
             var normalizedCompositionEntries = NormalizeCompositionEntries(source.CompositionEntries);
             var normalizedDocumentLinks = NormalizeDocumentLinks(source.DocumentLinks);
             var normalizedSoftwareRecords = NormalizeSoftwareRecords(source.SoftwareRecords);
+            var normalizedNetworkFileReferences = NormalizeNetworkFileReferences(source.NetworkFileReferences);
             var reindexService = new KnowledgeBaseService(normalizedConfig, normalizedWorkshops);
 
             foreach (var roots in normalizedWorkshops.Values)
@@ -58,6 +60,7 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = normalizedCompositionEntries,
                 DocumentLinks = normalizedDocumentLinks,
                 SoftwareRecords = normalizedSoftwareRecords,
+                NetworkFileReferences = normalizedNetworkFileReferences,
                 LastWorkshop = ResolveWorkshop(normalizedWorkshops, source.LastWorkshop)
             };
         }
@@ -206,6 +209,7 @@ namespace AsutpKnowledgeBase.Services
                 compositionEntries: null,
                 documentLinks: null,
                 softwareRecords: null,
+                networkFileReferences: null,
                 currentWorkshop,
                 includeCurrentWorkshop);
 
@@ -215,6 +219,7 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbCompositionEntry>? compositionEntries,
             IReadOnlyList<KbDocumentLink>? documentLinks,
             IReadOnlyList<KbSoftwareRecord>? softwareRecords,
+            IReadOnlyList<KbNetworkFileReference>? networkFileReferences,
             string currentWorkshop,
             bool includeCurrentWorkshop)
         {
@@ -226,6 +231,7 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = compositionEntries?.ToList() ?? new List<KbCompositionEntry>(),
                 DocumentLinks = documentLinks?.ToList() ?? new List<KbDocumentLink>(),
                 SoftwareRecords = softwareRecords?.ToList() ?? new List<KbSoftwareRecord>(),
+                NetworkFileReferences = networkFileReferences?.ToList() ?? new List<KbNetworkFileReference>(),
                 LastWorkshop = includeCurrentWorkshop ? currentWorkshop : string.Empty
             };
 
@@ -387,6 +393,47 @@ namespace AsutpKnowledgeBase.Services
                     LastChangedAt = record.LastChangedAt?.Date,
                     LastBackupAt = record.LastBackupAt?.Date,
                     Notes = record.Notes?.Trim() ?? string.Empty
+                });
+
+                normalizedIndex++;
+            }
+
+            return normalized;
+        }
+
+        private static List<KbNetworkFileReference> NormalizeNetworkFileReferences(
+            IEnumerable<KbNetworkFileReference>? references)
+        {
+            var normalized = new List<KbNetworkFileReference>();
+            if (references == null)
+                return normalized;
+
+            var usedNetworkAssetIds = new HashSet<string>(StringComparer.Ordinal);
+            int normalizedIndex = 0;
+
+            foreach (var reference in references)
+            {
+                if (reference == null)
+                    continue;
+
+                string ownerNodeId = reference.OwnerNodeId?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(ownerNodeId))
+                    continue;
+
+                string path = reference.Path?.Trim() ?? string.Empty;
+
+                normalized.Add(new KbNetworkFileReference
+                {
+                    NetworkAssetId = NormalizeOwnedRecordId(
+                        reference.NetworkAssetId,
+                        "network",
+                        ownerNodeId,
+                        normalizedIndex.ToString(),
+                        usedNetworkAssetIds),
+                    OwnerNodeId = ownerNodeId,
+                    Title = reference.Title?.Trim() ?? string.Empty,
+                    Path = path,
+                    PreviewKind = KnowledgeBaseNetworkPreviewService.ResolvePreviewKind(path)
                 });
 
                 normalizedIndex++;

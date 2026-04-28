@@ -34,6 +34,10 @@ namespace AsutpKnowledgeBase
             selectedNodeDocsAndSoftwareScreen.OpenSelectedRequested += OpenSelectedDocsAndSoftwareItem;
             selectedNodeDocsAndSoftwareScreen.EditSelectedRequested += EditSelectedDocsAndSoftwareItem;
             selectedNodeDocsAndSoftwareScreen.DeleteSelectedRequested += DeleteSelectedDocsAndSoftwareItem;
+            selectedNodeNetworkScreen.AddRequested += AddNetworkFileReference;
+            selectedNodeNetworkScreen.OpenSelectedRequested += OpenSelectedNetworkFileReference;
+            selectedNodeNetworkScreen.EditSelectedRequested += EditSelectedNetworkFileReference;
+            selectedNodeNetworkScreen.DeleteSelectedRequested += DeleteSelectedNetworkFileReference;
 
             btnUndo.Click += (s, e) => UndoAction();
             btnRedo.Click += (s, e) => RedoAction();

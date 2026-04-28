@@ -31,6 +31,8 @@ namespace AsutpKnowledgeBase.Services
         public KnowledgeBaseCompositionState Composition { get; init; } = new();
 
         public KnowledgeBaseDocsAndSoftwareState DocsAndSoftware { get; init; } = new();
+
+        public KnowledgeBaseNetworkState Network { get; init; } = new();
     }
 
     public class KnowledgeBaseFormState
@@ -66,6 +68,7 @@ namespace AsutpKnowledgeBase.Services
         private readonly KnowledgeBaseNodeWorkspaceResolverService _nodeWorkspaceResolverService = new();
         private readonly KnowledgeBaseCompositionStateService _compositionStateService = new();
         private readonly KnowledgeBaseDocsAndSoftwareStateService _docsAndSoftwareStateService = new();
+        private readonly KnowledgeBaseNetworkStateService _networkStateService = new();
 
         public KnowledgeBaseFormState Build(
             bool isDirty,
@@ -78,7 +81,8 @@ namespace AsutpKnowledgeBase.Services
             KbNode? selectedNode,
             IReadOnlyList<KbCompositionEntry>? compositionEntries = null,
             IReadOnlyList<KbDocumentLink>? documentLinks = null,
-            IReadOnlyList<KbSoftwareRecord>? softwareRecords = null)
+            IReadOnlyList<KbSoftwareRecord>? softwareRecords = null,
+            IReadOnlyList<KbNetworkFileReference>? networkFileReferences = null)
         {
             bool fileExists = File.Exists(currentDataPath);
             string currentDataFileName = Path.GetFileName(currentDataPath);
@@ -91,7 +95,8 @@ namespace AsutpKnowledgeBase.Services
                 selectedNode,
                 compositionEntries,
                 documentLinks,
-                softwareRecords);
+                softwareRecords,
+                networkFileReferences);
 
             return new KnowledgeBaseFormState
             {
@@ -174,7 +179,8 @@ namespace AsutpKnowledgeBase.Services
             KbNode? selectedNode,
             IReadOnlyList<KbCompositionEntry>? compositionEntries,
             IReadOnlyList<KbDocumentLink>? documentLinks,
-            IReadOnlyList<KbSoftwareRecord>? softwareRecords)
+            IReadOnlyList<KbSoftwareRecord>? softwareRecords,
+            IReadOnlyList<KbNetworkFileReference>? networkFileReferences)
         {
             if (selectedNode == null)
             {
@@ -207,7 +213,8 @@ namespace AsutpKnowledgeBase.Services
                 DocsAndSoftware = _docsAndSoftwareStateService.Build(
                     selectedNode,
                     documentLinks,
-                    softwareRecords)
+                    softwareRecords),
+                Network = _networkStateService.Build(selectedNode, networkFileReferences)
             };
         }
     }

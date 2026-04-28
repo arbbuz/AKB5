@@ -191,6 +191,17 @@ public class JsonStorageServiceCompositionTests
                         Notes = "Main backup"
                     }
                 },
+                NetworkFileReferences = new List<KbNetworkFileReference>
+                {
+                    new()
+                    {
+                        NetworkAssetId = "network-1",
+                        OwnerNodeId = "cabinet-1",
+                        Title = "Topology",
+                        Path = "\\\\srv\\network\\topology.png",
+                        PreviewKind = KbNetworkPreviewKind.Image
+                    }
+                },
                 LastWorkshop = "Shop 1"
             };
 
@@ -215,6 +226,13 @@ public class JsonStorageServiceCompositionTests
             Assert.Equal(new DateTime(2026, 4, 2), record.LastChangedAt);
             Assert.Equal(new DateTime(2026, 4, 3), record.LastBackupAt);
             Assert.Equal("Main backup", record.Notes);
+
+            var networkReference = Assert.Single(loaded.Data.NetworkFileReferences);
+            Assert.Equal("network-1", networkReference.NetworkAssetId);
+            Assert.Equal("cabinet-1", networkReference.OwnerNodeId);
+            Assert.Equal("Topology", networkReference.Title);
+            Assert.Equal("\\\\srv\\network\\topology.png", networkReference.Path);
+            Assert.Equal(KbNetworkPreviewKind.Image, networkReference.PreviewKind);
         }
         finally
         {

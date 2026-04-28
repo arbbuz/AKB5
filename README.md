@@ -1,120 +1,113 @@
 # AKB5
 
-## Что это
+## Overview
 
-`AKB5` — WinForms-приложение на C# / .NET 8 для ведения древовидной базы знаний по АСУТП.
+`AKB5` is a WinForms application on C# / .NET 8 for maintaining an engineering knowledge base for industrial automation systems.
 
-Базовый source of truth приложения — локальный JSON-файл с:
+Current direction of the project:
 
-- `SchemaVersion` (`2`)
-- `Config`
-- `Workshops`
-- `LastWorkshop`
+- the left side is a physical object tree
+- the right side is a type-driven workspace resolved by `NodeType`
+- JSON remains the source of truth
+- Excel workbook `v3` remains a legacy transition exchange format
+- user-facing program UI is Russian-only
 
-У каждого узла дерева теперь есть вложенная карточка `Details` с полями:
+The active integration branch is `interface`.
 
-- общие для всех узлов: `Description`, `Location`, `PhotoPath`
-- технические для уровней `2+`: `IpAddress`, `SchemaLink`
+## Current implementation state
 
-Excel нужен как редактируемый exchange-формат для выгрузки, ручной правки и обратного импорта.
+Implemented on `interface`:
 
-## Структура репозитория
+- `Phase 0` - user-facing levels removed from the main UX
+- `Phase 1` - persistent `NodeId` / `NodeType` foundation and migration
+- `Phase 2` - right-panel workspace host
+- `Phase 3` - typed `Composition`
+- `Phase 3B` - composition templates and copy-from-existing-object
+- `Phase 4` - typed `Documentation and Software`
+- `Phase 5` - scoped search across `Tree`, `Card`, `Composition`, and `Docs/Software`
 
-- [asutpKB.csproj](./asutpKB.csproj) — root WinForms-проект, который нужно `restore/build/publish`
-- [Program.cs](./Program.cs) — точка входа
-- [Forms/MainForm.cs](./Forms/MainForm.cs) — главный UI shell
-- [Models](./Models) — shared domain models
-- [Services](./Services) — не-UI логика, включая JSON storage и Excel exchange
-- [UiServices](./UiServices) — WinForms-специфичные workflow/services
-- [src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj](./src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj) — core library project для тестируемой логики
-- [tests/AsutpKnowledgeBase.Core.Tests](./tests/AsutpKnowledgeBase.Core.Tests) — regression/unit tests
-- [scripts/publish.ps1](./scripts/publish.ps1) и [scripts/publish.cmd](./scripts/publish.cmd) — reproducible publish flow
-- [.github/workflows/windows-build.yml](./.github/workflows/windows-build.yml) — Windows CI
+Next roadmap phase:
 
-## Excel Editable Format v3
+- `Phase 6` - file-based `Network` tab
 
-Единственный поддерживаемый Excel exchange-формат сейчас — workbook `v3`.
+## Data and persistence
 
-Workbook состоит из:
+Current JSON schema version: `3`
 
-- `Meta`
-- `Levels`
-- `Workshops`
-- отдельного листа узлов для каждого цеха
+Core persisted structures:
 
-Подробный контракт описан в [docs/workbook-v3.md](./docs/workbook-v3.md).
+- `KbNode`
+  - `NodeId`
+  - `NodeType`
+  - `Details`
+  - `Children`
+- `SavedData.CompositionEntries`
+- `SavedData.DocumentLinks`
+- `SavedData.SoftwareRecords`
 
-Коротко по редактированию:
+Important persistence rules:
 
-- редактируемые поля: `Workshops.WorkshopName`, `Workshops.IsLastSelected`, `Nodes.NodeName`, `Nodes.Description`, `Nodes.Location`, `Nodes.PhotoPath`, `Nodes.IpAddress`, `Nodes.SchemaLink`
-- технические поля: `WorkshopOrder`, `WorkshopId`, `NodesSheetKey`, `NodeId`, `ParentNodeId`, `SiblingOrder`, `LevelIndex`
-- производные/display-only поля: `Meta.LastWorkshop`, `Nodes.LevelName`, `Nodes.Path`
-- `Levels.LevelName` сохранён в workbook `v3` как legacy-слой совместимости и больше не используется приложением как пользовательская настройка интерфейса
-- поддерживаемые ручные изменения: rename цехов, rename узлов, правка карточки узла, смена выбранного цеха, перестановка колонок, добавление лишних пользовательских колонок, rename tab у листа узлов без поломки sheet metadata
-- не поддерживаются: правки `FormatId/FormatVersion`, ручная коррекция технических идентификаторов и порядков, удаление обязательных листов/колонок, поломка связи `WorkshopId`/`NodesSheetKey`, возврат к legacy `v1/v2`
+- JSON is the primary source of truth
+- typed cross-links must use stable IDs, never node names or paths
+- Excel `v3` must stay readable during the transition
 
-Совместимость:
+## Search
 
-- старый JSON `SchemaVersion = 1` загружается и нормализуется в память с пустыми `Details`
-- старые workbook `v3` без новых detail-колонок импортируются, недостающие поля считаются пустыми
+Current search behavior on `interface`:
 
-Примеры пользовательских ошибок, которые import должен ловить явно:
+- indexed matches across `Tree`, `Card`, `Composition`, and `Docs/Software`
+- scopes: `All`, `Tree`, `Card`, `Composition`, `Docs/Software`
+- navigation always returns to the owning node in the tree
+- results may switch the workspace to the preferred tab for the matched domain
 
-- `FormatVersion = 2` или другой неподдерживаемый формат
-- duplicate `WorkshopName`, `WorkshopId` или `NodesSheetKey`
-- невалидный `WorkshopOrder` / `LevelIndex`
-- missing sheet узлов для строки из `Workshops`
-- неизвестный `ParentNodeId` или broken node-sheet metadata
+## Documentation and Software
 
-## Publish / Deployment
+The `Documentation and Software` workflow is intentionally separate from `Composition`.
 
-Поддерживаемый publish target только один:
+It stores typed records for:
 
-- `win-x64`
+- schemes
+- manuals and instructions
+- software folders / software links
 
-`arm64` / `win-arm64` publish flow в проекте не поддерживается и не документируется.
+Software links record `AddedAt` in the main UI workflow.
 
-Собрать self-contained single-file publish можно так:
+## Excel workbook `v3`
+
+Workbook `v3` is still the supported exchange format.
+
+It remains a legacy-compatible transition layer and currently preserves:
+
+- `NodeId`
+- `NodeType`
+- node card fields such as `NodeName`, `Description`, `Location`, `PhotoPath`, `IpAddress`, `SchemaLink`
+
+Detailed workbook behavior and contract:
+
+- [docs/workbook-v3.md](./docs/workbook-v3.md)
+
+Deployment notes:
+
+- [docs/deployment.md](./docs/deployment.md)
+
+## Repository structure
+
+- [asutpKB.csproj](./asutpKB.csproj) - root WinForms project
+- [Program.cs](./Program.cs) - entry point
+- [Forms](./Forms) - WinForms shell and dialog logic
+- [Controls](./Controls) - reusable WinForms controls
+- [Models](./Models) - shared domain models
+- [Services](./Services) - non-UI logic, JSON, exchange, state services
+- [UiServices](./UiServices) - WinForms-specific workflow/services
+- [src/AsutpKnowledgeBase.Core](./src/AsutpKnowledgeBase.Core) - core library for testable logic
+- [tests/AsutpKnowledgeBase.Core.Tests](./tests/AsutpKnowledgeBase.Core.Tests) - regression and unit tests
+- [scripts/publish.ps1](./scripts/publish.ps1) and [scripts/publish.cmd](./scripts/publish.cmd) - publish flow
+
+## Build and test
+
+Typical local verification:
 
 ```powershell
-scripts\publish.cmd
-```
-
-или напрямую:
-
-```bash
-dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/publish/win-x64
-```
-
-Дополнительные правила publish:
-
-- publish идёт из root-проекта [asutpKB.csproj](./asutpKB.csproj), не из core project
-- output лежит в `artifacts/publish/win-x64`
-- основной исполняемый файл: `artifacts/publish/win-x64/asutpKB.exe`
-- trimming и AOT намеренно не включаются
-- обычный `build/debug` не становится global self-contained
-
-Как запускать на пользовательском ПК:
-
-1. Собрать publish flow на машине разработчика или взять CI artifact `win-x64`.
-2. Скопировать `artifacts/publish/win-x64/asutpKB.exe` на 64-битный Windows ПК.
-3. Запустить `asutpKB.exe`.
-4. Дополнительная установка .NET runtime на пользовательском ПК не требуется, потому что publish self-contained.
-
-Automation сейчас работает так:
-
-- `pull_request` запускает только `build-and-test`
-- `push` в `icon` и `interface` запускает `build-and-test` и `publish-win-x64`
-- ручной запуск через `workflow_dispatch` тоже собирает publish artifact
-- job `build-and-test` теперь дополнительно валидирует форматирование и базовый code style через `dotnet format` + root `.editorconfig` до `dotnet build` и `dotnet test`
-
-Детали по deployment и CI artifact собраны в [docs/deployment.md](./docs/deployment.md).
-
-## Build / Test
-
-Минимальная локальная верификация перед завершением изменений:
-
-```bash
 dotnet restore asutpKB.csproj
 dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj
 dotnet format asutpKB.csproj --verify-no-changes --severity warn --no-restore
@@ -122,17 +115,36 @@ dotnet format src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj --verif
 dotnet format tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity warn --no-restore
 dotnet build asutpKB.csproj -c Release --no-restore
 dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-restore
+```
+
+If a local app instance is running, `dotnet build` into the default `Release` output may fail because `asutpKB.exe` locks DLLs. In that case either close the app or use an isolated output path for verification.
+
+## Publish
+
+Supported publish target:
+
+- `win-x64`
+
+Publish command:
+
+```powershell
+scripts\publish.cmd
+```
+
+Or directly:
+
+```powershell
 dotnet publish asutpKB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/publish/win-x64
 ```
 
-Lint baseline намеренно минимальный:
+## Handoff documentation
 
-- analyzer baseline задаётся через root `Directory.Build.props`
-- formatting/code style baseline задаётся через root `.editorconfig`
-- CI не превращает все analyzer warnings в build errors на этом шаге
+Read these files in order for a new AI or engineering session:
 
-## AI Handoff
+1. [AGENTS.md](./AGENTS.md)
+2. [docs/codex-handoff.md](./docs/codex-handoff.md)
+3. [Roadmap.md](./Roadmap.md)
 
-- persistent guide для новой AI-сессии: [AGENTS.md](./AGENTS.md)
-- текущее состояние задачи: [docs/codex-handoff.md](./docs/codex-handoff.md)
-- reusable стартовый prompt для чистого диалога: [docs/codex-start-prompt.md](./docs/codex-start-prompt.md)
+Reusable startup prompt:
+
+- [docs/codex-start-prompt.md](./docs/codex-start-prompt.md)

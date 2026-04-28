@@ -4,10 +4,13 @@ Last updated: `2026-04-28`
 
 ## 2026-04-28
 
-- `Phase 4` is considered implemented on `interface`; the next roadmap phase is `Phase 5`
-- The `Documentation and Software` screen is intentionally not modeled like `Composition`; it uses separate typed link catalogs for schemes, instructions, and software folders
+- `Phase 5` is considered implemented on `interface`; the next roadmap phase is `Phase 6`
+- Search is now a typed domain workflow with fixed scopes: `All`, `Tree`, `Card`, `Composition`, and `Docs/Software`
+- Search navigation must continue to resolve to the owning tree node and may switch the workspace to the preferred tab for the matched domain
+- User-facing program UI should use Russian only going forward
+- `Phase 5` plus the subsequent UI-localization pass were validated by build/test on `2026-04-28`; tests are now `171/171`
+- `Documentation and Software` remains intentionally separate from `Composition`; it uses dedicated link catalogs for schemes, instructions, and software folders
 - The user-facing software workflow records `AddedAt`; legacy software timestamps/notes remain compatibility-only persistence fields
-- Manual verification on `2026-04-28` found no obvious bugs in the visible `Phase 4` workflow
 
 ## 2026-04-27
 
@@ -17,7 +20,7 @@ Last updated: `2026-04-28`
   - `docs/plans.md`
   - `docs/lessons-learned.md`
   - `docs/decision-log.md`
-- On the explicit command `дистиллируй знания из сессии`, update the fixed harness files in place
+- On the explicit command `РґРёСЃС‚РёР»Р»РёСЂСѓР№ Р·РЅР°РЅРёСЏ РёР· СЃРµСЃСЃРёРё`, update the fixed harness files in place
 - Do not create parallel session notes, duplicate summaries, or stale side documents for the same purpose
 - Use agreed tree taxonomy:
   - `L1` = department

@@ -345,6 +345,12 @@ namespace AsutpKnowledgeBase.Services
                 .ToList();
             if (remainingSoftwareRecords.Count != _session.SoftwareRecords.Count)
                 _session.ReplaceSoftwareRecords(remainingSoftwareRecords);
+
+            var remainingNetworkFileReferences = _session.NetworkFileReferences
+                .Where(reference => !removedNodeIds.Contains(reference.OwnerNodeId))
+                .ToList();
+            if (remainingNetworkFileReferences.Count != _session.NetworkFileReferences.Count)
+                _session.ReplaceNetworkFileReferences(remainingNetworkFileReferences);
         }
 
         private static HashSet<string> CollectSubtreeNodeIds(KbNode root)

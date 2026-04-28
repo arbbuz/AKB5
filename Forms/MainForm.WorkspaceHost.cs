@@ -125,9 +125,6 @@ namespace AsutpKnowledgeBase
                 case KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware:
                     lblSelectedNodeDocsPlaceholder.Text = tab.Description;
                     break;
-                case KnowledgeBaseNodeWorkspaceTabKind.Network:
-                    lblSelectedNodeNetworkPlaceholder.Text = tab.Description;
-                    break;
             }
         }
     }

@@ -193,6 +193,28 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
                 new KbSoftwareRecord { OwnerNodeId = "controller-1", Title = "Backup 2", Path = "\\\\srv\\backup2.zip" },
                 new KbSoftwareRecord { OwnerNodeId = "cabinet-2", Title = "Backup 3", Path = "\\\\srv\\backup3.zip" }
             });
+        session.ReplaceNetworkFileReferences(
+            new[]
+            {
+                new KbNetworkFileReference
+                {
+                    OwnerNodeId = "cabinet-1",
+                    Title = "Topology 1",
+                    Path = "\\\\srv\\network\\topology-1.png"
+                },
+                new KbNetworkFileReference
+                {
+                    OwnerNodeId = "controller-1",
+                    Title = "Topology 2",
+                    Path = "\\\\srv\\network\\topology-2.png"
+                },
+                new KbNetworkFileReference
+                {
+                    OwnerNodeId = "cabinet-2",
+                    Title = "Topology 3",
+                    Path = "\\\\srv\\network\\topology-3.png"
+                }
+            });
 
         var history = new UndoRedoService();
         var controller = new KnowledgeBaseTreeController(session);
@@ -208,6 +230,8 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
         Assert.Equal("cabinet-2", remainingDocument.OwnerNodeId);
         var remainingSoftware = Assert.Single(session.SoftwareRecords);
         Assert.Equal("cabinet-2", remainingSoftware.OwnerNodeId);
+        var remainingNetwork = Assert.Single(session.NetworkFileReferences);
+        Assert.Equal("cabinet-2", remainingNetwork.OwnerNodeId);
     }
 
     [Fact]

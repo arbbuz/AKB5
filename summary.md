@@ -2,15 +2,15 @@
 
 Last updated: `2026-04-28`
 
-`summary.md` больше не используется как источник текущего состояния проекта.
+`summary.md` is no longer used as a source of current project state.
 
-Используйте knowledge harness в `docs/`:
+Use the knowledge harness in `docs/`:
 
-- текущее состояние: `docs/codex-handoff.md`
-- активные планы: `docs/plans.md`
-- lessons learned: `docs/lessons-learned.md`
+- current state: `docs/codex-handoff.md`
+- active plans: `docs/plans.md`
+- reusable lessons: `docs/lessons-learned.md`
 - durable decisions: `docs/decision-log.md`
 
-Если нужно актуализировать знания после рабочей сессии, используйте команду:
+If you need to refresh project knowledge after a working session, use the command:
 
-`дистиллируй знания из сессии`
+`РґРёСЃС‚РёР»Р»РёСЂСѓР№ Р·РЅР°РЅРёСЏ РёР· СЃРµСЃСЃРёРё`

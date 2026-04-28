@@ -292,6 +292,56 @@ public class KnowledgeBaseDataServiceTests
     }
 
     [Fact]
+    public void NormalizeSavedData_NormalizesNetworkFileReferences()
+    {
+        var normalized = KnowledgeBaseDataService.NormalizeSavedData(
+            new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = new KbConfig
+                {
+                    MaxLevels = 2,
+                    LevelNames = new List<string> { "Shop", "Cabinet" }
+                },
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Shop 1"] = new List<KbNode>
+                    {
+                        new()
+                        {
+                            NodeId = "cabinet-1",
+                            Name = "Cabinet 1",
+                            LevelIndex = 0,
+                            NodeType = KbNodeType.Cabinet
+                        }
+                    }
+                },
+                NetworkFileReferences = new List<KbNetworkFileReference>
+                {
+                    new()
+                    {
+                        OwnerNodeId = " cabinet-1 ",
+                        Title = " Topology ",
+                        Path = " \\\\srv\\network\\topology.png ",
+                        PreviewKind = (KbNetworkPreviewKind)999
+                    },
+                    new()
+                    {
+                        OwnerNodeId = "   "
+                    }
+                },
+                LastWorkshop = "Shop 1"
+            });
+
+        var reference = Assert.Single(normalized.NetworkFileReferences);
+        Assert.Equal("cabinet-1", reference.OwnerNodeId);
+        Assert.Equal("Topology", reference.Title);
+        Assert.Equal("\\\\srv\\network\\topology.png", reference.Path);
+        Assert.Equal(KbNetworkPreviewKind.Image, reference.PreviewKind);
+        Assert.False(string.IsNullOrWhiteSpace(reference.NetworkAssetId));
+    }
+
+    [Fact]
     public void ResolveWorkshop_UsesPreferredWorkshopWhenItExists()
     {
         var workshops = new Dictionary<string, List<KbNode>>

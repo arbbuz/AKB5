@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Branch baseline: `interface`
-Implementation status: `Phase 0 complete on interface, Phase 1 complete on interface, Phase 2 complete on interface, Phase 3 complete on interface, Phase 3B complete on interface, Phase 4 complete on interface, next unfinished phase is Phase 5`
+Implementation status: `Phase 0 complete on interface, Phase 1 complete on interface, Phase 2 complete on interface, Phase 3 complete on interface, Phase 3B complete on interface, Phase 4 complete on interface, Phase 5 complete on interface, next unfinished phase is Phase 6`
 
 ## Goal
 
@@ -26,6 +26,7 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 9. File-based `Network` must provide:
    - a large preview inside the form
    - an `Open original` action
+10. User-facing program UI should use Russian only.
 ## Non-negotiable architecture rules
 
 1. `NodeType` must become more important than `LevelIndex`.
@@ -51,8 +52,10 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - `Phase 4` is complete on `interface`: `Documentation and Software` uses dedicated typed records stored in top-level `DocumentLinks` and `SoftwareRecords` collections keyed by `OwnerNodeId`.
 - The `Documentation and Software` screen is intentionally separate from `Composition`: it manages scheme links, instruction links, and software-folder links rather than slot-style entries.
 - The current `Phase 4` software UX records the date a software link was added (`AddedAt`); legacy software timestamps/notes remain compatibility-only persistence fields and are not part of the main editing UI.
-- On 2026-04-28, the current `Phase 4` worktree passed `dotnet build`, passed `dotnet test` (`169/169`), and was manually checked locally with no obvious bugs found.
-- Current search only matches the node name.
+- `Phase 5` is complete on `interface`: search indexes `Tree`, `Card`, `Composition`, and `Docs/Software` data and exposes scopes `All`, `Tree`, `Card`, `Composition`, and `Docs/Software`.
+- Search results now navigate back to the owning tree node and can switch the workspace to the preferred tab for the matched domain.
+- User-facing interface text on `interface` is now normalized to Russian; new UI work should keep Russian-only labels, prompts, and status text.
+- On 2026-04-28, the current `Phase 5` + localization worktree passed verification build, passed `dotnet test` (`171/171`), and the visible `Phase 5` workflow was manually checked locally with no obvious bugs found before the localization follow-up.
 - Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition.
 - Current CI workflow also verifies `dotnet format --verify-no-changes` for the app project, core project, and tests before `build` / `test`.
 
@@ -501,12 +504,12 @@ Completed on `interface`:
 4. Phase 3
 5. Phase 3B
 6. Phase 4
+7. Phase 5
 
 Remaining:
 
-1. Phase 5
-2. Phase 6
-3. Phase 7
+1. Phase 6
+2. Phase 7
 
 ## AI handoff / next-dialog instructions
 
@@ -530,10 +533,10 @@ Keep JSON source-of-truth compatibility and preserve Excel v3 as a legacy transi
 
 ## Immediate next step
 
-Continue Phase 5:
+Continue Phase 6:
 
-- redesign search around actual data domains instead of node-name-only matching
-- index `Tree`, `Card`, `Composition`, and `Docs/Software`
-- expose scope-aware search while preserving navigation back to the owning tree node
+- replace the current `Network` placeholder with a typed file-reference workflow
+- support image preview inside the right panel and `Open original`
+- reuse existing file/open patterns where possible before introducing new preview dependencies
 - keep JSON source-of-truth compatibility and Excel `v3` compatibility intact
-- update docs/tests as search redesign lands
+- keep all new user-facing UI text in Russian

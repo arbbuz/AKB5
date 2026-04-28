@@ -92,7 +92,7 @@ namespace AsutpKnowledgeBase.Services
                     {
                         Kind = KnowledgeBaseNodeWorkspaceTabKind.Network,
                         Title = "Сеть",
-                        Description = "На этапе 6 для этого типа узла будет добавлена вкладка сети."
+                        Description = "Показывает сетевые схемы, адресацию и другие файлы по сети для этого узла."
                     }
                 ]
             };

@@ -10,6 +10,7 @@ namespace AsutpKnowledgeBase.Models
         public List<KbCompositionEntry> CompositionEntries { get; set; } = new();
         public List<KbDocumentLink> DocumentLinks { get; set; } = new();
         public List<KbSoftwareRecord> SoftwareRecords { get; set; } = new();
+        public List<KbNetworkFileReference> NetworkFileReferences { get; set; } = new();
         public string LastWorkshop { get; set; } = string.Empty;
     }
 }

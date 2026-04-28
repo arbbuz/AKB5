@@ -25,6 +25,7 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseCompositionMutationService _compositionMutationService = new();
         private readonly KnowledgeBaseCompositionTemplateService _compositionTemplateService = new();
         private readonly KnowledgeBaseDocsAndSoftwareMutationService _docsAndSoftwareMutationService = new();
+        private readonly KnowledgeBaseNetworkMutationService _networkMutationService = new();
         private readonly KnowledgeBaseFormStateService _formStateService = new();
         private readonly KnowledgeBaseNodePresentationService _nodePresentationService = new();
         private readonly KnowledgeBaseTreeViewService _treeViewService = new();
@@ -77,8 +78,8 @@ namespace AsutpKnowledgeBase
         private KnowledgeBaseInfoScreenControl selectedNodeInfoScreen = null!;
         private KnowledgeBaseCompositionScreenControl selectedNodeCompositionScreen = null!;
         private KnowledgeBaseDocsAndSoftwareScreenControl selectedNodeDocsAndSoftwareScreen = null!;
+        private KnowledgeBaseNetworkScreenControl selectedNodeNetworkScreen = null!;
         private Label lblSelectedNodeDocsPlaceholder = null!;
-        private Label lblSelectedNodeNetworkPlaceholder = null!;
 
         private KbConfig _config => _session.Config;
         private string _currentWorkshop => _session.CurrentWorkshop;
@@ -156,6 +157,7 @@ namespace AsutpKnowledgeBase
                     selectedNodeInfoScreen.ApplyState(selectedNodeState);
                     selectedNodeCompositionScreen.ApplyState(selectedNodeState.Composition);
                     selectedNodeDocsAndSoftwareScreen.ApplyState(selectedNodeState.DocsAndSoftware);
+                    selectedNodeNetworkScreen.ApplyState(selectedNodeState.Network);
                 }
 
                 ScheduleDeferredLayout();
@@ -198,7 +200,8 @@ namespace AsutpKnowledgeBase
                 tvTree.SelectedNode?.Tag as KbNode,
                 _session.CompositionEntries,
                 _session.DocumentLinks,
-                _session.SoftwareRecords);
+                _session.SoftwareRecords,
+                _session.NetworkFileReferences);
         }
 
         private void ApplyFormState(KnowledgeBaseFormState formState, bool refreshSelectedNodeState)

@@ -171,6 +171,45 @@ public class KnowledgeBaseSessionServiceTests
     }
 
     [Fact]
+    public void RefreshDirtyState_NetworkFileReferencesAffectSnapshot()
+    {
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(
+            new SavedData
+            {
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех 1"] = new()
+                    {
+                        new KbNode
+                        {
+                            NodeId = "cabinet-1",
+                            Name = "Cabinet 1",
+                            LevelIndex = 0,
+                            NodeType = KbNodeType.Cabinet
+                        }
+                    }
+                },
+                LastWorkshop = "Цех 1"
+            },
+            recordAsSavedState: true);
+
+        session.ReplaceNetworkFileReferences(
+            new[]
+            {
+                new KbNetworkFileReference
+                {
+                    OwnerNodeId = "cabinet-1",
+                    Title = "Topology",
+                    Path = "\\\\srv\\network\\topology.png"
+                }
+            });
+        session.RefreshDirtyState(session.GetCurrentWorkshopNodes());
+
+        Assert.True(session.IsDirty);
+    }
+
+    [Fact]
     public void TryAddWorkshop_RejectsDuplicateNamesIgnoringTrimAndCase()
     {
         var session = new KnowledgeBaseSessionService();

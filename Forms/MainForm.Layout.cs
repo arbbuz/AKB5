@@ -254,7 +254,6 @@ namespace AsutpKnowledgeBase
             };
 
             lblSelectedNodeDocsPlaceholder = CreateWorkspacePlaceholderLabel();
-            lblSelectedNodeNetworkPlaceholder = CreateWorkspacePlaceholderLabel();
 
             selectedNodeCompositionScreen = new KnowledgeBaseCompositionScreenControl
             {
@@ -264,10 +263,14 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Fill
             };
+            selectedNodeNetworkScreen = new KnowledgeBaseNetworkScreenControl
+            {
+                Dock = DockStyle.Fill
+            };
 
             tabSelectedNodeComposition.Controls.Add(selectedNodeCompositionScreen);
             tabSelectedNodeDocsAndSoftware.Controls.Add(selectedNodeDocsAndSoftwareScreen);
-            tabSelectedNodeNetwork.Controls.Add(lblSelectedNodeNetworkPlaceholder);
+            tabSelectedNodeNetwork.Controls.Add(selectedNodeNetworkScreen);
 
             selectedNodeInfoScreen = new KnowledgeBaseInfoScreenControl
             {
