@@ -103,14 +103,14 @@ namespace AsutpKnowledgeBase.Services
             if (!KnowledgeBaseCompositionStateService.SupportsComposition(parentNode.NodeType))
             {
                 parentNodeId = string.Empty;
-                errorMessage = "Composition недоступен для выбранного узла.";
+                errorMessage = "Вкладка \"Состав\" недоступна для выбранного узла.";
                 return false;
             }
 
             parentNodeId = parentNode.NodeId?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(parentNodeId))
             {
-                errorMessage = "У выбранного узла отсутствует NodeId.";
+                errorMessage = "У выбранного узла отсутствует идентификатор.";
                 return false;
             }
 

@@ -4,10 +4,16 @@ using AsutpKnowledgeBase.Services;
 
 namespace AsutpKnowledgeBase.UiServices
 {
-    /// <summary>
-    /// Инкапсулирует WinForms-специфичную работу с TreeView:
-    /// построение узлов, восстановление expanded-state и навигацию по search-results.
-    /// </summary>
+    public sealed class KnowledgeBaseTreeSearchNavigationResult
+    {
+        public string StatusText { get; init; } = string.Empty;
+
+        public bool HasActiveResult { get; init; }
+
+        public KnowledgeBaseNodeWorkspaceTabKind PreferredTabKind { get; init; } =
+            KnowledgeBaseNodeWorkspaceTabKind.Info;
+    }
+
     public class KnowledgeBaseTreeViewService
     {
         private static readonly IComparer TreeNodeDisplayComparer = new KnowledgeBaseTreeNodeDisplayComparer();
@@ -90,8 +96,8 @@ namespace AsutpKnowledgeBase.UiServices
             return expandedNodes;
         }
 
-        public List<KbNode> GetVisibleTreeData(TreeView treeView)
-            => _currentProjection.VisibleRoots.ToList();
+        public List<KbNode> GetVisibleTreeData(TreeView treeView) =>
+            _currentProjection.VisibleRoots.ToList();
 
         public List<KbNode> GetPersistedTreeData(TreeView treeView) =>
             _currentProjection.CreatePersistedRootsSnapshot(_currentProjection.VisibleRoots);
@@ -102,30 +108,57 @@ namespace AsutpKnowledgeBase.UiServices
         public KbNode? ResolveActualParentNode(KbNode node, KbNode? visibleParentNode) =>
             _currentProjection.ResolveActualParent(node, visibleParentNode);
 
-        public string PerformSearch(TreeView treeView, KbConfig config, string searchText)
+        public KnowledgeBaseTreeSearchNavigationResult PerformSearch(
+            TreeView treeView,
+            KbConfig config,
+            string searchText,
+            KnowledgeBaseSearchScope scope,
+            IReadOnlyList<KbCompositionEntry>? compositionEntries,
+            IReadOnlyList<KbDocumentLink>? documentLinks,
+            IReadOnlyList<KbSoftwareRecord>? softwareRecords)
         {
             string normalizedSearch = searchText.Trim();
             if (string.IsNullOrEmpty(normalizedSearch))
-                return ClearSearch();
+            {
+                return new KnowledgeBaseTreeSearchNavigationResult
+                {
+                    StatusText = ClearSearch()
+                };
+            }
 
             ResetSearchResults();
 
-            var matches = _treeSearchService.FindMatches(GetVisibleTreeData(treeView), config, normalizedSearch);
+            var matches = _treeSearchService.FindMatches(
+                GetVisibleTreeData(treeView),
+                config,
+                normalizedSearch,
+                scope,
+                compositionEntries,
+                documentLinks,
+                softwareRecords);
+
             foreach (var match in matches)
             {
                 if (TryFindTreeNode(treeView.Nodes, match.Node, out var treeNode) && treeNode != null)
-                    _searchResults.Add(new SearchNavigationItem(treeNode));
+                    _searchResults.Add(new SearchNavigationItem(treeNode, match));
             }
 
             if (_searchResults.Count == 0)
-                return $"Поиск: \"{normalizedSearch}\" | Совпадений не найдено";
+            {
+                return new KnowledgeBaseTreeSearchNavigationResult
+                {
+                    StatusText = $"Поиск [{GetScopeText(scope)}]: \"{normalizedSearch}\" | Совпадений не найдено"
+                };
+            }
 
             _currentSearchIndex = 0;
-            SelectSearchResult(treeView, _currentSearchIndex);
-            return string.Empty;
+            return SelectSearchResult(treeView, _currentSearchIndex, scope);
         }
 
-        public string? NavigateSearch(TreeView treeView, int direction)
+        public KnowledgeBaseTreeSearchNavigationResult? NavigateSearch(
+            TreeView treeView,
+            int direction,
+            KnowledgeBaseSearchScope scope)
         {
             if (_searchResults.Count == 0)
                 return null;
@@ -136,11 +169,17 @@ namespace AsutpKnowledgeBase.UiServices
             if (_currentSearchIndex < 0)
                 _currentSearchIndex = _searchResults.Count - 1;
 
-            SelectSearchResult(treeView, _currentSearchIndex);
-            return string.Empty;
+            return SelectSearchResult(treeView, _currentSearchIndex, scope);
         }
 
-        public void RefreshSearch(TreeView treeView, KbConfig config, string searchText)
+        public void RefreshSearch(
+            TreeView treeView,
+            KbConfig config,
+            string searchText,
+            KnowledgeBaseSearchScope scope,
+            IReadOnlyList<KbCompositionEntry>? compositionEntries,
+            IReadOnlyList<KbDocumentLink>? documentLinks,
+            IReadOnlyList<KbSoftwareRecord>? softwareRecords)
         {
             if (string.IsNullOrWhiteSpace(searchText))
             {
@@ -148,7 +187,14 @@ namespace AsutpKnowledgeBase.UiServices
                 return;
             }
 
-            PerformSearch(treeView, config, searchText);
+            PerformSearch(
+                treeView,
+                config,
+                searchText,
+                scope,
+                compositionEntries,
+                documentLinks,
+                softwareRecords);
         }
 
         public string ClearSearch()
@@ -259,16 +305,32 @@ namespace AsutpKnowledgeBase.UiServices
             node.Expand();
         }
 
-        private void SelectSearchResult(TreeView treeView, int index)
+        private KnowledgeBaseTreeSearchNavigationResult SelectSearchResult(
+            TreeView treeView,
+            int index,
+            KnowledgeBaseSearchScope scope)
         {
             if (index < 0 || index >= _searchResults.Count)
-                return;
+            {
+                return new KnowledgeBaseTreeSearchNavigationResult
+                {
+                    StatusText = string.Empty
+                };
+            }
 
-            var node = _searchResults[index].TreeNode;
+            var searchResult = _searchResults[index];
+            var node = searchResult.TreeNode;
             ExpandToNode(node);
             treeView.SelectedNode = node;
             treeView.Focus();
             RefreshTreeViewVisuals(treeView);
+
+            return new KnowledgeBaseTreeSearchNavigationResult
+            {
+                StatusText = BuildSearchStatusText(searchResult.Match, index, _searchResults.Count, scope),
+                HasActiveResult = true,
+                PreferredTabKind = searchResult.Match.PreferredTabKind
+            };
         }
 
         private void CollectExpandedNodes(TreeNodeCollection nodes, ISet<KbNode> expandedNodes)
@@ -288,7 +350,35 @@ namespace AsutpKnowledgeBase.UiServices
             _currentSearchIndex = -1;
         }
 
-        private sealed record SearchNavigationItem(TreeNode TreeNode);
+        private static string BuildSearchStatusText(
+            KnowledgeBaseTreeSearchMatch match,
+            int index,
+            int total,
+            KnowledgeBaseSearchScope scope) =>
+            $"Поиск [{GetScopeText(scope)}]: {index + 1}/{total} | {GetDomainText(match.Domain)} | {match.NodePath} | {match.MatchFieldLabel}: {match.MatchValue}";
+
+        private static string GetScopeText(KnowledgeBaseSearchScope scope) =>
+            scope switch
+            {
+                KnowledgeBaseSearchScope.All => "Все",
+                KnowledgeBaseSearchScope.Tree => "Дерево",
+                KnowledgeBaseSearchScope.Card => "Карточка",
+                KnowledgeBaseSearchScope.Composition => "Состав",
+                KnowledgeBaseSearchScope.DocsAndSoftware => "Документация и ПО",
+                _ => "Все"
+            };
+
+        private static string GetDomainText(KnowledgeBaseSearchDomain domain) =>
+            domain switch
+            {
+                KnowledgeBaseSearchDomain.Tree => "Дерево",
+                KnowledgeBaseSearchDomain.Card => "Карточка",
+                KnowledgeBaseSearchDomain.Composition => "Состав",
+                KnowledgeBaseSearchDomain.DocsAndSoftware => "Документация и ПО",
+                _ => "Дерево"
+            };
+
+        private sealed record SearchNavigationItem(TreeNode TreeNode, KnowledgeBaseTreeSearchMatch Match);
 
         private sealed class KnowledgeBaseTreeNodeDisplayComparer : IComparer
         {

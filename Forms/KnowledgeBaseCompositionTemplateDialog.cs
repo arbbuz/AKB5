@@ -114,7 +114,7 @@ namespace AsutpKnowledgeBase
             };
             var btnOk = new Button
             {
-                Text = "OK",
+                Text = "Выбрать",
                 AutoSize = true
             };
             btnOk.Click += BtnOk_Click;

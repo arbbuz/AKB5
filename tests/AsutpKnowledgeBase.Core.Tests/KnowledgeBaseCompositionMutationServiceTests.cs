@@ -132,6 +132,6 @@ public class KnowledgeBaseCompositionMutationServiceTests
             });
 
         Assert.False(result.IsSuccess);
-        Assert.Contains("Composition", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Состав", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
     }
 }

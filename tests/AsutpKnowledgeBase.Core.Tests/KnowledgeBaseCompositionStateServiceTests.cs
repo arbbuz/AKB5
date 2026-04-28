@@ -59,7 +59,7 @@ public class KnowledgeBaseCompositionStateServiceTests
         Assert.Equal(2, state.SlottedEntryStates.Count);
         Assert.Single(state.AuxiliaryEntryStates);
         Assert.True(state.SupportsEditing);
-        Assert.Contains("JSON", state.SourceText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("сохран", state.SourceText, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

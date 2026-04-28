@@ -50,6 +50,7 @@ namespace AsutpKnowledgeBase
         private SplitContainer splitMain = null!;
         private ComboBox cmbWorkshops = null!;
         private TreeView tvTree = null!;
+        private ToolStripComboBox cmbSearchScope = null!;
         private ToolStripTextBox txtSearch = null!;
         private ToolStripButton btnSearchPrev = null!;
         private ToolStripButton btnSearchNext = null!;
@@ -364,6 +365,23 @@ namespace AsutpKnowledgeBase
             txtSearch?.TextBox is { IsDisposed: false } searchTextBox &&
             searchTextBox.ContainsFocus;
 
+        private KnowledgeBaseSearchScope GetSelectedSearchScope() =>
+            cmbSearchScope?.SelectedItem is SearchScopeOption option
+                ? option.Scope
+                : KnowledgeBaseSearchScope.All;
+
+        private void ApplySearchNavigationResult(KnowledgeBaseTreeSearchNavigationResult? result)
+        {
+            if (result == null)
+                return;
+
+            if (!string.IsNullOrWhiteSpace(result.StatusText))
+                SetLastActionText(result.StatusText);
+
+            if (result.HasActiveResult)
+                SelectWorkspaceTab(result.PreferredTabKind);
+        }
+
         private static void ApplySplitLayout(
             SplitContainer splitContainer,
             int panel1MinSize,
@@ -409,6 +427,10 @@ namespace AsutpKnowledgeBase
 
             ctxAddFromTemplate.Text = "Добавить из шаблона...";
             tvTree.ContextMenuStrip.Items.Insert(2, ctxAddFromTemplate);
+        }
+        private sealed record SearchScopeOption(KnowledgeBaseSearchScope Scope, string DisplayText)
+        {
+            public override string ToString() => DisplayText;
         }
     }
 }

@@ -334,7 +334,7 @@ namespace AsutpKnowledgeBase.UiServices
 
         private void ConfigureJsonDialog(FileDialog dialog)
         {
-            dialog.Filter = "JSON (*.json)|*.json|Все файлы (*.*)|*.*";
+            dialog.Filter = "Файлы JSON (*.json)|*.json|Все файлы (*.*)|*.*";
             dialog.DefaultExt = "json";
             dialog.AddExtension = true;
 

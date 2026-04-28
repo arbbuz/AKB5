@@ -78,7 +78,7 @@ namespace AsutpKnowledgeBase
             };
             var btnOk = new Button
             {
-                Text = "OK",
+                Text = "Сохранить",
                 AutoSize = true
             };
             btnOk.Click += BtnOk_Click;

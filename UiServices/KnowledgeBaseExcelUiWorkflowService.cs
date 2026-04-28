@@ -37,8 +37,8 @@ namespace AsutpKnowledgeBase.UiServices
         {
             using var dialog = new SaveFileDialog
             {
-                Title = "Экспортировать базу в Excel Workbook",
-                Filter = "Excel Workbook (*.xlsx)|*.xlsx|Все файлы (*.*)|*.*",
+                Title = "Экспортировать базу в книгу Excel",
+                Filter = "Книги Excel (*.xlsx)|*.xlsx|Все файлы (*.*)|*.*",
                 DefaultExt = "xlsx",
                 AddExtension = true,
                 OverwritePrompt = true,
@@ -81,8 +81,8 @@ namespace AsutpKnowledgeBase.UiServices
 
             using var dialog = new OpenFileDialog
             {
-                Title = "Импортировать базу из Excel Workbook",
-                Filter = "Excel Workbook (*.xlsx)|*.xlsx|Все файлы (*.*)|*.*",
+                Title = "Импортировать базу из книги Excel",
+                Filter = "Книги Excel (*.xlsx)|*.xlsx|Все файлы (*.*)|*.*",
                 CheckFileExists = true
             };
 

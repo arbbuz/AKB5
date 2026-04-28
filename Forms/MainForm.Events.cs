@@ -17,6 +17,7 @@ namespace AsutpKnowledgeBase
             btnSearch.Click += (s, e) => PerformSearch();
             btnSearchPrev.Click += (s, e) => NavigateSearch(-1);
             btnSearchNext.Click += (s, e) => NavigateSearch(1);
+            cmbSearchScope.SelectedIndexChanged += (s, e) => SearchWithinSelectedScope();
             txtSearch.TextBox.PreviewKeyDown += TxtSearch_PreviewKeyDown;
             txtSearch.TextBox.KeyDown += TxtSearch_KeyDown;
             selectedNodeInfoScreen.BrowsePhotoRequested += BtnBrowsePhoto_Click;
@@ -149,16 +150,34 @@ namespace AsutpKnowledgeBase
 
         private void PerformSearch()
         {
-            SetLastActionText(_treeViewService.PerformSearch(tvTree, _config, txtSearch.Text));
+            var result = _treeViewService.PerformSearch(
+                tvTree,
+                _config,
+                txtSearch.Text,
+                GetSelectedSearchScope(),
+                _session.CompositionEntries,
+                _session.DocumentLinks,
+                _session.SoftwareRecords);
+            ApplySearchNavigationResult(result);
             UpdateSearchButtons();
         }
 
         private void NavigateSearch(int direction)
         {
-            var statusText = _treeViewService.NavigateSearch(tvTree, direction);
+            var result = _treeViewService.NavigateSearch(tvTree, direction, GetSelectedSearchScope());
             UpdateSearchButtons();
-            if (!string.IsNullOrWhiteSpace(statusText))
-                SetLastActionText(statusText);
+            ApplySearchNavigationResult(result);
+        }
+
+        private void SearchWithinSelectedScope()
+        {
+            if (string.IsNullOrWhiteSpace(txtSearch.Text))
+            {
+                ClearSearch();
+                return;
+            }
+
+            PerformSearch();
         }
 
         private void AddNode()

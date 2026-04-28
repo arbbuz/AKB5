@@ -96,6 +96,19 @@ namespace AsutpKnowledgeBase
                 tabSelectedNodeWorkspace.SelectedIndex = 0;
         }
 
+        private void SelectWorkspaceTab(KnowledgeBaseNodeWorkspaceTabKind tabKind)
+        {
+            foreach (TabPage tabPage in tabSelectedNodeWorkspace.TabPages)
+            {
+                if (tabPage.Tag is KnowledgeBaseNodeWorkspaceTabKind currentTabKind &&
+                    currentTabKind == tabKind)
+                {
+                    tabSelectedNodeWorkspace.SelectedTab = tabPage;
+                    return;
+                }
+            }
+        }
+
         private TabPage GetWorkspaceTabPage(KnowledgeBaseNodeWorkspaceTabKind tabKind) => tabKind switch
         {
             KnowledgeBaseNodeWorkspaceTabKind.Info => tabSelectedNodeInfo,

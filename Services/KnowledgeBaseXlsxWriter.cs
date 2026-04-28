@@ -189,14 +189,14 @@ namespace AsutpKnowledgeBase.Services
         {
             yield return new[]
             {
-                WorksheetCell.String("Workbook v3", ReadOnlyStyleIndex),
-                WorksheetCell.String("Этот workbook нужен для ручной правки обменного формата. JSON остаётся основным source of truth.", WrappedReadOnlyStyleIndex)
+                WorksheetCell.String("Книга v3", ReadOnlyStyleIndex),
+                WorksheetCell.String("Эта книга нужна для ручной правки обменного формата. JSON остаётся основным источником данных.", WrappedReadOnlyStyleIndex)
             };
             yield return new[]
             {
                 WorksheetCell.String("Можно редактировать", ReadOnlyStyleIndex),
                 WorksheetCell.String(
-                    "Workshops.WorkshopName, Workshops.IsLastSelected и поля узлов NodeName, Description, Location, PhotoPath, IpAddress, SchemaLink. Лист Levels сохранён как legacy-слой совместимости и обычно не требует правки.",
+                    "Workshops.WorkshopName, Workshops.IsLastSelected и поля узлов NodeName, Description, Location, PhotoPath, IpAddress, SchemaLink. Лист Levels сохранён как слой совместимости и обычно не требует правки.",
                     WrappedReadOnlyStyleIndex)
             };
             yield return new[]
@@ -206,7 +206,7 @@ namespace AsutpKnowledgeBase.Services
             };
             yield return new[]
             {
-                WorksheetCell.String("Read-only колонки", ReadOnlyStyleIndex),
+                WorksheetCell.String("Колонки только для чтения", ReadOnlyStyleIndex),
                 WorksheetCell.String("Meta.*, Nodes.LevelName и Nodes.Path нужны для контекста и не редактируются.", WrappedReadOnlyStyleIndex)
             };
             yield return new[]
@@ -705,7 +705,7 @@ namespace AsutpKnowledgeBase.Services
                     return candidate;
             }
 
-            throw new InvalidOperationException("Не удалось подобрать уникальное имя worksheet для цеха.");
+            throw new InvalidOperationException("Не удалось подобрать уникальное имя листа для цеха.");
         }
 
         private static string SanitizeWorksheetName(string value)

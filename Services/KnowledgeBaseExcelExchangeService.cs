@@ -161,7 +161,7 @@ namespace AsutpKnowledgeBase.Services
                     return new KnowledgeBaseExcelImportResult
                     {
                         IsSuccess = false,
-                        ErrorMessage = "Поддерживается только формат Excel Workbook (*.xlsx)."
+                        ErrorMessage = "Поддерживается только формат книги Excel (*.xlsx)."
                     };
                 }
 

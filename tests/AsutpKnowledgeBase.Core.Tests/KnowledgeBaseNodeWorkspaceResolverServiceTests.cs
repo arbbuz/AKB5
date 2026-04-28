@@ -15,7 +15,7 @@ public class KnowledgeBaseNodeWorkspaceResolverServiceTests
         Assert.False(workspace.UseTabHost);
         var tab = Assert.Single(workspace.Tabs);
         Assert.Equal(KnowledgeBaseNodeWorkspaceTabKind.Info, tab.Kind);
-        Assert.Equal("Info", tab.Title);
+        Assert.Equal("Карточка", tab.Title);
     }
 
     [Fact]

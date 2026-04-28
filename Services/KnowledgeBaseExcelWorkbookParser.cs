@@ -71,12 +71,12 @@ namespace AsutpKnowledgeBase.Services
                 if (formatVersion is 1 or 2)
                 {
                     throw new KnowledgeBaseExcelImportException(
-                        $"Excel exchange форматы v1/v2 больше не поддерживаются. " +
+                        $"Форматы обмена Excel v1/v2 больше не поддерживаются. " +
                         $"Ожидался WorkbookFormatVersion = {KnowledgeBaseExcelExchangeService.WorkbookFormatVersion}, получено {formatVersion}.");
                 }
 
                 throw new KnowledgeBaseExcelImportException(
-                    $"Неподдерживаемая версия Excel exchange: {formatVersion}. " +
+                    $"Неподдерживаемая версия формата обмена Excel: {formatVersion}. " +
                     $"Ожидалась версия {KnowledgeBaseExcelExchangeService.WorkbookFormatVersion}.");
             }
 
@@ -606,7 +606,7 @@ namespace AsutpKnowledgeBase.Services
                 {
                     throw new KnowledgeBaseExcelImportException(
                         $"Названия цехов '{projectedNames[projectedSheetName]}' и '{workshop.WorkshopName}' " +
-                        $"после sanitization/truncation дают один и тот же tab name '{projectedSheetName}'. " +
+                        $"после нормализации и усечения дают одно и то же имя листа '{projectedSheetName}'. " +
                         "Импорт остановлен во избежание опасной неоднозначности.");
                 }
             }
@@ -894,7 +894,7 @@ namespace AsutpKnowledgeBase.Services
                 "1" => true,
                 "0" => false,
                 _ => throw new KnowledgeBaseExcelImportException(
-                    $"Значение '{context}' должно быть TRUE/FALSE или 1/0, получено '{value}'.")
+                    $"Значение '{context}' должно быть TRUE/FALSE либо 1/0, получено '{value}'.")
             };
         }
 

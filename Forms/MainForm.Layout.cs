@@ -137,7 +137,7 @@ namespace AsutpKnowledgeBase
                 ImageList = KnowledgeBaseTreeNodeVisuals.CreateImageList()
             };
 
-            toolTip.SetToolTip(tvTree, "Drag & Drop для перемещения, ПКМ для меню");
+            toolTip.SetToolTip(tvTree, "Перетаскивание для перемещения, правая кнопка мыши для меню");
             grpTree.Controls.Add(tvTree);
             leftLayout.Controls.Add(grpTree, 0, 2);
 
@@ -152,13 +152,32 @@ namespace AsutpKnowledgeBase
                 Alignment = ToolStripItemAlignment.Right
             };
 
+            cmbSearchScope = new ToolStripComboBox
+            {
+                Alignment = ToolStripItemAlignment.Right,
+                AutoSize = false,
+                Size = new Size(130, 25),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Margin = new Padding(0, 1, 6, 1),
+                ToolTipText = "Область поиска"
+            };
+            cmbSearchScope.Items.AddRange(new object[]
+            {
+                new SearchScopeOption(KnowledgeBaseSearchScope.All, "Все"),
+                new SearchScopeOption(KnowledgeBaseSearchScope.Tree, "Дерево"),
+                new SearchScopeOption(KnowledgeBaseSearchScope.Card, "Карточка"),
+                new SearchScopeOption(KnowledgeBaseSearchScope.Composition, "Состав"),
+                new SearchScopeOption(KnowledgeBaseSearchScope.DocsAndSoftware, "Документация и ПО")
+            });
+            cmbSearchScope.SelectedIndex = 0;
+
             txtSearch = new ToolStripTextBox
             {
                 Alignment = ToolStripItemAlignment.Right,
                 AutoSize = false,
                 Size = new Size(220, 25),
                 Margin = new Padding(0, 1, 4, 1),
-                ToolTipText = "Поиск по имени и пути"
+                ToolTipText = "Поиск по выбранной области"
             };
             txtSearch.TextBox.PlaceholderText = "Поиск";
 
@@ -181,6 +200,7 @@ namespace AsutpKnowledgeBase
                 btnSearchPrev,
                 btnSearch,
                 txtSearch,
+                cmbSearchScope,
                 searchSeparator
             });
         }
@@ -216,19 +236,19 @@ namespace AsutpKnowledgeBase
                 TabStop = false
             };
 
-            tabSelectedNodeInfo = new TabPage("Info")
+            tabSelectedNodeInfo = new TabPage("Карточка")
             {
                 Tag = KnowledgeBaseNodeWorkspaceTabKind.Info
             };
-            tabSelectedNodeComposition = new TabPage("Composition")
+            tabSelectedNodeComposition = new TabPage("Состав")
             {
                 Tag = KnowledgeBaseNodeWorkspaceTabKind.Composition
             };
-            tabSelectedNodeDocsAndSoftware = new TabPage("Documentation and Software")
+            tabSelectedNodeDocsAndSoftware = new TabPage("Документация и ПО")
             {
                 Tag = KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware
             };
-            tabSelectedNodeNetwork = new TabPage("Network")
+            tabSelectedNodeNetwork = new TabPage("Сеть")
             {
                 Tag = KnowledgeBaseNodeWorkspaceTabKind.Network
             };

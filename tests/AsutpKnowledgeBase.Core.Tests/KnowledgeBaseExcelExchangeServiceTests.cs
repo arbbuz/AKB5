@@ -58,7 +58,7 @@ public class KnowledgeBaseExcelExchangeServiceTests
         Assert.Contains(instructionRows, row => row.SequenceEqual(new[]
         {
             "Можно редактировать",
-            "Workshops.WorkshopName, Workshops.IsLastSelected и поля узлов NodeName, Description, Location, PhotoPath, IpAddress, SchemaLink. Лист Levels сохранён как legacy-слой совместимости и обычно не требует правки."
+            "Workshops.WorkshopName, Workshops.IsLastSelected и поля узлов NodeName, Description, Location, PhotoPath, IpAddress, SchemaLink. Лист Levels сохранён как слой совместимости и обычно не требует правки."
         }));
         Assert.Contains(metaRows, row => row.SequenceEqual(new[] { "FormatId", KnowledgeBaseExcelExchangeService.WorkbookFormatId }));
         Assert.Contains(metaRows, row => row.SequenceEqual(new[] { "FormatVersion", KnowledgeBaseExcelExchangeService.WorkbookFormatVersion.ToString() }));
@@ -712,7 +712,7 @@ public class KnowledgeBaseExcelExchangeServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.ErrorMessage);
-        Assert.Contains("sanitization/truncation", result.ErrorMessage);
+        Assert.Contains("нормализации и усечения", result.ErrorMessage);
     }
 
     [Fact]

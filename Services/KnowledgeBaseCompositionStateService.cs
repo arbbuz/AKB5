@@ -157,7 +157,7 @@ namespace AsutpKnowledgeBase.Services
             {
                 CanApplyTemplates = SupportsTemplates(nodeType),
                 SupportsEditing = true,
-                SourceText = "Показаны записи состава из JSON.",
+                SourceText = "Показаны сохранённые записи состава.",
                 TotalEntries = states.Count,
                 SlottedEntries = typedEntries.Count(static entry => entry.SlotNumber.HasValue),
                 AuxiliaryEntries = typedEntries.Count(static entry => !entry.SlotNumber.HasValue),

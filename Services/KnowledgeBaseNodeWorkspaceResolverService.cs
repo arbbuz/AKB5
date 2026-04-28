@@ -60,7 +60,7 @@ namespace AsutpKnowledgeBase.Services
                     new KnowledgeBaseNodeWorkspaceTabState
                     {
                         Kind = KnowledgeBaseNodeWorkspaceTabKind.Info,
-                        Title = "Info"
+                        Title = "Карточка"
                     }
                 ]
             };
@@ -74,25 +74,25 @@ namespace AsutpKnowledgeBase.Services
                     new KnowledgeBaseNodeWorkspaceTabState
                     {
                         Kind = KnowledgeBaseNodeWorkspaceTabKind.Info,
-                        Title = "Info"
+                        Title = "Карточка"
                     },
                     new KnowledgeBaseNodeWorkspaceTabState
                     {
                         Kind = KnowledgeBaseNodeWorkspaceTabKind.Composition,
-                        Title = "Composition",
-                        Description = "Shows typed composition entries for this node type."
+                        Title = "Состав",
+                        Description = "Показывает типизированные записи состава для этого типа узла."
                     },
                     new KnowledgeBaseNodeWorkspaceTabState
                     {
                         Kind = KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware,
-                        Title = "Documentation and Software",
-                        Description = "Shows typed document and software records for this node."
+                        Title = "Документация и ПО",
+                        Description = "Показывает ссылки на документы и программное обеспечение для этого узла."
                     },
                     new KnowledgeBaseNodeWorkspaceTabState
                     {
                         Kind = KnowledgeBaseNodeWorkspaceTabKind.Network,
-                        Title = "Network",
-                        Description = "Phase 6 will introduce the Network screen for this node type."
+                        Title = "Сеть",
+                        Description = "На этапе 6 для этого типа узла будет добавлена вкладка сети."
                     }
                 ]
             };

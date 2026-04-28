@@ -21,7 +21,7 @@ namespace AsutpKnowledgeBase
 
             var lbl = new Label { Text = prompt, AutoSize = true, Location = new Point(15, 15) };
             _txtInput = new TextBox { Text = defaultValue, Location = new Point(15, 45), Width = 300 };
-            var btnOk = new Button { Text = "OK", DialogResult = DialogResult.OK, Location = new Point(130, 90), Width = 80 };
+            var btnOk = new Button { Text = "Подтвердить", DialogResult = DialogResult.OK, Location = new Point(130, 90), Width = 100 };
             var btnCancel = new Button { Text = "Отмена", DialogResult = DialogResult.Cancel, Location = new Point(220, 90), Width = 80 };
 
             Controls.AddRange(new Control[] { lbl, _txtInput, btnOk, btnCancel });

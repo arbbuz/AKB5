@@ -282,7 +282,7 @@ namespace AsutpKnowledgeBase
             listView.Columns.Add("Слот", 70);
             listView.Columns.Add("Тип", 120);
             listView.Columns.Add("Компонент", 200);
-            listView.Columns.Add("IP", 120);
+            listView.Columns.Add("IP-адрес", 120);
             listView.Columns.Add("Последняя калибровка", 140);
             listView.Columns.Add("Следующая калибровка", 140);
             listView.Columns.Add("Примечание", 260);

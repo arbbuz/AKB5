@@ -112,7 +112,14 @@ namespace AsutpKnowledgeBase
 
         private void RefreshSearchAfterMutation()
         {
-            _treeViewService.RefreshSearch(tvTree, _config, txtSearch.Text);
+            _treeViewService.RefreshSearch(
+                tvTree,
+                _config,
+                txtSearch.Text,
+                GetSelectedSearchScope(),
+                _session.CompositionEntries,
+                _session.DocumentLinks,
+                _session.SoftwareRecords);
             UpdateSearchButtons();
         }
 

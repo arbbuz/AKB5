@@ -211,7 +211,7 @@ namespace AsutpKnowledgeBase.UiServices
             if (!result.IsSuccess)
             {
                 if (result.Failure != KnowledgeBaseTreeMutationFailure.NoChanges)
-                    ShowMutationFailure(context.Owner, result, "Undo/Redo");
+                    ShowMutationFailure(context.Owner, result, "Отмена и повтор");
 
                 return;
             }
@@ -228,7 +228,7 @@ namespace AsutpKnowledgeBase.UiServices
             if (!result.IsSuccess)
             {
                 if (result.Failure != KnowledgeBaseTreeMutationFailure.NoChanges)
-                    ShowMutationFailure(context.Owner, result, "Undo/Redo");
+                    ShowMutationFailure(context.Owner, result, "Отмена и повтор");
 
                 return;
             }
@@ -273,7 +273,7 @@ namespace AsutpKnowledgeBase.UiServices
                 MessageBox.Show(
                     context.Owner,
                     "Р”Р»СЏ РІС‹Р±СЂР°РЅРЅРѕРіРѕ СѓР·Р»Р° РЅРµС‚ РґРѕСЃС‚СѓРїРЅС‹С… С€Р°Р±Р»РѕРЅРѕРІ РґРѕС‡РµСЂРЅРёС… РѕР±СЉРµРєС‚РѕРІ.",
-                    "Composition template",
+                    "Шаблон состава",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 return;
