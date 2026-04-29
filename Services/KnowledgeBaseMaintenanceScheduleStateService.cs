@@ -31,9 +31,10 @@ namespace AsutpKnowledgeBase.Services
     {
         public KnowledgeBaseMaintenanceScheduleState Build(
             KbNode? selectedNode,
-            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
+            int visibleLevel = 0)
         {
-            if (selectedNode == null || !SupportsProfile(selectedNode.NodeType))
+            if (selectedNode == null || !SupportsProfile(selectedNode.NodeType, visibleLevel))
             {
                 return new KnowledgeBaseMaintenanceScheduleState
                 {
@@ -72,14 +73,8 @@ namespace AsutpKnowledgeBase.Services
             };
         }
 
-        public static bool SupportsProfile(KbNodeType nodeType) => nodeType switch
-        {
-            KbNodeType.Cabinet => true,
-            KbNodeType.Device => true,
-            KbNodeType.Controller => true,
-            KbNodeType.Module => true,
-            _ => false
-        };
+        public static bool SupportsProfile(KbNodeType nodeType, int visibleLevel = 0) =>
+            KnowledgeBaseEngineeringNodeSupportService.SupportsEngineeringWorkspace(nodeType, visibleLevel);
 
         private static KbMaintenanceScheduleProfile? FindOwnedProfile(
             string ownerNodeId,

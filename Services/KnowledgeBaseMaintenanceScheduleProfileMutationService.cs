@@ -16,9 +16,10 @@ namespace AsutpKnowledgeBase.Services
         public KnowledgeBaseMaintenanceScheduleProfileMutationResult UpsertMaintenanceScheduleProfile(
             KbNode? ownerNode,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
-            KbMaintenanceScheduleProfile? draftProfile)
+            KbMaintenanceScheduleProfile? draftProfile,
+            int visibleLevel = 0)
         {
-            if (!TryValidateOwnerNode(ownerNode, out var ownerNodeId, out var errorMessage))
+            if (!TryValidateOwnerNode(ownerNode, visibleLevel, out var ownerNodeId, out var errorMessage))
                 return Failure(errorMessage);
 
             if (draftProfile == null)
@@ -60,9 +61,10 @@ namespace AsutpKnowledgeBase.Services
         public KnowledgeBaseMaintenanceScheduleProfileMutationResult DeleteMaintenanceScheduleProfile(
             KbNode? ownerNode,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
-            string? maintenanceProfileId)
+            string? maintenanceProfileId,
+            int visibleLevel = 0)
         {
-            if (!TryValidateOwnerNode(ownerNode, out var ownerNodeId, out var errorMessage))
+            if (!TryValidateOwnerNode(ownerNode, visibleLevel, out var ownerNodeId, out var errorMessage))
                 return Failure(errorMessage);
 
             string normalizedProfileId = maintenanceProfileId?.Trim() ?? string.Empty;
@@ -97,6 +99,7 @@ namespace AsutpKnowledgeBase.Services
 
         private static bool TryValidateOwnerNode(
             KbNode? ownerNode,
+            int visibleLevel,
             out string ownerNodeId,
             out string errorMessage)
         {
@@ -107,7 +110,7 @@ namespace AsutpKnowledgeBase.Services
                 return false;
             }
 
-            if (!KnowledgeBaseMaintenanceScheduleStateService.SupportsProfile(ownerNode.NodeType))
+            if (!KnowledgeBaseMaintenanceScheduleStateService.SupportsProfile(ownerNode.NodeType, visibleLevel))
             {
                 ownerNodeId = string.Empty;
                 errorMessage = "Для выбранного узла вкладка \"График ТО\" недоступна.";

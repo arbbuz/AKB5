@@ -158,4 +158,27 @@ public class KnowledgeBaseMaintenanceScheduleProfileMutationServiceTests
         var remainingProfile = Assert.Single(result.MaintenanceScheduleProfiles);
         Assert.Equal("device-2", remainingProfile.OwnerNodeId);
     }
+    [Fact]
+    public void UpsertMaintenanceScheduleProfile_ForVisibleLevel3System_ReturnsSuccess()
+    {
+        var ownerNode = new KbNode
+        {
+            NodeId = "legacy-cabinet-1",
+            Name = "Шкаф 1",
+            NodeType = KbNodeType.System
+        };
+
+        var result = _service.UpsertMaintenanceScheduleProfile(
+            ownerNode,
+            Array.Empty<KbMaintenanceScheduleProfile>(),
+            new KbMaintenanceScheduleProfile
+            {
+                IsIncludedInSchedule = true,
+                To1Hours = 2
+            },
+            visibleLevel: 3);
+
+        Assert.True(result.IsSuccess);
+        Assert.Single(result.MaintenanceScheduleProfiles);
+    }
 }

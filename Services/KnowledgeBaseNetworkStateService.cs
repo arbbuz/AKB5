@@ -37,9 +37,10 @@ namespace AsutpKnowledgeBase.Services
     {
         public KnowledgeBaseNetworkState Build(
             KbNode? selectedNode,
-            IReadOnlyList<KbNetworkFileReference>? networkFileReferences)
+            IReadOnlyList<KbNetworkFileReference>? networkFileReferences,
+            int visibleLevel = 0)
         {
-            if (selectedNode == null || !SupportsRecords(selectedNode.NodeType))
+            if (selectedNode == null || !SupportsRecords(selectedNode.NodeType, visibleLevel))
             {
                 return new KnowledgeBaseNetworkState
                 {
@@ -61,14 +62,8 @@ namespace AsutpKnowledgeBase.Services
             };
         }
 
-        public static bool SupportsRecords(KbNodeType nodeType) => nodeType switch
-        {
-            KbNodeType.Cabinet => true,
-            KbNodeType.Device => true,
-            KbNodeType.Controller => true,
-            KbNodeType.Module => true,
-            _ => false
-        };
+        public static bool SupportsRecords(KbNodeType nodeType, int visibleLevel = 0) =>
+            KnowledgeBaseEngineeringNodeSupportService.SupportsEngineeringWorkspace(nodeType, visibleLevel);
 
         private static List<KbNetworkFileReference> GetOwnedFileReferences(
             string ownerNodeId,

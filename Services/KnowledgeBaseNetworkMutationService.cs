@@ -16,9 +16,10 @@ namespace AsutpKnowledgeBase.Services
         public KnowledgeBaseNetworkFileReferenceMutationResult UpsertNetworkFileReference(
             KbNode? ownerNode,
             IReadOnlyList<KbNetworkFileReference>? networkFileReferences,
-            KbNetworkFileReference? draftReference)
+            KbNetworkFileReference? draftReference,
+            int visibleLevel = 0)
         {
-            if (!TryValidateOwnerNode(ownerNode, out var ownerNodeId, out var errorMessage))
+            if (!TryValidateOwnerNode(ownerNode, visibleLevel, out var ownerNodeId, out var errorMessage))
                 return Failure(errorMessage);
 
             if (draftReference == null)
@@ -64,9 +65,10 @@ namespace AsutpKnowledgeBase.Services
         public KnowledgeBaseNetworkFileReferenceMutationResult DeleteNetworkFileReference(
             KbNode? ownerNode,
             IReadOnlyList<KbNetworkFileReference>? networkFileReferences,
-            string? networkAssetId)
+            string? networkAssetId,
+            int visibleLevel = 0)
         {
-            if (!TryValidateOwnerNode(ownerNode, out var ownerNodeId, out var errorMessage))
+            if (!TryValidateOwnerNode(ownerNode, visibleLevel, out var ownerNodeId, out var errorMessage))
                 return Failure(errorMessage);
 
             string normalizedNetworkAssetId = networkAssetId?.Trim() ?? string.Empty;
@@ -85,6 +87,7 @@ namespace AsutpKnowledgeBase.Services
 
         private static bool TryValidateOwnerNode(
             KbNode? ownerNode,
+            int visibleLevel,
             out string ownerNodeId,
             out string errorMessage)
         {
@@ -95,7 +98,7 @@ namespace AsutpKnowledgeBase.Services
                 return false;
             }
 
-            if (!KnowledgeBaseNetworkStateService.SupportsRecords(ownerNode.NodeType))
+            if (!KnowledgeBaseNetworkStateService.SupportsRecords(ownerNode.NodeType, visibleLevel))
             {
                 ownerNodeId = string.Empty;
                 errorMessage = "Для выбранного узла вкладка \"Сеть\" недоступна.";

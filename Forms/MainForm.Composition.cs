@@ -155,7 +155,11 @@ namespace AsutpKnowledgeBase
                 return;
 
             ApplyCompositionMutation(
-                _compositionMutationService.DeleteEntry(parentNode, _session.CompositionEntries, selectedEntry.EntryId),
+                _compositionMutationService.DeleteEntry(
+                    parentNode,
+                    _session.CompositionEntries,
+                    selectedEntry.EntryId,
+                    GetVisibleLevelForNode(parentNode)),
                 "Запись состава удалена.");
         }
 
@@ -170,7 +174,11 @@ namespace AsutpKnowledgeBase
                 return;
 
             ApplyCompositionMutation(
-                _compositionMutationService.UpsertEntry(parentNode, _session.CompositionEntries, dialog.Result),
+                _compositionMutationService.UpsertEntry(
+                    parentNode,
+                    _session.CompositionEntries,
+                    dialog.Result,
+                    GetVisibleLevelForNode(parentNode)),
                 successStatusText);
         }
 
@@ -231,9 +239,11 @@ namespace AsutpKnowledgeBase
 
         private bool TryGetCompositionParentNode(out KbNode parentNode)
         {
-            parentNode = tvTree.SelectedNode?.Tag as KbNode ?? new KbNode();
-            if (tvTree.SelectedNode?.Tag is KbNode selectedNode &&
-                KnowledgeBaseCompositionStateService.SupportsComposition(selectedNode.NodeType))
+            parentNode = new KbNode();
+            if (TryGetSelectedTreeNode(out KbNode selectedNode) &&
+                KnowledgeBaseCompositionStateService.SupportsComposition(
+                    selectedNode.NodeType,
+                    GetVisibleLevelForNode(selectedNode)))
             {
                 parentNode = selectedNode;
                 return true;

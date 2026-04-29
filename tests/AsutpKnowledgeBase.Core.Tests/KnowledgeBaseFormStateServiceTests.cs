@@ -108,11 +108,12 @@ public class KnowledgeBaseFormStateServiceTests
         Assert.Equal("Отделение 1 / Линия 1 / Насос", state.SelectedNode.FullPath);
         Assert.Equal("Основной насос", state.SelectedNode.Description);
         Assert.Equal("Участок 4", state.SelectedNode.Location);
-        Assert.Equal(@"\\server\photos\pump.jpg", state.SelectedNode.PhotoPath);
-        Assert.Equal("10.0.0.12", state.SelectedNode.IpAddress);
-        Assert.True(state.SelectedNode.ShowTechnicalFields);
+        Assert.Equal(string.Empty, state.SelectedNode.PhotoPath);
+        Assert.Equal(string.Empty, state.SelectedNode.IpAddress);
+        Assert.Equal(string.Empty, state.SelectedNode.SchemaLink);
+        Assert.False(state.SelectedNode.ShowTechnicalFields);
         Assert.True(state.SelectedNode.ShowLocation);
-        Assert.True(state.SelectedNode.ShowPhoto);
+        Assert.False(state.SelectedNode.ShowPhoto);
         Assert.True(state.SelectedNode.Workspace.UseTabHost);
     }
 
@@ -343,6 +344,54 @@ public class KnowledgeBaseFormStateServiceTests
         Assert.True(state.SelectedNode.MaintenanceSchedule.HasProfile);
         Assert.Equal("Да", state.SelectedNode.MaintenanceSchedule.InclusionText);
         Assert.Equal("12 ч", state.SelectedNode.MaintenanceSchedule.To3HoursText);
+    }
+
+    [Fact]
+    public void Build_UsesEngineeringWorkspaceForVisibleLevel3SystemNode()
+    {
+        var selectedNode = new KbNode
+        {
+            NodeId = "legacy-cabinet-1",
+            Name = "Шкаф 1",
+            LevelIndex = 2,
+            NodeType = KbNodeType.System
+        };
+
+        var roots = new List<KbNode>
+        {
+            new()
+            {
+                Name = "Отделение 1",
+                LevelIndex = 0,
+                NodeType = KbNodeType.Department,
+                Children =
+                {
+                    new KbNode
+                    {
+                        Name = "АСУ Никелевого отделения",
+                        LevelIndex = 1,
+                        NodeType = KbNodeType.System,
+                        Children = { selectedNode }
+                    }
+                }
+            }
+        };
+
+        var state = _service.Build(
+            isDirty: false,
+            requiresSave: false,
+            currentDataPath: "/tmp/legacy-cabinet.json",
+            currentWorkshop: "Цех 1",
+            lastSavedWorkshop: "Цех 1",
+            totalNodes: 1,
+            currentRoots: roots,
+            selectedNode: selectedNode);
+
+        Assert.True(state.SelectedNode.Workspace.UseTabHost);
+        Assert.True(state.SelectedNode.Composition.SupportsEditing);
+        Assert.True(state.SelectedNode.DocsAndSoftware.SupportsEditing);
+        Assert.True(state.SelectedNode.Network.SupportsEditing);
+        Assert.True(state.SelectedNode.MaintenanceSchedule.SupportsEditing);
     }
 
     [Fact]

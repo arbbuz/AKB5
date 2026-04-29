@@ -45,4 +45,22 @@ public class KnowledgeBaseNodeWorkspaceResolverServiceTests
         Assert.Single(workspace.Tabs);
         Assert.Equal(KnowledgeBaseNodeWorkspaceTabKind.Info, workspace.Tabs[0].Kind);
     }
+
+    [Fact]
+    public void Resolve_ForVisibleLevel3System_ReturnsEngineeringTabHost()
+    {
+        var workspace = _service.Resolve(KbNodeType.System, visibleLevel: 3);
+
+        Assert.True(workspace.UseTabHost);
+        Assert.Equal(
+            new[]
+            {
+                KnowledgeBaseNodeWorkspaceTabKind.Info,
+                KnowledgeBaseNodeWorkspaceTabKind.Composition,
+                KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware,
+                KnowledgeBaseNodeWorkspaceTabKind.Network,
+                KnowledgeBaseNodeWorkspaceTabKind.Maintenance
+            },
+            workspace.Tabs.Select(static tab => tab.Kind).ToArray());
+    }
 }

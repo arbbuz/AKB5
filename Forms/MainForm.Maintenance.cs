@@ -56,7 +56,8 @@ namespace AsutpKnowledgeBase
                 _maintenanceScheduleProfileMutationService.DeleteMaintenanceScheduleProfile(
                     ownerNode,
                     _session.MaintenanceScheduleProfiles,
-                    profile.MaintenanceProfileId),
+                    profile.MaintenanceProfileId,
+                    GetVisibleLevelForNode(ownerNode)),
                 "Профиль ТО удалён.");
         }
 
@@ -74,7 +75,8 @@ namespace AsutpKnowledgeBase
                 _maintenanceScheduleProfileMutationService.UpsertMaintenanceScheduleProfile(
                     ownerNode,
                     _session.MaintenanceScheduleProfiles,
-                    dialog.Result),
+                    dialog.Result,
+                    GetVisibleLevelForNode(ownerNode)),
                 successStatusText);
         }
 
@@ -101,9 +103,11 @@ namespace AsutpKnowledgeBase
 
         private bool TryGetMaintenanceOwnerNode(out KbNode ownerNode)
         {
-            ownerNode = tvTree.SelectedNode?.Tag as KbNode ?? new KbNode();
-            if (tvTree.SelectedNode?.Tag is KbNode selectedNode &&
-                KnowledgeBaseMaintenanceScheduleStateService.SupportsProfile(selectedNode.NodeType))
+            ownerNode = new KbNode();
+            if (TryGetSelectedTreeNode(out KbNode selectedNode) &&
+                KnowledgeBaseMaintenanceScheduleStateService.SupportsProfile(
+                    selectedNode.NodeType,
+                    GetVisibleLevelForNode(selectedNode)))
             {
                 ownerNode = selectedNode;
                 return true;

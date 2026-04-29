@@ -111,7 +111,8 @@ namespace AsutpKnowledgeBase
                 _networkMutationService.DeleteNetworkFileReference(
                     ownerNode,
                     _session.NetworkFileReferences,
-                    networkFileReference.NetworkAssetId),
+                    networkFileReference.NetworkAssetId,
+                    GetVisibleLevelForNode(ownerNode)),
                 "Файл сети удален.");
         }
 
@@ -129,7 +130,8 @@ namespace AsutpKnowledgeBase
                 _networkMutationService.UpsertNetworkFileReference(
                     ownerNode,
                     _session.NetworkFileReferences,
-                    dialog.Result),
+                    dialog.Result,
+                    GetVisibleLevelForNode(ownerNode)),
                 successStatusText);
         }
 
@@ -156,9 +158,11 @@ namespace AsutpKnowledgeBase
 
         private bool TryGetNetworkOwnerNode(out KbNode ownerNode)
         {
-            ownerNode = tvTree.SelectedNode?.Tag as KbNode ?? new KbNode();
-            if (tvTree.SelectedNode?.Tag is KbNode selectedNode &&
-                KnowledgeBaseNetworkStateService.SupportsRecords(selectedNode.NodeType))
+            ownerNode = new KbNode();
+            if (TryGetSelectedTreeNode(out KbNode selectedNode) &&
+                KnowledgeBaseNetworkStateService.SupportsRecords(
+                    selectedNode.NodeType,
+                    GetVisibleLevelForNode(selectedNode)))
             {
                 ownerNode = selectedNode;
                 return true;

@@ -188,7 +188,8 @@ namespace AsutpKnowledgeBase
                             _docsAndSoftwareMutationService.DeleteDocumentLink(
                                 ownerNode,
                                 _session.DocumentLinks,
-                                documentLink.DocumentId),
+                                documentLink.DocumentId,
+                                GetVisibleLevelForNode(ownerNode)),
                             "Ссылка удалена.");
                         return;
                     }
@@ -220,7 +221,8 @@ namespace AsutpKnowledgeBase
                             _docsAndSoftwareMutationService.DeleteSoftwareRecord(
                                 ownerNode,
                                 _session.SoftwareRecords,
-                                softwareRecord.SoftwareId),
+                                softwareRecord.SoftwareId,
+                                GetVisibleLevelForNode(ownerNode)),
                             "Ссылка на ПО удалена.");
                         return;
                     }
@@ -252,7 +254,8 @@ namespace AsutpKnowledgeBase
                 _docsAndSoftwareMutationService.UpsertDocumentLink(
                     ownerNode,
                     _session.DocumentLinks,
-                    dialog.Result),
+                    dialog.Result,
+                    GetVisibleLevelForNode(ownerNode)),
                 successStatusText);
         }
 
@@ -270,7 +273,8 @@ namespace AsutpKnowledgeBase
                 _docsAndSoftwareMutationService.UpsertSoftwareRecord(
                     ownerNode,
                     _session.SoftwareRecords,
-                    dialog.Result),
+                    dialog.Result,
+                    GetVisibleLevelForNode(ownerNode)),
                 successStatusText);
         }
 
@@ -318,9 +322,11 @@ namespace AsutpKnowledgeBase
 
         private bool TryGetDocsAndSoftwareOwnerNode(out KbNode ownerNode)
         {
-            ownerNode = tvTree.SelectedNode?.Tag as KbNode ?? new KbNode();
-            if (tvTree.SelectedNode?.Tag is KbNode selectedNode &&
-                KnowledgeBaseDocsAndSoftwareStateService.SupportsRecords(selectedNode.NodeType))
+            ownerNode = new KbNode();
+            if (TryGetSelectedTreeNode(out KbNode selectedNode) &&
+                KnowledgeBaseDocsAndSoftwareStateService.SupportsRecords(
+                    selectedNode.NodeType,
+                    GetVisibleLevelForNode(selectedNode)))
             {
                 ownerNode = selectedNode;
                 return true;

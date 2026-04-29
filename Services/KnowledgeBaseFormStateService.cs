@@ -209,12 +209,10 @@ namespace AsutpKnowledgeBase.Services
             }
 
             int visibleLevel = _nodePresentationService.GetVisibleLevel(currentRoots, selectedNode);
-            bool supportsTechnicalFields = KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(
-                selectedNode.NodeType,
-                visibleLevel);
+            bool supportsTechnicalFields = false;
             bool supportsInventoryNumber = KnowledgeBaseNodeMetadataService.SupportsInventoryNumber(visibleLevel);
             bool supportsLocation = KnowledgeBaseNodeMetadataService.SupportsLocation(visibleLevel);
-            bool supportsPhoto = KnowledgeBaseNodeMetadataService.SupportsPhoto(visibleLevel);
+            bool supportsPhoto = false;
 
             return new KnowledgeBaseSelectedNodeState
             {
@@ -232,14 +230,15 @@ namespace AsutpKnowledgeBase.Services
                 ShowInventoryNumber = supportsInventoryNumber,
                 ShowLocation = supportsLocation,
                 ShowPhoto = supportsPhoto,
-                Workspace = _nodeWorkspaceResolverService.Resolve(selectedNode.NodeType),
-                Composition = _compositionStateService.Build(selectedNode, compositionEntries),
+                Workspace = _nodeWorkspaceResolverService.Resolve(selectedNode.NodeType, visibleLevel),
+                Composition = _compositionStateService.Build(selectedNode, compositionEntries, visibleLevel),
                 DocsAndSoftware = _docsAndSoftwareStateService.Build(
                     selectedNode,
                     documentLinks,
-                    softwareRecords),
-                Network = _networkStateService.Build(selectedNode, networkFileReferences),
-                MaintenanceSchedule = _maintenanceScheduleStateService.Build(selectedNode, maintenanceScheduleProfiles)
+                    softwareRecords,
+                    visibleLevel),
+                Network = _networkStateService.Build(selectedNode, networkFileReferences, visibleLevel),
+                MaintenanceSchedule = _maintenanceScheduleStateService.Build(selectedNode, maintenanceScheduleProfiles, visibleLevel)
             };
         }
     }

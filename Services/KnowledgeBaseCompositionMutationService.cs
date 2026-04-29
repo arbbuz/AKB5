@@ -16,9 +16,10 @@ namespace AsutpKnowledgeBase.Services
         public KnowledgeBaseCompositionMutationResult UpsertEntry(
             KbNode? parentNode,
             IReadOnlyList<KbCompositionEntry>? compositionEntries,
-            KbCompositionEntry? draftEntry)
+            KbCompositionEntry? draftEntry,
+            int visibleLevel = 0)
         {
-            if (!TryValidateParentNode(parentNode, out var parentNodeId, out var errorMessage))
+            if (!TryValidateParentNode(parentNode, visibleLevel, out var parentNodeId, out var errorMessage))
                 return Failure(errorMessage);
 
             if (draftEntry == null)
@@ -69,9 +70,10 @@ namespace AsutpKnowledgeBase.Services
         public KnowledgeBaseCompositionMutationResult DeleteEntry(
             KbNode? parentNode,
             IReadOnlyList<KbCompositionEntry>? compositionEntries,
-            string? entryId)
+            string? entryId,
+            int visibleLevel = 0)
         {
-            if (!TryValidateParentNode(parentNode, out var parentNodeId, out var errorMessage))
+            if (!TryValidateParentNode(parentNode, visibleLevel, out var parentNodeId, out var errorMessage))
                 return Failure(errorMessage);
 
             string normalizedEntryId = entryId?.Trim() ?? string.Empty;
@@ -90,6 +92,7 @@ namespace AsutpKnowledgeBase.Services
 
         private static bool TryValidateParentNode(
             KbNode? parentNode,
+            int visibleLevel,
             out string parentNodeId,
             out string errorMessage)
         {
@@ -100,7 +103,7 @@ namespace AsutpKnowledgeBase.Services
                 return false;
             }
 
-            if (!KnowledgeBaseCompositionStateService.SupportsComposition(parentNode.NodeType))
+            if (!KnowledgeBaseCompositionStateService.SupportsComposition(parentNode.NodeType, visibleLevel))
             {
                 parentNodeId = string.Empty;
                 errorMessage = "Вкладка \"Состав\" недоступна для выбранного узла.";

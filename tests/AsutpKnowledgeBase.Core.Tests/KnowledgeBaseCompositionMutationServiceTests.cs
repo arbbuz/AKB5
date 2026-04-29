@@ -134,4 +134,26 @@ public class KnowledgeBaseCompositionMutationServiceTests
         Assert.False(result.IsSuccess);
         Assert.Contains("Состав", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
     }
+    [Fact]
+    public void UpsertEntry_ForVisibleLevel3System_ReturnsSuccess()
+    {
+        var parentNode = new KbNode
+        {
+            NodeId = "legacy-cabinet-1",
+            Name = "Шкаф 1",
+            NodeType = KbNodeType.System
+        };
+
+        var result = _service.UpsertEntry(
+            parentNode,
+            Array.Empty<KbCompositionEntry>(),
+            new KbCompositionEntry
+            {
+                ComponentType = "CPU"
+            },
+            visibleLevel: 3);
+
+        Assert.True(result.IsSuccess);
+        Assert.Single(result.CompositionEntries);
+    }
 }

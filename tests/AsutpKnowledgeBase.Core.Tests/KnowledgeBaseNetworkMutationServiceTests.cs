@@ -132,4 +132,27 @@ public class KnowledgeBaseNetworkMutationServiceTests
         Assert.False(result.IsSuccess);
         Assert.Contains("Сеть", result.ErrorMessage, StringComparison.Ordinal);
     }
+    [Fact]
+    public void UpsertNetworkFileReference_ForVisibleLevel3System_ReturnsSuccess()
+    {
+        var ownerNode = new KbNode
+        {
+            NodeId = "legacy-cabinet-1",
+            Name = "Шкаф 1",
+            NodeType = KbNodeType.System
+        };
+
+        var result = _service.UpsertNetworkFileReference(
+            ownerNode,
+            Array.Empty<KbNetworkFileReference>(),
+            new KbNetworkFileReference
+            {
+                Title = "Network scheme",
+                Path = "\\\\srv\\network\\scheme.png"
+            },
+            visibleLevel: 3);
+
+        Assert.True(result.IsSuccess);
+        Assert.Single(result.NetworkFileReferences);
+    }
 }

@@ -25,9 +25,10 @@ namespace AsutpKnowledgeBase.Services
         public KnowledgeBaseDocumentLinkMutationResult UpsertDocumentLink(
             KbNode? ownerNode,
             IReadOnlyList<KbDocumentLink>? documentLinks,
-            KbDocumentLink? draftLink)
+            KbDocumentLink? draftLink,
+            int visibleLevel = 0)
         {
-            if (!TryValidateOwnerNode(ownerNode, out var ownerNodeId, out var errorMessage))
+            if (!TryValidateOwnerNode(ownerNode, visibleLevel, out var ownerNodeId, out var errorMessage))
                 return FailureDocument(errorMessage);
 
             if (draftLink == null)
@@ -76,9 +77,10 @@ namespace AsutpKnowledgeBase.Services
         public KnowledgeBaseDocumentLinkMutationResult DeleteDocumentLink(
             KbNode? ownerNode,
             IReadOnlyList<KbDocumentLink>? documentLinks,
-            string? documentId)
+            string? documentId,
+            int visibleLevel = 0)
         {
-            if (!TryValidateOwnerNode(ownerNode, out var ownerNodeId, out var errorMessage))
+            if (!TryValidateOwnerNode(ownerNode, visibleLevel, out var ownerNodeId, out var errorMessage))
                 return FailureDocument(errorMessage);
 
             string normalizedDocumentId = documentId?.Trim() ?? string.Empty;
@@ -98,9 +100,10 @@ namespace AsutpKnowledgeBase.Services
         public KnowledgeBaseSoftwareRecordMutationResult UpsertSoftwareRecord(
             KbNode? ownerNode,
             IReadOnlyList<KbSoftwareRecord>? softwareRecords,
-            KbSoftwareRecord? draftRecord)
+            KbSoftwareRecord? draftRecord,
+            int visibleLevel = 0)
         {
-            if (!TryValidateOwnerNode(ownerNode, out var ownerNodeId, out var errorMessage))
+            if (!TryValidateOwnerNode(ownerNode, visibleLevel, out var ownerNodeId, out var errorMessage))
                 return FailureSoftware(errorMessage);
 
             if (draftRecord == null)
@@ -149,9 +152,10 @@ namespace AsutpKnowledgeBase.Services
         public KnowledgeBaseSoftwareRecordMutationResult DeleteSoftwareRecord(
             KbNode? ownerNode,
             IReadOnlyList<KbSoftwareRecord>? softwareRecords,
-            string? softwareId)
+            string? softwareId,
+            int visibleLevel = 0)
         {
-            if (!TryValidateOwnerNode(ownerNode, out var ownerNodeId, out var errorMessage))
+            if (!TryValidateOwnerNode(ownerNode, visibleLevel, out var ownerNodeId, out var errorMessage))
                 return FailureSoftware(errorMessage);
 
             string normalizedSoftwareId = softwareId?.Trim() ?? string.Empty;
@@ -170,6 +174,7 @@ namespace AsutpKnowledgeBase.Services
 
         private static bool TryValidateOwnerNode(
             KbNode? ownerNode,
+            int visibleLevel,
             out string ownerNodeId,
             out string errorMessage)
         {
@@ -180,7 +185,7 @@ namespace AsutpKnowledgeBase.Services
                 return false;
             }
 
-            if (!KnowledgeBaseDocsAndSoftwareStateService.SupportsRecords(ownerNode.NodeType))
+            if (!KnowledgeBaseDocsAndSoftwareStateService.SupportsRecords(ownerNode.NodeType, visibleLevel))
             {
                 ownerNodeId = string.Empty;
                 errorMessage = "Для выбранного узла вкладка \"Документация и ПО\" недоступна.";

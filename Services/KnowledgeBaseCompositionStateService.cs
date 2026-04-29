@@ -58,9 +58,10 @@ namespace AsutpKnowledgeBase.Services
     {
         public KnowledgeBaseCompositionState Build(
             KbNode? selectedNode,
-            IReadOnlyList<KbCompositionEntry>? compositionEntries)
+            IReadOnlyList<KbCompositionEntry>? compositionEntries,
+            int visibleLevel = 0)
         {
-            if (selectedNode == null || !SupportsComposition(selectedNode.NodeType))
+            if (selectedNode == null || !SupportsComposition(selectedNode.NodeType, visibleLevel))
             {
                 return new KnowledgeBaseCompositionState
                 {
@@ -84,14 +85,8 @@ namespace AsutpKnowledgeBase.Services
             };
         }
 
-        public static bool SupportsComposition(KbNodeType nodeType) => nodeType switch
-        {
-            KbNodeType.Cabinet => true,
-            KbNodeType.Device => true,
-            KbNodeType.Controller => true,
-            KbNodeType.Module => true,
-            _ => false
-        };
+        public static bool SupportsComposition(KbNodeType nodeType, int visibleLevel = 0) =>
+            KnowledgeBaseEngineeringNodeSupportService.SupportsEngineeringWorkspace(nodeType, visibleLevel);
 
         public static bool SupportsTemplates(KbNodeType nodeType) => nodeType switch
         {

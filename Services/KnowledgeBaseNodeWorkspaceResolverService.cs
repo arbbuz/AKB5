@@ -38,19 +38,13 @@ namespace AsutpKnowledgeBase.Services
 
     public class KnowledgeBaseNodeWorkspaceResolverService
     {
-        public KnowledgeBaseNodeWorkspaceState Resolve(KbNodeType nodeType) =>
-            UsesEngineeringTabHost(nodeType)
+        public KnowledgeBaseNodeWorkspaceState Resolve(KbNodeType nodeType, int visibleLevel = 0) =>
+            UsesEngineeringTabHost(nodeType, visibleLevel)
                 ? CreateEngineeringWorkspace()
                 : CreateInfoWorkspace();
 
-        private static bool UsesEngineeringTabHost(KbNodeType nodeType) => nodeType switch
-        {
-            KbNodeType.Cabinet => true,
-            KbNodeType.Device => true,
-            KbNodeType.Controller => true,
-            KbNodeType.Module => true,
-            _ => false
-        };
+        private static bool UsesEngineeringTabHost(KbNodeType nodeType, int visibleLevel) =>
+            KnowledgeBaseEngineeringNodeSupportService.SupportsEngineeringWorkspace(nodeType, visibleLevel);
 
         private static KnowledgeBaseNodeWorkspaceState CreateInfoWorkspace() =>
             new()

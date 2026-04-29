@@ -63,9 +63,10 @@ namespace AsutpKnowledgeBase.Services
         public KnowledgeBaseDocsAndSoftwareState Build(
             KbNode? selectedNode,
             IReadOnlyList<KbDocumentLink>? documentLinks,
-            IReadOnlyList<KbSoftwareRecord>? softwareRecords)
+            IReadOnlyList<KbSoftwareRecord>? softwareRecords,
+            int visibleLevel = 0)
         {
-            if (selectedNode == null || !SupportsRecords(selectedNode.NodeType))
+            if (selectedNode == null || !SupportsRecords(selectedNode.NodeType, visibleLevel))
             {
                 return new KnowledgeBaseDocsAndSoftwareState
                 {
@@ -96,14 +97,8 @@ namespace AsutpKnowledgeBase.Services
             };
         }
 
-        public static bool SupportsRecords(KbNodeType nodeType) => nodeType switch
-        {
-            KbNodeType.Cabinet => true,
-            KbNodeType.Device => true,
-            KbNodeType.Controller => true,
-            KbNodeType.Module => true,
-            _ => false
-        };
+        public static bool SupportsRecords(KbNodeType nodeType, int visibleLevel = 0) =>
+            KnowledgeBaseEngineeringNodeSupportService.SupportsEngineeringWorkspace(nodeType, visibleLevel);
 
         private static List<KbDocumentLink> GetOwnedDocumentLinks(
             string ownerNodeId,

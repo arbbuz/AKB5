@@ -170,4 +170,28 @@ public class KnowledgeBaseDocsAndSoftwareMutationServiceTests
         Assert.False(result.IsSuccess);
         Assert.Contains("Документация и ПО", result.ErrorMessage, StringComparison.Ordinal);
     }
+    [Fact]
+    public void UpsertDocumentLink_ForVisibleLevel3System_ReturnsSuccess()
+    {
+        var ownerNode = new KbNode
+        {
+            NodeId = "legacy-cabinet-1",
+            Name = "Шкаф 1",
+            NodeType = KbNodeType.System
+        };
+
+        var result = _service.UpsertDocumentLink(
+            ownerNode,
+            Array.Empty<KbDocumentLink>(),
+            new KbDocumentLink
+            {
+                Kind = KbDocumentKind.Manual,
+                Title = "Manual",
+                Path = "\\\\srv\\manual.pdf"
+            },
+            visibleLevel: 3);
+
+        Assert.True(result.IsSuccess);
+        Assert.Single(result.DocumentLinks);
+    }
 }
