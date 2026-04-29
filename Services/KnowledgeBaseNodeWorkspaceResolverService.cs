@@ -13,7 +13,8 @@ namespace AsutpKnowledgeBase.Services
         Info = 0,
         Composition = 1,
         DocsAndSoftware = 2,
-        Network = 3
+        Network = 3,
+        Maintenance = 4
     }
 
     public sealed class KnowledgeBaseNodeWorkspaceTabState
@@ -93,6 +94,12 @@ namespace AsutpKnowledgeBase.Services
                         Kind = KnowledgeBaseNodeWorkspaceTabKind.Network,
                         Title = "Сеть",
                         Description = "Показывает сетевые схемы, адресацию и другие файлы по сети для этого узла."
+                    },
+                    new KnowledgeBaseNodeWorkspaceTabState
+                    {
+                        Kind = KnowledgeBaseNodeWorkspaceTabKind.Maintenance,
+                        Title = "График ТО",
+                        Description = "Показывает участие узла в графике ТО и нормы часов для ТО1, ТО2 и ТО3."
                     }
                 ]
             };

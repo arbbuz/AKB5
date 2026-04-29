@@ -38,6 +38,8 @@ namespace AsutpKnowledgeBase
             selectedNodeNetworkScreen.OpenSelectedRequested += OpenSelectedNetworkFileReference;
             selectedNodeNetworkScreen.EditSelectedRequested += EditSelectedNetworkFileReference;
             selectedNodeNetworkScreen.DeleteSelectedRequested += DeleteSelectedNetworkFileReference;
+            selectedNodeMaintenanceScreen.ConfigureRequested += ConfigureMaintenanceScheduleProfile;
+            selectedNodeMaintenanceScreen.DeleteRequested += DeleteMaintenanceScheduleProfile;
 
             btnUndo.Click += (s, e) => UndoAction();
             btnRedo.Click += (s, e) => RedoAction();

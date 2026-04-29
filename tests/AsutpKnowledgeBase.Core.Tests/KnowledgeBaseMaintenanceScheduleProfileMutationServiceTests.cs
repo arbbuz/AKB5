@@ -79,7 +79,7 @@ public class KnowledgeBaseMaintenanceScheduleProfileMutationServiceTests
     }
 
     [Fact]
-    public void UpsertMaintenanceScheduleProfile_RejectsHoursAboveEight()
+    public void UpsertMaintenanceScheduleProfile_AllowsHoursAboveEight()
     {
         var ownerNode = new KbNode
         {
@@ -94,11 +94,37 @@ public class KnowledgeBaseMaintenanceScheduleProfileMutationServiceTests
             new KbMaintenanceScheduleProfile
             {
                 IsIncludedInSchedule = true,
-                To1Hours = 9
+                To1Hours = 9,
+                To3Hours = 16
+            });
+
+        Assert.True(result.IsSuccess);
+        var profile = Assert.Single(result.MaintenanceScheduleProfiles);
+        Assert.Equal(9, profile.To1Hours);
+        Assert.Equal(16, profile.To3Hours);
+    }
+
+    [Fact]
+    public void UpsertMaintenanceScheduleProfile_RejectsUnsupportedNodeType()
+    {
+        var ownerNode = new KbNode
+        {
+            NodeId = "system-1",
+            Name = "Line 1",
+            NodeType = KbNodeType.System
+        };
+
+        var result = _service.UpsertMaintenanceScheduleProfile(
+            ownerNode,
+            Array.Empty<KbMaintenanceScheduleProfile>(),
+            new KbMaintenanceScheduleProfile
+            {
+                IsIncludedInSchedule = true,
+                To1Hours = 2
             });
 
         Assert.False(result.IsSuccess);
-        Assert.Contains("ТО1", result.ErrorMessage);
+        Assert.Contains("График ТО", result.ErrorMessage, StringComparison.Ordinal);
     }
 
     [Fact]

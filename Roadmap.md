@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-04-28
+Last updated: 2026-04-29
 Branch baseline: `interface`
-Implementation status: `Phase 0 complete on interface, Phase 1 complete on interface, Phase 2 complete on interface, Phase 3 complete on interface, Phase 3B complete on interface, Phase 4 complete on interface, Phase 5 complete on interface, Phase 6 complete on interface, next unfinished phase is Phase 7`
+Implementation status: `Phase 0 complete on interface, Phase 1 complete on interface, Phase 2 complete on interface, Phase 3 complete on interface, Phase 3B complete on interface, Phase 4 complete on interface, Phase 5 complete on interface, Phase 6 complete on interface, Phase 7A foundation complete on interface, next unfinished slice is Phase 7B/7C`
 
 ## Goal
 
@@ -61,6 +61,8 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition, but further workbook modernization is no longer the preferred next phase.
 - Current CI workflow also verifies `dotnet format --verify-no-changes` for the app project, core project, and tests before `build` / `test`.
 - The next roadmap phase is now maintenance-schedule generation, not typed-data workbook redesign.
+- `Phase 7A foundation` is complete on `interface`: `Lvl2` inventory number support now follows hierarchy level, typed `MaintenanceScheduleProfiles` are persisted in JSON/session state, and engineering nodes now expose a `График ТО` tab with per-node `ТО1` / `ТО2` / `ТО3` hour norms.
+- On 2026-04-28, the `Phase 7A foundation` worktree passed verification build and passed `dotnet test` (`192/192`) using isolated output paths.
 
 ## Hidden-level strategy
 
@@ -458,6 +460,7 @@ Confirmed planning rules for the first implementation:
 Recommended implementation slices:
 
 - `Phase 7A. Domain and template foundation`
+  - status: completed on `interface` except for the cleaned Excel template itself
   - add inventory number to `Lvl2` summary
   - define typed maintenance settings per planned node, including separate integer hour norms for `ТО1`, `ТО2`, and `ТО3`
   - prepare a cleaned internal Excel template derived from the approved sample
@@ -552,10 +555,14 @@ Completed on `interface`:
 6. Phase 4
 7. Phase 5
 8. Phase 6
+9. Phase 7A foundation
 
 Remaining:
 
-1. Phase 7
+1. Phase 7B. Russian production calendar
+2. Phase 7C. Monthly planning engine
+3. Phase 7D. Year workbook export
+4. Phase 7E. Future yearly schedule source
 
 ## AI handoff / next-dialog instructions
 
@@ -581,7 +588,8 @@ Keep JSON source-of-truth compatibility and treat Excel v3 as a legacy transitio
 
 Continue Phase 7:
 
-- build the maintenance-schedule domain model and template-driven export workflow
-- add `Lvl2` inventory number support needed by the approved maintenance form
+- prepare the cleaned internal template derived from the approved maintenance form
+- implement the Russian production calendar and monthly planning engine
+- build the template-driven export workflow on top of the finished `Phase 7A foundation`
 - keep workbook `v3` readable as legacy, but do not expand it as the main feature direction
 - keep JSON source-of-truth compatibility and preserve Russian-only UI

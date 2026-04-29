@@ -159,7 +159,7 @@ public class KnowledgeBaseDataServiceTests
     }
 
     [Fact]
-    public void NormalizeSavedData_PreservesInventoryNumberOnlyForSystemNodes()
+    public void NormalizeSavedData_PreservesInventoryNumberOnlyForLevel2Nodes()
     {
         var normalized = KnowledgeBaseDataService.NormalizeSavedData(
             new SavedData
@@ -171,25 +171,45 @@ public class KnowledgeBaseDataServiceTests
                     {
                         new KbNode
                         {
-                            NodeId = "system-1",
-                            Name = "Line 1",
+                            NodeId = "root-1",
+                            Name = "Department 1",
                             LevelIndex = 0,
-                            NodeType = KbNodeType.System,
-                            Details = new KbNodeDetails
-                            {
-                                InventoryNumber = " INV-001 "
-                            },
+                            NodeType = KbNodeType.Department,
                             Children =
                             {
                                 new KbNode
                                 {
-                                    NodeId = "cabinet-1",
-                                    Name = "Cabinet 1",
+                                    NodeId = "department-2",
+                                    Name = "Section 1",
                                     LevelIndex = 1,
-                                    NodeType = KbNodeType.Cabinet,
-                                    Details = new KbNodeDetails
+                                    NodeType = KbNodeType.Department,
+                                    Children =
                                     {
-                                        InventoryNumber = " INV-CHILD "
+                                        new KbNode
+                                        {
+                                            NodeId = "level2-node",
+                                            Name = "Line 1",
+                                            LevelIndex = 2,
+                                            NodeType = KbNodeType.Department,
+                                            Details = new KbNodeDetails
+                                            {
+                                                InventoryNumber = " INV-001 "
+                                            },
+                                            Children =
+                                            {
+                                                new KbNode
+                                                {
+                                                    NodeId = "level3-node",
+                                                    Name = "Cabinet 1",
+                                                    LevelIndex = 3,
+                                                    NodeType = KbNodeType.System,
+                                                    Details = new KbNodeDetails
+                                                    {
+                                                        InventoryNumber = " INV-CHILD "
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -199,9 +219,11 @@ public class KnowledgeBaseDataServiceTests
                 LastWorkshop = "Shop 1"
             });
 
-        var systemNode = Assert.Single(normalized.Workshops["Shop 1"]);
-        Assert.Equal(" INV-001 ", systemNode.Details.InventoryNumber);
-        Assert.Equal(string.Empty, systemNode.Children.Single().Details.InventoryNumber);
+        var level2Node = Assert.Single(normalized.Workshops["Shop 1"])
+            .Children.Single()
+            .Children.Single();
+        Assert.Equal(" INV-001 ", level2Node.Details.InventoryNumber);
+        Assert.Equal(string.Empty, level2Node.Children.Single().Details.InventoryNumber);
     }
 
     [Fact]
@@ -421,6 +443,12 @@ public class KnowledgeBaseDataServiceTests
                     {
                         OwnerNodeId = "   ",
                         To1Hours = 1
+                    },
+                    new()
+                    {
+                        OwnerNodeId = "system-1",
+                        IsIncludedInSchedule = false,
+                        To1Hours = 99
                     }
                 },
                 LastWorkshop = "Shop 1"
@@ -433,6 +461,49 @@ public class KnowledgeBaseDataServiceTests
         Assert.Equal(0, profile.To2Hours);
         Assert.Equal(8, profile.To3Hours);
         Assert.False(string.IsNullOrWhiteSpace(profile.MaintenanceProfileId));
+    }
+
+    [Fact]
+    public void NormalizeSavedData_UsesSingleMaintenanceProfilePerOwnerNode()
+    {
+        var normalized = KnowledgeBaseDataService.NormalizeSavedData(
+            new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Shop 1"] = new()
+                    {
+                        new KbNode
+                        {
+                            NodeId = "device-1",
+                            Name = "Pump 1",
+                            LevelIndex = 0,
+                            NodeType = KbNodeType.Device
+                        }
+                    }
+                },
+                MaintenanceScheduleProfiles = new List<KbMaintenanceScheduleProfile>
+                {
+                    new()
+                    {
+                        OwnerNodeId = "device-1",
+                        IsIncludedInSchedule = true,
+                        To1Hours = 2
+                    },
+                    new()
+                    {
+                        OwnerNodeId = "device-1",
+                        IsIncludedInSchedule = false,
+                        To1Hours = 7
+                    }
+                },
+                LastWorkshop = "Shop 1"
+            });
+
+        var profile = Assert.Single(normalized.MaintenanceScheduleProfiles);
+        Assert.True(profile.IsIncludedInSchedule);
+        Assert.Equal(2, profile.To1Hours);
     }
 
     [Fact]

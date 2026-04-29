@@ -26,6 +26,7 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseCompositionTemplateService _compositionTemplateService = new();
         private readonly KnowledgeBaseDocsAndSoftwareMutationService _docsAndSoftwareMutationService = new();
         private readonly KnowledgeBaseNetworkMutationService _networkMutationService = new();
+        private readonly KnowledgeBaseMaintenanceScheduleProfileMutationService _maintenanceScheduleProfileMutationService = new();
         private readonly KnowledgeBaseFormStateService _formStateService = new();
         private readonly KnowledgeBaseNodePresentationService _nodePresentationService = new();
         private readonly KnowledgeBaseTreeViewService _treeViewService = new();
@@ -75,10 +76,12 @@ namespace AsutpKnowledgeBase
         private TabPage tabSelectedNodeComposition = null!;
         private TabPage tabSelectedNodeDocsAndSoftware = null!;
         private TabPage tabSelectedNodeNetwork = null!;
+        private TabPage tabSelectedNodeMaintenance = null!;
         private KnowledgeBaseInfoScreenControl selectedNodeInfoScreen = null!;
         private KnowledgeBaseCompositionScreenControl selectedNodeCompositionScreen = null!;
         private KnowledgeBaseDocsAndSoftwareScreenControl selectedNodeDocsAndSoftwareScreen = null!;
         private KnowledgeBaseNetworkScreenControl selectedNodeNetworkScreen = null!;
+        private KnowledgeBaseMaintenanceScheduleScreenControl selectedNodeMaintenanceScreen = null!;
         private Label lblSelectedNodeDocsPlaceholder = null!;
 
         private KbConfig _config => _session.Config;
@@ -158,6 +161,7 @@ namespace AsutpKnowledgeBase
                     selectedNodeCompositionScreen.ApplyState(selectedNodeState.Composition);
                     selectedNodeDocsAndSoftwareScreen.ApplyState(selectedNodeState.DocsAndSoftware);
                     selectedNodeNetworkScreen.ApplyState(selectedNodeState.Network);
+                    selectedNodeMaintenanceScreen.ApplyState(selectedNodeState.MaintenanceSchedule);
                 }
 
                 ScheduleDeferredLayout();
@@ -201,7 +205,8 @@ namespace AsutpKnowledgeBase
                 _session.CompositionEntries,
                 _session.DocumentLinks,
                 _session.SoftwareRecords,
-                _session.NetworkFileReferences);
+                _session.NetworkFileReferences,
+                _session.MaintenanceScheduleProfiles);
         }
 
         private void ApplyFormState(KnowledgeBaseFormState formState, bool refreshSelectedNodeState)

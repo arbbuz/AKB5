@@ -253,6 +253,11 @@ namespace AsutpKnowledgeBase
                 Tag = KnowledgeBaseNodeWorkspaceTabKind.Network
             };
 
+            tabSelectedNodeMaintenance = new TabPage("График ТО")
+            {
+                Tag = KnowledgeBaseNodeWorkspaceTabKind.Maintenance
+            };
+
             lblSelectedNodeDocsPlaceholder = CreateWorkspacePlaceholderLabel();
 
             selectedNodeCompositionScreen = new KnowledgeBaseCompositionScreenControl
@@ -267,10 +272,15 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Fill
             };
+            selectedNodeMaintenanceScreen = new KnowledgeBaseMaintenanceScheduleScreenControl
+            {
+                Dock = DockStyle.Fill
+            };
 
             tabSelectedNodeComposition.Controls.Add(selectedNodeCompositionScreen);
             tabSelectedNodeDocsAndSoftware.Controls.Add(selectedNodeDocsAndSoftwareScreen);
             tabSelectedNodeNetwork.Controls.Add(selectedNodeNetworkScreen);
+            tabSelectedNodeMaintenance.Controls.Add(selectedNodeMaintenanceScreen);
 
             selectedNodeInfoScreen = new KnowledgeBaseInfoScreenControl
             {
@@ -283,6 +293,7 @@ namespace AsutpKnowledgeBase
             tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeComposition);
             tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeDocsAndSoftware);
             tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeNetwork);
+            tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeMaintenance);
 
             pnlRight.Controls.Add(pnlSelectedNodeInfoScreen);
             pnlRight.Controls.Add(tabSelectedNodeWorkspace);

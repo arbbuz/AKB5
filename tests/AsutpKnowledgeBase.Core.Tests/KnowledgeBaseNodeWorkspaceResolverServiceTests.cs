@@ -30,7 +30,8 @@ public class KnowledgeBaseNodeWorkspaceResolverServiceTests
                 KnowledgeBaseNodeWorkspaceTabKind.Info,
                 KnowledgeBaseNodeWorkspaceTabKind.Composition,
                 KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware,
-                KnowledgeBaseNodeWorkspaceTabKind.Network
+                KnowledgeBaseNodeWorkspaceTabKind.Network,
+                KnowledgeBaseNodeWorkspaceTabKind.Maintenance
             },
             workspace.Tabs.Select(static tab => tab.Kind).ToArray());
     }

@@ -1,6 +1,6 @@
 # Lessons Learned
 
-Last updated: `2026-04-28`
+Last updated: `2026-04-29`
 
 ## UI and tree behavior
 
@@ -16,6 +16,7 @@ Last updated: `2026-04-28`
 - If a WinForms screen auto-switches to another tab after list selection, reset the active tab inside `ApplyState` when a new node is loaded; otherwise the previously open tab looks like a false auto-jump on simple context change
 - In WinForms, avoid setting `SplitContainer.SplitterDistance` together with min sizes too early in the constructor; on startup it can throw `InvalidOperationException` before the control gets a stable size
 - When both list density and preview size matter, a shared split layout can become a losing compromise; separate full-size tabs for `list` and `preview` are often more robust than repeatedly tuning one static split
+- When adding a new row to a WinForms summary card, avoid relying on a fixed container height; use auto-sizing where possible and do not report the change complete until the built `exe` shows the field visibly
 
 ## Investigation discipline
 
@@ -30,6 +31,7 @@ Last updated: `2026-04-28`
 - If a planning marker like `ТО1/2` combines a maintenance type and hours, store them as separate domain concepts even if they render into one Excel cell
 - If maintenance types have different hour values in the sample workbook, model separate integer hour norms for `ТО1`, `ТО2`, and `ТО3` instead of one generic labor field
 - When the user defines periodicity abstractly but does not care about the starting month yet, use a deterministic per-node cycle offset so the planner stays stable until a formal yearly schedule source is introduced
+- Do not confuse the later per-day `<= 8` planner cap with stored per-node `ТО1` / `ТО2` / `ТО3` norms; norms can exceed `8` and must stay separate from daily allocation limits
 
 ## Documentation discipline
 

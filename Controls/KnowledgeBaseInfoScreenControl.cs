@@ -59,14 +59,16 @@ namespace AsutpKnowledgeBase
                 Margin = new Padding(0)
             };
             _tblDetailsLeftColumn.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            _tblDetailsLeftColumn.RowStyles.Add(new RowStyle(SizeType.Absolute, 144F));
+            _tblDetailsLeftColumn.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             _tblDetailsLeftColumn.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             _tblDetailsLeftColumn.RowStyles.Add(new RowStyle(SizeType.Absolute, 0F));
 
             var grpSummary = new GroupBox
             {
                 Text = "Сводка",
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 Margin = new Padding(0, 0, 0, 12)
             };
             grpSummary.Controls.Add(CreateSummaryLayout());
@@ -152,7 +154,9 @@ namespace AsutpKnowledgeBase
         {
             var layout = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 ColumnCount = 2,
                 RowCount = 3,
                 Padding = new Padding(10, 8, 10, 10)
@@ -300,6 +304,9 @@ namespace AsutpKnowledgeBase
 
             if (!visible)
                 _txtNodeInventoryNumber.Text = string.Empty;
+
+            _txtNodeInventoryNumber.Parent?.PerformLayout();
+            _tblDetailsLeftColumn.PerformLayout();
         }
 
         private static Label CreateFormLabel(string text) =>

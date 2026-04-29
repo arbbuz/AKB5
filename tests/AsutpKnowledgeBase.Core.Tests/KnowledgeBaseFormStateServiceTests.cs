@@ -183,13 +183,13 @@ public class KnowledgeBaseFormStateServiceTests
     }
 
     [Fact]
-    public void Build_ShowsInventoryNumberOnlyForSystemNodes()
+    public void Build_ShowsInventoryNumberOnlyForLevel2Nodes()
     {
         var selectedNode = new KbNode
         {
             Name = "Линия 1",
-            LevelIndex = 1,
-            NodeType = KbNodeType.System,
+            LevelIndex = 2,
+            NodeType = KbNodeType.Department,
             Details = new KbNodeDetails
             {
                 InventoryNumber = "INV-100"
@@ -209,7 +209,8 @@ public class KnowledgeBaseFormStateServiceTests
         Assert.True(state.SelectedNode.ShowInventoryNumber);
         Assert.Equal("INV-100", state.SelectedNode.InventoryNumber);
 
-        selectedNode.NodeType = KbNodeType.Cabinet;
+        selectedNode.LevelIndex = 3;
+        selectedNode.NodeType = KbNodeType.System;
         var cabinetState = _service.Build(
             isDirty: false,
             requiresSave: false,
@@ -222,6 +223,46 @@ public class KnowledgeBaseFormStateServiceTests
 
         Assert.False(cabinetState.SelectedNode.ShowInventoryNumber);
         Assert.Equal(string.Empty, cabinetState.SelectedNode.InventoryNumber);
+    }
+
+    [Fact]
+    public void Build_ExposesMaintenanceScheduleStateForEngineeringNodes()
+    {
+        var selectedNode = new KbNode
+        {
+            NodeId = "device-1",
+            Name = "Насос 1",
+            LevelIndex = 3,
+            NodeType = KbNodeType.Device
+        };
+
+        var state = _service.Build(
+            isDirty: false,
+            requiresSave: false,
+            currentDataPath: "/tmp/device.json",
+            currentWorkshop: "Цех 1",
+            lastSavedWorkshop: "Цех 1",
+            totalNodes: 1,
+            currentRoots: new List<KbNode> { selectedNode },
+            selectedNode: selectedNode,
+            maintenanceScheduleProfiles: new[]
+            {
+                new KbMaintenanceScheduleProfile
+                {
+                    MaintenanceProfileId = "maintenance-1",
+                    OwnerNodeId = "device-1",
+                    IsIncludedInSchedule = true,
+                    To1Hours = 2,
+                    To2Hours = 5,
+                    To3Hours = 12
+                }
+            });
+
+        Assert.True(state.SelectedNode.Workspace.UseTabHost);
+        Assert.True(state.SelectedNode.MaintenanceSchedule.SupportsEditing);
+        Assert.True(state.SelectedNode.MaintenanceSchedule.HasProfile);
+        Assert.Equal("Да", state.SelectedNode.MaintenanceSchedule.InclusionText);
+        Assert.Equal("12 ч", state.SelectedNode.MaintenanceSchedule.To3HoursText);
     }
 
     [Fact]

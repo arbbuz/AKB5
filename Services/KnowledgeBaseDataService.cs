@@ -255,19 +255,19 @@ namespace AsutpKnowledgeBase.Services
         private static void NormalizeNodeDetailsRecursive(KbNode node)
         {
             node.Name ??= string.Empty;
-            node.Details = NormalizeDetails(node.Details, node.NodeType);
+            node.Details = NormalizeDetails(node.Details, node.NodeType, node.LevelIndex);
             node.Children ??= new List<KbNode>();
 
             foreach (var child in node.Children)
                 NormalizeNodeDetailsRecursive(child);
         }
 
-        private static KbNodeDetails NormalizeDetails(KbNodeDetails? details, KbNodeType nodeType) =>
+        private static KbNodeDetails NormalizeDetails(KbNodeDetails? details, KbNodeType nodeType, int levelIndex) =>
             new()
             {
                 Description = details?.Description ?? string.Empty,
                 Location = details?.Location ?? string.Empty,
-                InventoryNumber = KnowledgeBaseNodeMetadataService.SupportsInventoryNumber(nodeType)
+                InventoryNumber = KnowledgeBaseNodeMetadataService.SupportsInventoryNumber(nodeType, levelIndex)
                     ? details?.InventoryNumber ?? string.Empty
                     : string.Empty,
                 PhotoPath = details?.PhotoPath ?? string.Empty,
@@ -459,6 +459,7 @@ namespace AsutpKnowledgeBase.Services
                 return normalized;
 
             var usedProfileIds = new HashSet<string>(StringComparer.Ordinal);
+            var usedOwnerNodeIds = new HashSet<string>(StringComparer.Ordinal);
             int normalizedIndex = 0;
 
             foreach (var profile in profiles)
@@ -468,6 +469,9 @@ namespace AsutpKnowledgeBase.Services
 
                 string ownerNodeId = profile.OwnerNodeId?.Trim() ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(ownerNodeId))
+                    continue;
+
+                if (!usedOwnerNodeIds.Add(ownerNodeId))
                     continue;
 
                 normalized.Add(new KbMaintenanceScheduleProfile

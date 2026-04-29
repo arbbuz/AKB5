@@ -1,13 +1,13 @@
 # Current State
 
-Last updated: `2026-04-28`
+Last updated: `2026-04-29`
 
 ## Repo state
 
 - Repository root: `C:\Users\Olga\AKB5`
 - Active integration branch: `interface`
-- Implemented on this branch: `Phase 0`, `Phase 1`, `Phase 2`, `Phase 3`, `Phase 3B`, `Phase 4`, `Phase 5`, `Phase 6`
-- Next unfinished roadmap phase: `Phase 7`
+- Implemented on this branch: `Phase 0`, `Phase 1`, `Phase 2`, `Phase 3`, `Phase 3B`, `Phase 4`, `Phase 5`, `Phase 6`, `Phase 7A foundation`
+- Next unfinished roadmap phase: `Phase 7` planner/export continuation
 
 ## Integrated feature state
 
@@ -42,8 +42,14 @@ Last updated: `2026-04-28`
   - embedded preview is currently limited to `jpg`, `jpeg`, `png`, `bmp`, and `gif`
   - non-image files stay metadata-only in-form and rely on `Open original`
   - the screen uses separate `Файлы` and `Предпросмотр` tabs; loading a node opens `Файлы`, and automatic switching to `Предпросмотр` is not part of the accepted UX
+- `Phase 7A foundation` is active in the branch:
+  - `Lvl2` inventory number visibility now follows hierarchy level instead of relying on `NodeType.System`
+  - typed maintenance settings live in top-level `SavedData.MaintenanceScheduleProfiles`
+  - selected-node state exposes a dedicated maintenance view model through `KnowledgeBaseMaintenanceScheduleStateService`
+  - engineering nodes (`Cabinet`, `Device`, `Controller`, `Module`) now have a `График ТО` workspace tab
+  - one maintenance profile is stored per owner node and contains `IsIncludedInSchedule` plus separate integer hour norms for `ТО1`, `ТО2`, and `ТО3`
 - User-facing program UI on `interface` is now Russian-only; future UI changes should keep labels, prompts, dialogs, and status text in Russian
-- Deleting a node removes typed composition, document links, software records, and network file references for the whole deleted subtree
+- Deleting a node removes typed composition, document links, software records, network file references, and maintenance schedule profiles for the whole deleted subtree
 - `summary.md` is only a pointer into the docs harness and is not a second current-state source
 
 ## Validated status
@@ -51,23 +57,22 @@ Last updated: `2026-04-28`
 Actually run on the current worktree on `2026-04-28`:
 
 ```powershell
-$env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore -p:BaseOutputPath=C:\Users\Olga\AKB5\artifacts\verify\build\
-$env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore
+$env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release -p:BaseOutputPath=C:\Users\Olga\AKB5\artifacts\verify\phase7-build\
+$env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release -p:BaseOutputPath=C:\Users\Olga\AKB5\artifacts\verify\phase7-test\
 ```
 
 - Verification `dotnet build`: passed
-- `dotnet test`: passed, `177/177`
-- The build used an isolated output path because a running local app instance can lock the default `bin\Release` outputs
-- A standard `Release` build into the default output was also rechecked after the later `Phase 6` UX fixes
-- `asutpKB.exe` startup was checked after the final `Phase 6` `Network`-tab layout changes
-- `dotnet format --verify-no-changes` was not rerun after the latest `Phase 6` changes
+- `dotnet test`: passed, `192/192`
+- An earlier attempt to build and test in parallel produced a transient file-lock failure on shared `Release` outputs; the final verification was rerun sequentially and passed
+- The build used isolated output paths because a running local app instance or a concurrent verification pass can lock the default `bin\Release` outputs
+- `dotnet format --verify-no-changes` was not rerun after the latest `Phase 7A` changes
 - Existing warnings remain, including `NU1900` when NuGet vulnerability metadata is unavailable offline
 
 ## Active objective
 
-- Continue roadmap implementation from `Phase 7`
-- Replace the old workbook-modernization direction with maintenance-schedule generation while keeping JSON source-of-truth
-- Build a template-driven yearly workbook for monthly maintenance schedules using the approved enterprise form
+- Continue `Phase 7` from the finished `Phase 7A foundation` slice
+- Prepare a cleaned internal Excel template derived from `C:\Users\Olga\Downloads\123.xlsx`
+- Implement the Russian production-calendar service, monthly planner, and workbook export using the approved enterprise form
 
 ## Durable decisions already made
 
@@ -93,9 +98,12 @@ $env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet test C:\Users\Olga
   - child engineering nodes become the `план/факт` detail rows
   - the application generates only `план`; `факт` remains blank for manual filling on the printed form
   - `ТО1` is monthly, `ТО2` is semiannual, `ТО3` is annual
-  - planned nodes will need separate integer hour norms for `ТО1`, `ТО2`, and `ТО3`
+  - planned nodes need separate integer hour norms for `ТО1`, `ТО2`, and `ТО3`
+  - stored `ТО` hour norms are not capped at `8`; the `<= 8` rule belongs to later per-day planner allocation
   - until a formal yearly schedule source exists, `ТО2` / `ТО3` placement should come from a deterministic per-node cycle offset
   - inconsistencies in the historical sample workbook are treated as manual noise, not as the rule source
+- `Phase 7A foundation` stores maintenance data as top-level `MaintenanceScheduleProfiles` keyed by `OwnerNodeId`
+- Saved-data normalization must keep at most one maintenance profile per `OwnerNodeId`
 - `docs/codex-handoff.md` remains the single current-state file for future sessions
 
 ## Knowledge harness
@@ -108,32 +116,41 @@ $env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet test C:\Users\Olga
 
 ## Relevant files for the current task area
 
+- `Models/KbMaintenanceScheduleProfile.cs`
 - `Models/SavedData.cs`
 - `Services/JsonStorageService.cs`
 - `Services/KnowledgeBaseDataService.cs`
+- `Services/KnowledgeBaseFormStateService.cs`
+- `Services/KnowledgeBaseMaintenanceScheduleProfileMutationService.cs`
+- `Services/KnowledgeBaseMaintenanceScheduleStateService.cs`
+- `Services/KnowledgeBaseNodeWorkspaceResolverService.cs`
+- `Forms/MainForm.cs`
+- `Forms/MainForm.Maintenance.cs`
+- `Controls/KnowledgeBaseMaintenanceScheduleScreenControl.cs`
+- `Forms/KnowledgeBaseMaintenanceScheduleProfileDialog.cs`
 - `Services/KnowledgeBaseExcelExchangeService.cs`
 - `Services/KnowledgeBaseExcelWorkbookParser.cs`
 - `Services/KnowledgeBaseXlsxReader.cs`
 - `Services/KnowledgeBaseXlsxWriter.cs`
-- `Services/KnowledgeBaseSessionService.cs`
 - `C:\Users\Olga\Downloads\123.xlsx`
 - `docs/workbook-v3.md`
 - `Roadmap.md`
 
 ## Known limits / open follow-up
 
-- `Phase 7` implementation has not started yet; only the business direction and the sample-form analysis are fixed
-- The current docs/software UI is intentionally limited to supported engineering node types and does not yet cover all node categories
-- `copy composition from existing object` currently copies only typed composition entries; it does not copy docs/software records or network file references
+- `Phase 7` is only partially implemented; the `Phase 7A foundation` data/UI slice is done, but calendar allocation, workbook planning, and export are still unfinished
+- The current maintenance UI is intentionally limited to supported engineering node types and does not yet cover all node categories
+- `copy composition from existing object` currently copies only typed composition entries; it does not copy docs/software records, network file references, or maintenance profiles
 - `Network` does not provide embedded PDF preview or interactive topology editing in the current phase
 - A standard `dotnet build` into the default `Release` output can fail if `asutpKB.exe` is still running and holding DLL locks
 - A future externally provided yearly maintenance schedule may later replace the temporary rule-based source of `ТО1` / `ТО2` / `ТО3` month placement
 
 ## Recommended next step
 
-- Start `Phase 7` maintenance-schedule work from `Roadmap.md`
-- Add the `Lvl2` inventory-number field and define typed maintenance settings for planned nodes
+- Continue `Phase 7` from the finished `Phase 7A foundation` slice
 - Prepare a cleaned internal Excel template derived from `123.xlsx`
+- Implement the Russian production-calendar service and monthly planner on top of `MaintenanceScheduleProfiles`
+- After planner rules are stable, generate the yearly workbook export with blank `факт` cells
 - Keep all new user-facing strings in Russian
 
 ## Commands to run before finishing future implementation work
@@ -141,6 +158,6 @@ $env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet test C:\Users\Olga
 ```powershell
 git status --short
 # Close running asutpKB.exe first if you want to build into the default Release output.
-$env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release --no-restore
-$env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore
+$env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release -p:BaseOutputPath=C:\Users\Olga\AKB5\artifacts\verify\phase7-build\
+$env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release -p:BaseOutputPath=C:\Users\Olga\AKB5\artifacts\verify\phase7-test\
 ```

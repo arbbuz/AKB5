@@ -1,6 +1,17 @@
 # Decision Log
 
-Last updated: `2026-04-28`
+Last updated: `2026-04-29`
+
+## 2026-04-29
+
+- `Phase 7A foundation` is considered implemented on `interface`
+- `Lvl2` inventory number visibility must follow the real tree level, not `NodeType.System` alone
+- Maintenance settings are stored as top-level `MaintenanceScheduleProfiles` keyed by `OwnerNodeId`
+- Saved-data normalization must keep at most one maintenance profile per `OwnerNodeId`
+- Only engineering nodes (`Cabinet`, `Device`, `Controller`, `Module`) get the `График ТО` workspace and maintenance-profile editing
+- Stored `ТО1` / `ТО2` / `ТО3` hour norms are non-negative integers and are not capped at `8`
+- The `<= 8` rule belongs to later per-day planner allocation, not to stored maintenance norms
+- Deleting a node must remove maintenance schedule profiles for the whole deleted subtree together with other typed collections
 
 ## 2026-04-28
 

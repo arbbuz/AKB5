@@ -107,6 +107,13 @@ namespace AsutpKnowledgeBase.Services
                 return false;
             }
 
+            if (!KnowledgeBaseMaintenanceScheduleStateService.SupportsProfile(ownerNode.NodeType))
+            {
+                ownerNodeId = string.Empty;
+                errorMessage = "Для выбранного узла вкладка \"График ТО\" недоступна.";
+                return false;
+            }
+
             ownerNodeId = ownerNode.NodeId?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(ownerNodeId))
             {
@@ -120,9 +127,9 @@ namespace AsutpKnowledgeBase.Services
 
         private static bool TryValidateHours(int hours, string workType, out string errorMessage)
         {
-            if (hours is < 0 or > 8)
+            if (hours < 0)
             {
-                errorMessage = $"Норма часов для {workType} должна быть в диапазоне от 0 до 8.";
+                errorMessage = $"Норма часов для {workType} не может быть отрицательной.";
                 return false;
             }
 
