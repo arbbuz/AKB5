@@ -4,44 +4,45 @@ Last updated: `2026-04-29`
 
 ## 2026-04-29
 
-- `Phase 7A foundation` is considered implemented on `interface`
-- `Lvl2` inventory number visibility must follow the real tree level, not `NodeType.System` alone
+- `to` is the active integration branch for the current roadmap stream
+- `.github/workflows/windows-build.yml` should target branch `to`
+- `Phase 7A`, `Phase 7B`, `Phase 7C`, and `Phase 7D` are considered implemented on `to`
+- `Lvl2` inventory number visibility must follow visible hierarchy level, not `NodeType.System` alone
+- Card and tab behavior for `Lvl1/Lvl2/Lvl3` should resolve from visible structure when legacy saved `NodeType` values are mixed
 - Maintenance settings are stored as top-level `MaintenanceScheduleProfiles` keyed by `OwnerNodeId`
 - Saved-data normalization must keep at most one maintenance profile per `OwnerNodeId`
-- Only engineering nodes (`Cabinet`, `Device`, `Controller`, `Module`) get the `График ТО` workspace and maintenance-profile editing
-- Stored `ТО1` / `ТО2` / `ТО3` hour norms are non-negative integers and are not capped at `8`
-- The `<= 8` rule belongs to later per-day planner allocation, not to stored maintenance norms
-- Deleting a node must remove maintenance schedule profiles for the whole deleted subtree together with other typed collections
+- Only engineering nodes get the `График ТО` workspace and maintenance-profile editing
+- Maintenance periodicity for the current implementation is fixed as:
+  - `ТО1` = monthly
+  - `ТО2` = quarterly
+  - `ТО3` = annual
+- Maintenance inclusion rules are fixed as:
+  - `ТО2` includes `ТО1`
+  - `ТО3` includes `ТО1` and `ТО2`
+  - a full annual profile therefore resolves to `8 x ТО1`, `3 x ТО2`, `1 x ТО3`
+- Stored `ТО1` / `ТО2` / `ТО3` norms are non-negative integer labor hours per occurrence, not per-day or per-month caps
+- The hard planner constraint is the selected monthly workshop budget; there is no hard daily `<= 8` cap in the current planner
+- The planner may place multiple `ТО2` / `ТО3` items on the same day when needed; avoiding that is only a preference, not a blocking rule
+- The first maintenance-export release must remain template-driven and rewrite only the selected month inside the yearly workbook
+- The export dialog must show resolved monthly demand before the user confirms the available monthly workshop budget
+- Maintenance norms can be imported from the approved sample workbook and should match by inventory number first, then by normalized names
+- The import workflow must tolerate the source workbook being open in Excel
 - Future implementation work should run in micro-steps: `one step -> verify-step -> stop -> review -> commit/push`
 
 ## 2026-04-28
 
-- `Phase 5` is considered implemented on `interface`
-- Search is now a typed domain workflow with fixed scopes: `All`, `Tree`, `Card`, `Composition`, and `Docs/Software`
+- `Phase 5` is considered implemented on the active integration branch
+- Search is a typed domain workflow with fixed scopes: `All`, `Tree`, `Card`, `Composition`, and `Docs/Software`
 - Search navigation must continue to resolve to the owning tree node and may switch the workspace to the preferred tab for the matched domain
 - User-facing program UI should use Russian only going forward
-- `Phase 5` plus the subsequent UI-localization pass were validated by build/test on `2026-04-28`; tests are now `171/171`
 - `Documentation and Software` remains intentionally separate from `Composition`; it uses dedicated link catalogs for schemes, instructions, and software folders
 - The user-facing software workflow records `AddedAt`; legacy software timestamps/notes remain compatibility-only persistence fields
-- `Phase 6` is considered implemented on `interface`; the next roadmap phase is `Phase 7`
+- `Phase 6` is considered implemented on the active integration branch
 - `Phase 6` stores file-based network context in top-level `NetworkFileReferences` keyed by `OwnerNodeId`
 - `Phase 6` keeps embedded preview limited to image formats already supported by the in-form workflow; non-image files stay metadata-only with `Open original`
 - `Phase 6` uses separate `Файлы` and `Предпросмотр` tabs instead of a permanently split list/preview layout
 - Loading a node must open `Файлы` by default; automatic switching to `Предпросмотр` is not part of the accepted UX
-- `Phase 6` validation after the final UX fixes reached `177/177`, and `asutpKB.exe` startup was rechecked
 - The old `Phase 7` Excel/exchange-modernization direction is superseded by maintenance-schedule generation
-- The first `Phase 7` release should produce one yearly accumulating workbook per workshop with `12` month sheets based on the approved enterprise form
-- Maintenance planning is now defined by business rule, not by historical quirks in the hand-filled sample workbook
-- Current fixed maintenance rules are:
-  - `ТО1` = monthly
-  - `ТО2` = semiannual
-  - `ТО3` = annual
-- The planning hierarchy is fixed as:
-  - `Lvl2` node = numbered parent row with inventory number
-  - child engineering nodes = `план/факт` detail rows
-- The application generates only `план`; `факт` stays blank in the workbook for manual paper-side filling
-- Planned nodes will require separate integer hour norms for `ТО1`, `ТО2`, and `ТО3`
-- Until a formal yearly schedule source is provided, `ТО2` / `ТО3` placement should come from a deterministic per-node cycle offset
 
 ## 2026-04-27
 

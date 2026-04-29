@@ -6,9 +6,8 @@
 - Root app project: `asutpKB.csproj` with `TargetFramework=net8.0-windows` and `UseWindowsForms=true`.
 - Entry point: `Program.cs`, which boots `MainForm`.
 - Current engineering mode: pragmatic refactoring and stabilization, not rewrite.
-- The active roadmap implementation branch is currently `interface`; `main` remains the stable branch.
-- Roadmap phases `0`, `1`, `2`, and `3` are already implemented on `interface`. The next unfinished roadmap phase is `Phase 3B`.
-- The current local code baseline has been intentionally rolled back to the `Windows Build 86` application state, which matches commit `ec5c04e` in application code.
+- The active roadmap implementation branch is currently `to`; `main` remains the stable branch.
+- Roadmap phases `0` through `7D` are already implemented on `to`. The next unfinished roadmap phase is `Phase 7E`.
 - JSON remains the source of truth. Excel exchange is a separate import/export layer.
 - Current Excel implementation uses `DocumentFormat.OpenXml` and `WorkbookFormatVersion = 3`. Legacy `v1/v2` import is no longer supported.
 - CI now enforces `dotnet format --verify-no-changes` for the WinForms app, core library, and tests before `build`/`test`.
@@ -93,11 +92,11 @@ Publish:
 ## Git branch workflow
 
 - `main` is the stable branch. Do not use it as the default working branch for ordinary task implementation.
-- `interface` is the current active integration branch for the typed-workspace roadmap work tracked in `docs/codex-handoff.md` and `Roadmap.md`.
-- For tasks that continue the current roadmap stream, stay on `interface` unless the user explicitly redirects the work to another branch.
+- `to` is the current active integration branch for the typed-workspace and maintenance-planning roadmap work tracked in `docs/codex-handoff.md` and `Roadmap.md`.
+- For tasks that continue the current roadmap stream, stay on `to` unless the user explicitly redirects the work to another branch.
 - Only when the user explicitly asks to "push to main" should Codex prepare a PR or handoff from the active working branch to `main`.
 - Do not push task branches directly to `main` unless the user explicitly overrides this workflow.
-- If another local branch/worktree contains unfinished changes, keep them isolated and do not mix them into `interface` without the user's approval.
+- If another local branch/worktree contains unfinished changes, keep them isolated and do not mix them into `to` without the user's approval.
 
 ## Validation policy before completion
 

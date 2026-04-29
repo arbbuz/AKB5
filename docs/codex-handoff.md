@@ -5,161 +5,158 @@ Last updated: `2026-04-29`
 ## Repo state
 
 - Repository root: `C:\Users\Olga\AKB5`
-- Active integration branch: `interface`
-- Implemented on this branch: `Phase 0`, `Phase 1`, `Phase 2`, `Phase 3`, `Phase 3B`, `Phase 4`, `Phase 5`, `Phase 6`, `Phase 7A foundation`
-- Next unfinished roadmap phase: `Phase 7` planner/export continuation
+- Active integration branch: `to`
+- Latest feature integration commit for the maintenance-planning stream: `7d56084`
+- Implemented on this branch:
+  - `Phase 0`
+  - `Phase 1`
+  - `Phase 2`
+  - `Phase 3`
+  - `Phase 3B`
+  - `Phase 4`
+  - `Phase 5`
+  - `Phase 6`
+  - `Phase 7A foundation`
+  - `Phase 7B Russian production calendar`
+  - `Phase 7C monthly planning engine`
+  - `Phase 7D yearly workbook export workflow`
+- Next unfinished roadmap slice: `Phase 7E` future yearly schedule source
 
 ## Integrated feature state
 
-- `Phase 3` is active in the branch:
+- `Phase 3` remains active on `to`:
   - typed composition entries live in `SavedData.CompositionEntries`
   - the `Composition` screen separates slots from auxiliary equipment
   - ordering is driven by `SlotNumber` + `PositionOrder`, not by left-tree child order
-- `Phase 3B` is active in the branch:
-  - built-in cabinet/controller composition templates are available
-  - `copy composition from existing object` duplicates typed composition entries between nodes of the same `NodeType`
-- `Phase 4` is active in the branch:
-  - typed documentation/software models live in `Models/KbDocumentKind.cs`, `Models/KbDocumentLink.cs`, and `Models/KbSoftwareRecord.cs`
-  - top-level JSON/session persistence includes `DocumentLinks` and `SoftwareRecords`
-  - `Documentation and Software` is wired through `Controls/KnowledgeBaseDocsAndSoftwareScreenControl.cs`, `Forms/MainForm.DocsAndSoftware.cs`, and typed edit dialogs
-  - the tab is currently available for `Cabinet`, `Device`, `Controller`, and `Module`
-  - the UI is intentionally not a clone of `Composition`; it manages three link catalogs:
-    - schemes
-    - instructions
-    - software folders
-  - software links record `AddedAt` in the user-facing workflow
-  - legacy software timestamps/notes remain compatibility-only persistence fields and are not exposed in the main editing UI
-- `Phase 5` is active in the branch:
-  - search is no longer name-only
-  - indexed matches now cover `Tree`, `Card`, `Composition`, and `Docs/Software`
-  - search scopes are `All`, `Tree`, `Card`, `Composition`, and `Docs/Software`
-  - search navigation resolves to the owning tree node and preferred workspace tab
-- `Phase 6` is active in the branch:
-  - typed network file references live in `Models/KbNetworkFileReference.cs` and `Models/KbNetworkPreviewKind.cs`
-  - top-level JSON/session persistence includes `NetworkFileReferences`
-  - the `Network` workflow is wired through `Controls/KnowledgeBaseNetworkScreenControl.cs`, `Forms/MainForm.Network.cs`, and `Forms/KnowledgeBaseNetworkFileReferenceDialog.cs`
-  - the first release is file-based, not interactive-topology-based
-  - embedded preview is currently limited to `jpg`, `jpeg`, `png`, `bmp`, and `gif`
-  - non-image files stay metadata-only in-form and rely on `Open original`
-  - the screen uses separate `Файлы` and `Предпросмотр` tabs; loading a node opens `Файлы`, and automatic switching to `Предпросмотр` is not part of the accepted UX
-- `Phase 7A foundation` is active in the branch:
-  - `Lvl2` inventory number visibility now follows hierarchy level instead of relying on `NodeType.System`
+- `Phase 4` remains active on `to`:
+  - typed documentation/software records live in top-level `DocumentLinks` and `SoftwareRecords`
+  - the workflow stays intentionally separate from `Composition`
+- `Phase 5` remains active on `to`:
+  - indexed search covers `Tree`, `Card`, `Composition`, and `Docs/Software`
+  - scopes stay fixed to `All`, `Tree`, `Card`, `Composition`, and `Docs/Software`
+- `Phase 6` remains active on `to`:
+  - file-based `Network` references live in top-level `NetworkFileReferences`
+  - the screen keeps separate `Файлы` and `Предпросмотр` tabs
+  - embedded preview remains image-only
+- `Phase 7` current state on `to`:
   - typed maintenance settings live in top-level `SavedData.MaintenanceScheduleProfiles`
-  - selected-node state exposes a dedicated maintenance view model through `KnowledgeBaseMaintenanceScheduleStateService`
-  - engineering nodes (`Cabinet`, `Device`, `Controller`, `Module`) now have a `График ТО` workspace tab
-  - one maintenance profile is stored per owner node and contains `IsIncludedInSchedule` plus separate integer hour norms for `ТО1`, `ТО2`, and `ТО3`
-- User-facing program UI on `interface` is now Russian-only; future UI changes should keep labels, prompts, dialogs, and status text in Russian
-- Deleting a node removes typed composition, document links, software records, network file references, and maintenance schedule profiles for the whole deleted subtree
-- `summary.md` is only a pointer into the docs harness and is not a second current-state source
+  - one maintenance profile is stored per `OwnerNodeId`
+  - `Lvl2` inventory number visibility follows visible hierarchy level rather than raw `NodeType.System`
+  - card-field rules now follow visible levels:
+    - `Lvl1`: hide `Местоположение` and `Фото`
+    - `Lvl2`: show `Инвентарный номер`, hide `Местоположение`, `Фото`, `IP-адрес`, and `Ссылка на схему`
+    - `Lvl3+`: hide `Фото`, `IP-адрес`, and `Ссылка на схему`
+  - engineering tab visibility for `Lvl3+` now resolves by visible engineering support, not only by persisted `NodeType`
+  - engineering nodes expose the `График ТО` workflow
+  - `KnowledgeBaseRussianProductionCalendarService` provides reusable Russian `5/2` workday calculation
+  - `KnowledgeBaseMaintenanceMonthWorkResolverService` resolves monthly work demand from stored norms and deterministic cycle offsets
+  - `KnowledgeBaseMaintenanceMonthlyPlannerService` plans against a monthly hour budget, distributes work across working days, and does not enforce a hard daily `<= 8` cap
+  - the export workflow is template-driven and writes one selected month into a yearly accumulating workbook while preserving the rest of the workbook
+  - the `Сформировать график ТО` dialog now shows resolved monthly demand before the user confirms the available workshop budget
+  - maintenance norms can be imported from `C:\Users\Olga\Downloads\123.xlsx`
+  - import matching uses inventory number first, then normalized equipment/system names, and can read the workbook even when it is open in Excel
+- User-facing application UI on `to` remains Russian-only
 
 ## Validated status
 
-Actually run on the current worktree on `2026-04-28`:
+Actually run on the current worktree on `2026-04-29`:
 
 ```powershell
-$env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release -p:BaseOutputPath=C:\Users\Olga\AKB5\artifacts\verify\phase7-build\
-$env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release -p:BaseOutputPath=C:\Users\Olga\AKB5\artifacts\verify\phase7-test\
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName artifact-launch-fix
 ```
 
 - Verification `dotnet build`: passed
-- `dotnet test`: passed, `192/192`
-- An earlier attempt to build and test in parallel produced a transient file-lock failure on shared `Release` outputs; the final verification was rerun sequentially and passed
-- The build used isolated output paths because a running local app instance or a concurrent verification pass can lock the default `bin\Release` outputs
-- `dotnet format --verify-no-changes` was not rerun after the latest `Phase 7A` changes
-- Existing warnings remain, including `NU1900` when NuGet vulnerability metadata is unavailable offline
+- `dotnet test`: passed, `243/243`
+- Startup smoke was rechecked from `artifacts\verify\artifact-launch-fix\build\Release\net8.0-windows\asutpKB.exe`; the process stayed running instead of exiting immediately
+- User manual validation after the workbook repair/export fixes confirmed that the generated Excel file opens in Excel and the export dialog content is visible
+- Full Excel round-trip validation (`generate -> open -> edit/save -> import back`) was not run
+- `dotnet format --verify-no-changes` was not rerun after the final maintenance/export changes
 
 ## Active objective
 
-- Continue `Phase 7` from the finished `Phase 7A foundation` slice
-- Prepare a cleaned internal Excel template derived from `C:\Users\Olga\Downloads\123.xlsx`
-- Implement the Russian production-calendar service, monthly planner, and workbook export using the approved enterprise form
+- Keep the completed `Phase 7` workflow on `to` stable as the new baseline
+- Use the current rule-based resolver/planner/export pipeline until a future yearly schedule source is introduced
+- Decide the next refinement step explicitly instead of expanding `Phase 7` in one pass
 
 ## Durable decisions already made
 
-- `interface` remains the active integration branch
+- `to` is now the active integration branch for current work; `.github/workflows/windows-build.yml` targets `to`
+- Future implementation work should follow the process rule: `one step -> scripts/verify-step.ps1 -> stop -> manual review -> commit/push`
 - Use tree taxonomy:
   - `L1` = department
   - `L2` = system
   - `L3` = cabinet
-- `Phase 3B` templates remain a built-in code catalog; do not introduce template storage in JSON or Excel unless that becomes an explicit task
-- `Phase 4` documentation/software records are stored as top-level `DocumentLinks` and `SoftwareRecords` collections keyed by `OwnerNodeId`
-- `Phase 4` keeps JSON schema version at `3` and leaves the Excel workbook contract at `v3`
-- `Phase 5` search scopes are fixed to `All`, `Tree`, `Card`, `Composition`, and `Docs/Software`
-- Search results must continue to navigate to the owning tree node instead of to detached screen-only records
-- User-facing program UI should use Russian only
-- `Phase 6` `Network` stays file-based in the first release; do not expand it into an interactive topology editor inside this roadmap slice
-- `Phase 6` preview support is intentionally limited to image formats already covered by the in-form workflow; non-image files keep `Open original`
-- `Phase 6` opens `Файлы` on node load by default; automatic switching to `Предпросмотр` is not part of the accepted UX
-- The old `Phase 7` Excel/exchange-modernization target is superseded by maintenance-schedule generation
-- The first maintenance-schedule release should use a yearly accumulating workbook with `12` month sheets based on the approved sample form
+- Visible hierarchy level is the accepted source for `Lvl1/Lvl2/Lvl3` card/tab behavior when legacy saved `NodeType` values are mixed
 - Maintenance planning rules currently fixed for implementation:
-  - planning unit is a tree node
-  - `Lvl2` node becomes the numbered parent row with inventory number
-  - child engineering nodes become the `план/факт` detail rows
-  - the application generates only `план`; `факт` remains blank for manual filling on the printed form
-  - `ТО1` is monthly, `ТО2` is semiannual, `ТО3` is annual
-  - planned nodes need separate integer hour norms for `ТО1`, `ТО2`, and `ТО3`
-  - stored `ТО` hour norms are not capped at `8`; the `<= 8` rule belongs to later per-day planner allocation
-  - until a formal yearly schedule source exists, `ТО2` / `ТО3` placement should come from a deterministic per-node cycle offset
-  - inconsistencies in the historical sample workbook are treated as manual noise, not as the rule source
-- `Phase 7A foundation` stores maintenance data as top-level `MaintenanceScheduleProfiles` keyed by `OwnerNodeId`
-- Saved-data normalization must keep at most one maintenance profile per `OwnerNodeId`
-- Future implementation work should follow the process rule: `one step -> scripts/verify-step.ps1 -> stop -> manual review -> commit/push`
+  - `ТО1` = monthly
+  - `ТО2` = quarterly
+  - `ТО3` = annual
+  - `ТО2` includes `ТО1`
+  - `ТО3` includes `ТО1` and `ТО2`
+  - a full annual profile therefore resolves to `8 x ТО1`, `3 x ТО2`, `1 x ТО3`
+- Stored `ТО1` / `ТО2` / `ТО3` norms are per-occurrence labor hours for one equipment unit, not monthly budgets
+- The hard planner constraint is the selected monthly workshop budget, not a daily `<= 8` cap
+- The planner may place more than one large maintenance item on the same day when needed; it only prefers to spread `ТО2` / `ТО3` apart when possible
+- The first release keeps deterministic rule-based month placement for `ТО2` / `ТО3`; a future yearly schedule source may replace that without redesigning the export pipeline
+- The yearly workbook export must stay template-driven and preserve existing month sheets, layout, formulas, merges, and signature blocks outside the rewritten month
 - `docs/codex-handoff.md` remains the single current-state file for future sessions
-
-## Knowledge harness
-
-- Current state: `docs/codex-handoff.md`
-- Active plans: `docs/plans.md`
-- Reusable insights: `docs/lessons-learned.md`
-- Durable decisions: `docs/decision-log.md`
-- On the explicit user request to distill session knowledge, update those files in place and replace stale information instead of appending transcripts
 
 ## Relevant files for the current task area
 
 - `Models/KbMaintenanceScheduleProfile.cs`
+- `Models/KbMaintenanceWorkKind.cs`
+- `Models/KbMaintenanceMonthWorkItem.cs`
+- `Models/KbMaintenanceMonthPlanAssignment.cs`
+- `Models/KbMaintenanceMonthPlanDay.cs`
+- `Models/KbMaintenanceMonthSheetModel.cs`
 - `Models/SavedData.cs`
-- `Services/JsonStorageService.cs`
-- `Services/KnowledgeBaseDataService.cs`
-- `Services/KnowledgeBaseFormStateService.cs`
-- `Services/KnowledgeBaseMaintenanceScheduleProfileMutationService.cs`
+- `Services/KnowledgeBaseRussianProductionCalendarService.cs`
 - `Services/KnowledgeBaseMaintenanceScheduleStateService.cs`
+- `Services/KnowledgeBaseMaintenanceMonthWorkResolverService.cs`
+- `Services/KnowledgeBaseMaintenanceMonthlyPlannerService.cs`
+- `Services/KnowledgeBaseMaintenanceMonthDemandSummaryService.cs`
+- `Services/KnowledgeBaseMaintenanceMonthSheetModelBuilderService.cs`
+- `Services/KnowledgeBaseMaintenanceWorkbookTemplateService.cs`
+- `Services/KnowledgeBaseMaintenanceWorkbookExportService.cs`
+- `Services/KnowledgeBaseMaintenanceWorkbookGenerationService.cs`
+- `Services/KnowledgeBaseMaintenanceScheduleNormImportService.cs`
+- `Services/KnowledgeBaseEngineeringNodeSupportService.cs`
+- `Services/KnowledgeBaseNodePresentationService.cs`
 - `Services/KnowledgeBaseNodeWorkspaceResolverService.cs`
-- `Forms/MainForm.cs`
+- `Services/KnowledgeBaseFormStateService.cs`
+- `Services/KnowledgeBaseDataService.cs`
 - `Forms/MainForm.Maintenance.cs`
-- `Controls/KnowledgeBaseMaintenanceScheduleScreenControl.cs`
 - `Forms/KnowledgeBaseMaintenanceScheduleProfileDialog.cs`
-- `Services/KnowledgeBaseExcelExchangeService.cs`
-- `Services/KnowledgeBaseExcelWorkbookParser.cs`
-- `Services/KnowledgeBaseXlsxReader.cs`
-- `Services/KnowledgeBaseXlsxWriter.cs`
+- `Forms/KnowledgeBaseMaintenanceWorkbookExportDialog.cs`
+- `Controls/KnowledgeBaseMaintenanceScheduleScreenControl.cs`
+- `Controls/KnowledgeBaseInfoScreenControl.cs`
+- `UiServices/KnowledgeBaseMaintenanceWorkbookUiWorkflowService.cs`
 - `scripts/verify-step.ps1`
+- `resources/templates/maintenance-year-template.xlsx`
 - `C:\Users\Olga\Downloads\123.xlsx`
-- `docs/workbook-v3.md`
-- `Roadmap.md`
+- `C:\Users\Olga\Downloads\456.xlsx`
 
 ## Known limits / open follow-up
 
-- `Phase 7` is only partially implemented; the `Phase 7A foundation` data/UI slice is done, but calendar allocation, workbook planning, and export are still unfinished
-- The current maintenance UI is intentionally limited to supported engineering node types and does not yet cover all node categories
-- `copy composition from existing object` currently copies only typed composition entries; it does not copy docs/software records, network file references, or maintenance profiles
-- `Network` does not provide embedded PDF preview or interactive topology editing in the current phase
-- A standard `dotnet build` into the default `Release` output can fail if `asutpKB.exe` is still running and holding DLL locks
-- A future externally provided yearly maintenance schedule may later replace the temporary rule-based source of `ТО1` / `ТО2` / `ТО3` month placement
+- `Phase 7E` future yearly schedule source is not implemented; `ТО2` / `ТО3` month placement still comes from deterministic rule-based offsets
+- A single `ТО2` or `ТО3` occurrence is still planned as one assignment; splitting one maintenance item across multiple working days is not implemented yet
+- The planner can place multiple large maintenance items on the same day; that is a soft-avoidance area, not a validated optimization target
+- Norm import from `123.xlsx` is materially better than the first strict matcher, but some rows still remain unmatched when names diverge too much from the KB tree
+- `AGENTS.md` and `Roadmap.md` still contain stale `interface` references and outdated `Phase 7` assumptions until they are synchronized
+- Full Excel round-trip import of generated yearly workbooks has not been validated
 
 ## Recommended next step
 
-- Continue `Phase 7` from the finished `Phase 7A foundation` slice
-- Prepare a cleaned internal Excel template derived from `123.xlsx`
-- Implement the Russian production-calendar service and monthly planner on top of `MaintenanceScheduleProfiles`
-- After planner rules are stable, generate the yearly workbook export with blank `факт` cells
-- Keep all new user-facing strings in Russian
+- Choose one explicit next slice before more implementation:
+  - support splitting one `ТО2` / `ТО3` occurrence across multiple working days and update export accordingly
+  - improve maintenance-norm import coverage and mismatch reporting for the remaining unmatched equipment
+  - implement `Phase 7E` by replacing deterministic month placement with an externally provided yearly schedule source
+- Before a large new session, synchronize `AGENTS.md` and `Roadmap.md` with the current `to` baseline and current `Phase 7` rules
 
 ## Commands to run before finishing future implementation work
 
 ```powershell
 git status --short
-# Standard micro-step verification:
 powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7-step-name
 # The script stops at BUILD: PASS / TESTS: PASS and leaves artifacts in artifacts\verify\<step>.
 ```

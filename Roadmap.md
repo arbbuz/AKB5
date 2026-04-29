@@ -1,8 +1,8 @@
 # Roadmap
 
 Last updated: 2026-04-29
-Branch baseline: `interface`
-Implementation status: `Phase 0 complete on interface, Phase 1 complete on interface, Phase 2 complete on interface, Phase 3 complete on interface, Phase 3B complete on interface, Phase 4 complete on interface, Phase 5 complete on interface, Phase 6 complete on interface, Phase 7A foundation complete on interface, next unfinished slice is Phase 7B/7C`
+Branch baseline: `to`
+Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, next unfinished slice is Phase 7E`
 
 ## Goal
 
@@ -43,26 +43,29 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - Current JSON schema version is `3`.
 - The domain node now has `NodeId` and `NodeType`; legacy data is normalized/migrated on load.
 - Hidden workshop wrappers are now identified through explicit `NodeType.WorkshopRoot` in projection/session workflows.
-- `Phase 2` is complete on `interface`: the right panel now routes by `NodeType` into a clean `Info` screen or an engineering tab host.
+- `Phase 2` is complete on `to`: the right panel now routes by `NodeType` into a clean `Info` screen or an engineering tab host.
 - The generic `Info` screen is now extracted into a reusable control so the same UI can be hosted standalone or inside the `Info` tab.
-- `Phase 3` is complete on `interface`: `Composition` now uses a dedicated typed model stored in `SavedData.CompositionEntries`.
+- `Phase 3` is complete on `to`: `Composition` now uses a dedicated typed model stored in `SavedData.CompositionEntries`.
 - The `Composition` screen now shows slots separately from auxiliary equipment and supports in-app add/edit/delete for typed entries.
 - Composition ordering is now resolved by `SlotNumber` + `PositionOrder`, independent of child-node order in the left tree.
-- `Phase 3B` is complete on `interface`: built-in cabinet/controller templates and `copy composition from existing object` are available for typed composition workflows.
-- `Phase 4` is complete on `interface`: `Documentation and Software` uses dedicated typed records stored in top-level `DocumentLinks` and `SoftwareRecords` collections keyed by `OwnerNodeId`.
+- `Phase 3B` is complete on `to`: built-in cabinet/controller templates and `copy composition from existing object` are available for typed composition workflows.
+- `Phase 4` is complete on `to`: `Documentation and Software` uses dedicated typed records stored in top-level `DocumentLinks` and `SoftwareRecords` collections keyed by `OwnerNodeId`.
 - The `Documentation and Software` screen is intentionally separate from `Composition`: it manages scheme links, instruction links, and software-folder links rather than slot-style entries.
 - The current `Phase 4` software UX records the date a software link was added (`AddedAt`); legacy software timestamps/notes remain compatibility-only persistence fields and are not part of the main editing UI.
-- `Phase 5` is complete on `interface`: search indexes `Tree`, `Card`, `Composition`, and `Docs/Software` data and exposes scopes `All`, `Tree`, `Card`, `Composition`, and `Docs/Software`.
+- `Phase 5` is complete on `to`: search indexes `Tree`, `Card`, `Composition`, and `Docs/Software` data and exposes scopes `All`, `Tree`, `Card`, `Composition`, and `Docs/Software`.
 - Search results now navigate back to the owning tree node and can switch the workspace to the preferred tab for the matched domain.
-- User-facing interface text on `interface` is now normalized to Russian; new UI work should keep Russian-only labels, prompts, and status text.
-- `Phase 6` is complete on `interface`: `Network` now uses typed file references, image preview inside the form, and `Open original` for server/file paths.
+- User-facing interface text on `to` is now normalized to Russian; new UI work should keep Russian-only labels, prompts, and status text.
+- `Phase 6` is complete on `to`: `Network` now uses typed file references, image preview inside the form, and `Open original` for server/file paths.
 - The `Phase 6` `Network` screen uses separate `Файлы` and `Предпросмотр` tabs; node load returns to `Файлы`, and automatic switching to `Предпросмотр` is not part of the accepted UX.
 - On 2026-04-28, the current `Phase 6` worktree passed verification build, passed `dotnet test` (`177/177`), and `asutpKB.exe` startup was rechecked after the final `Network` UX fixes.
 - Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition, but further workbook modernization is no longer the preferred next phase.
 - Current CI workflow also verifies `dotnet format --verify-no-changes` for the app project, core project, and tests before `build` / `test`.
 - The next roadmap phase is now maintenance-schedule generation, not typed-data workbook redesign.
-- `Phase 7A foundation` is complete on `interface`: `Lvl2` inventory number support now follows hierarchy level, typed `MaintenanceScheduleProfiles` are persisted in JSON/session state, and engineering nodes now expose a `График ТО` tab with per-node `ТО1` / `ТО2` / `ТО3` hour norms.
-- On 2026-04-28, the `Phase 7A foundation` worktree passed verification build and passed `dotnet test` (`192/192`) using isolated output paths.
+- `Phase 7A` is complete on `to`: `Lvl2` inventory number support now follows visible hierarchy level, typed `MaintenanceScheduleProfiles` are persisted in JSON/session state, and engineering nodes expose a `График ТО` tab with per-node `ТО1` / `ТО2` / `ТО3` hour norms.
+- `Phase 7B` is complete on `to`: Russian production-calendar calculation for `5/2` workdays is available as a reusable service.
+- `Phase 7C` is complete on `to`: the resolver and monthly planner generate month demand from `ТО1` / `ТО2` / `ТО3` norms and compare it against the selected monthly workshop budget.
+- `Phase 7D` is complete on `to`: the yearly workbook export is template-driven, exposed in the UI, and can also import maintenance norms from `123.xlsx`.
+- On 2026-04-29, the current `Phase 7` worktree passed verification build and passed `dotnet test` (`243/243`) using isolated output paths.
 
 ## Hidden-level strategy
 
@@ -441,7 +444,6 @@ Main changes:
 - generate/update one workbook per `workshop + year` with `12` month sheets
 - keep `план` and blank `факт` rows exactly as required by the approved form
 - compute monthly allocation only across working days of the Russian production calendar
-- keep day load at `<= 8` hours
 - raise a warning/error when the selected month cannot fit inside the requested total hour budget
 
 Confirmed planning rules for the first implementation:
@@ -452,27 +454,32 @@ Confirmed planning rules for the first implementation:
   - child engineering nodes become the `план/факт` detail rows
 - only the `план` data is generated by the program; `факт` stays blank in the workbook for manual paper-side filling
 - `ТО1` means monthly maintenance
-- `ТО2` means semiannual maintenance
+- `ТО2` means quarterly maintenance
 - `ТО3` means annual maintenance
+- `ТО2` includes `ТО1`
+- `ТО3` includes `ТО1` and `ТО2`
 - until a formal yearly schedule source exists, `ТО2` / `ТО3` month placement should come from a deterministic per-node cycle offset that can later be replaced without redesigning the planner
 - sample inconsistencies are treated as manual historical noise, not as the business rule
 
 Recommended implementation slices:
 
 - `Phase 7A. Domain and template foundation`
-  - status: completed on `interface` except for the cleaned Excel template itself
+  - status: completed on `to`
   - add inventory number to `Lvl2` summary
   - define typed maintenance settings per planned node, including separate integer hour norms for `ТО1`, `ТО2`, and `ТО3`
   - prepare a cleaned internal Excel template derived from the approved sample
 - `Phase 7B. Russian production calendar`
+  - status: completed on `to`
   - implement reusable workday calculation for `5/2`
   - exclude Saturdays, Sundays, and official Russian non-working holidays
   - keep the calendar data replaceable by year without rewriting planner logic
 - `Phase 7C. Monthly planning engine`
+  - status: completed on `to`
   - select workshop, month, year, and total monthly hour budget
   - determine which nodes require `ТО1`, `ТО2`, or `ТО3`
-  - allocate integer hours to working days with `<= 8` hours per day
+  - allocate work across working days using the monthly workshop budget without a hard daily `<= 8` cap
 - `Phase 7D. Year workbook export`
+  - status: completed on `to`
   - create or update the yearly accumulating workbook
   - write only the selected month sheet while preserving the rest of the workbook
   - preserve formulas, merges, print layout, and signature blocks from the template
@@ -483,7 +490,7 @@ Acceptance:
 
 - the user can choose a workshop, month, year, and hour budget and receive a ready Excel file in the approved form
 - the generated workbook preserves the visual structure of the enterprise sample
-- the monthly planner respects workdays only and enforces the `<= 8` hours-per-day rule
+- the monthly planner respects workdays only and enforces the selected monthly workshop budget
 - the design stays extensible for a future externally provided yearly maintenance schedule
 
 ### Optional future phase. Interactive network topology
@@ -532,7 +539,7 @@ Minimum required coverage:
 - composition ordering tests
 - search tests for each scope
 - exchange tests proving `v3` remains readable
-- maintenance planner tests for workday filtering, daily hour cap, and month-budget overflow behavior
+- maintenance planner tests for workday filtering, month-budget overflow behavior, and yearly type-placement rules
 - template-export tests proving generated workbooks preserve required structure
 
 Manual UI checks will still be required for:
@@ -545,7 +552,7 @@ Manual UI checks will still be required for:
 
 ## Recommended implementation order for the next coding sessions
 
-Completed on `interface`:
+Completed on `to`:
 
 1. Phase 0
 2. Phase 1
@@ -556,13 +563,13 @@ Completed on `interface`:
 7. Phase 5
 8. Phase 6
 9. Phase 7A foundation
+10. Phase 7B. Russian production calendar
+11. Phase 7C. Monthly planning engine
+12. Phase 7D. Year workbook export
 
 Remaining:
 
-1. Phase 7B. Russian production calendar
-2. Phase 7C. Monthly planning engine
-3. Phase 7D. Year workbook export
-4. Phase 7E. Future yearly schedule source
+1. Phase 7E. Future yearly schedule source
 
 ## AI handoff / next-dialog instructions
 
@@ -578,7 +585,7 @@ Recommended prompt for the next AI session:
 
 ```text
 Read AGENTS.md, docs/codex-handoff.md, and Roadmap.md.
-We are on branch interface.
+We are on branch to.
 Continue implementation from the next unfinished roadmap phase.
 Do not redesign the roadmap unless you find a concrete technical contradiction in the codebase.
 Keep JSON source-of-truth compatibility and treat Excel v3 as a legacy transition layer.
@@ -588,8 +595,8 @@ Keep JSON source-of-truth compatibility and treat Excel v3 as a legacy transitio
 
 Continue Phase 7:
 
-- prepare the cleaned internal template derived from the approved maintenance form
-- implement the Russian production calendar and monthly planning engine
-- build the template-driven export workflow on top of the finished `Phase 7A foundation`
+- preserve the completed `Phase 7A` / `7B` / `7C` / `7D` workflow as the current baseline
+- decide whether to add split-across-days support for one `ТО2` / `ТО3` occurrence
+- decide when to replace deterministic `ТО2` / `ТО3` month placement with a formal yearly schedule source in `Phase 7E`
 - keep workbook `v3` readable as legacy, but do not expand it as the main feature direction
 - keep JSON source-of-truth compatibility and preserve Russian-only UI
