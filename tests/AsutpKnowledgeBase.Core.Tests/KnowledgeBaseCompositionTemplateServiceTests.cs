@@ -158,7 +158,7 @@ public class KnowledgeBaseCompositionTemplateServiceTests
     }
 
     [Fact]
-    public void AddNodeFromTemplate_CreatesTypedNodeWithInheritedLocationAndTemplateEntries()
+    public void AddNodeFromTemplate_CreatesTypedNodeWithoutLocationForVisibleLevel2AndTemplateEntries()
     {
         var systemNode = new KbNode
         {
@@ -202,7 +202,7 @@ public class KnowledgeBaseCompositionTemplateServiceTests
         Assert.Same(newNode, result.AffectedNode);
         Assert.Equal(KbNodeType.Cabinet, newNode.NodeType);
         Assert.Equal("PLC cabinet 1", newNode.Name);
-        Assert.Equal("Workshop A / Line 2", newNode.Details.Location);
+        Assert.Equal(string.Empty, newNode.Details.Location);
 
         var newEntries = session.CompositionEntries.Where(entry => entry.ParentNodeId == newNode.NodeId).ToList();
         Assert.Equal(7, newEntries.Count);

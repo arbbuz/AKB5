@@ -54,7 +54,8 @@ public class KnowledgeBaseTreeControllerTests
         Assert.Equal("Щит", pasted.Name);
         Assert.Equal(1, pasted.LevelIndex);
         Assert.Equal("Основной щит", pasted.Details.Description);
-        Assert.Equal(@"\\server\photos\shield.jpg", pasted.Details.PhotoPath);
+        Assert.Equal(string.Empty, pasted.Details.Location);
+        Assert.Equal(string.Empty, pasted.Details.PhotoPath);
         Assert.Equal(2, pasted.Children[0].LevelIndex);
         Assert.NotSame(source, pasted);
         Assert.NotSame(source.Children[0], pasted.Children[0]);

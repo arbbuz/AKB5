@@ -102,8 +102,8 @@ public class KnowledgeBaseExcelExchangeServiceTests
         Assert.Equal("1", ReadColumn(childRow, headerMap, "SiblingOrder"));
         Assert.Equal("2", ReadColumn(secondRootRow, headerMap, "SiblingOrder"));
         Assert.Equal("Главная линия печи", ReadColumn(rootRow, headerMap, "Description"));
-        Assert.Equal("Корпус А", ReadColumn(rootRow, headerMap, "Location"));
-        Assert.Equal(@"\\server\photos\line-1.jpg", ReadColumn(rootRow, headerMap, "PhotoPath"));
+        Assert.Equal(string.Empty, ReadColumn(rootRow, headerMap, "Location"));
+        Assert.Equal(string.Empty, ReadColumn(rootRow, headerMap, "PhotoPath"));
         Assert.Equal("Линия 1 / Щит 1", ReadColumn(childRow, headerMap, "Path"));
     }
 
@@ -1947,9 +1947,7 @@ public class KnowledgeBaseExcelExchangeServiceTests
                         LevelIndex = 0,
                         Details = new KbNodeDetails
                         {
-                            Description = "Главная линия печи",
-                            Location = "Корпус А",
-                            PhotoPath = @"\\server\photos\line-1.jpg"
+                            Description = "Главная линия печи"
                         },
                         Children = new List<KbNode>
                         {
@@ -1959,9 +1957,7 @@ public class KnowledgeBaseExcelExchangeServiceTests
                                 LevelIndex = 1,
                                 Details = new KbNodeDetails
                                 {
-                                    Description = "Локальный щит",
-                                    Location = "Площадка 3",
-                                    PhotoPath = @"\\server\photos\shield-1.jpg"
+                                    Description = "Локальный щит"
                                 }
                             }
                         }
@@ -2040,9 +2036,7 @@ public class KnowledgeBaseExcelExchangeServiceTests
                                 LevelIndex = 1,
                                 Details = new KbNodeDetails
                                 {
-                                    Description = "Основной участок",
-                                    Location = "Южная галерея",
-                                    PhotoPath = @"\\server\photos\section-111.jpg"
+                                    Description = "Основной участок"
                                 },
                                 Children = new List<KbNode>
                                 {
@@ -2088,8 +2082,7 @@ public class KnowledgeBaseExcelExchangeServiceTests
                                 LevelIndex = 1,
                                 Details = new KbNodeDetails
                                 {
-                                    Description = "Резервный участок",
-                                    Location = "Северная зона"
+                                    Description = "Резервный участок"
                                 }
                             }
                         }

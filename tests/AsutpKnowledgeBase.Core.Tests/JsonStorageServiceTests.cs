@@ -27,7 +27,10 @@ public class JsonStorageServiceTests
             Assert.Equal("Цех 2", loaded.Data!.LastWorkshop);
             Assert.Single(loaded.Data.Workshops["Цех 1"]);
             Assert.Equal("Схема 1", loaded.Data.Workshops["Цех 1"][0].Details.Description);
-            Assert.Equal(@"\\server\photos\shield-1.jpg", loaded.Data.Workshops["Цех 1"][0].Children[0].Details.PhotoPath);
+            Assert.Equal(string.Empty, loaded.Data.Workshops["Цех 1"][0].Details.Location);
+            Assert.Equal(string.Empty, loaded.Data.Workshops["Цех 1"][0].Children[0].Details.PhotoPath);
+            Assert.Equal(string.Empty, loaded.Data.Workshops["Цех 1"][0].Children[0].Details.IpAddress);
+            Assert.Equal(string.Empty, loaded.Data.Workshops["Цех 1"][0].Children[0].Details.SchemaLink);
         }
         finally
         {
@@ -296,8 +299,7 @@ public class JsonStorageServiceTests
                     LevelIndex = 0,
                     Details = new KbNodeDetails
                     {
-                        Description = "Схема 1",
-                        Location = "Корпус А"
+                        Description = "Схема 1"
                     },
                     Children =
                     {
@@ -307,9 +309,7 @@ public class JsonStorageServiceTests
                             LevelIndex = 1,
                             Details = new KbNodeDetails
                             {
-                                PhotoPath = @"\\server\photos\shield-1.jpg",
-                                IpAddress = "10.10.0.15",
-                                SchemaLink = "https://intra/schemes/shield-1"
+                                Description = string.Empty
                             }
                         }
                     }

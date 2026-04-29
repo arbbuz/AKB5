@@ -18,7 +18,14 @@ namespace AsutpKnowledgeBase.Services
             _ => false
         };
 
-        public static bool SupportsInventoryNumber(KbNodeType nodeType, int levelIndex) => levelIndex == 2;
+        public static bool SupportsTechnicalFields(KbNodeType nodeType, int visibleLevel) =>
+            visibleLevel >= 3 && SupportsTechnicalFields(nodeType);
+
+        public static bool SupportsInventoryNumber(int visibleLevel) => visibleLevel == 2;
+
+        public static bool SupportsLocation(int visibleLevel) => visibleLevel >= 3;
+
+        public static bool SupportsPhoto(int visibleLevel) => visibleLevel >= 3;
 
         public static void NormalizePersistentWorkshopNodes(string workshopName, IList<KbNode> nodes, ISet<string> usedNodeIds)
         {
@@ -178,9 +185,6 @@ namespace AsutpKnowledgeBase.Services
 
         private static void NormalizeTechnicalFields(KbNode node)
         {
-            if (!SupportsInventoryNumber(node.NodeType, node.LevelIndex))
-                node.Details.InventoryNumber = string.Empty;
-
             if (SupportsTechnicalFields(node.NodeType))
                 return;
 

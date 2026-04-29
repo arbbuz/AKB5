@@ -69,6 +69,26 @@ public class KnowledgeBaseFormStateServiceTests
             }
         };
 
+        var roots = new List<KbNode>
+        {
+            new()
+            {
+                Name = "Отделение 1",
+                LevelIndex = 0,
+                NodeType = KbNodeType.Department,
+                Children =
+                {
+                    new KbNode
+                    {
+                        Name = "Линия 1",
+                        LevelIndex = 1,
+                        NodeType = KbNodeType.System,
+                        Children = { selectedNode }
+                    }
+                }
+            }
+        };
+
         var state = _service.Build(
             isDirty: true,
             requiresSave: false,
@@ -76,7 +96,7 @@ public class KnowledgeBaseFormStateServiceTests
             currentWorkshop: "Цех 7",
             lastSavedWorkshop: "Цех 7",
             totalNodes: 5,
-            currentRoots: new List<KbNode> { selectedNode },
+            currentRoots: roots,
             selectedNode: selectedNode);
 
         Assert.True(state.CanSave);
@@ -85,10 +105,14 @@ public class KnowledgeBaseFormStateServiceTests
         Assert.Equal("Есть несохраненные изменения", state.SessionStatusText);
         Assert.Equal(string.Empty, state.SelectionStatusText);
         Assert.Equal("Есть несохраненные изменения", state.SaveStateText);
-        Assert.Equal("Насос", state.SelectedNode.FullPath);
+        Assert.Equal("Отделение 1 / Линия 1 / Насос", state.SelectedNode.FullPath);
         Assert.Equal("Основной насос", state.SelectedNode.Description);
+        Assert.Equal("Участок 4", state.SelectedNode.Location);
+        Assert.Equal(@"\\server\photos\pump.jpg", state.SelectedNode.PhotoPath);
         Assert.Equal("10.0.0.12", state.SelectedNode.IpAddress);
         Assert.True(state.SelectedNode.ShowTechnicalFields);
+        Assert.True(state.SelectedNode.ShowLocation);
+        Assert.True(state.SelectedNode.ShowPhoto);
         Assert.True(state.SelectedNode.Workspace.UseTabHost);
     }
 
@@ -183,16 +207,31 @@ public class KnowledgeBaseFormStateServiceTests
     }
 
     [Fact]
-    public void Build_ShowsInventoryNumberOnlyForLevel2Nodes()
+    public void Build_ShowsInventoryNumberOnlyForVisibleLevel2Nodes()
     {
         var selectedNode = new KbNode
         {
             Name = "Линия 1",
-            LevelIndex = 2,
-            NodeType = KbNodeType.Department,
+            LevelIndex = 1,
+            NodeType = KbNodeType.System,
             Details = new KbNodeDetails
             {
-                InventoryNumber = "INV-100"
+                InventoryNumber = "INV-100",
+                Location = "Hidden location",
+                PhotoPath = @"C:\hidden-photo.jpg",
+                IpAddress = "10.10.10.10",
+                SchemaLink = "https://intra/system"
+            }
+        };
+
+        var roots = new List<KbNode>
+        {
+            new()
+            {
+                Name = "Отделение 1",
+                LevelIndex = 0,
+                NodeType = KbNodeType.Department,
+                Children = { selectedNode }
             }
         };
 
@@ -203,14 +242,21 @@ public class KnowledgeBaseFormStateServiceTests
             currentWorkshop: "Цех 1",
             lastSavedWorkshop: "Цех 1",
             totalNodes: 1,
-            currentRoots: new List<KbNode> { selectedNode },
+            currentRoots: roots,
             selectedNode: selectedNode);
 
         Assert.True(state.SelectedNode.ShowInventoryNumber);
         Assert.Equal("INV-100", state.SelectedNode.InventoryNumber);
+        Assert.False(state.SelectedNode.ShowLocation);
+        Assert.False(state.SelectedNode.ShowPhoto);
+        Assert.False(state.SelectedNode.ShowTechnicalFields);
+        Assert.Equal(string.Empty, state.SelectedNode.Location);
+        Assert.Equal(string.Empty, state.SelectedNode.PhotoPath);
+        Assert.Equal(string.Empty, state.SelectedNode.IpAddress);
+        Assert.Equal(string.Empty, state.SelectedNode.SchemaLink);
 
-        selectedNode.LevelIndex = 3;
-        selectedNode.NodeType = KbNodeType.System;
+        selectedNode.LevelIndex = 2;
+        selectedNode.NodeType = KbNodeType.Cabinet;
         var cabinetState = _service.Build(
             isDirty: false,
             requiresSave: false,
@@ -223,6 +269,40 @@ public class KnowledgeBaseFormStateServiceTests
 
         Assert.False(cabinetState.SelectedNode.ShowInventoryNumber);
         Assert.Equal(string.Empty, cabinetState.SelectedNode.InventoryNumber);
+        Assert.False(cabinetState.SelectedNode.ShowLocation);
+        Assert.False(cabinetState.SelectedNode.ShowPhoto);
+    }
+
+    [Fact]
+    public void Build_HidesLocationAndPhotoForVisibleLevel1Nodes()
+    {
+        var selectedNode = new KbNode
+        {
+            Name = "Отделение 1",
+            LevelIndex = 0,
+            NodeType = KbNodeType.Department,
+            Details = new KbNodeDetails
+            {
+                Description = "Верхний уровень",
+                Location = "Hidden",
+                PhotoPath = @"C:\hidden.jpg"
+            }
+        };
+
+        var state = _service.Build(
+            isDirty: false,
+            requiresSave: false,
+            currentDataPath: "/tmp/department.json",
+            currentWorkshop: "Цех 1",
+            lastSavedWorkshop: "Цех 1",
+            totalNodes: 1,
+            currentRoots: new List<KbNode> { selectedNode },
+            selectedNode: selectedNode);
+
+        Assert.False(state.SelectedNode.ShowLocation);
+        Assert.False(state.SelectedNode.ShowPhoto);
+        Assert.Equal(string.Empty, state.SelectedNode.Location);
+        Assert.Equal(string.Empty, state.SelectedNode.PhotoPath);
     }
 
     [Fact]

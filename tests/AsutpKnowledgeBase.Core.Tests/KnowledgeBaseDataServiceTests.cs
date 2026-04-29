@@ -159,7 +159,7 @@ public class KnowledgeBaseDataServiceTests
     }
 
     [Fact]
-    public void NormalizeSavedData_PreservesInventoryNumberOnlyForLevel2Nodes()
+    public void NormalizeSavedData_PreservesInventoryNumberForVisibleLevel2NodeWithoutHiddenWrapper()
     {
         var normalized = KnowledgeBaseDataService.NormalizeSavedData(
             new SavedData
@@ -179,35 +179,25 @@ public class KnowledgeBaseDataServiceTests
                             {
                                 new KbNode
                                 {
-                                    NodeId = "department-2",
-                                    Name = "Section 1",
+                                    NodeId = "level2-node",
+                                    Name = "Line 1",
                                     LevelIndex = 1,
-                                    NodeType = KbNodeType.Department,
+                                    NodeType = KbNodeType.System,
+                                    Details = new KbNodeDetails
+                                    {
+                                        InventoryNumber = " INV-001 "
+                                    },
                                     Children =
                                     {
                                         new KbNode
                                         {
-                                            NodeId = "level2-node",
-                                            Name = "Line 1",
+                                            NodeId = "level3-node",
+                                            Name = "Cabinet 1",
                                             LevelIndex = 2,
-                                            NodeType = KbNodeType.Department,
+                                            NodeType = KbNodeType.Cabinet,
                                             Details = new KbNodeDetails
                                             {
-                                                InventoryNumber = " INV-001 "
-                                            },
-                                            Children =
-                                            {
-                                                new KbNode
-                                                {
-                                                    NodeId = "level3-node",
-                                                    Name = "Cabinet 1",
-                                                    LevelIndex = 3,
-                                                    NodeType = KbNodeType.System,
-                                                    Details = new KbNodeDetails
-                                                    {
-                                                        InventoryNumber = " INV-CHILD "
-                                                    }
-                                                }
+                                                InventoryNumber = " INV-CHILD "
                                             }
                                         }
                                     }
@@ -219,11 +209,56 @@ public class KnowledgeBaseDataServiceTests
                 LastWorkshop = "Shop 1"
             });
 
-        var level2Node = Assert.Single(normalized.Workshops["Shop 1"])
-            .Children.Single()
-            .Children.Single();
+        var level2Node = Assert.Single(normalized.Workshops["Shop 1"]).Children.Single();
         Assert.Equal(" INV-001 ", level2Node.Details.InventoryNumber);
         Assert.Equal(string.Empty, level2Node.Children.Single().Details.InventoryNumber);
+    }
+
+    [Fact]
+    public void NormalizeSavedData_ClearsLocationPhotoAndTechnicalFieldsForVisibleLevel2Node()
+    {
+        var normalized = KnowledgeBaseDataService.NormalizeSavedData(
+            new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Shop 1"] = new()
+                    {
+                        new KbNode
+                        {
+                            NodeId = "level1-node",
+                            Name = "Department 1",
+                            LevelIndex = 0,
+                            NodeType = KbNodeType.Department,
+                            Children =
+                            {
+                                new KbNode
+                                {
+                                    NodeId = "level2-node",
+                                    Name = "Line 1",
+                                    LevelIndex = 1,
+                                    NodeType = KbNodeType.System,
+                                    Details = new KbNodeDetails
+                                    {
+                                        Location = "Should be cleared",
+                                        PhotoPath = @"C:\line-photo.jpg",
+                                        IpAddress = "10.10.10.10",
+                                        SchemaLink = "https://intra/system"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                LastWorkshop = "Shop 1"
+            });
+
+        var level2Node = Assert.Single(normalized.Workshops["Shop 1"]).Children.Single();
+        Assert.Equal(string.Empty, level2Node.Details.Location);
+        Assert.Equal(string.Empty, level2Node.Details.PhotoPath);
+        Assert.Equal(string.Empty, level2Node.Details.IpAddress);
+        Assert.Equal(string.Empty, level2Node.Details.SchemaLink);
     }
 
     [Fact]

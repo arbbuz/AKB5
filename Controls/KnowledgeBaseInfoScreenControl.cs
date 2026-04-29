@@ -9,6 +9,8 @@ namespace AsutpKnowledgeBase
         private Label _lblSelectedNodeChildrenValue = null!;
         private Label _lblNodeInventoryNumber = null!;
         private TextBox _txtNodeInventoryNumber = null!;
+        private Label _lblNodeLocation = null!;
+        private Label _lblNodePhotoPath = null!;
         private TextBox _txtNodeDescription = null!;
         private TextBox _txtNodeLocation = null!;
         private TextBox _txtNodePhotoPath = null!;
@@ -16,6 +18,7 @@ namespace AsutpKnowledgeBase
         private TextBox _txtNodeSchemaLink = null!;
         private TableLayoutPanel _tblDetailsLeftColumn = null!;
         private GroupBox _grpTechnicalFields = null!;
+        private FlowLayoutPanel _pnlPhotoButtons = null!;
         private Button _btnBrowsePhoto = null!;
         private Button _btnOpenPhoto = null!;
 
@@ -140,13 +143,17 @@ namespace AsutpKnowledgeBase
             _txtNodePhotoPath.Text = selectedNodeState.PhotoPath;
             _txtNodeIpAddress.Text = selectedNodeState.IpAddress;
             _txtNodeSchemaLink.Text = selectedNodeState.SchemaLink;
+            SetDescriptionLayout(!selectedNodeState.ShowLocation && !selectedNodeState.ShowPhoto);
             SetInventoryNumberVisibility(selectedNodeState.ShowInventoryNumber);
+            SetLocationVisibility(selectedNodeState.ShowLocation);
+            SetPhotoVisibility(selectedNodeState.ShowPhoto);
             SetTechnicalFieldsVisibility(selectedNodeState.ShowTechnicalFields);
             UpdatePhotoControlsState(selectedNodeState.PhotoPath);
         }
 
         public void UpdatePhotoControlsState(string photoPath) =>
             _btnOpenPhoto.Enabled =
+                _pnlPhotoButtons.Visible &&
                 !string.IsNullOrWhiteSpace(photoPath) &&
                 File.Exists(photoPath.Trim());
 
@@ -208,7 +215,7 @@ namespace AsutpKnowledgeBase
                 RowCount = 7,
                 Padding = new Padding(10, 8, 10, 10)
             };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 118F));
@@ -229,17 +236,19 @@ namespace AsutpKnowledgeBase
             layout.Controls.Add(_txtNodeDescription, 1, 0);
             layout.SetRowSpan(_txtNodeDescription, 2);
 
-            layout.Controls.Add(CreateFormLabel("Местоположение"), 0, 2);
+            _lblNodeLocation = CreateFormLabel("Местоположение");
+            layout.Controls.Add(_lblNodeLocation, 0, 2);
             _txtNodeLocation = new TextBox { Dock = DockStyle.Fill };
             _txtNodeLocation.TextChanged += (_, _) => LocationChangedByUser?.Invoke(this, EventArgs.Empty);
             layout.Controls.Add(_txtNodeLocation, 1, 3);
 
-            layout.Controls.Add(CreateFormLabel("Фото"), 0, 4);
+            _lblNodePhotoPath = CreateFormLabel("Фото");
+            layout.Controls.Add(_lblNodePhotoPath, 0, 4);
             _txtNodePhotoPath = new TextBox { Dock = DockStyle.Fill };
             _txtNodePhotoPath.TextChanged += (_, _) => PhotoPathChangedByUser?.Invoke(this, EventArgs.Empty);
             layout.Controls.Add(_txtNodePhotoPath, 1, 5);
 
-            var buttonPanel = new FlowLayoutPanel
+            _pnlPhotoButtons = new FlowLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 FlowDirection = FlowDirection.LeftToRight,
@@ -250,11 +259,21 @@ namespace AsutpKnowledgeBase
             _btnBrowsePhoto.Click += (_, _) => BrowsePhotoRequested?.Invoke(this, EventArgs.Empty);
             _btnOpenPhoto = new Button { Text = "Открыть фото", AutoSize = true, Enabled = false };
             _btnOpenPhoto.Click += (_, _) => OpenPhotoRequested?.Invoke(this, EventArgs.Empty);
-            buttonPanel.Controls.Add(_btnBrowsePhoto);
-            buttonPanel.Controls.Add(_btnOpenPhoto);
-            layout.Controls.Add(buttonPanel, 1, 6);
+            _pnlPhotoButtons.Controls.Add(_btnBrowsePhoto);
+            _pnlPhotoButtons.Controls.Add(_btnOpenPhoto);
+            layout.Controls.Add(_pnlPhotoButtons, 1, 6);
 
             return layout;
+        }
+
+        private void SetDescriptionLayout(bool expanded)
+        {
+            if (_txtNodeDescription.Parent is not TableLayoutPanel layout || layout.RowStyles.Count <= 1)
+                return;
+
+            layout.RowStyles[1].Height = expanded ? 262F : 118F;
+            _txtNodeDescription.MinimumSize = new Size(0, expanded ? 288 : 144);
+            layout.PerformLayout();
         }
 
         private TableLayoutPanel CreateTechnicalFieldsLayout()
@@ -307,6 +326,50 @@ namespace AsutpKnowledgeBase
 
             _txtNodeInventoryNumber.Parent?.PerformLayout();
             _tblDetailsLeftColumn.PerformLayout();
+        }
+
+        private void SetLocationVisibility(bool visible)
+        {
+            if (_txtNodeLocation.Parent is not TableLayoutPanel layout || layout.RowStyles.Count <= 3)
+                return;
+
+            layout.RowStyles[2].Height = visible ? 26F : 0F;
+            layout.RowStyles[3].Height = visible ? 30F : 0F;
+            _lblNodeLocation.Visible = visible;
+            _txtNodeLocation.Visible = visible;
+            _txtNodeLocation.Enabled = visible;
+
+            if (!visible)
+                _txtNodeLocation.Text = string.Empty;
+
+            layout.PerformLayout();
+        }
+
+        private void SetPhotoVisibility(bool visible)
+        {
+            if (_txtNodePhotoPath.Parent is not TableLayoutPanel layout || layout.RowStyles.Count <= 6)
+                return;
+
+            layout.RowStyles[4].Height = visible ? 26F : 0F;
+            layout.RowStyles[5].Height = visible ? 30F : 0F;
+            layout.RowStyles[6].Height = visible ? 40F : 0F;
+            _lblNodePhotoPath.Visible = visible;
+            _txtNodePhotoPath.Visible = visible;
+            _txtNodePhotoPath.Enabled = visible;
+            _pnlPhotoButtons.Visible = visible;
+            _btnBrowsePhoto.Enabled = visible;
+
+            if (!visible)
+            {
+                _txtNodePhotoPath.Text = string.Empty;
+                _btnOpenPhoto.Enabled = false;
+            }
+            else
+            {
+                UpdatePhotoControlsState(_txtNodePhotoPath.Text);
+            }
+
+            layout.PerformLayout();
         }
 
         private static Label CreateFormLabel(string text) =>

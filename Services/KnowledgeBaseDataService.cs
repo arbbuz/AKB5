@@ -248,33 +248,42 @@ namespace AsutpKnowledgeBase.Services
         {
             KnowledgeBaseNodeMetadataService.NormalizePersistentWorkshopNodes(workshopName, nodes, usedNodeIds);
 
+            bool hasHiddenWrapperRoot =
+                nodes.Count == 1 &&
+                nodes[0].LevelIndex == 0 &&
+                nodes[0].NodeType == KbNodeType.WorkshopRoot;
+
             foreach (var node in nodes)
-                NormalizeNodeDetailsRecursive(node);
+                NormalizeNodeDetailsRecursive(node, hasHiddenWrapperRoot && ReferenceEquals(node, nodes[0]) ? 0 : 1);
         }
 
-        private static void NormalizeNodeDetailsRecursive(KbNode node)
+        private static void NormalizeNodeDetailsRecursive(KbNode node, int visibleLevel)
         {
             node.Name ??= string.Empty;
-            node.Details = NormalizeDetails(node.Details, node.NodeType, node.LevelIndex);
+            node.Details = NormalizeDetails(node.Details, node.NodeType, visibleLevel);
             node.Children ??= new List<KbNode>();
 
             foreach (var child in node.Children)
-                NormalizeNodeDetailsRecursive(child);
+                NormalizeNodeDetailsRecursive(child, visibleLevel + 1);
         }
 
-        private static KbNodeDetails NormalizeDetails(KbNodeDetails? details, KbNodeType nodeType, int levelIndex) =>
+        private static KbNodeDetails NormalizeDetails(KbNodeDetails? details, KbNodeType nodeType, int visibleLevel) =>
             new()
             {
                 Description = details?.Description ?? string.Empty,
-                Location = details?.Location ?? string.Empty,
-                InventoryNumber = KnowledgeBaseNodeMetadataService.SupportsInventoryNumber(nodeType, levelIndex)
+                Location = KnowledgeBaseNodeMetadataService.SupportsLocation(visibleLevel)
+                    ? details?.Location ?? string.Empty
+                    : string.Empty,
+                InventoryNumber = KnowledgeBaseNodeMetadataService.SupportsInventoryNumber(visibleLevel)
                     ? details?.InventoryNumber ?? string.Empty
                     : string.Empty,
-                PhotoPath = details?.PhotoPath ?? string.Empty,
-                IpAddress = KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(nodeType)
+                PhotoPath = KnowledgeBaseNodeMetadataService.SupportsPhoto(visibleLevel)
+                    ? details?.PhotoPath ?? string.Empty
+                    : string.Empty,
+                IpAddress = KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(nodeType, visibleLevel)
                     ? details?.IpAddress ?? string.Empty
                     : string.Empty,
-                SchemaLink = KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(nodeType)
+                SchemaLink = KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(nodeType, visibleLevel)
                     ? details?.SchemaLink ?? string.Empty
                     : string.Empty
             };

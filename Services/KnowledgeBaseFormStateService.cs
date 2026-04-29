@@ -30,6 +30,10 @@ namespace AsutpKnowledgeBase.Services
 
         public bool ShowInventoryNumber { get; init; }
 
+        public bool ShowLocation { get; init; }
+
+        public bool ShowPhoto { get; init; }
+
         public KnowledgeBaseNodeWorkspaceState Workspace { get; init; } = new();
 
         public KnowledgeBaseCompositionState Composition { get; init; } = new();
@@ -204,10 +208,13 @@ namespace AsutpKnowledgeBase.Services
                 };
             }
 
-            bool supportsTechnicalFields = KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(selectedNode.NodeType);
-            bool supportsInventoryNumber = KnowledgeBaseNodeMetadataService.SupportsInventoryNumber(
+            int visibleLevel = _nodePresentationService.GetVisibleLevel(currentRoots, selectedNode);
+            bool supportsTechnicalFields = KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(
                 selectedNode.NodeType,
-                selectedNode.LevelIndex);
+                visibleLevel);
+            bool supportsInventoryNumber = KnowledgeBaseNodeMetadataService.SupportsInventoryNumber(visibleLevel);
+            bool supportsLocation = KnowledgeBaseNodeMetadataService.SupportsLocation(visibleLevel);
+            bool supportsPhoto = KnowledgeBaseNodeMetadataService.SupportsPhoto(visibleLevel);
 
             return new KnowledgeBaseSelectedNodeState
             {
@@ -216,13 +223,15 @@ namespace AsutpKnowledgeBase.Services
                 FullPath = _nodePresentationService.BuildNodePath(currentRoots, selectedNode),
                 ChildrenCountText = selectedNode.Children.Count.ToString(),
                 Description = selectedNode.Details?.Description ?? string.Empty,
-                Location = selectedNode.Details?.Location ?? string.Empty,
+                Location = supportsLocation ? selectedNode.Details?.Location ?? string.Empty : string.Empty,
                 InventoryNumber = supportsInventoryNumber ? selectedNode.Details?.InventoryNumber ?? string.Empty : string.Empty,
-                PhotoPath = selectedNode.Details?.PhotoPath ?? string.Empty,
+                PhotoPath = supportsPhoto ? selectedNode.Details?.PhotoPath ?? string.Empty : string.Empty,
                 IpAddress = supportsTechnicalFields ? selectedNode.Details?.IpAddress ?? string.Empty : string.Empty,
                 SchemaLink = supportsTechnicalFields ? selectedNode.Details?.SchemaLink ?? string.Empty : string.Empty,
                 ShowTechnicalFields = supportsTechnicalFields,
                 ShowInventoryNumber = supportsInventoryNumber,
+                ShowLocation = supportsLocation,
+                ShowPhoto = supportsPhoto,
                 Workspace = _nodeWorkspaceResolverService.Resolve(selectedNode.NodeType),
                 Composition = _compositionStateService.Build(selectedNode, compositionEntries),
                 DocsAndSoftware = _docsAndSoftwareStateService.Build(
