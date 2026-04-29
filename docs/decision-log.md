@@ -12,6 +12,7 @@ Last updated: `2026-04-29`
 - Stored `ТО1` / `ТО2` / `ТО3` hour norms are non-negative integers and are not capped at `8`
 - The `<= 8` rule belongs to later per-day planner allocation, not to stored maintenance norms
 - Deleting a node must remove maintenance schedule profiles for the whole deleted subtree together with other typed collections
+- Future implementation work should run in micro-steps: `one step -> verify-step -> stop -> review -> commit/push`
 
 ## 2026-04-28
 

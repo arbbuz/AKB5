@@ -104,6 +104,7 @@ $env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet test C:\Users\Olga
   - inconsistencies in the historical sample workbook are treated as manual noise, not as the rule source
 - `Phase 7A foundation` stores maintenance data as top-level `MaintenanceScheduleProfiles` keyed by `OwnerNodeId`
 - Saved-data normalization must keep at most one maintenance profile per `OwnerNodeId`
+- Future implementation work should follow the process rule: `one step -> scripts/verify-step.ps1 -> stop -> manual review -> commit/push`
 - `docs/codex-handoff.md` remains the single current-state file for future sessions
 
 ## Knowledge harness
@@ -132,6 +133,7 @@ $env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet test C:\Users\Olga
 - `Services/KnowledgeBaseExcelWorkbookParser.cs`
 - `Services/KnowledgeBaseXlsxReader.cs`
 - `Services/KnowledgeBaseXlsxWriter.cs`
+- `scripts/verify-step.ps1`
 - `C:\Users\Olga\Downloads\123.xlsx`
 - `docs/workbook-v3.md`
 - `Roadmap.md`
@@ -157,7 +159,7 @@ $env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet test C:\Users\Olga
 
 ```powershell
 git status --short
-# Close running asutpKB.exe first if you want to build into the default Release output.
-$env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet build C:\Users\Olga\AKB5\asutpKB.csproj --configuration Release -p:BaseOutputPath=C:\Users\Olga\AKB5\artifacts\verify\phase7-build\
-$env:DOTNET_CLI_HOME='C:\Users\Olga\AKB5\.dotnet-cli'; dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release -p:BaseOutputPath=C:\Users\Olga\AKB5\artifacts\verify\phase7-test\
+# Standard micro-step verification:
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7-step-name
+# The script stops at BUILD: PASS / TESTS: PASS and leaves artifacts in artifacts\verify\<step>.
 ```

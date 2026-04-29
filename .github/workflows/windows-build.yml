@@ -3,9 +3,10 @@ name: Windows Build
 on:
   push:
     branches:
-      - icon
-      - interface
+      - to
   pull_request:
+    branches:
+      - to
   workflow_dispatch:
 
 permissions:

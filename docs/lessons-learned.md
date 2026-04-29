@@ -25,6 +25,7 @@ Last updated: `2026-04-29`
 - For this project, the smallest coherent diff is usually the correct one
 - Manual verification is useful for WinForms tab workflows, but it should confirm app behavior, not drive new script-only automation work unless the user explicitly asks for it
 - If the user keeps the app open during verification, use an isolated `BaseOutputPath` for build validation instead of spending time on false compile investigations caused by file locks
+- If a session has a natural green boundary, stop there after build/test and wait for review instead of continuing into docs, handoff, or the next roadmap slice in the same pass
 - After a manual UX complaint, prefer changing the interaction model over micro-tuning dimensions if the underlying conflict is structural
 - When a user supplies a hand-filled enterprise Excel workbook as an example, treat it first as a form/layout source and only secondarily as a rule source; historical manual entries can contain contradictions
 - For a heavily formatted enterprise workbook with merges, hidden formulas, print layout, and signature blocks, prefer template-driven export over rebuilding the sheet structure from scratch
@@ -43,5 +44,6 @@ Last updated: `2026-04-29`
 - Keep `summary.md` as a pointer only, not as a second current-state document
 - Replace stale statements instead of appending transcripts
 - When a roadmap phase is completed, update `Roadmap.md`, `docs/codex-handoff.md`, `docs/plans.md`, and `docs/decision-log.md` in the same pass
+- For this repo, the default delivery loop is `one step -> scripts/verify-step.ps1 -> stop -> manual review -> commit/push`
 - Keep the knowledge-refresh trigger ASCII-safe in shared docs; if a localized literal turns into mojibake, replace it with a plain-text description instead of preserving broken bytes
 - When a roadmap phase is repurposed rather than merely completed, update the roadmap, handoff state, active plans, and durable decisions together so future sessions do not continue implementing the abandoned direction
