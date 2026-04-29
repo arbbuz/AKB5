@@ -6,6 +6,8 @@ namespace AsutpKnowledgeBase.Models
 
         public int Month { get; init; }
 
+        public int WorkingDayCount { get; init; }
+
         public int TotalPlannedHours { get; init; }
 
         public List<KbMaintenanceMonthSheetDayTotal> DailyTotals { get; init; } = new();

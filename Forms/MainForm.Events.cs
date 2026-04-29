@@ -40,6 +40,8 @@ namespace AsutpKnowledgeBase
             selectedNodeNetworkScreen.DeleteSelectedRequested += DeleteSelectedNetworkFileReference;
             selectedNodeMaintenanceScreen.ConfigureRequested += ConfigureMaintenanceScheduleProfile;
             selectedNodeMaintenanceScreen.DeleteRequested += DeleteMaintenanceScheduleProfile;
+            selectedNodeMaintenanceScreen.ImportRequested += ImportMaintenanceScheduleNorms;
+            selectedNodeMaintenanceScreen.ExportRequested += ExportMaintenanceWorkbook;
 
             btnUndo.Click += (s, e) => UndoAction();
             btnRedo.Click += (s, e) => RedoAction();

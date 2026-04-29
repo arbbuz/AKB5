@@ -16,6 +16,7 @@ namespace AsutpKnowledgeBase
         private readonly IAppLogger _appLogger;
         private readonly KnowledgeBaseSessionService _session = new();
         private readonly KnowledgeBaseExcelUiWorkflowService _excelUiWorkflowService;
+        private readonly KnowledgeBaseMaintenanceWorkbookUiWorkflowService _maintenanceWorkbookUiWorkflowService;
         private readonly KnowledgeBaseFileUiWorkflowService _fileUiWorkflowService;
         private readonly KnowledgeBaseSessionWorkflowService _sessionWorkflowService;
         private readonly KnowledgeBaseTreeMutationUiWorkflowService _treeMutationUiWorkflowService;
@@ -27,6 +28,7 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseDocsAndSoftwareMutationService _docsAndSoftwareMutationService = new();
         private readonly KnowledgeBaseNetworkMutationService _networkMutationService = new();
         private readonly KnowledgeBaseMaintenanceScheduleProfileMutationService _maintenanceScheduleProfileMutationService = new();
+        private readonly KnowledgeBaseMaintenanceScheduleNormImportService _maintenanceScheduleNormImportService = new();
         private readonly KnowledgeBaseFormStateService _formStateService = new();
         private readonly KnowledgeBaseNodePresentationService _nodePresentationService = new();
         private readonly KnowledgeBaseTreeViewService _treeViewService = new();
@@ -112,6 +114,7 @@ namespace AsutpKnowledgeBase
                 _appLogger);
             _excelUiWorkflowService = new KnowledgeBaseExcelUiWorkflowService(
                 new KnowledgeBaseExcelExchangeService(_appLogger));
+            _maintenanceWorkbookUiWorkflowService = new KnowledgeBaseMaintenanceWorkbookUiWorkflowService();
             _fileUiWorkflowService = new KnowledgeBaseFileUiWorkflowService(
                 fileWorkflowService,
                 _formStateService);

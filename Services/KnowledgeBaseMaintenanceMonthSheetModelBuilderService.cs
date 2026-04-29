@@ -80,6 +80,7 @@ namespace AsutpKnowledgeBase.Services
                 {
                     Year = year,
                     Month = month,
+                    WorkingDayCount = planResult.WorkingDayCount,
                     TotalPlannedHours = planResult.PlannedDays.Sum(static day => day.TotalHours),
                     DailyTotals = dailyTotals,
                     SystemGroups = groups

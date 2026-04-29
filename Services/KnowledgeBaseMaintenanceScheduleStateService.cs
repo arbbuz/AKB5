@@ -29,6 +29,11 @@ namespace AsutpKnowledgeBase.Services
 
     public class KnowledgeBaseMaintenanceScheduleStateService
     {
+        private const string UnavailableText = "Вкладка \"График ТО\" недоступна для выбранного узла.";
+        private const string EmptyProfileText = "Профиль ТО для этого узла ещё не настроен.";
+        private const string NewProfileSourceText = "Настройте участие узла в графике ТО и задайте нормы часов для ТО1, ТО2 и ТО3. ТО2 включает ТО1, а ТО3 включает ТО1 и ТО2.";
+        private const string ExistingProfileSourceText = "Профиль ТО задаёт участие узла в месячном планировании и нормы часов для ТО1, ТО2 и ТО3. ТО2 включает ТО1, а ТО3 включает ТО1 и ТО2.";
+
         public KnowledgeBaseMaintenanceScheduleState Build(
             KbNode? selectedNode,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
@@ -38,7 +43,7 @@ namespace AsutpKnowledgeBase.Services
             {
                 return new KnowledgeBaseMaintenanceScheduleState
                 {
-                    EmptyStateText = "Вкладка \"График ТО\" недоступна для выбранного узла."
+                    EmptyStateText = UnavailableText
                 };
             }
 
@@ -49,20 +54,20 @@ namespace AsutpKnowledgeBase.Services
                 return new KnowledgeBaseMaintenanceScheduleState
                 {
                     SupportsEditing = true,
-                    SourceText = "Настройте участие узла в графике ТО и задайте нормы часов для ТО1, ТО2 и ТО3.",
-                    SummaryText = "Профиль ТО для этого узла ещё не настроен.",
-                    EmptyStateText = "Профиль ТО для этого узла ещё не настроен."
+                    SourceText = NewProfileSourceText,
+                    SummaryText = EmptyProfileText,
+                    EmptyStateText = EmptyProfileText
                 };
             }
 
             return new KnowledgeBaseMaintenanceScheduleState
             {
                 SupportsEditing = true,
-                SourceText = "Профиль ТО задаёт участие узла в месячном планировании и нормы часов для ТО1, ТО2 и ТО3.",
+                SourceText = ExistingProfileSourceText,
                 SummaryText = profile.IsIncludedInSchedule
                     ? "Узел включён в график ТО."
                     : "Узел исключён из графика ТО.",
-                EmptyStateText = "Профиль ТО для этого узла ещё не настроен.",
+                EmptyStateText = EmptyProfileText,
                 HasProfile = true,
                 MaintenanceProfileId = profile.MaintenanceProfileId,
                 IsIncludedInSchedule = profile.IsIncludedInSchedule,

@@ -40,6 +40,9 @@ Last updated: `2026-04-28`
 10. **Re-read relevant rules before changing external state.**
     For sensitive or batch changes, re-check the active instructions instead of relying on session memory.
 
+11. **Do not mark UI work done until it is visible in the built app.**
+    A source diff is not enough for WinForms changes; confirm the control still fits and remains reachable in the actual `exe`.
+
 ## Does not fit without adaptation
 
 1. **No file edits without explicit permission.**

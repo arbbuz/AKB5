@@ -37,6 +37,7 @@ public class KnowledgeBaseMaintenanceScheduleStateServiceTests
         Assert.Equal("Да", state.InclusionText);
         Assert.Equal("2 ч", state.To1HoursText);
         Assert.Equal("12 ч", state.To3HoursText);
+        Assert.Contains("ТО2 включает ТО1", state.SourceText, StringComparison.Ordinal);
         Assert.Contains("включён", state.SummaryText, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -54,6 +55,7 @@ public class KnowledgeBaseMaintenanceScheduleStateServiceTests
 
         Assert.True(state.SupportsEditing);
         Assert.False(state.HasProfile);
+        Assert.Contains("ТО3 включает ТО1 и ТО2", state.SourceText, StringComparison.Ordinal);
         Assert.Equal("Профиль ТО для этого узла ещё не настроен.", state.EmptyStateText);
         Assert.Equal("Профиль ТО для этого узла ещё не настроен.", state.SummaryText);
     }

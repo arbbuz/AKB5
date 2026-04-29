@@ -42,23 +42,19 @@ namespace AsutpKnowledgeBase.Services
                 if (!profile.IsIncludedInSchedule || !KnowledgeBaseMaintenanceScheduleStateService.SupportsProfile(node.NodeType))
                     continue;
 
-                AddWorkItemIfDue(workItems, node, profile, month, KbMaintenanceWorkKind.To1, profile.To1Hours, isDue: true);
-                AddWorkItemIfDue(
-                    workItems,
-                    node,
-                    profile,
-                    month,
-                    KbMaintenanceWorkKind.To2,
-                    profile.To2Hours,
-                    isDue: IsSemiAnnualDue(ownerNodeId, month));
-                AddWorkItemIfDue(
-                    workItems,
-                    node,
-                    profile,
-                    month,
-                    KbMaintenanceWorkKind.To3,
-                    profile.To3Hours,
-                    isDue: IsAnnualDue(ownerNodeId, month));
+                // TO2 includes TO1, and TO3 includes both TO1 and TO2.
+                // The yearly schedule therefore uses one maintenance slot per month:
+                // quarterly slot months get TO2, one of those quarters gets TO3 instead, and the rest get TO1.
+                // For a full profile (TO1 + TO2 + TO3) this yields 8x TO1, 3x TO2, and 1x TO3 per year.
+                int quarterlySlotPosition = ComputeQuarterlySlotPosition(ownerNodeId);
+                int annualMonth = ComputeAnnualMonth(ownerNodeId, quarterlySlotPosition);
+                bool isAnnualDue = profile.To3Hours > 0 && month == annualMonth;
+                bool isQuarterlyDue = profile.To2Hours > 0 && IsQuarterlySlotMonth(month, quarterlySlotPosition) && !isAnnualDue;
+                bool isMonthlyDue = profile.To1Hours > 0 && !isQuarterlyDue && !isAnnualDue;
+
+                AddWorkItemIfDue(workItems, node, profile, month, KbMaintenanceWorkKind.To3, profile.To3Hours, isAnnualDue);
+                AddWorkItemIfDue(workItems, node, profile, month, KbMaintenanceWorkKind.To2, profile.To2Hours, isQuarterlyDue);
+                AddWorkItemIfDue(workItems, node, profile, month, KbMaintenanceWorkKind.To1, profile.To1Hours, isMonthlyDue);
             }
 
             return workItems;
@@ -96,16 +92,20 @@ namespace AsutpKnowledgeBase.Services
             });
         }
 
-        private static bool IsSemiAnnualDue(string ownerNodeId, int month)
+        private static bool IsQuarterlySlotMonth(int month, int quarterlySlotPosition)
         {
-            int firstMonth = 1 + ComputeStableOffset(ownerNodeId, "TO2") % 6;
-            return month == firstMonth || month == firstMonth + 6;
+            return ((month - 1) % 3) == quarterlySlotPosition;
         }
 
-        private static bool IsAnnualDue(string ownerNodeId, int month)
+        private static int ComputeQuarterlySlotPosition(string ownerNodeId)
         {
-            int annualMonth = 1 + ComputeStableOffset(ownerNodeId, "TO3") % 12;
-            return month == annualMonth;
+            return ComputeStableOffset(ownerNodeId, "TO2") % 3;
+        }
+
+        private static int ComputeAnnualMonth(string ownerNodeId, int quarterlySlotPosition)
+        {
+            int annualQuarterIndex = ComputeStableOffset(ownerNodeId, "TO3") % 4;
+            return 1 + (annualQuarterIndex * 3) + quarterlySlotPosition;
         }
 
         private static int ComputeStableOffset(string ownerNodeId, string salt)

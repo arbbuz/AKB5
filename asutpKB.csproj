@@ -14,6 +14,7 @@
     <Compile Remove="Services/**/*.cs" />
     <Compile Remove="src/**/*.cs" />
     <Compile Remove="tests/**/*.cs" />
+    <Compile Remove="artifacts/**/*.cs" />
     <Compile Remove="**/obj/**/*.cs" />
     <Compile Remove="**/bin/**/*.cs" />
   </ItemGroup>
