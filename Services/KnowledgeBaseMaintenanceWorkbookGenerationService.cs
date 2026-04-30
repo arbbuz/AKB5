@@ -1,3 +1,4 @@
+using System.Globalization;
 using AsutpKnowledgeBase.Models;
 
 namespace AsutpKnowledgeBase.Services
@@ -11,6 +12,29 @@ namespace AsutpKnowledgeBase.Services
         public KnowledgeBaseMaintenanceMonthPlanResult? PlanResult { get; init; }
 
         public KbMaintenanceMonthSheetModel? SheetModel { get; init; }
+
+        public byte[]? WorkbookPackage { get; init; }
+    }
+
+    public sealed class KnowledgeBaseMaintenanceYearWorkbookGenerationMonthResult
+    {
+        public int Month { get; init; }
+
+        public KnowledgeBaseMaintenanceMonthPlanResult? PlanResult { get; init; }
+
+        public KbMaintenanceMonthSheetModel? SheetModel { get; init; }
+    }
+
+    public sealed class KnowledgeBaseMaintenanceYearWorkbookGenerationResult
+    {
+        public bool IsSuccess { get; init; }
+
+        public string ErrorMessage { get; init; } = string.Empty;
+
+        public int FailedMonth { get; init; }
+
+        public IReadOnlyList<KnowledgeBaseMaintenanceYearWorkbookGenerationMonthResult> MonthResults { get; init; } =
+            Array.Empty<KnowledgeBaseMaintenanceYearWorkbookGenerationMonthResult>();
 
         public byte[]? WorkbookPackage { get; init; }
     }
@@ -89,6 +113,79 @@ namespace AsutpKnowledgeBase.Services
             };
         }
 
+        public KnowledgeBaseMaintenanceYearWorkbookGenerationResult GenerateYearWorkbook(
+            byte[]? existingWorkbookPackage,
+            int year,
+            int totalMonthlyHourBudget,
+            IReadOnlyList<KbNode>? roots,
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
+        {
+            return GenerateYearWorkbookFromMonth(
+                existingWorkbookPackage,
+                year,
+                startMonth: 1,
+                totalMonthlyHourBudget,
+                roots,
+                maintenanceScheduleProfiles);
+        }
+
+        public KnowledgeBaseMaintenanceYearWorkbookGenerationResult GenerateYearWorkbookFromMonth(
+            byte[]? existingWorkbookPackage,
+            int year,
+            int startMonth,
+            int totalMonthlyHourBudget,
+            IReadOnlyList<KbNode>? roots,
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
+        {
+            if (year < 1)
+                return YearFailure("Год графика ТО должен быть положительным.");
+
+            if (startMonth is < 1 or > 12)
+                return YearFailure("Стартовый месяц графика ТО должен быть в диапазоне от 1 до 12.");
+
+            byte[]? workbookPackage = existingWorkbookPackage is { Length: > 0 }
+                ? existingWorkbookPackage.ToArray()
+                : null;
+            var monthResults = new List<KnowledgeBaseMaintenanceYearWorkbookGenerationMonthResult>(13 - startMonth);
+
+            for (int month = startMonth; month <= 12; month++)
+            {
+                KnowledgeBaseMaintenanceWorkbookGenerationResult monthResult = GenerateMonthWorkbook(
+                    workbookPackage,
+                    year,
+                    month,
+                    totalMonthlyHourBudget,
+                    roots,
+                    maintenanceScheduleProfiles);
+                if (!monthResult.IsSuccess || monthResult.WorkbookPackage == null)
+                {
+                    string errorMessage = string.IsNullOrWhiteSpace(monthResult.ErrorMessage)
+                        ? "Не удалось сформировать месячный лист графика ТО."
+                        : monthResult.ErrorMessage;
+
+                    return YearFailure(
+                        $"Не удалось сформировать график ТО за {GetMonthName(month)} {year}: {errorMessage}",
+                        failedMonth: month,
+                        monthResults);
+                }
+
+                workbookPackage = monthResult.WorkbookPackage;
+                monthResults.Add(new KnowledgeBaseMaintenanceYearWorkbookGenerationMonthResult
+                {
+                    Month = month,
+                    PlanResult = monthResult.PlanResult,
+                    SheetModel = monthResult.SheetModel
+                });
+            }
+
+            return new KnowledgeBaseMaintenanceYearWorkbookGenerationResult
+            {
+                IsSuccess = true,
+                MonthResults = monthResults,
+                WorkbookPackage = workbookPackage
+            };
+        }
+
         private static KnowledgeBaseMaintenanceWorkbookGenerationResult Failure(
             string errorMessage,
             KnowledgeBaseMaintenanceMonthPlanResult? planResult = null,
@@ -100,5 +197,25 @@ namespace AsutpKnowledgeBase.Services
                 PlanResult = planResult,
                 SheetModel = sheetModel
             };
+
+        private static KnowledgeBaseMaintenanceYearWorkbookGenerationResult YearFailure(
+            string errorMessage,
+            int failedMonth = 0,
+            IReadOnlyList<KnowledgeBaseMaintenanceYearWorkbookGenerationMonthResult>? monthResults = null) =>
+            new()
+            {
+                IsSuccess = false,
+                ErrorMessage = errorMessage,
+                FailedMonth = failedMonth,
+                MonthResults = monthResults ?? Array.Empty<KnowledgeBaseMaintenanceYearWorkbookGenerationMonthResult>()
+            };
+
+        private static string GetMonthName(int month)
+        {
+            if (month is < 1 or > 12)
+                return month.ToString(CultureInfo.InvariantCulture);
+
+            return CultureInfo.GetCultureInfo("ru-RU").DateTimeFormat.GetMonthName(month);
+        }
     }
 }

@@ -45,6 +45,10 @@ namespace AsutpKnowledgeBase
             var menuSaveAs = new ToolStripMenuItem("💾 Сохранить как...", null, BtnSaveAs_Click);
             var menuImportExcel = new ToolStripMenuItem("📥 Импорт из Excel...", null, BtnImportExcel_Click);
             var menuExportExcel = new ToolStripMenuItem("📊 Экспорт в Excel...", null, BtnExportExcel_Click);
+            menuImportMaintenanceNorms = new ToolStripMenuItem("📥 Импорт норм ТО...", null, ImportMaintenanceScheduleNorms);
+            menuExportMaintenanceMonthWorkbook = new ToolStripMenuItem("🗓 Сформировать график ТО за месяц...", null, ExportMaintenanceMonthWorkbook);
+            menuExportMaintenanceYearWorkbook = new ToolStripMenuItem("🗓 Сформировать годовой график ТО...", null, ExportMaintenanceYearWorkbook);
+            menuRecalculateMaintenanceYearWorkbook = new ToolStripMenuItem("🗓 Пересчитать график ТО до конца года...", null, RecalculateMaintenanceYearWorkbookToDecember);
 
             menuFile.DropDownItems.AddRange(new ToolStripItem[]
             {
@@ -56,7 +60,12 @@ namespace AsutpKnowledgeBase
                 menuReloadDb,
                 menuSaveAs,
                 menuImportExcel,
-                menuExportExcel
+                menuExportExcel,
+                new ToolStripSeparator(),
+                menuImportMaintenanceNorms,
+                menuExportMaintenanceMonthWorkbook,
+                menuExportMaintenanceYearWorkbook,
+                menuRecalculateMaintenanceYearWorkbook
             });
             toolStrip.Items.Add(menuFile);
             toolStrip.Items.Add(new ToolStripSeparator());

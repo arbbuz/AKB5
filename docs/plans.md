@@ -1,24 +1,24 @@
 # Plans
 
-Last updated: `2026-04-29`
+Last updated: `2026-04-30`
 
 ## Active plan
 
-- Treat `Phase 7B`, `Phase 7C`, and `Phase 7D` on branch `to` as the current working baseline
-- Stabilize the completed maintenance workflow instead of extending it blindly:
-  - monthly demand resolver
-  - monthly planner
-  - yearly workbook export
-  - maintenance-norm import
+- Treat `Phase 7A`, `Phase 7B`, `Phase 7C`, and `Phase 7D` on branch `to` as the current working baseline
+- Treat the full `Phase 7D follow-up` yearly orchestration as implemented pending manual review
+- Treat the first `Phase 7E` slice as implemented pending manual review: manual per-profile annual `ТО1` / `ТО2` / `ТО3` placement stored in JSON
 - Keep JSON as the source of truth and keep the yearly workbook as a generated/report artifact
 - Keep all new user-facing UI strings Russian-only
 
 ## Near-term follow-up
 
-- Decide whether one `ТО2` / `ТО3` occurrence should be splittable across multiple working days and, if approved, implement it end-to-end in planner plus Excel export
-- Improve maintenance-norm import coverage and mismatch reporting for the rows from `123.xlsx` that still do not match the current KB tree cleanly
-- Synchronize `AGENTS.md` and `Roadmap.md` with the current `to` branch, completed `Phase 7` slices, and the current maintenance-planning rules
-- Keep the planner/export stack extensible so a future yearly schedule source can replace deterministic `ТО2` / `ТО3` month placement without redesigning `Phase 7`
+- Manually review the `phase7e-year-schedule-source` build before commit/push
+- After review, decide whether to:
+  - accept `Phase 7E` at the manual per-profile source layer
+  - add import/external-source hardening for `Phase 7E`
+  - support splitting one `ТО2` / `ТО3` occurrence across multiple working days
+  - improve maintenance-norm import coverage and mismatch reporting for the remaining unmatched rows from `123.xlsx`
+  - keep `Phase 7F` production-calendar configuration deferred until it becomes a priority
 
 ## Update rule
 

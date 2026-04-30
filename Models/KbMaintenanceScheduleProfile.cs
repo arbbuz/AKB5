@@ -13,5 +13,7 @@ namespace AsutpKnowledgeBase.Models
         public int To2Hours { get; set; }
 
         public int To3Hours { get; set; }
+
+        public List<KbMaintenanceYearScheduleEntry> YearScheduleEntries { get; set; } = new();
     }
 }

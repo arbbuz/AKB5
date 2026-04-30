@@ -32,6 +32,9 @@ namespace AsutpKnowledgeBase.Services
                 return Failure(errorMessage);
             }
 
+            if (!TryValidateYearScheduleEntries(draftProfile.YearScheduleEntries, out errorMessage))
+                return Failure(errorMessage);
+
             var updatedProfiles = CloneProfiles(maintenanceScheduleProfiles);
             int existingIndex = ResolveExistingProfileIndex(updatedProfiles, ownerNodeId, draftProfile.MaintenanceProfileId);
             if (existingIndex >= 0 &&
@@ -47,7 +50,8 @@ namespace AsutpKnowledgeBase.Services
                 IsIncludedInSchedule = draftProfile.IsIncludedInSchedule,
                 To1Hours = draftProfile.To1Hours,
                 To2Hours = draftProfile.To2Hours,
-                To3Hours = draftProfile.To3Hours
+                To3Hours = draftProfile.To3Hours,
+                YearScheduleEntries = CloneYearScheduleEntries(draftProfile.YearScheduleEntries)
             };
 
             if (existingIndex >= 0)
@@ -156,7 +160,65 @@ namespace AsutpKnowledgeBase.Services
                     IsIncludedInSchedule = profile.IsIncludedInSchedule,
                     To1Hours = profile.To1Hours,
                     To2Hours = profile.To2Hours,
-                    To3Hours = profile.To3Hours
+                    To3Hours = profile.To3Hours,
+                    YearScheduleEntries = CloneYearScheduleEntries(profile.YearScheduleEntries)
+                });
+            }
+
+            return clones;
+        }
+
+        private static bool TryValidateYearScheduleEntries(
+            IReadOnlyList<KbMaintenanceYearScheduleEntry>? entries,
+            out string errorMessage)
+        {
+            errorMessage = string.Empty;
+            if (entries == null)
+                return true;
+
+            var usedMonths = new HashSet<int>();
+            foreach (KbMaintenanceYearScheduleEntry entry in entries)
+            {
+                if (entry == null)
+                    continue;
+
+                if (entry.Month < 1 || entry.Month > 12)
+                {
+                    errorMessage = "Месяц в годовом размещении ТО должен быть в диапазоне от 1 до 12.";
+                    return false;
+                }
+
+                if (!Enum.IsDefined(typeof(KbMaintenanceWorkKind), entry.WorkKind))
+                {
+                    errorMessage = "В годовом размещении ТО найден неизвестный тип работ.";
+                    return false;
+                }
+
+                if (!usedMonths.Add(entry.Month))
+                {
+                    errorMessage = "В годовом размещении ТО не должно быть дублей одного месяца.";
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static List<KbMaintenanceYearScheduleEntry> CloneYearScheduleEntries(
+            IReadOnlyList<KbMaintenanceYearScheduleEntry>? entries)
+        {
+            var clones = new List<KbMaintenanceYearScheduleEntry>();
+            if (entries == null)
+                return clones;
+
+            foreach (KbMaintenanceYearScheduleEntry entry in entries
+                         .Where(static entry => entry != null)
+                         .OrderBy(static entry => entry.Month))
+            {
+                clones.Add(new KbMaintenanceYearScheduleEntry
+                {
+                    Month = entry.Month,
+                    WorkKind = entry.WorkKind
                 });
             }
 

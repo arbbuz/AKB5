@@ -25,7 +25,12 @@ public class KnowledgeBaseMaintenanceScheduleProfileMutationServiceTests
                 IsIncludedInSchedule = true,
                 To1Hours = 2,
                 To2Hours = 4,
-                To3Hours = 8
+                To3Hours = 8,
+                YearScheduleEntries = new List<KbMaintenanceYearScheduleEntry>
+                {
+                    new() { Month = 2, WorkKind = KbMaintenanceWorkKind.To2 },
+                    new() { Month = 11, WorkKind = KbMaintenanceWorkKind.To3 }
+                }
             });
 
         Assert.True(result.IsSuccess);
@@ -35,6 +40,7 @@ public class KnowledgeBaseMaintenanceScheduleProfileMutationServiceTests
         Assert.Equal(2, profile.To1Hours);
         Assert.Equal(4, profile.To2Hours);
         Assert.Equal(8, profile.To3Hours);
+        Assert.Equal(new[] { 2, 11 }, profile.YearScheduleEntries.Select(static entry => entry.Month));
     }
 
     [Fact]
@@ -125,6 +131,34 @@ public class KnowledgeBaseMaintenanceScheduleProfileMutationServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.Contains("График ТО", result.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UpsertMaintenanceScheduleProfile_RejectsDuplicateYearScheduleMonths()
+    {
+        var ownerNode = new KbNode
+        {
+            NodeId = "device-1",
+            Name = "Device 1",
+            NodeType = KbNodeType.Device
+        };
+
+        var result = _service.UpsertMaintenanceScheduleProfile(
+            ownerNode,
+            Array.Empty<KbMaintenanceScheduleProfile>(),
+            new KbMaintenanceScheduleProfile
+            {
+                IsIncludedInSchedule = true,
+                To1Hours = 2,
+                YearScheduleEntries = new List<KbMaintenanceYearScheduleEntry>
+                {
+                    new() { Month = 5, WorkKind = KbMaintenanceWorkKind.To1 },
+                    new() { Month = 5, WorkKind = KbMaintenanceWorkKind.To2 }
+                }
+            });
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("дублей", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

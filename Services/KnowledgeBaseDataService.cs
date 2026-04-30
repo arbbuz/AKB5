@@ -495,13 +495,43 @@ namespace AsutpKnowledgeBase.Services
                     IsIncludedInSchedule = profile.IsIncludedInSchedule,
                     To1Hours = Math.Max(0, profile.To1Hours),
                     To2Hours = Math.Max(0, profile.To2Hours),
-                    To3Hours = Math.Max(0, profile.To3Hours)
+                    To3Hours = Math.Max(0, profile.To3Hours),
+                    YearScheduleEntries = NormalizeMaintenanceYearScheduleEntries(profile.YearScheduleEntries)
                 });
 
                 normalizedIndex++;
             }
 
             return normalized;
+        }
+
+        private static List<KbMaintenanceYearScheduleEntry> NormalizeMaintenanceYearScheduleEntries(
+            IEnumerable<KbMaintenanceYearScheduleEntry>? entries)
+        {
+            var normalizedByMonth = new SortedDictionary<int, KbMaintenanceWorkKind>();
+            if (entries == null)
+                return new List<KbMaintenanceYearScheduleEntry>();
+
+            foreach (KbMaintenanceYearScheduleEntry entry in entries)
+            {
+                if (entry == null ||
+                    entry.Month < 1 ||
+                    entry.Month > 12 ||
+                    !Enum.IsDefined(typeof(KbMaintenanceWorkKind), entry.WorkKind))
+                {
+                    continue;
+                }
+
+                normalizedByMonth[entry.Month] = entry.WorkKind;
+            }
+
+            return normalizedByMonth
+                .Select(static pair => new KbMaintenanceYearScheduleEntry
+                {
+                    Month = pair.Key,
+                    WorkKind = pair.Value
+                })
+                .ToList();
         }
 
         private static string NormalizeCompositionEntryId(

@@ -1,6 +1,6 @@
 # Lessons Learned
 
-Last updated: `2026-04-29`
+Last updated: `2026-04-30`
 
 ## UI and tree behavior
 
@@ -9,14 +9,20 @@ Last updated: `2026-04-29`
 - When the user defines domain terminology such as `L1/L2/L3`, use it consistently in code, tests, and docs to avoid level/type confusion
 - When adding a new row to a WinForms summary card, avoid relying on a fixed container height; use auto-sizing where possible and do not report the change complete until the built `exe` shows the field visibly
 - If a WinForms dialog starts carrying derived planning data, show the calculated demand before asking the user to choose a budget; otherwise the budget field reads like an unexplained magic number
+- If a command operates on the whole workshop rather than on the selected node, place it in a top-level menu or workshop-level workflow entry point, not inside every node card
 
 ## Planner and workbook logic
 
 - A hand-filled enterprise workbook should be treated first as a form/layout source and only then as a rule source; validate business rules against multiple examples before hardcoding them
 - Do not invent operational caps from intuition; in this maintenance workflow the hard constraint is the monthly workshop budget, not a daily `<= 8` cap
+- If a future year fails with `производственный календарь ещё не настроен`, the current implementation needs that year added to `KnowledgeBaseRussianProductionCalendarService`; there is no user-facing calendar editor yet
 - When maintenance types include one another, keep the norms separate per type but resolve monthly demand so higher tiers replace lower tiers instead of stacking on top of them
 - If the user does not yet provide a formal yearly schedule source, a deterministic per-node cycle offset is a workable interim rule for `ТО2` / `ТО3` month placement
 - For a heavily formatted enterprise workbook with merges, print layout, formulas, and signature blocks, prefer template-driven export over rebuilding the sheet structure from scratch
+- Keep the monthly planner/export path as the canonical engine even if users want a yearly command; the yearly workflow should orchestrate repeated monthly generation instead of replacing the month-based core
+- Keep annual `ТО1/ТО2/ТО3` placement separate from production-calendar setup: the former decides maintenance type by month, the latter decides working/non-working days
+- If equipment can appear or disappear during the year and the model has no active-from / active-to dates, the safest workflow is to freeze past months and recalculate only the current month through December
+- For future-month replanning without active date ranges, require an existing yearly workbook and rewrite only the selected month range; generating a new workbook from scratch would leave past months blank instead of preserving them
 - An Excel repair prompt after month regeneration can come from structural leftovers, not only from formulas:
   - stale `calcChain`
   - stale row tails below the rewritten block

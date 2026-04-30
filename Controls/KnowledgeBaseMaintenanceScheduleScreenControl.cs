@@ -10,12 +10,11 @@ namespace AsutpKnowledgeBase
         private Label _lblSummary = null!;
         private Button _btnConfigure = null!;
         private Button _btnDelete = null!;
-        private Button _btnImport = null!;
-        private Button _btnExport = null!;
         private Label _lblInclusionValue = null!;
         private Label _lblTo1HoursValue = null!;
         private Label _lblTo2HoursValue = null!;
         private Label _lblTo3HoursValue = null!;
+        private Label _lblYearScheduleValue = null!;
 
         private KnowledgeBaseMaintenanceScheduleState _currentState = new();
 
@@ -68,16 +67,8 @@ namespace AsutpKnowledgeBase
             _btnDelete = CreateActionButton("Удалить профиль");
             _btnDelete.Click += (_, _) => DeleteRequested?.Invoke(this, EventArgs.Empty);
 
-            _btnImport = CreateActionButton("Импорт норм...");
-            _btnImport.Click += (_, _) => ImportRequested?.Invoke(this, EventArgs.Empty);
-
-            _btnExport = CreateActionButton("Сформировать график...");
-            _btnExport.Click += (_, _) => ExportRequested?.Invoke(this, EventArgs.Empty);
-
             actionsPanel.Controls.Add(_btnConfigure);
             actionsPanel.Controls.Add(_btnDelete);
-            actionsPanel.Controls.Add(_btnImport);
-            actionsPanel.Controls.Add(_btnExport);
 
             var detailsGroup = new GroupBox
             {
@@ -102,6 +93,7 @@ namespace AsutpKnowledgeBase
             AddValueRow(detailsLayout, 1, "Норма часов ТО1", out _lblTo1HoursValue);
             AddValueRow(detailsLayout, 2, "Норма часов ТО2", out _lblTo2HoursValue);
             AddValueRow(detailsLayout, 3, "Норма часов ТО3", out _lblTo3HoursValue);
+            AddValueRow(detailsLayout, 4, "Годовое размещение", out _lblYearScheduleValue);
 
             detailsGroup.Controls.Add(detailsLayout);
 
@@ -118,10 +110,6 @@ namespace AsutpKnowledgeBase
 
         public event EventHandler? DeleteRequested;
 
-        public event EventHandler? ImportRequested;
-
-        public event EventHandler? ExportRequested;
-
         public void ApplyState(KnowledgeBaseMaintenanceScheduleState state)
         {
             _currentState = state ?? _emptyState;
@@ -135,11 +123,10 @@ namespace AsutpKnowledgeBase
             _lblTo1HoursValue.Text = _currentState.HasProfile ? _currentState.To1HoursText : "-";
             _lblTo2HoursValue.Text = _currentState.HasProfile ? _currentState.To2HoursText : "-";
             _lblTo3HoursValue.Text = _currentState.HasProfile ? _currentState.To3HoursText : "-";
+            _lblYearScheduleValue.Text = _currentState.HasProfile ? _currentState.YearScheduleText : "-";
 
             _btnConfigure.Enabled = _currentState.SupportsEditing;
             _btnDelete.Enabled = _currentState.SupportsEditing && _currentState.HasProfile;
-            _btnImport.Enabled = _currentState.SupportsEditing;
-            _btnExport.Enabled = _currentState.SupportsEditing;
         }
 
         private static void AddValueRow(

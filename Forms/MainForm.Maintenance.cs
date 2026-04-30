@@ -61,7 +61,7 @@ namespace AsutpKnowledgeBase
                 "Профиль ТО удалён.");
         }
 
-        private void ExportMaintenanceWorkbook(object? sender, EventArgs e)
+        private void ExportMaintenanceMonthWorkbook(object? sender, EventArgs e)
         {
             SaveCurrentWorkshopState();
             _maintenanceWorkbookUiWorkflowService.Export(
@@ -73,16 +73,48 @@ namespace AsutpKnowledgeBase
                 SetLastActionText);
         }
 
+        private void ExportMaintenanceYearWorkbook(object? sender, EventArgs e)
+        {
+            SaveCurrentWorkshopState();
+            _maintenanceWorkbookUiWorkflowService.ExportYear(
+                this,
+                _currentWorkshop,
+                GetVisibleTreeData(),
+                _session.MaintenanceScheduleProfiles,
+                CurrentDataPath,
+                SetLastActionText);
+        }
+
+        private void RecalculateMaintenanceYearWorkbookToDecember(object? sender, EventArgs e)
+        {
+            SaveCurrentWorkshopState();
+            _maintenanceWorkbookUiWorkflowService.RecalculateYearToDecember(
+                this,
+                _currentWorkshop,
+                GetVisibleTreeData(),
+                _session.MaintenanceScheduleProfiles,
+                CurrentDataPath,
+                SetLastActionText);
+        }
+
         private void ImportMaintenanceScheduleNorms(object? sender, EventArgs e)
         {
-            if (!TryGetMaintenanceOwnerNode(out _))
+            if (string.IsNullOrWhiteSpace(_currentWorkshop))
+            {
+                MessageBox.Show(
+                    this,
+                    "Сначала выберите цех для импорта норм ТО.",
+                    "График ТО",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
                 return;
+            }
 
             SaveCurrentWorkshopState();
 
             using var dialog = new OpenFileDialog
             {
-                Title = "Импортировать нормы ТО из monthly workbook",
+                Title = "Импортировать нормы ТО из Excel",
                 Filter = "Книги Excel (*.xlsx)|*.xlsx|Все файлы (*.*)|*.*",
                 CheckFileExists = true
             };
@@ -227,7 +259,14 @@ namespace AsutpKnowledgeBase
                 IsIncludedInSchedule = profile.IsIncludedInSchedule,
                 To1Hours = profile.To1Hours,
                 To2Hours = profile.To2Hours,
-                To3Hours = profile.To3Hours
+                To3Hours = profile.To3Hours,
+                YearScheduleEntries = profile.YearScheduleEntries
+                    .Select(static entry => new KbMaintenanceYearScheduleEntry
+                    {
+                        Month = entry.Month,
+                        WorkKind = entry.WorkKind
+                    })
+                    .ToList()
             };
 
         private static string BuildMaintenanceNormImportSummary(

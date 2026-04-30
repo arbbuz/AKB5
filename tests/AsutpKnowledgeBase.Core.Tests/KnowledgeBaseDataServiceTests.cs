@@ -472,7 +472,14 @@ public class KnowledgeBaseDataServiceTests
                         IsIncludedInSchedule = true,
                         To1Hours = 2,
                         To2Hours = -4,
-                        To3Hours = 8
+                        To3Hours = 8,
+                        YearScheduleEntries = new List<KbMaintenanceYearScheduleEntry>
+                        {
+                            new() { Month = 3, WorkKind = KbMaintenanceWorkKind.To2 },
+                            new() { Month = 13, WorkKind = KbMaintenanceWorkKind.To3 },
+                            new() { Month = 4, WorkKind = (KbMaintenanceWorkKind)999 },
+                            new() { Month = 3, WorkKind = KbMaintenanceWorkKind.To3 }
+                        }
                     },
                     new()
                     {
@@ -495,6 +502,9 @@ public class KnowledgeBaseDataServiceTests
         Assert.Equal(2, profile.To1Hours);
         Assert.Equal(0, profile.To2Hours);
         Assert.Equal(8, profile.To3Hours);
+        var scheduleEntry = Assert.Single(profile.YearScheduleEntries);
+        Assert.Equal(3, scheduleEntry.Month);
+        Assert.Equal(KbMaintenanceWorkKind.To3, scheduleEntry.WorkKind);
         Assert.False(string.IsNullOrWhiteSpace(profile.MaintenanceProfileId));
     }
 

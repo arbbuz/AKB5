@@ -1,6 +1,24 @@
 # Decision Log
 
-Last updated: `2026-04-29`
+Last updated: `2026-04-30`
+
+## 2026-04-30
+
+- The full `Phase 7D follow-up` yearly orchestration is implemented pending manual review
+- The monthly generation mechanism remains the canonical planning/export engine
+- The whole-year generation command is implemented on top of the existing monthly mechanism rather than replacing it
+- The whole-year command applies one selected monthly workshop budget to every generated month and defaults it to the maximum calculated monthly demand in the selected year
+- Future-month recalculation is implemented by opening an existing yearly workbook and regenerating only the selected start month through December
+- Months before the selected start month are frozen during ordinary replanning and must be preserved in the existing workbook
+- Production-calendar years are currently code-configured in `KnowledgeBaseRussianProductionCalendarService`; user-facing JSON/UI/import configuration is deferred to `Phase 7F` and is not a current priority
+- The first `Phase 7E` yearly source is stored per maintenance profile as `YearScheduleEntries`, a 12-month `ТО1` / `ТО2` / `ТО3` template
+- Empty `YearScheduleEntries` means the profile continues to use deterministic rule-based month placement
+- Manual annual placement is separate from production-calendar setup; it does not configure holidays or transfer days
+- The agreed canonical user workflow is:
+  - at the start of the year, generate the whole year in one pass
+  - when equipment changes during the year, recalculate only from the current month through December
+  - treat past months as frozen during ordinary replanning
+- `Сформировать график ТО за месяц...`, `Сформировать годовой график ТО...`, `Пересчитать график ТО до конца года...`, and `Импорт норм ТО...` are workshop-level commands and belong in the top-level `Файл` menu
 
 ## 2026-04-29
 
@@ -43,25 +61,3 @@ Last updated: `2026-04-29`
 - `Phase 6` uses separate `Файлы` and `Предпросмотр` tabs instead of a permanently split list/preview layout
 - Loading a node must open `Файлы` by default; automatic switching to `Предпросмотр` is not part of the accepted UX
 - The old `Phase 7` Excel/exchange-modernization direction is superseded by maintenance-schedule generation
-
-## 2026-04-27
-
-- `docs/codex-handoff.md` remains the single current-state file for session startup and handoff
-- The knowledge harness uses a fixed set of files:
-  - `docs/codex-handoff.md`
-  - `docs/plans.md`
-  - `docs/lessons-learned.md`
-  - `docs/decision-log.md`
-- On the explicit user request to distill session knowledge, update the fixed harness files in place
-- Do not create parallel session notes, duplicate summaries, or stale side documents for the same purpose
-- Use agreed tree taxonomy:
-  - `L1` = department
-  - `L2` = system
-  - `L3` = cabinet
-- Keep `summary.md` only as a redirect into the `docs/` harness, not as a parallel knowledge store
-- `Phase 3B` templates are implemented as a built-in code catalog; do not change JSON schema or Excel `v3` just to store templates unless that becomes an explicit task
-- `copy composition from existing object` currently copies only typed `CompositionEntries` and only between same-type nodes
-- `Phase 4` documentation/software data is stored as top-level `DocumentLinks` and `SoftwareRecords` collections keyed by `OwnerNodeId`
-- `Phase 4` keeps JSON schema version at `3` and leaves the Excel workbook contract at `v3`
-- `Documentation and Software` UI support is currently limited to `Cabinet`, `Device`, `Controller`, and `Module`
-- Deleting a node must remove typed composition, document-link, and software-record data for the whole deleted subtree

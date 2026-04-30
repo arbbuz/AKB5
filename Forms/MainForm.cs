@@ -50,6 +50,10 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem menuNewWorkshop = null!;
         private ToolStripMenuItem menuRenameWorkshop = null!;
         private ToolStripMenuItem menuDeleteWorkshop = null!;
+        private ToolStripMenuItem menuImportMaintenanceNorms = null!;
+        private ToolStripMenuItem menuExportMaintenanceMonthWorkbook = null!;
+        private ToolStripMenuItem menuExportMaintenanceYearWorkbook = null!;
+        private ToolStripMenuItem menuRecalculateMaintenanceYearWorkbook = null!;
 
         private SplitContainer splitMain = null!;
         private ComboBox cmbWorkshops = null!;
@@ -228,8 +232,13 @@ namespace AsutpKnowledgeBase
             ctxAddChild.Enabled = hasSelection && _treeMutationWorkflowService.CanAddNode(selectedNode!);
             ctxAddFromTemplate.Enabled = hasSelection && _treeMutationWorkflowService.CanAddNodeFromTemplate(selectedNode!);
             ctxPaste.Enabled = hasSelection && _treeMutationWorkflowService.CanPasteNode(selectedNode!);
-            menuRenameWorkshop.Enabled = !string.IsNullOrWhiteSpace(_currentWorkshop);
-            menuDeleteWorkshop.Enabled = !string.IsNullOrWhiteSpace(_currentWorkshop) && _session.Workshops.Count > 1;
+            bool hasCurrentWorkshop = !string.IsNullOrWhiteSpace(_currentWorkshop);
+            menuRenameWorkshop.Enabled = hasCurrentWorkshop;
+            menuDeleteWorkshop.Enabled = hasCurrentWorkshop && _session.Workshops.Count > 1;
+            menuImportMaintenanceNorms.Enabled = hasCurrentWorkshop;
+            menuExportMaintenanceMonthWorkbook.Enabled = hasCurrentWorkshop;
+            menuExportMaintenanceYearWorkbook.Enabled = hasCurrentWorkshop;
+            menuRecalculateMaintenanceYearWorkbook.Enabled = hasCurrentWorkshop;
 
             btnSave.ToolTipText = formState.SaveToolTip;
             Text = formState.WindowTitle;

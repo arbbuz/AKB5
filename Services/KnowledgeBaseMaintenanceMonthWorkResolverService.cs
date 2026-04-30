@@ -42,19 +42,11 @@ namespace AsutpKnowledgeBase.Services
                 if (!profile.IsIncludedInSchedule || !KnowledgeBaseMaintenanceScheduleStateService.SupportsProfile(node.NodeType))
                     continue;
 
-                // TO2 includes TO1, and TO3 includes both TO1 and TO2.
-                // The yearly schedule therefore uses one maintenance slot per month:
-                // quarterly slot months get TO2, one of those quarters gets TO3 instead, and the rest get TO1.
-                // For a full profile (TO1 + TO2 + TO3) this yields 8x TO1, 3x TO2, and 1x TO3 per year.
-                int quarterlySlotPosition = ComputeQuarterlySlotPosition(ownerNodeId);
-                int annualMonth = ComputeAnnualMonth(ownerNodeId, quarterlySlotPosition);
-                bool isAnnualDue = profile.To3Hours > 0 && month == annualMonth;
-                bool isQuarterlyDue = profile.To2Hours > 0 && IsQuarterlySlotMonth(month, quarterlySlotPosition) && !isAnnualDue;
-                bool isMonthlyDue = profile.To1Hours > 0 && !isQuarterlyDue && !isAnnualDue;
+                KbMaintenanceWorkKind dueKind = ResolveDueWorkKind(profile, ownerNodeId, month);
 
-                AddWorkItemIfDue(workItems, node, profile, month, KbMaintenanceWorkKind.To3, profile.To3Hours, isAnnualDue);
-                AddWorkItemIfDue(workItems, node, profile, month, KbMaintenanceWorkKind.To2, profile.To2Hours, isQuarterlyDue);
-                AddWorkItemIfDue(workItems, node, profile, month, KbMaintenanceWorkKind.To1, profile.To1Hours, isMonthlyDue);
+                AddWorkItemIfDue(workItems, node, profile, KbMaintenanceWorkKind.To3, profile.To3Hours, dueKind == KbMaintenanceWorkKind.To3);
+                AddWorkItemIfDue(workItems, node, profile, KbMaintenanceWorkKind.To2, profile.To2Hours, dueKind == KbMaintenanceWorkKind.To2);
+                AddWorkItemIfDue(workItems, node, profile, KbMaintenanceWorkKind.To1, profile.To1Hours, dueKind == KbMaintenanceWorkKind.To1);
             }
 
             return workItems;
@@ -75,7 +67,6 @@ namespace AsutpKnowledgeBase.Services
             ICollection<KbMaintenanceMonthWorkItem> workItems,
             KbNode node,
             KbMaintenanceScheduleProfile profile,
-            int month,
             KbMaintenanceWorkKind workKind,
             int hours,
             bool isDue)
@@ -90,6 +81,46 @@ namespace AsutpKnowledgeBase.Services
                 WorkKind = workKind,
                 Hours = hours
             });
+        }
+
+        private static KbMaintenanceWorkKind ResolveDueWorkKind(
+            KbMaintenanceScheduleProfile profile,
+            string ownerNodeId,
+            int month)
+        {
+            KbMaintenanceWorkKind? explicitKind = ResolveExplicitYearScheduleKind(profile.YearScheduleEntries, month);
+            if (explicitKind.HasValue)
+                return explicitKind.Value;
+
+            // TO2 includes TO1, and TO3 includes both TO1 and TO2.
+            // Without a manual yearly source the planner keeps deterministic month
+            // placement for compatibility with existing profiles.
+            int quarterlySlotPosition = ComputeQuarterlySlotPosition(ownerNodeId);
+            int annualMonth = ComputeAnnualMonth(ownerNodeId, quarterlySlotPosition);
+            if (profile.To3Hours > 0 && month == annualMonth)
+                return KbMaintenanceWorkKind.To3;
+
+            if (profile.To2Hours > 0 && IsQuarterlySlotMonth(month, quarterlySlotPosition))
+                return KbMaintenanceWorkKind.To2;
+
+            return KbMaintenanceWorkKind.To1;
+        }
+
+        private static KbMaintenanceWorkKind? ResolveExplicitYearScheduleKind(
+            IReadOnlyList<KbMaintenanceYearScheduleEntry>? yearScheduleEntries,
+            int month)
+        {
+            if (yearScheduleEntries == null || yearScheduleEntries.Count == 0)
+                return null;
+
+            return yearScheduleEntries
+                .Where(entry => entry != null &&
+                                entry.Month == month &&
+                                Enum.IsDefined(typeof(KbMaintenanceWorkKind), entry.WorkKind))
+                .Select(static entry => entry.WorkKind)
+                .OrderByDescending(static workKind => workKind)
+                .Cast<KbMaintenanceWorkKind?>()
+                .FirstOrDefault();
         }
 
         private static bool IsQuarterlySlotMonth(int month, int quarterlySlotPosition)

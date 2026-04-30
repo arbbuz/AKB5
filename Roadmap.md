@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-04-29
+Last updated: 2026-04-30
 Branch baseline: `to`
-Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, next unfinished slice is Phase 7E`
+Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice pending review`
 
 ## Goal
 
@@ -63,9 +63,14 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - The next roadmap phase is now maintenance-schedule generation, not typed-data workbook redesign.
 - `Phase 7A` is complete on `to`: `Lvl2` inventory number support now follows visible hierarchy level, typed `MaintenanceScheduleProfiles` are persisted in JSON/session state, and engineering nodes expose a `График ТО` tab with per-node `ТО1` / `ТО2` / `ТО3` hour norms.
 - `Phase 7B` is complete on `to`: Russian production-calendar calculation for `5/2` workdays is available as a reusable service.
+- Production-calendar years are currently implementation data, not a user-configurable setting; user-facing calendar configuration is deferred to a future `Phase 7F` and should not be implemented until it is explicitly prioritized.
 - `Phase 7C` is complete on `to`: the resolver and monthly planner generate month demand from `ТО1` / `ТО2` / `ТО3` norms and compare it against the selected monthly workshop budget.
 - `Phase 7D` is complete on `to`: the yearly workbook export is template-driven, exposed in the UI, and can also import maintenance norms from `123.xlsx`.
-- On 2026-04-29, the current `Phase 7` worktree passed verification build and passed `dotnet test` (`243/243`) using isolated output paths.
+- The first `Phase 7D` follow-up slice is complete on `to`: workshop-level `Импорт норм ТО...` and `Сформировать график ТО за месяц...` commands now live in the top-level `Файл` menu instead of the per-node `График ТО` tab.
+- The second `Phase 7D` follow-up slice is complete on `to`: `Файл -> Сформировать годовой график ТО...` generates all 12 months in one pass by orchestrating the existing monthly engine.
+- The third `Phase 7D` follow-up slice is complete on `to`: `Файл -> Пересчитать график ТО до конца года...` opens an existing yearly workbook, preserves earlier month sheets, and rewrites only the selected start month through December.
+- The first `Phase 7E` slice is implemented pending review: maintenance profiles can store manual 12-month `ТО1` / `ТО2` / `ТО3` placement in JSON, the profile dialog can edit it, and the resolver uses it before falling back to deterministic offsets.
+- On 2026-04-30, the current `Phase 7E` worktree passed `dotnet format --verify-no-changes`, verification build, and `dotnet test` (`250/250`) using isolated output paths.
 
 ## Hidden-level strategy
 
@@ -483,8 +488,28 @@ Recommended implementation slices:
   - create or update the yearly accumulating workbook
   - write only the selected month sheet while preserving the rest of the workbook
   - preserve formulas, merges, print layout, and signature blocks from the template
+  - follow-up UX hardening:
+    - done: move the monthly `Сформировать график ТО за месяц...` command from the per-node `График ТО` tab into the top-level `Файл` menu because the command operates on the whole workshop, not on one selected engineering node
+    - done: move `Импорт норм ТО...` to the same top-level area for the same reason; it is also a workshop-wide action rather than a per-node edit
+  - done: keep the monthly generation mechanism as the engine, but add a top-level yearly command above it as the main start-of-year user workflow
+  - done: add a top-level recalculation command that rewrites only the selected start month through December in an existing yearly workbook
+  - canonical user workflow:
+    - at the start of the year, generate the whole year in one pass
+    - when equipment changes during the year, recalculate only from the current month through December
+    - treat past months as frozen and do not rewrite them during ordinary replanning
 - `Phase 7E. Future yearly schedule source`
-  - keep the monthly planner extensible so a later yearly schedule can become the source of `ТО1/ТО2/ТО3` placement without redesigning the whole phase
+  - first slice status: implemented pending review
+  - done: store manual per-profile 12-month `ТО1` / `ТО2` / `ТО3` placement in JSON as `YearScheduleEntries`
+  - done: expose the manual annual placement in the per-node `График ТО` profile dialog
+  - done: make the monthly resolver use manual placement when present and keep deterministic offsets as fallback for profiles without it
+  - remaining only if explicitly prioritized: import or external-source hardening for yearly schedule placement
+- `Phase 7F. Production calendar configuration`
+  - status: deferred, not current priority
+  - move production-calendar year data out of hardcoded service tables into persisted JSON configuration while preserving built-in defaults for already supported years
+  - add a user-facing Russian UI for viewing, adding, editing, and validating non-working transfer days by year
+  - add import support for production-calendar data from an approved external file format, separate from the legacy Excel `v3` exchange workbook unless explicitly decided otherwise
+  - keep the planner/export API consuming a resolved calendar service so schedule generation logic does not depend on the storage or UI mechanism
+  - show a clear guided error when the selected year is missing, pointing the user to calendar setup/import instead of requiring a code change
 
 Acceptance:
 
@@ -540,6 +565,7 @@ Minimum required coverage:
 - search tests for each scope
 - exchange tests proving `v3` remains readable
 - maintenance planner tests for workday filtering, month-budget overflow behavior, and yearly type-placement rules
+- production-calendar configuration tests for JSON round-trip, UI/import validation rules, and planner behavior when a year is missing or configured
 - template-export tests proving generated workbooks preserve required structure
 
 Manual UI checks will still be required for:
@@ -566,10 +592,12 @@ Completed on `to`:
 10. Phase 7B. Russian production calendar
 11. Phase 7C. Monthly planning engine
 12. Phase 7D. Year workbook export
+13. Phase 7E. Future yearly schedule source, first slice pending review
 
 Remaining:
 
-1. Phase 7E. Future yearly schedule source
+1. Phase 7E import/external-source hardening, only if explicitly prioritized after review
+2. Phase 7F. Production calendar configuration, deferred until explicitly prioritized
 
 ## AI handoff / next-dialog instructions
 
@@ -593,10 +621,12 @@ Keep JSON source-of-truth compatibility and treat Excel v3 as a legacy transitio
 
 ## Immediate next step
 
-Continue Phase 7:
+Continue after manual review of the completed `Phase 7E` first-slice build:
 
 - preserve the completed `Phase 7A` / `7B` / `7C` / `7D` workflow as the current baseline
 - decide whether to add split-across-days support for one `ТО2` / `ТО3` occurrence
-- decide when to replace deterministic `ТО2` / `ТО3` month placement with a formal yearly schedule source in `Phase 7E`
+- decide whether `Phase 7E` is complete at the manual per-profile source layer or needs import/external-source hardening
+- keep production-calendar JSON/UI/import configuration recorded as deferred `Phase 7F`; do not implement it until it becomes a prioritized task
+- treat future-month recalculation as completed `Phase 7D` orchestration/workflow built on top of the existing monthly engine, not as a replacement for it
 - keep workbook `v3` readable as legacy, but do not expand it as the main feature direction
 - keep JSON source-of-truth compatibility and preserve Russian-only UI

@@ -25,6 +25,8 @@ namespace AsutpKnowledgeBase.Services
         public string To2HoursText { get; init; } = "-";
 
         public string To3HoursText { get; init; } = "-";
+
+        public string YearScheduleText { get; init; } = "-";
     }
 
     public class KnowledgeBaseMaintenanceScheduleStateService
@@ -74,7 +76,8 @@ namespace AsutpKnowledgeBase.Services
                 InclusionText = profile.IsIncludedInSchedule ? "Да" : "Нет",
                 To1HoursText = FormatHours(profile.To1Hours),
                 To2HoursText = FormatHours(profile.To2Hours),
-                To3HoursText = FormatHours(profile.To3Hours)
+                To3HoursText = FormatHours(profile.To3Hours),
+                YearScheduleText = FormatYearSchedule(profile.YearScheduleEntries)
             };
         }
 
@@ -95,5 +98,17 @@ namespace AsutpKnowledgeBase.Services
         }
 
         private static string FormatHours(int hours) => $"{Math.Max(0, hours)} ч";
+
+        private static string FormatYearSchedule(IReadOnlyList<KbMaintenanceYearScheduleEntry>? entries)
+        {
+            if (entries == null || entries.Count == 0)
+                return "Автоматическое размещение";
+
+            int to1Count = entries.Count(static entry => entry.WorkKind == KbMaintenanceWorkKind.To1);
+            int to2Count = entries.Count(static entry => entry.WorkKind == KbMaintenanceWorkKind.To2);
+            int to3Count = entries.Count(static entry => entry.WorkKind == KbMaintenanceWorkKind.To3);
+
+            return $"Ручное: ТО1 - {to1Count}, ТО2 - {to2Count}, ТО3 - {to3Count}";
+        }
     }
 }

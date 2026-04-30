@@ -432,11 +432,11 @@ namespace AsutpKnowledgeBase.Services
 
             if (importedEntry.SystemInventoryKey.Length > 0)
             {
-                    MatchResolution systemInventoryResolution = ResolveUniqueCandidate(
-                        candidates.Where(candidate =>
-                            string.Equals(candidate.SystemInventoryKey, importedEntry.SystemInventoryKey, StringComparison.Ordinal) &&
-                            HasMatchingNameKey(candidate.EquipmentNameKeys, importedEntry.EquipmentNameKeys)),
-                        MatchKind.Name);
+                MatchResolution systemInventoryResolution = ResolveUniqueCandidate(
+                    candidates.Where(candidate =>
+                        string.Equals(candidate.SystemInventoryKey, importedEntry.SystemInventoryKey, StringComparison.Ordinal) &&
+                        HasMatchingNameKey(candidate.EquipmentNameKeys, importedEntry.EquipmentNameKeys)),
+                    MatchKind.Name);
                 if (systemInventoryResolution.IsResolved || systemInventoryResolution.IsAmbiguous)
                     return systemInventoryResolution;
             }
@@ -589,7 +589,29 @@ namespace AsutpKnowledgeBase.Services
                     IsIncludedInSchedule = profile.IsIncludedInSchedule,
                     To1Hours = profile.To1Hours,
                     To2Hours = profile.To2Hours,
-                    To3Hours = profile.To3Hours
+                    To3Hours = profile.To3Hours,
+                    YearScheduleEntries = CloneYearScheduleEntries(profile.YearScheduleEntries)
+                });
+            }
+
+            return clones;
+        }
+
+        private static List<KbMaintenanceYearScheduleEntry> CloneYearScheduleEntries(
+            IReadOnlyList<KbMaintenanceYearScheduleEntry>? entries)
+        {
+            var clones = new List<KbMaintenanceYearScheduleEntry>();
+            if (entries == null)
+                return clones;
+
+            foreach (KbMaintenanceYearScheduleEntry entry in entries
+                         .Where(static entry => entry != null)
+                         .OrderBy(static entry => entry.Month))
+            {
+                clones.Add(new KbMaintenanceYearScheduleEntry
+                {
+                    Month = entry.Month,
+                    WorkKind = entry.WorkKind
                 });
             }
 

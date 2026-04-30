@@ -103,6 +103,84 @@ public class KnowledgeBaseMaintenanceMonthWorkResolverServiceTests
     }
 
     [Fact]
+    public void ResolveMonthWorkItems_WhenYearScheduleIsConfigured_UsesManualMonthPlacement()
+    {
+        var node = new KbNode
+        {
+            NodeId = "device-manual",
+            Name = "Device manual",
+            NodeType = KbNodeType.Device
+        };
+        var profile = new KbMaintenanceScheduleProfile
+        {
+            OwnerNodeId = "device-manual",
+            IsIncludedInSchedule = true,
+            To1Hours = 2,
+            To2Hours = 4,
+            To3Hours = 8,
+            YearScheduleEntries = new List<KbMaintenanceYearScheduleEntry>
+            {
+                new() { Month = 1, WorkKind = KbMaintenanceWorkKind.To1 },
+                new() { Month = 2, WorkKind = KbMaintenanceWorkKind.To3 },
+                new() { Month = 3, WorkKind = KbMaintenanceWorkKind.To2 }
+            }
+        };
+
+        IReadOnlyList<KbMaintenanceMonthWorkItem> januaryItems =
+            _service.ResolveMonthWorkItems(2026, 1, new[] { node }, new[] { profile });
+        IReadOnlyList<KbMaintenanceMonthWorkItem> februaryItems =
+            _service.ResolveMonthWorkItems(2026, 2, new[] { node }, new[] { profile });
+        IReadOnlyList<KbMaintenanceMonthWorkItem> marchItems =
+            _service.ResolveMonthWorkItems(2026, 3, new[] { node }, new[] { profile });
+
+        Assert.Equal(KbMaintenanceWorkKind.To1, Assert.Single(januaryItems).WorkKind);
+        Assert.Equal(2, januaryItems[0].Hours);
+        Assert.Equal(KbMaintenanceWorkKind.To3, Assert.Single(februaryItems).WorkKind);
+        Assert.Equal(8, februaryItems[0].Hours);
+        Assert.Equal(KbMaintenanceWorkKind.To2, Assert.Single(marchItems).WorkKind);
+        Assert.Equal(4, marchItems[0].Hours);
+    }
+
+    [Fact]
+    public void ResolveMonthWorkItems_WhenYearScheduleOmitsMonth_KeepsDeterministicFallback()
+    {
+        var node = new KbNode
+        {
+            NodeId = "device-partial",
+            Name = "Device partial",
+            NodeType = KbNodeType.Device
+        };
+        var fallbackProfile = new KbMaintenanceScheduleProfile
+        {
+            OwnerNodeId = "device-partial",
+            IsIncludedInSchedule = true,
+            To1Hours = 2,
+            To2Hours = 4,
+            To3Hours = 8
+        };
+        var partialProfile = new KbMaintenanceScheduleProfile
+        {
+            OwnerNodeId = "device-partial",
+            IsIncludedInSchedule = true,
+            To1Hours = 2,
+            To2Hours = 4,
+            To3Hours = 8,
+            YearScheduleEntries = new List<KbMaintenanceYearScheduleEntry>
+            {
+                new() { Month = 2, WorkKind = KbMaintenanceWorkKind.To3 }
+            }
+        };
+
+        IReadOnlyList<KbMaintenanceMonthWorkItem> fallbackItems =
+            _service.ResolveMonthWorkItems(2026, 1, new[] { node }, new[] { fallbackProfile });
+        IReadOnlyList<KbMaintenanceMonthWorkItem> partialItems =
+            _service.ResolveMonthWorkItems(2026, 1, new[] { node }, new[] { partialProfile });
+
+        Assert.Equal(Assert.Single(fallbackItems).WorkKind, Assert.Single(partialItems).WorkKind);
+        Assert.Equal(fallbackItems[0].Hours, partialItems[0].Hours);
+    }
+
+    [Fact]
     public void ResolveMonthWorkItems_WhenFullProfileIsConfigured_UsesAnnualMixOfOneTo3ThreeTo2AndEightTo1()
     {
         var node = new KbNode
