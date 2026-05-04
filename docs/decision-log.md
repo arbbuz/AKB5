@@ -12,6 +12,8 @@ Last updated: `2026-05-04`
 - Maintenance workbook rewriting must use an expandable memory stream because real monthly exports can make the XLSX package larger than the embedded template package
 - The major-work split follow-up is limited to planner assignment chunking: one `ТО2` / `ТО3` occurrence above 8 hours is split into up-to-8-hour assignments and distributed across working days when possible
 - The major-work split follow-up does not introduce a hard daily total cap, does not split `ТО1`, and does not change production-calendar configuration
+- Norm import matching may use conservative name/inventory variants from the approved `123.xlsx` structure, including leading-zero inventory equivalence and parenthetical equipment-name variants, while ambiguity still leaves rows unresolved
+- Norm import mismatch reporting should include source sheet and row so users can correct either the workbook or the KB tree without guessing
 - Production-calendar JSON/UI/import remains deferred to `Phase 7F`
 
 ## 2026-04-30

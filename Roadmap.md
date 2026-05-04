@@ -2,7 +2,7 @@
 
 Last updated: 2026-05-04
 Branch baseline: `to`
-Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split local verified waiting review`
+Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to`
 
 ## Goal
 
@@ -77,8 +77,10 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - On 2026-05-04, the manual-review `Memory stream is not expandable` workbook generation error was fixed and `phase7e-workbook-expandable-stream-fix` passed verification build and `dotnet test` (`256/256`).
 - The `Phase 7E` mass-editing grid adds `Файл -> Редактировать источник годового графика ТО...` for current-workshop profile rows; it edits only month placement and leaves norms, inclusion flags, and production calendars untouched.
 - On 2026-05-04, `phase7e-year-source-mass-edit-grid` passed `dotnet format --verify-no-changes`, verification build, and `dotnet test` (`261/261`) using isolated output paths.
-- The local major-work split follow-up splits one `ТО2` / `ТО3` occurrence into assignments of up to 8 hours and spreads those assignments across working days when possible; the selected monthly workshop budget remains the hard constraint and production-calendar configuration is unchanged.
+- The major-work split follow-up splits one `ТО2` / `ТО3` occurrence into assignments of up to 8 hours and spreads those assignments across working days when possible; the selected monthly workshop budget remains the hard constraint and production-calendar configuration is unchanged.
 - On 2026-05-04, `phase7e-major-work-split-days` passed `dotnet format --verify-no-changes`, targeted monthly-planner tests, verification build, and `dotnet test` (`262/262`) using isolated output paths.
+- The maintenance-norm import coverage follow-up improves matching for leading-zero inventory numbers, `ё/е`, parenthetical equipment names from `123.xlsx`, and reports unresolved rows with source sheet/row context.
+- On 2026-05-04, `phase7e-norm-import-coverage` passed `dotnet format --verify-no-changes`, targeted norm-import tests, verification build, and `dotnet test` (`264/264`) using isolated output paths.
 
 ## Hidden-level strategy
 
@@ -516,9 +518,9 @@ Recommended implementation slices:
   - follow-up status: in-app mass-editing grid completed on `to`
   - done: add a workshop-level grid for bulk editing `M01`..`M12` values with `ТО1`, `ТО2`, `ТО3`, or blank fallback
   - done: keep the grid narrow so it changes only `YearScheduleEntries`, leaving norms, inclusion flags, and production calendars untouched
-  - local follow-up status: major `ТО2` / `ТО3` split verified and waiting manual review
-  - local: split one `ТО2` / `ТО3` occurrence into assignments of up to 8 hours and distribute them across working days when possible
-  - local: keep the selected monthly workshop budget as the hard constraint; do not add a hard daily total cap
+  - follow-up status: major `ТО2` / `ТО3` split completed on `to`
+  - done: split one `ТО2` / `ТО3` occurrence into assignments of up to 8 hours and distribute them across working days when possible
+  - done: keep the selected monthly workshop budget as the hard constraint; do not add a hard daily total cap
 - `Phase 7F. Production calendar configuration`
   - status: deferred, not current priority
   - move production-calendar year data out of hardcoded service tables into persisted JSON configuration while preserving built-in defaults for already supported years
@@ -611,15 +613,12 @@ Completed on `to`:
 13. Phase 7E. Future yearly schedule source, first slice complete on `to`
 14. Phase 7E.2 source exchange, complete on `to`
 15. Phase 7E in-app mass-editing grid, complete on `to`
-
-Local verified and waiting manual review:
-
-1. Support splitting one `ТО2` / `ТО3` occurrence across multiple working days
+16. Major `ТО2` / `ТО3` split across multiple working days, complete on `to`
+17. Maintenance-norm import coverage and mismatch reporting, complete on `to`
 
 Remaining:
 
-1. Improve maintenance-norm import coverage and mismatch reporting for the remaining unmatched rows from `123.xlsx`, if prioritized
-2. Phase 7F. Production calendar configuration, deferred until explicitly prioritized
+1. Phase 7F. Production calendar configuration, deferred until explicitly prioritized
 
 ## AI handoff / next-dialog instructions
 
@@ -643,11 +642,9 @@ Keep JSON source-of-truth compatibility and treat Excel v3 as a legacy transitio
 
 ## Immediate next step
 
-Continue after manual review of the `phase7e-major-work-split-days` build:
+Continue from the next explicitly prioritized task:
 
 - preserve the completed `Phase 7A` / `7B` / `7C` / `7D` workflow as the current baseline
-- if accepted, commit and push the major `ТО2` / `ТО3` split to branch `to`
-- after that, decide whether to improve maintenance-norm import coverage and mismatch reporting
 - keep production-calendar JSON/UI/import configuration recorded as deferred `Phase 7F`; do not implement it until it becomes a prioritized task
 - treat future-month recalculation as completed `Phase 7D` orchestration/workflow built on top of the existing monthly engine, not as a replacement for it
 - keep workbook `v3` readable as legacy, but do not expand it as the main feature direction

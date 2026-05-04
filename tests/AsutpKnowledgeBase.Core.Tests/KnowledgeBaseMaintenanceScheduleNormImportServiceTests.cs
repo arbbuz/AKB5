@@ -134,6 +134,7 @@ public class KnowledgeBaseMaintenanceScheduleNormImportServiceTests
         Assert.True(result.IsSuccess);
         Assert.Empty(result.MaintenanceScheduleProfiles);
         Assert.Single(result.UnresolvedEntries);
+        Assert.Contains("КЦ (5), строка 18", result.UnresolvedEntries[0], StringComparison.OrdinalIgnoreCase);
         Assert.Contains("несколько совпадений", result.UnresolvedEntries[0], StringComparison.OrdinalIgnoreCase);
     }
 
@@ -242,10 +243,71 @@ public class KnowledgeBaseMaintenanceScheduleNormImportServiceTests
         Assert.Equal(8, profile.To3Hours);
     }
 
+    [Fact]
+    public void ImportWorkbook_MatchesInventoryNumberWhenWorkbookKeepsLeadingZero()
+    {
+        IReadOnlyList<KbNode> roots = CreateWorkshopRoots(
+            systemInventoryNumber: "43363",
+            equipmentName: "Фильтр-пресс ASKM800",
+            systemName: "АСУ никелевого отделения",
+            equipmentInventoryNumber: "355178");
+
+        byte[] workbookBytes = BuildWorkbook(
+            ("КЦ (1)", CreateMonthlyRows(
+                "АСУ никелевого отделения",
+                "43363",
+                "АСУ фильтр-прессом медного отделения №3(Фильтр-пресс ASKM800)",
+                equipmentInventoryNumber: "0355178",
+                dayWorkCells: new[] { (20, "ТО3/12") })));
+
+        KnowledgeBaseMaintenanceScheduleNormImportResult result = _service.ImportWorkbook(
+            workbookBytes,
+            roots,
+            Array.Empty<KbMaintenanceScheduleProfile>());
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.UnresolvedEntries);
+        Assert.Equal(1, result.MatchedByInventoryCount);
+
+        KbMaintenanceScheduleProfile profile = Assert.Single(result.MaintenanceScheduleProfiles);
+        Assert.Equal("cabinet-1", profile.OwnerNodeId);
+        Assert.Equal(12, profile.To3Hours);
+    }
+
+    [Fact]
+    public void ImportWorkbook_MatchesByParentheticalEquipmentNameInsideSystemInventoryScope()
+    {
+        IReadOnlyList<KbNode> roots = CreateWorkshopRoots(
+            systemInventoryNumber: "43363",
+            equipmentName: "Фильтр-пресс камерно-мембранный ФЗГМ 50-1-Н-800/52",
+            systemName: "АСУ никелевого отделения");
+
+        byte[] workbookBytes = BuildWorkbook(
+            ("КЦ (1)", CreateMonthlyRows(
+                "АСУ никелевого отделения",
+                "43363",
+                "АСУ фильтр-прессом никелевого отделения №10.(Фильтр-пресс камерно-мембранный ФЗГМ 50-1-Н-800/52)",
+                dayWorkCells: new[] { (20, "ТО3/10") })));
+
+        KnowledgeBaseMaintenanceScheduleNormImportResult result = _service.ImportWorkbook(
+            workbookBytes,
+            roots,
+            Array.Empty<KbMaintenanceScheduleProfile>());
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.UnresolvedEntries);
+        Assert.Equal(1, result.MatchedByNameCount);
+
+        KbMaintenanceScheduleProfile profile = Assert.Single(result.MaintenanceScheduleProfiles);
+        Assert.Equal("cabinet-1", profile.OwnerNodeId);
+        Assert.Equal(10, profile.To3Hours);
+    }
+
     private static IReadOnlyList<KbNode> CreateWorkshopRoots(
         string systemInventoryNumber,
         string equipmentName,
-        string systemName = "РЎРёСЃС‚РµРјР° 1")
+        string systemName = "РЎРёСЃС‚РµРјР° 1",
+        string equipmentInventoryNumber = "")
     {
         return
         [
@@ -271,7 +333,11 @@ public class KnowledgeBaseMaintenanceScheduleNormImportServiceTests
                             {
                                 NodeId = "cabinet-1",
                                 Name = equipmentName,
-                                NodeType = KbNodeType.Cabinet
+                                NodeType = KbNodeType.Cabinet,
+                                Details = new KbNodeDetails
+                                {
+                                    InventoryNumber = equipmentInventoryNumber
+                                }
                             }
                         }
                     }
@@ -340,7 +406,8 @@ public class KnowledgeBaseMaintenanceScheduleNormImportServiceTests
         string systemName,
         string systemInventoryNumber,
         string equipmentName,
-        IReadOnlyList<(int DayColumnIndex, string WorkCellValue)> dayWorkCells)
+        IReadOnlyList<(int DayColumnIndex, string WorkCellValue)> dayWorkCells,
+        string equipmentInventoryNumber = "")
     {
         var rowCells = new List<(int ColumnIndex, string Value)>
         {
@@ -356,6 +423,9 @@ public class KnowledgeBaseMaintenanceScheduleNormImportServiceTests
             (2, equipmentName),
             (5, "план")
         };
+        if (!string.IsNullOrWhiteSpace(equipmentInventoryNumber))
+            equipmentRowCells.Add((4, equipmentInventoryNumber));
+
         foreach ((int dayColumnIndex, string workCellValue) in dayWorkCells)
             equipmentRowCells.Add((dayColumnIndex, workCellValue));
 

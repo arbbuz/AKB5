@@ -38,11 +38,15 @@ namespace AsutpKnowledgeBase.Services
         private const int PlanFactColumnIndex = 5;
         private const int FirstDayColumnIndex = 6;
         private const int LastDayColumnIndex = 36;
+        private static readonly string[] AutomationNamePrefixes = { "АСУТП ", "АСУ ТП ", "АСУ ", "СУ " };
         private static readonly Regex WorkCellRegex = new(
             @"^\s*(ТО[123])\s*/\s*(\d+(?:[.,]\d+)?)\s*$",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
         private static readonly Regex MonthSheetNameRegex = new(
             @"\(\s*(?<month>\d{1,2})\s*\)\s*$",
+            RegexOptions.CultureInvariant | RegexOptions.Compiled);
+        private static readonly Regex ParentheticalContentRegex = new(
+            @"\((?<value>[^()]*)\)",
             RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
         public KnowledgeBaseMaintenanceScheduleNormImportResult ImportWorkbook(
@@ -410,13 +414,13 @@ namespace AsutpKnowledgeBase.Services
             if (importedEntry.EquipmentInventoryKey.Length > 0)
             {
                 IEnumerable<OwnerNodeCandidate> scopedByEquipmentInventory = candidates.Where(candidate =>
-                    string.Equals(candidate.EquipmentInventoryKey, importedEntry.EquipmentInventoryKey, StringComparison.Ordinal));
+                    HasMatchingKey(candidate.EquipmentInventoryKeys, importedEntry.EquipmentInventoryKeys));
 
                 if (importedEntry.SystemInventoryKey.Length > 0)
                 {
                     MatchResolution scopedResolution = ResolveUniqueCandidate(
                         scopedByEquipmentInventory.Where(candidate =>
-                            string.Equals(candidate.SystemInventoryKey, importedEntry.SystemInventoryKey, StringComparison.Ordinal)),
+                            HasMatchingKey(candidate.SystemInventoryKeys, importedEntry.SystemInventoryKeys)),
                         MatchKind.Inventory);
                     if (scopedResolution.IsResolved || scopedResolution.IsAmbiguous)
                         return scopedResolution;
@@ -434,7 +438,7 @@ namespace AsutpKnowledgeBase.Services
             {
                 MatchResolution systemInventoryResolution = ResolveUniqueCandidate(
                     candidates.Where(candidate =>
-                        string.Equals(candidate.SystemInventoryKey, importedEntry.SystemInventoryKey, StringComparison.Ordinal) &&
+                        HasMatchingKey(candidate.SystemInventoryKeys, importedEntry.SystemInventoryKeys) &&
                         HasMatchingNameKey(candidate.EquipmentNameKeys, importedEntry.EquipmentNameKeys)),
                     MatchKind.Name);
                 if (systemInventoryResolution.IsResolved || systemInventoryResolution.IsAmbiguous)
@@ -551,7 +555,7 @@ namespace AsutpKnowledgeBase.Services
         private static string BuildAggregateKey(ImportedNormEntry entry)
         {
             if (entry.EquipmentInventoryKey.Length > 0)
-                return $"eqinv:{entry.EquipmentInventoryKey}";
+                return $"eqinv:{entry.EquipmentInventoryCanonicalKey}";
 
             if (entry.SystemInventoryKey.Length > 0)
                 return $"sysinv:{entry.SystemInventoryKey}|name:{entry.EquipmentNameKey}";
@@ -564,6 +568,9 @@ namespace AsutpKnowledgeBase.Services
 
         private static string BuildUnresolvedEntryText(ImportedNormEntry entry, bool isAmbiguous)
         {
+            string rowText = entry.SheetName.Length > 0
+                ? $"{entry.SheetName}, строка {entry.RowIndex}: "
+                : string.Empty;
             string systemText = entry.SystemName.Length > 0
                 ? $"{entry.SystemName} / "
                 : string.Empty;
@@ -573,7 +580,7 @@ namespace AsutpKnowledgeBase.Services
                     ? $" [система {entry.SystemInventory}]"
                     : string.Empty;
             string suffix = isAmbiguous ? " - найдено несколько совпадений" : " - совпадение не найдено";
-            return $"{systemText}{entry.EquipmentName}{inventoryText}{suffix}";
+            return $"{rowText}{systemText}{entry.EquipmentName}{inventoryText}{suffix}";
         }
 
         private static List<KbMaintenanceScheduleProfile> CloneProfiles(
@@ -625,8 +632,9 @@ namespace AsutpKnowledgeBase.Services
 
             var builder = new StringBuilder(value.Length);
             bool pendingSeparator = false;
-            foreach (char character in value.Trim().ToUpperInvariant())
+            foreach (char sourceCharacter in value.Trim())
             {
+                char character = NormalizeComparableCharacter(sourceCharacter);
                 if (char.IsLetterOrDigit(character))
                 {
                     if (pendingSeparator && builder.Length > 0)
@@ -649,8 +657,9 @@ namespace AsutpKnowledgeBase.Services
                 return string.Empty;
 
             var builder = new StringBuilder(value.Length);
-            foreach (char character in value.Trim().ToUpperInvariant())
+            foreach (char sourceCharacter in value.Trim())
             {
+                char character = NormalizeComparableCharacter(sourceCharacter);
                 if (char.IsLetterOrDigit(character))
                     builder.Append(character);
             }
@@ -664,13 +673,49 @@ namespace AsutpKnowledgeBase.Services
                 return string.Empty;
 
             var builder = new StringBuilder(value.Length);
-            foreach (char character in value.Trim().ToUpperInvariant())
+            foreach (char sourceCharacter in value.Trim())
             {
+                char character = NormalizeComparableCharacter(sourceCharacter);
                 if (char.IsLetterOrDigit(character))
                     builder.Append(character);
             }
 
             return builder.ToString();
+        }
+
+        private static char NormalizeComparableCharacter(char character)
+        {
+            char upper = char.ToUpperInvariant(character);
+            return upper == 'Ё' ? 'Е' : upper;
+        }
+
+        private static string NormalizeInventoryAggregateKey(string? value)
+        {
+            string key = NormalizeInventoryKey(value);
+            return NormalizeNumericInventoryKey(key);
+        }
+
+        private static string[] BuildInventoryMatchKeys(string? value)
+        {
+            string key = NormalizeInventoryKey(value);
+            if (key.Length == 0)
+                return Array.Empty<string>();
+
+            var keys = new HashSet<string>(StringComparer.Ordinal) { key };
+            string numericKey = NormalizeNumericInventoryKey(key);
+            if (numericKey.Length > 0)
+                keys.Add(numericKey);
+
+            return keys.ToArray();
+        }
+
+        private static string NormalizeNumericInventoryKey(string key)
+        {
+            if (key.Length == 0 || key.Any(static character => !char.IsDigit(character)))
+                return key;
+
+            string trimmed = key.TrimStart('0');
+            return trimmed.Length == 0 ? "0" : trimmed;
         }
 
         private static int GetEffectiveVisibleLevel(KbNode node, int visibleLevel)
@@ -682,6 +727,11 @@ namespace AsutpKnowledgeBase.Services
         }
 
         private static bool HasMatchingNameKey(
+            IReadOnlyCollection<string> left,
+            IReadOnlyCollection<string> right) =>
+            HasMatchingKey(left, right);
+
+        private static bool HasMatchingKey(
             IReadOnlyCollection<string> left,
             IReadOnlyCollection<string> right)
         {
@@ -733,19 +783,67 @@ namespace AsutpKnowledgeBase.Services
 
         private static IEnumerable<string> ExpandNameVariantsCore(string value, string? systemContext)
         {
+            foreach (string baseVariant in ExpandStructuralNameVariants(value))
+            {
+                yield return baseVariant;
+
+                foreach (string trimmedBySuffix in TrimTrailingSystemContext(baseVariant, systemContext))
+                    yield return trimmedBySuffix;
+
+                foreach (string trimmedByDots in TrimDotSeparatedSuffixes(baseVariant))
+                    yield return trimmedByDots;
+
+                foreach (string trimmedBySuffix in TrimTrailingSystemContext(baseVariant, systemContext))
+                {
+                    foreach (string trimmedByDots in TrimDotSeparatedSuffixes(trimmedBySuffix))
+                        yield return trimmedByDots;
+                }
+            }
+        }
+
+        private static IEnumerable<string> ExpandStructuralNameVariants(string value)
+        {
             yield return value;
 
-            foreach (string trimmedBySuffix in TrimTrailingSystemContext(value, systemContext))
-                yield return trimmedBySuffix;
+            if (TryStripLeadingAutomationPrefix(value, out string strippedPrefix))
+                yield return strippedPrefix;
 
-            foreach (string trimmedByDots in TrimDotSeparatedSuffixes(value))
-                yield return trimmedByDots;
-
-            foreach (string trimmedBySuffix in TrimTrailingSystemContext(value, systemContext))
+            string withoutParentheses = ParentheticalContentRegex
+                .Replace(value, " ")
+                .Trim();
+            if (withoutParentheses.Length > 0 && !string.Equals(withoutParentheses, value, StringComparison.Ordinal))
             {
-                foreach (string trimmedByDots in TrimDotSeparatedSuffixes(trimmedBySuffix))
-                    yield return trimmedByDots;
+                yield return withoutParentheses;
+                if (TryStripLeadingAutomationPrefix(withoutParentheses, out string strippedWithoutParenthesesPrefix))
+                    yield return strippedWithoutParenthesesPrefix;
             }
+
+            foreach (Match match in ParentheticalContentRegex.Matches(value))
+            {
+                string parentheticalValue = match.Groups["value"].Value.Trim();
+                if (parentheticalValue.Length == 0)
+                    continue;
+
+                yield return parentheticalValue;
+                if (TryStripLeadingAutomationPrefix(parentheticalValue, out string strippedParentheticalPrefix))
+                    yield return strippedParentheticalPrefix;
+            }
+        }
+
+        private static bool TryStripLeadingAutomationPrefix(string value, out string stripped)
+        {
+            stripped = string.Empty;
+            string trimmed = value.Trim();
+            foreach (string prefix in AutomationNamePrefixes)
+            {
+                if (!trimmed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                stripped = trimmed[prefix.Length..].Trim();
+                return stripped.Length > 0;
+            }
+
+            return false;
         }
 
         private static IEnumerable<string> TrimDotSeparatedSuffixes(string value)
@@ -844,11 +942,17 @@ namespace AsutpKnowledgeBase.Services
 
             public string EquipmentInventoryKey { get; } = NormalizeInventoryKey(EquipmentInventory);
 
+            public string EquipmentInventoryCanonicalKey { get; } = NormalizeInventoryAggregateKey(EquipmentInventory);
+
+            public string[] EquipmentInventoryKeys { get; } = BuildInventoryMatchKeys(EquipmentInventory);
+
             public string SystemNameKey { get; } = NormalizeTextKey(SystemName);
 
             public string[] SystemNameKeys { get; } = BuildNameMatchKeys(SystemName);
 
             public string SystemInventoryKey { get; } = NormalizeInventoryKey(SystemInventory);
+
+            public string[] SystemInventoryKeys { get; } = BuildInventoryMatchKeys(SystemInventory);
         }
 
         private sealed class ImportedNormAccumulator
@@ -919,11 +1023,15 @@ namespace AsutpKnowledgeBase.Services
 
             public string EquipmentInventoryKey { get; } = NormalizeInventoryKey(EquipmentInventory);
 
+            public string[] EquipmentInventoryKeys { get; } = BuildInventoryMatchKeys(EquipmentInventory);
+
             public string SystemNameKey { get; } = NormalizeTextKey(SystemName);
 
             public string[] SystemNameKeys { get; } = BuildNameMatchKeys(SystemName);
 
             public string SystemInventoryKey { get; } = NormalizeInventoryKey(SystemInventory);
+
+            public string[] SystemInventoryKeys { get; } = BuildInventoryMatchKeys(SystemInventory);
         }
 
         private readonly record struct MatchResolution(

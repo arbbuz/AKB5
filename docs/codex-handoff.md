@@ -6,9 +6,9 @@ Last updated: `2026-05-04`
 
 - Repository root: `C:\Users\Olga\AKB5`
 - Active integration branch: `to`
-- Latest feature integration commit for the maintenance-planning stream: `6c338c2`
-- Latest docs synchronization commit: `87c5023`
-- Latest local implementation, not committed yet: `phase7e-major-work-split-days`
+- Latest feature integration commit for the maintenance-planning stream: `f6ae82e`
+- Latest docs synchronization commit: `f6ae82e`
+- Latest local implementation, not committed yet: none
 - Implemented on this branch:
   - `Phase 0`
   - `Phase 1`
@@ -27,8 +27,10 @@ Last updated: `2026-05-04`
   - `Phase 7E Lvl2 export fix`
   - `Phase 7E.2 yearly schedule source exchange`
   - `Phase 7E in-app mass-editing grid`
-- Current local slice verified and waiting manual review: major `ТО2` / `ТО3` split across working days
-- Next step after manual review: commit/push the major-work split if accepted, then choose the next prioritized follow-up
+  - major `ТО2` / `ТО3` split across working days
+  - maintenance-norm import coverage and mismatch reporting
+- Current local slice verified and waiting manual review: none
+- Next step: wait for the next explicitly prioritized task; keep `Phase 7F` deferred until then
 
 ## Integrated feature state
 
@@ -58,7 +60,7 @@ Last updated: `2026-05-04`
   - engineering nodes expose the `График ТО` workflow
   - `KnowledgeBaseRussianProductionCalendarService` provides reusable Russian `5/2` workday calculation and is configured for `2025` and `2026`
   - `KnowledgeBaseMaintenanceMonthWorkResolverService` resolves monthly work demand from stored norms and deterministic cycle offsets
-  - `KnowledgeBaseMaintenanceMonthlyPlannerService` plans against a monthly hour budget, distributes work across working days, splits one large `ТО2` / `ТО3` occurrence into assignments of up to 8 hours in the local verified slice, and does not enforce a hard daily `<= 8` cap
+  - `KnowledgeBaseMaintenanceMonthlyPlannerService` plans against a monthly hour budget, distributes work across working days, splits one large `ТО2` / `ТО3` occurrence into assignments of up to 8 hours, and does not enforce a hard daily `<= 8` cap
   - the export workflow is template-driven and writes one selected month into a yearly accumulating workbook while preserving the rest of the workbook
   - `Файл` contains workshop-level `Импорт норм ТО...`, `Сформировать график ТО за месяц...`, `Сформировать годовой график ТО...`, and `Пересчитать график ТО до конца года...` commands; import/export commands are no longer shown inside each per-node `График ТО` tab
   - `Phase 7E.2` adds `Файл -> Экспорт источника годового графика ТО...` and `Файл -> Импорт источника годового графика ТО...`
@@ -73,7 +75,8 @@ Last updated: `2026-05-04`
   - `Phase 7E.2` adds workshop-level `.xlsx` export/import of the yearly schedule source through `YearScheduleSource` rows keyed by `OwnerNodeId`
   - `Phase 7E.2` import updates only `YearScheduleEntries`; it does not change `ТО1` / `ТО2` / `ТО3` hour norms and does not create missing maintenance profiles
   - `Phase 7E` mass-editing grid updates only `YearScheduleEntries`; it does not change hour norms, inclusion flags, production calendars, or create missing profiles
-  - local `phase7e-major-work-split-days` splits one `ТО2` / `ТО3` occurrence into up-to-8-hour assignments across working days when possible
+  - `phase7e-major-work-split-days` splits one `ТО2` / `ТО3` occurrence into up-to-8-hour assignments across working days when possible
+  - `phase7e-norm-import-coverage` improves norm import matching for leading-zero inventory numbers, `ё/е`, and parenthetical equipment names; unresolved rows include source sheet/row context
   - maintenance norms can be imported from `C:\Users\Olga\Downloads\123.xlsx`
   - import matching uses inventory number first, then normalized equipment/system names, and can read the workbook even when it is open in Excel
 - User-facing application UI on `to` remains Russian-only
@@ -95,21 +98,22 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7e-workbook-expandable-stream-fix
 powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7e-year-source-mass-edit-grid
 powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7e-major-work-split-days
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7e-norm-import-coverage
 ```
 
 - `dotnet format --verify-no-changes`: passed for app, core, and tests
-- Targeted monthly-planner tests: passed
-- Verification `dotnet build`: passed for `phase7e-major-work-split-days`
-- `dotnet test`: passed, `262/262`
-- Verification artifacts: `artifacts\verify\phase7e-major-work-split-days`
-- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase7e-major-work-split-days\build\Release\net8.0-windows\asutpKB.exe`
+- Targeted norm-import tests: passed, `9/9`
+- Verification `dotnet build`: passed for `phase7e-norm-import-coverage`
+- `dotnet test`: passed, `264/264`
+- Verification artifacts: `artifacts\verify\phase7e-norm-import-coverage`
+- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase7e-norm-import-coverage\build\Release\net8.0-windows\asutpKB.exe`
 - Startup smoke was not rerun for the final `Phase 7D` completion slice
 - Full Excel round-trip validation (`generate -> open -> edit/save -> import back`) was not run
 
 ## Active objective
 
 - Keep the completed `Phase 7` workflow on `to` stable as the baseline
-- Manually review the verified local major `ТО2` / `ТО3` split build before committing/pushing it
+- Wait for the next explicitly prioritized local slice before implementing more maintenance-planning work
 - Preserve deterministic month placement as fallback for profiles that do not enable manual annual placement
 - Keep `Phase 7F` production-calendar JSON/UI/import configuration deferred until explicitly prioritized
 
@@ -194,23 +198,21 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - Manual-review error `Memory stream is not expandable` during May 2026 график ТО generation was fixed locally by opening the workbook package on an expandable memory stream before OpenXML rewriting
 - Manual-review screenshot errors from `C:\Users\Olga\Downloads\archive-2026-04-30_13-50-15` were caused by direct visible `Lvl2` assignments being rejected during workbook model building; the local fix is implemented and verified
 - 2027 and later production calendars are not configured yet
-- Local `phase7e-major-work-split-days` implements and verifies splitting one `ТО2` / `ТО3` occurrence across multiple working days pending manual review
+- `phase7e-major-work-split-days` implements and verifies splitting one `ТО2` / `ТО3` occurrence across multiple working days
 - The planner can place multiple large maintenance items on the same day; that is a soft-avoidance area, not a validated optimization target
 - Maintenance profiles have no explicit active-from / active-to dates yet, so the agreed replanning strategy is to freeze past months and recalculate only future months
-- Norm import from `123.xlsx` is materially better than the first strict matcher, but some rows still remain unmatched when names diverge too much from the KB tree
+- `phase7e-norm-import-coverage` improves norm import matching and mismatch reporting; some rows may still remain unmatched when names diverge too much from the KB tree
 - Full Excel round-trip import of generated yearly workbooks has not been validated
 
 ## Recommended next step
 
-- Manually review the verified `phase7e-major-work-split-days` build
-- After review, decide whether to:
-  - commit and push the major `ТО2` / `ТО3` split to branch `to`
-  - improve maintenance-norm import coverage further
+- Wait for the next explicitly prioritized task
+- Keep `Phase 7F` production-calendar JSON/UI/import configuration deferred until it is explicitly prioritized
 
 ## Commands to run before finishing future implementation work
 
 ```powershell
 git status --short
-powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7e-major-work-split-days
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7e-norm-import-coverage
 # The script stops at BUILD: PASS / TESTS: PASS and leaves artifacts in artifacts\verify\<step>.
 ```
