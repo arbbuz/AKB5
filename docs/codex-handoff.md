@@ -6,8 +6,9 @@ Last updated: `2026-04-30`
 
 - Repository root: `C:\Users\Olga\AKB5`
 - Active integration branch: `to`
-- Latest feature integration commit for the maintenance-planning stream: `7d56084`
+- Latest feature integration commit for the maintenance-planning stream: `6d7d04d`
 - Latest docs synchronization commit: `87c5023`
+- Latest local manual-review fix, not committed yet: `phase7e-lvl2-maintenance-export-fix`
 - Implemented on this branch:
   - `Phase 0`
   - `Phase 1`
@@ -61,6 +62,7 @@ Last updated: `2026-04-30`
   - the future-month recalculation command opens an existing yearly workbook, preserves earlier month sheets, and rewrites only the selected start month through December
   - `Phase 7E` adds optional per-profile `YearScheduleEntries` stored in JSON; when present, they drive manual 12-month `ТО1` / `ТО2` / `ТО3` placement
   - profiles without `YearScheduleEntries` keep the previous deterministic offset behavior
+  - maintenance workbook export allows profiles assigned directly to visible `Lvl2`; that node is used as both the workbook group and detail row
   - the per-node `График ТО` profile dialog can enable manual annual placement and edit the 12-month source
   - maintenance norms can be imported from `C:\Users\Olga\Downloads\123.xlsx`
   - import matching uses inventory number first, then normalized equipment/system names, and can read the workbook even when it is open in Excel
@@ -78,20 +80,21 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7d-year-generation-command
 powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7d-complete
 powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7e-year-schedule-source
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7e-lvl2-maintenance-export-fix
 ```
 
 - `dotnet format --verify-no-changes`: passed for app, core, and tests
 - Verification `dotnet build`: passed
-- `dotnet test`: passed, `250/250`
-- Verification artifacts: `artifacts\verify\phase7e-year-schedule-source`
-- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase7e-year-schedule-source\build\Release\net8.0-windows\asutpKB.exe`
+- `dotnet test`: passed, `251/251`
+- Verification artifacts: `artifacts\verify\phase7e-lvl2-maintenance-export-fix`
+- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase7e-lvl2-maintenance-export-fix\build\Release\net8.0-windows\asutpKB.exe`
 - Startup smoke was not rerun for the final `Phase 7D` completion slice
 - Full Excel round-trip validation (`generate -> open -> edit/save -> import back`) was not run
 
 ## Active objective
 
 - Keep the completed `Phase 7` workflow on `to` stable as the baseline
-- Manual-review the completed `Phase 7E` first-slice build before committing/pushing
+- Manual-review the corrected `Phase 7E` build that allows direct visible `Lvl2` maintenance exports before committing/pushing this local fix
 - Preserve deterministic month placement as fallback for profiles that do not enable manual annual placement
 - Keep `Phase 7F` production-calendar JSON/UI/import configuration deferred until explicitly prioritized
 
@@ -123,6 +126,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `Phase 7E` stores manual annual maintenance placement in `KbMaintenanceScheduleProfile.YearScheduleEntries`
 - Empty `YearScheduleEntries` means old deterministic month placement remains active for that profile
 - Manual annual placement is a 12-month profile template, not a production-calendar configuration and not a per-year holiday source
+- A maintenance profile assigned directly to a visible `Lvl2` node is valid for workbook export; only nodes above visible `Lvl2` remain invalid
 - Future-month recalculation is implemented by opening an existing yearly workbook and regenerating the selected start month through December into the same workbook
 - Months before the selected start month are treated as frozen and must be preserved during ordinary replanning
 - Agreed canonical `Phase 7D` user workflow:
@@ -161,6 +165,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 ## Known limits / open follow-up
 
 - `Phase 7E` first slice is implemented: manual per-profile year placement source is available, but external import of a yearly schedule source is not implemented
+- Manual-review screenshot errors from `C:\Users\Olga\Downloads\archive-2026-04-30_13-50-15` were caused by direct visible `Lvl2` assignments being rejected during workbook model building; the local fix is implemented and verified
 - 2027 and later production calendars are not configured yet
 - A single `ТО2` or `ТО3` occurrence is still planned as one assignment; splitting one maintenance item across multiple working days is not implemented yet
 - The planner can place multiple large maintenance items on the same day; that is a soft-avoidance area, not a validated optimization target
@@ -170,7 +175,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 
 ## Recommended next step
 
-- Manually review the completed `Phase 7E` build from `artifacts\verify\phase7e-year-schedule-source`
+- Manually review the corrected `Phase 7E` build from `artifacts\verify\phase7e-lvl2-maintenance-export-fix`
 - After review, decide whether to:
   - treat `Phase 7E` as complete at the manual per-profile source layer
   - add import/external-source hardening for `Phase 7E`

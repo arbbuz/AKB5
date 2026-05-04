@@ -146,6 +146,65 @@ public class KnowledgeBaseMaintenanceMonthSheetModelBuilderServiceTests
     }
 
     [Fact]
+    public void Build_AllowsAssignmentOnVisibleLevel2NodeItself()
+    {
+        var system = new KbNode
+        {
+            NodeId = "system-1",
+            Name = "Система 1",
+            NodeType = KbNodeType.Cabinet,
+            Details = new KbNodeDetails { InventoryNumber = "INV-01" }
+        };
+        var roots = new[]
+        {
+            new KbNode
+            {
+                NodeId = "department-1",
+                Name = "Отделение 1",
+                NodeType = KbNodeType.Department,
+                Children = { system }
+            }
+        };
+
+        var planResult = new KnowledgeBaseMaintenanceMonthPlanResult
+        {
+            IsSuccess = true,
+            PlannedDays =
+            {
+                new KbMaintenanceMonthPlanDay
+                {
+                    Date = new DateOnly(2026, 1, 12),
+                    TotalHours = 4,
+                    Assignments =
+                    {
+                        new KbMaintenanceMonthPlanAssignment
+                        {
+                            Date = new DateOnly(2026, 1, 12),
+                            OwnerNodeId = "system-1",
+                            NodeName = "Система 1",
+                            WorkKind = KbMaintenanceWorkKind.To2,
+                            Hours = 4
+                        }
+                    }
+                }
+            }
+        };
+
+        KnowledgeBaseMaintenanceMonthSheetModelBuildResult result = _service.Build(2026, 1, roots, planResult);
+
+        Assert.True(result.IsSuccess);
+        KbMaintenanceMonthSheetSystemGroup group = Assert.Single(result.SheetModel!.SystemGroups);
+        Assert.Equal("system-1", group.SystemNodeId);
+        Assert.Equal("Система 1", group.SystemName);
+        Assert.Equal("INV-01", group.InventoryNumber);
+
+        KbMaintenanceMonthSheetDetailRow detail = Assert.Single(group.DetailRows);
+        Assert.Equal("system-1", detail.OwnerNodeId);
+        Assert.Equal("Система 1", detail.NodeName);
+        Assert.Equal(4, detail.TotalHours);
+    }
+
+    [Fact]
     public void Build_AggregatesMultipleAssignmentsIntoSameDayCell()
     {
         var module = new KbNode { NodeId = "module-1", Name = "Модуль 1", NodeType = KbNodeType.Module };

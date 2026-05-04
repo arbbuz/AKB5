@@ -12,7 +12,7 @@ Last updated: `2026-04-30`
 
 ## Near-term follow-up
 
-- Manually review the `phase7e-year-schedule-source` build before commit/push
+- Manually review the `phase7e-lvl2-maintenance-export-fix` build, then commit/push the local `Lvl2` export fix if accepted
 - After review, decide whether to:
   - accept `Phase 7E` at the manual per-profile source layer
   - add import/external-source hardening for `Phase 7E`

@@ -21,6 +21,7 @@ Last updated: `2026-04-30`
 - For a heavily formatted enterprise workbook with merges, print layout, formulas, and signature blocks, prefer template-driven export over rebuilding the sheet structure from scratch
 - Keep the monthly planner/export path as the canonical engine even if users want a yearly command; the yearly workflow should orchestrate repeated monthly generation instead of replacing the month-based core
 - Keep annual `ТО1/ТО2/ТО3` placement separate from production-calendar setup: the former decides maintenance type by month, the latter decides working/non-working days
+- Do not reject maintenance profiles assigned directly to visible `Lvl2` nodes; real data can store a profile on the system-level node itself, and the export should use it as both group and row
 - If equipment can appear or disappear during the year and the model has no active-from / active-to dates, the safest workflow is to freeze past months and recalculate only the current month through December
 - For future-month replanning without active date ranges, require an existing yearly workbook and rewrite only the selected month range; generating a new workbook from scratch would leave past months blank instead of preserving them
 - An Excel repair prompt after month regeneration can come from structural leftovers, not only from formulas:

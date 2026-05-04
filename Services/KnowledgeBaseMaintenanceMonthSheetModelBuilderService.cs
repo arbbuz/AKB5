@@ -44,7 +44,7 @@ namespace AsutpKnowledgeBase.Services
                             $"Не удалось сопоставить строку графика ТО с узлом дерева: '{assignment.NodeName}'.");
                     }
 
-                    if (indexedNode.VisibleLevel <= 2 || indexedNode.Level2Ancestor == null)
+                    if (indexedNode.VisibleLevel < 2 || indexedNode.Level2Ancestor == null)
                     {
                         return Failure(
                             $"Узел '{indexedNode.Node.Name}' не находится под видимым уровнем Lvl2 и не может быть выгружен в форму графика ТО.");

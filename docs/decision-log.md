@@ -14,6 +14,7 @@ Last updated: `2026-04-30`
 - The first `Phase 7E` yearly source is stored per maintenance profile as `YearScheduleEntries`, a 12-month `ТО1` / `ТО2` / `ТО3` template
 - Empty `YearScheduleEntries` means the profile continues to use deterministic rule-based month placement
 - Manual annual placement is separate from production-calendar setup; it does not configure holidays or transfer days
+- Maintenance assignments owned by visible `Lvl2` nodes are valid export inputs; the monthly sheet model uses the same `Lvl2` node as both workbook group and detail row
 - The agreed canonical user workflow is:
   - at the start of the year, generate the whole year in one pass
   - when equipment changes during the year, recalculate only from the current month through December
