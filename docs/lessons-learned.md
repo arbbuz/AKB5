@@ -15,6 +15,7 @@ Last updated: `2026-05-04`
 
 - A hand-filled enterprise workbook should be treated first as a form/layout source and only then as a rule source; validate business rules against multiple examples before hardcoding them
 - Do not invent operational caps from intuition; in this maintenance workflow the hard constraint is the monthly workshop budget, not a daily `<= 8` cap
+- When one `ТО2` / `ТО3` occurrence has more than 8 labor hours, split that occurrence into assignment chunks instead of converting the chunk size into a global daily-cap rule
 - If a future year fails with `производственный календарь ещё не настроен`, the current implementation needs that year added to `KnowledgeBaseRussianProductionCalendarService`; there is no user-facing calendar editor yet
 - When maintenance types include one another, keep the norms separate per type but resolve monthly demand so higher tiers replace lower tiers instead of stacking on top of them
 - If the user does not yet provide a formal yearly schedule source, a deterministic per-node cycle offset is a workable interim rule for `ТО2` / `ТО3` month placement

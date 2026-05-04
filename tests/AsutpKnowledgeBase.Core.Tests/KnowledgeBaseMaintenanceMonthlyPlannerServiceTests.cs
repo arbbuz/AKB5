@@ -8,7 +8,7 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerServiceTests
     private readonly KnowledgeBaseMaintenanceMonthlyPlannerService _service = new();
 
     [Fact]
-    public void PlanMonth_AssignsWholeWorkItemsAndAllowsMoreThanEightHoursPerDay()
+    public void PlanMonth_SplitsMajorWorkItemsAcrossMultipleDays()
     {
         KnowledgeBaseMaintenanceMonthPlanResult result = _service.PlanMonth(
             2026,
@@ -21,7 +21,7 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerServiceTests
                     OwnerNodeId = "cabinet-1",
                     NodeName = "Шкаф 1",
                     WorkKind = KbMaintenanceWorkKind.To2,
-                    Hours = 12
+                    Hours = 18
                 },
                 new KbMaintenanceMonthWorkItem
                 {
@@ -41,17 +41,27 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerServiceTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(15, result.WorkingDayCount);
-        Assert.Equal(23, result.RequestedHours);
-        Assert.Equal(3, result.PlannedDays.Count);
+        Assert.Equal(29, result.RequestedHours);
+        Assert.Equal(5, result.PlannedDays.Count);
         Assert.Equal(new DateOnly(2026, 1, 12), result.PlannedDays[0].Date);
         Assert.Equal(3, result.PlannedDays[0].TotalHours);
         Assert.Equal(new DateOnly(2026, 1, 13), result.PlannedDays[1].Date);
-        Assert.Equal(12, result.PlannedDays[1].TotalHours);
+        Assert.Equal(8, result.PlannedDays[1].TotalHours);
         Assert.Equal(new DateOnly(2026, 1, 14), result.PlannedDays[2].Date);
         Assert.Equal(8, result.PlannedDays[2].TotalHours);
-        Assert.Contains(result.PlannedDays, static day => day.TotalHours > 8);
-        Assert.Equal(3, result.PlannedDays.Sum(static day => day.Assignments.Count));
+        Assert.Equal(new DateOnly(2026, 1, 15), result.PlannedDays[3].Date);
+        Assert.Equal(2, result.PlannedDays[3].TotalHours);
+        Assert.Equal(new DateOnly(2026, 1, 16), result.PlannedDays[4].Date);
+        Assert.Equal(8, result.PlannedDays[4].TotalHours);
+        Assert.Equal(5, result.PlannedDays.Sum(static day => day.Assignments.Count));
         Assert.All(result.PlannedDays, static day => Assert.Single(day.Assignments));
+
+        int[] splitHours = result.PlannedDays
+            .SelectMany(static day => day.Assignments)
+            .Where(static assignment => assignment.OwnerNodeId == "cabinet-1")
+            .Select(static assignment => assignment.Hours)
+            .ToArray();
+        Assert.Equal(new[] { 8, 8, 2 }, splitHours);
     }
 
     [Fact]

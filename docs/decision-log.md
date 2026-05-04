@@ -10,6 +10,8 @@ Last updated: `2026-05-04`
 - `Phase 7E.2` import intentionally does not change inclusion flags, `ТО1` / `ТО2` / `ТО3` labor-hour norms, or production-calendar settings
 - The `Phase 7E` in-app mass-editing grid follows the same narrow source-editing contract: it edits only `YearScheduleEntries` for configured current-workshop profiles and does not create profiles, import norms, toggle inclusion, or configure calendars
 - Maintenance workbook rewriting must use an expandable memory stream because real monthly exports can make the XLSX package larger than the embedded template package
+- The major-work split follow-up is limited to planner assignment chunking: one `ТО2` / `ТО3` occurrence above 8 hours is split into up-to-8-hour assignments and distributed across working days when possible
+- The major-work split follow-up does not introduce a hard daily total cap, does not split `ТО1`, and does not change production-calendar configuration
 - Production-calendar JSON/UI/import remains deferred to `Phase 7F`
 
 ## 2026-04-30

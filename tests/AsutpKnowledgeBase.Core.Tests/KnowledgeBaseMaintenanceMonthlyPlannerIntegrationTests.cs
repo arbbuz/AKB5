@@ -67,6 +67,58 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerIntegrationTests
     }
 
     [Fact]
+    public void PlanMonth_FromRootsAndProfiles_SplitsMajorProfileWorkAcrossDays()
+    {
+        var device = new KbNode
+        {
+            NodeId = "device-1",
+            Name = "Насос 1",
+            NodeType = KbNodeType.Device
+        };
+        var roots = new[]
+        {
+            new KbNode
+            {
+                NodeId = "cabinet-1",
+                Name = "Шкаф 1",
+                NodeType = KbNodeType.Cabinet,
+                Children = { device }
+            }
+        };
+
+        KnowledgeBaseMaintenanceMonthPlanResult result = _service.PlanMonth(
+            2026,
+            1,
+            totalMonthlyHourBudget: 32,
+            roots,
+            new[]
+            {
+                new KbMaintenanceScheduleProfile
+                {
+                    OwnerNodeId = "device-1",
+                    IsIncludedInSchedule = true,
+                    To3Hours = 18,
+                    YearScheduleEntries = new List<KbMaintenanceYearScheduleEntry>
+                    {
+                        new() { Month = 1, WorkKind = KbMaintenanceWorkKind.To3 }
+                    }
+                }
+            });
+
+        Assert.True(result.IsSuccess);
+        Assert.Single(result.PlannedWorkItems);
+        Assert.Equal(18, result.RequestedHours);
+        Assert.Equal(3, result.PlannedDays.Count);
+
+        int[] splitHours = result.PlannedDays
+            .SelectMany(static day => day.Assignments)
+            .Select(static assignment => assignment.Hours)
+            .ToArray();
+        Assert.Equal(new[] { 8, 8, 2 }, splitHours);
+        Assert.All(result.PlannedDays, static day => Assert.Single(day.Assignments));
+    }
+
+    [Fact]
     public void PlanMonth_FromRootsAndProfiles_PropagatesResolvedDemandIntoBudgetFailure()
     {
         var node = new KbNode

@@ -25,6 +25,8 @@ namespace AsutpKnowledgeBase.Services
 
     public sealed class KnowledgeBaseMaintenanceMonthlyPlannerService
     {
+        private const int MajorWorkSplitChunkHours = 8;
+
         private readonly KnowledgeBaseRussianProductionCalendarService _calendarService;
         private readonly KnowledgeBaseMaintenanceMonthWorkResolverService _workResolverService;
 
@@ -118,18 +120,21 @@ namespace AsutpKnowledgeBase.Services
                 if (workItem.Hours <= 0)
                     continue;
 
-                DayPlanBuilder selectedDay = SelectBestDay(dayBuilders, workItem.WorkKind);
-                selectedDay.Assignments.Add(new KbMaintenanceMonthPlanAssignment
+                foreach (int assignmentHours in SplitWorkItemHours(workItem))
                 {
-                    Date = selectedDay.Date,
-                    OwnerNodeId = workItem.OwnerNodeId?.Trim() ?? string.Empty,
-                    NodeName = workItem.NodeName?.Trim() ?? string.Empty,
-                    WorkKind = workItem.WorkKind,
-                    Hours = workItem.Hours
-                });
-                selectedDay.TotalHours += workItem.Hours;
-                if (IsMajorWork(workItem.WorkKind))
-                    selectedDay.HasMajorWork = true;
+                    DayPlanBuilder selectedDay = SelectBestDay(dayBuilders, workItem.WorkKind);
+                    selectedDay.Assignments.Add(new KbMaintenanceMonthPlanAssignment
+                    {
+                        Date = selectedDay.Date,
+                        OwnerNodeId = workItem.OwnerNodeId?.Trim() ?? string.Empty,
+                        NodeName = workItem.NodeName?.Trim() ?? string.Empty,
+                        WorkKind = workItem.WorkKind,
+                        Hours = assignmentHours
+                    });
+                    selectedDay.TotalHours += assignmentHours;
+                    if (IsMajorWork(workItem.WorkKind))
+                        selectedDay.HasMajorWork = true;
+                }
             }
 
             List<KbMaintenanceMonthPlanDay> plannedDays = dayBuilders
@@ -154,6 +159,24 @@ namespace AsutpKnowledgeBase.Services
                 .ThenByDescending(static item => item.Hours)
                 .ThenBy(static item => item.OwnerNodeId, StringComparer.Ordinal)
                 .ThenBy(static item => item.NodeName, StringComparer.Ordinal);
+
+        private static IEnumerable<int> SplitWorkItemHours(KbMaintenanceMonthWorkItem workItem)
+        {
+            int hours = Math.Max(0, workItem.Hours);
+            if (!IsMajorWork(workItem.WorkKind) || hours <= MajorWorkSplitChunkHours)
+            {
+                yield return hours;
+                yield break;
+            }
+
+            int remainingHours = hours;
+            while (remainingHours > 0)
+            {
+                int assignmentHours = Math.Min(MajorWorkSplitChunkHours, remainingHours);
+                yield return assignmentHours;
+                remainingHours -= assignmentHours;
+            }
+        }
 
         private static DayPlanBuilder SelectBestDay(
             List<DayPlanBuilder> dayBuilders,
