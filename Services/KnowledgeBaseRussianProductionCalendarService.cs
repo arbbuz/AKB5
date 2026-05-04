@@ -1,3 +1,5 @@
+using AsutpKnowledgeBase.Models;
+
 namespace AsutpKnowledgeBase.Services
 {
     public sealed class KnowledgeBaseRussianProductionCalendarService
@@ -26,6 +28,13 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyDictionary<int, IReadOnlyCollection<DateOnly>>? additionalNonWorkingDaysByYear = null)
         {
             _additionalNonWorkingDaysByYear = BuildYearConfiguration(additionalNonWorkingDaysByYear);
+        }
+
+        public KnowledgeBaseRussianProductionCalendarService(
+            IEnumerable<KbProductionCalendarYear>? productionCalendarYears)
+        {
+            _additionalNonWorkingDaysByYear = BuildYearConfiguration(
+                ToAdditionalNonWorkingDaysByYear(productionCalendarYears));
         }
 
         public bool HasConfiguredYear(int year) => _additionalNonWorkingDaysByYear.ContainsKey(year);
@@ -82,26 +91,34 @@ namespace AsutpKnowledgeBase.Services
 
         private static Dictionary<int, HashSet<DateOnly>> CreateDefaultYearConfiguration()
         {
-            // Transfer days are stored as data per year so the monthly planner can
-            // switch to a new official calendar without changing allocation logic.
-            return new Dictionary<int, HashSet<DateOnly>>
-            {
-                [2025] = new HashSet<DateOnly>
-                {
-                    new(2025, 5, 2),
-                    new(2025, 5, 8),
-                    new(2025, 6, 13),
-                    new(2025, 11, 3),
-                    new(2025, 12, 31)
-                },
-                [2026] = new HashSet<DateOnly>
-                {
-                    new(2026, 1, 9),
-                    new(2026, 3, 9),
-                    new(2026, 5, 11),
-                    new(2026, 12, 31)
-                }
-            };
+            return KnowledgeBaseDataService.CreateDefaultProductionCalendarYears()
+                .ToDictionary(
+                    static year => year.Year,
+                    static year => new HashSet<DateOnly>(year.AdditionalNonWorkingDays));
+        }
+
+        private static IReadOnlyDictionary<int, IReadOnlyCollection<DateOnly>>? ToAdditionalNonWorkingDaysByYear(
+            IEnumerable<KbProductionCalendarYear>? productionCalendarYears)
+        {
+            if (productionCalendarYears == null)
+                return null;
+
+            return KnowledgeBaseDataService.NormalizeProductionCalendarYears(productionCalendarYears)
+                .ToDictionary(
+                    static year => year.Year,
+                    static year => (IReadOnlyCollection<DateOnly>)year.AdditionalNonWorkingDays);
+        }
+
+        public static IReadOnlyDictionary<int, IReadOnlyCollection<DateOnly>> ToAdditionalNonWorkingDaysByYear(
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears)
+        {
+            if (productionCalendarYears == null)
+                return new Dictionary<int, IReadOnlyCollection<DateOnly>>();
+
+            return KnowledgeBaseDataService.NormalizeProductionCalendarYears(productionCalendarYears)
+                .ToDictionary(
+                    static year => year.Year,
+                    static year => (IReadOnlyCollection<DateOnly>)year.AdditionalNonWorkingDays);
         }
 
         private static HashSet<DateOnly> NormalizeYearDates(int year, IReadOnlyCollection<DateOnly>? dates)
@@ -144,7 +161,9 @@ namespace AsutpKnowledgeBase.Services
             if (!HasConfiguredYear(year))
             {
                 throw new InvalidOperationException(
-                    $"Производственный календарь для {year} года ещё не настроен.");
+                    $"Производственный календарь для {year} года ещё не настроен. " +
+                    "Настройте его через меню \"Файл -> Производственный календарь...\" " +
+                    "или импортируйте JSON производственного календаря.");
             }
         }
     }

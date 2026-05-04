@@ -6,8 +6,8 @@ Last updated: `2026-05-04`
 
 - Repository root: `C:\Users\Olga\AKB5`
 - Active integration branch: `to`
-- Latest feature integration commit for the maintenance-planning stream: `f6ae82e`
-- Latest docs synchronization commit: `f6ae82e`
+- Latest feature integration commit for the maintenance-planning stream: current `Phase 7F production-calendar configuration` branch head
+- Latest docs synchronization commit: current `Phase 7F production-calendar configuration` branch head
 - Latest local implementation, not committed yet: none
 - Implemented on this branch:
   - `Phase 0`
@@ -29,8 +29,9 @@ Last updated: `2026-05-04`
   - `Phase 7E in-app mass-editing grid`
   - major `ТО2` / `ТО3` split across working days
   - maintenance-norm import coverage and mismatch reporting
+  - `Phase 7F production-calendar configuration`
 - Current local slice verified and waiting manual review: none
-- Next step: wait for the next explicitly prioritized task; keep `Phase 7F` deferred until then
+- Next step: wait for the next explicitly prioritized task
 
 ## Integrated feature state
 
@@ -58,7 +59,7 @@ Last updated: `2026-05-04`
     - `Lvl3+`: hide `Фото`, `IP-адрес`, and `Ссылка на схему`
   - engineering tab visibility for `Lvl3+` resolves by visible engineering support, not only by persisted `NodeType`
   - engineering nodes expose the `График ТО` workflow
-  - `KnowledgeBaseRussianProductionCalendarService` provides reusable Russian `5/2` workday calculation and is configured for `2025` and `2026`
+  - `KnowledgeBaseRussianProductionCalendarService` provides reusable Russian `5/2` workday calculation and consumes persisted `Config.ProductionCalendarYears`
   - `KnowledgeBaseMaintenanceMonthWorkResolverService` resolves monthly work demand from stored norms and deterministic cycle offsets
   - `KnowledgeBaseMaintenanceMonthlyPlannerService` plans against a monthly hour budget, distributes work across working days, splits one large `ТО2` / `ТО3` occurrence into assignments of up to 8 hours, and does not enforce a hard daily `<= 8` cap
   - the export workflow is template-driven and writes one selected month into a yearly accumulating workbook while preserving the rest of the workbook
@@ -75,6 +76,7 @@ Last updated: `2026-05-04`
   - `Phase 7E.2` adds workshop-level `.xlsx` export/import of the yearly schedule source through `YearScheduleSource` rows keyed by `OwnerNodeId`
   - `Phase 7E.2` import updates only `YearScheduleEntries`; it does not change `ТО1` / `ТО2` / `ТО3` hour norms and does not create missing maintenance profiles
   - `Phase 7E` mass-editing grid updates only `YearScheduleEntries`; it does not change hour norms, inclusion flags, production calendars, or create missing profiles
+  - `Phase 7F` adds `Config.ProductionCalendarYears`, a Russian `Файл -> Производственный календарь...` editor, `Файл -> Импорт производственного календаря JSON...`, JSON import validation, and guided missing-year errors
   - `phase7e-major-work-split-days` splits one `ТО2` / `ТО3` occurrence into up-to-8-hour assignments across working days when possible
   - `phase7e-norm-import-coverage` improves norm import matching for leading-zero inventory numbers, `ё/е`, and parenthetical equipment names; unresolved rows include source sheet/row context
   - maintenance norms can be imported from `C:\Users\Olga\Downloads\123.xlsx`
@@ -99,15 +101,16 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7e-year-source-mass-edit-grid
 powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7e-major-work-split-days
 powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7e-norm-import-coverage
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7f-production-calendar-config
 ```
 
 - `dotnet format --verify-no-changes`: passed for app, core, and tests
-- Targeted norm-import tests: passed, `9/9`
-- Verification `dotnet build`: passed for `phase7e-norm-import-coverage`
-- `dotnet test`: passed, `264/264`
-- Verification artifacts: `artifacts\verify\phase7e-norm-import-coverage`
-- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase7e-norm-import-coverage\build\Release\net8.0-windows\asutpKB.exe`
+- Verification `dotnet build`: passed for `phase7f-production-calendar-config`
+- `dotnet test`: passed, `270/270`
+- Verification artifacts: `artifacts\verify\phase7f-production-calendar-config`
+- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase7f-production-calendar-config\build\Release\net8.0-windows\asutpKB.exe`
 - Startup smoke was not rerun for the final `Phase 7D` completion slice
+- Manual UI validation of the new production-calendar editor/import workflow passed by user
 - Full Excel round-trip validation (`generate -> open -> edit/save -> import back`) was not run
 
 ## Active objective
@@ -115,7 +118,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - Keep the completed `Phase 7` workflow on `to` stable as the baseline
 - Wait for the next explicitly prioritized local slice before implementing more maintenance-planning work
 - Preserve deterministic month placement as fallback for profiles that do not enable manual annual placement
-- Keep `Phase 7F` production-calendar JSON/UI/import configuration deferred until explicitly prioritized
+- Keep JSON as the source of truth for calendar configuration; generated workbooks remain report artifacts
 
 ## Durable decisions already made
 
@@ -135,7 +138,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
   - a full annual profile therefore resolves to `8 x ТО1`, `3 x ТО2`, `1 x ТО3`
 - Stored `ТО1` / `ТО2` / `ТО3` norms are per-occurrence labor hours for one equipment unit, not monthly budgets
 - The hard planner constraint is the selected monthly workshop budget, not a daily `<= 8` cap
-- Production-calendar years are currently configured in `KnowledgeBaseRussianProductionCalendarService`; user-facing JSON/UI/import configuration is deferred to `Phase 7F`
+- Production-calendar years live in `KbConfig.ProductionCalendarYears`; built-in `2025`/`2026` defaults are preserved, while future years can be added through UI or JSON import
 - A single `ТО2` / `ТО3` occurrence above 8 hours is split into assignments of up to 8 hours; this is assignment chunking for major work, not a hard daily total cap
 - The planner may place more than one large maintenance item on the same day when needed; it only prefers to spread `ТО2` / `ТО3` apart when possible
 - The first release keeps deterministic rule-based month placement for `ТО2` / `ТО3`; a future yearly schedule source may replace that without redesigning the export pipeline
@@ -165,13 +168,17 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `Forms/MainForm.Layout.cs`
 - `Forms/MainForm.Events.cs`
 - `Forms/MainForm.Maintenance.cs`
+- `Forms/MainForm.ProductionCalendar.cs`
+- `Forms/KnowledgeBaseProductionCalendarForm.cs`
 - `Controls/KnowledgeBaseMaintenanceScheduleScreenControl.cs`
 - `Forms/KnowledgeBaseMaintenanceWorkbookExportDialog.cs`
 - `Forms/KnowledgeBaseMaintenanceYearWorkbookExportDialog.cs`
 - `Forms/KnowledgeBaseMaintenanceYearWorkbookRecalculationDialog.cs`
 - `Forms/KnowledgeBaseMaintenanceYearScheduleSourceDialog.cs`
 - `UiServices/KnowledgeBaseMaintenanceWorkbookUiWorkflowService.cs`
+- `Models/KbProductionCalendarYear.cs`
 - `Models/KbMaintenanceYearScheduleEntry.cs`
+- `Services/KnowledgeBaseProductionCalendarJsonImportService.cs`
 - `Services/KnowledgeBaseMaintenanceYearScheduleSourceService.cs`
 - `Services/KnowledgeBaseMaintenanceYearScheduleSourceExchangeService.cs`
 - `Services/KnowledgeBaseMaintenanceWorkbookGenerationService.cs`
@@ -197,7 +204,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `Phase 7E` source editing does not create missing maintenance profiles and does not import labor-hour norms
 - Manual-review error `Memory stream is not expandable` during May 2026 график ТО generation was fixed locally by opening the workbook package on an expandable memory stream before OpenXML rewriting
 - Manual-review screenshot errors from `C:\Users\Olga\Downloads\archive-2026-04-30_13-50-15` were caused by direct visible `Lvl2` assignments being rejected during workbook model building; the local fix is implemented and verified
-- 2027 and later production calendars are not configured yet
+- 2027 and later production calendars are not built in; configure the needed year through `Файл -> Производственный календарь...` or JSON import before generating that year
 - `phase7e-major-work-split-days` implements and verifies splitting one `ТО2` / `ТО3` occurrence across multiple working days
 - The planner can place multiple large maintenance items on the same day; that is a soft-avoidance area, not a validated optimization target
 - Maintenance profiles have no explicit active-from / active-to dates yet, so the agreed replanning strategy is to freeze past months and recalculate only future months
@@ -207,12 +214,12 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 ## Recommended next step
 
 - Wait for the next explicitly prioritized task
-- Keep `Phase 7F` production-calendar JSON/UI/import configuration deferred until it is explicitly prioritized
+- Keep `Phase 7F` production-calendar configuration as the current completed baseline
 
 ## Commands to run before finishing future implementation work
 
 ```powershell
 git status --short
-powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7e-norm-import-coverage
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7f-production-calendar-config
 # The script stops at BUILD: PASS / TESTS: PASS and leaves artifacts in artifacts\verify\<step>.
 ```

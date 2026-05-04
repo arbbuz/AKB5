@@ -16,7 +16,8 @@ namespace AsutpKnowledgeBase.Services
                 LevelNames = Enumerable
                     .Range(1, 10)
                     .Select(static level => $"Уровень {level}")
-                    .ToList()
+                    .ToList(),
+                ProductionCalendarYears = CreateDefaultProductionCalendarYears()
             };
 
         public static SavedData CreateDefaultData() =>
@@ -160,7 +161,72 @@ namespace AsutpKnowledgeBase.Services
             if (normalized.LevelNames.Count > normalized.MaxLevels)
                 normalized.LevelNames = normalized.LevelNames.Take(normalized.MaxLevels).ToList();
 
+            normalized.ProductionCalendarYears = NormalizeProductionCalendarYears(config.ProductionCalendarYears);
+
             return normalized;
+        }
+
+        public static List<KbProductionCalendarYear> CreateDefaultProductionCalendarYears() =>
+        [
+            new()
+            {
+                Year = 2025,
+                AdditionalNonWorkingDays =
+                [
+                    new DateOnly(2025, 5, 2),
+                    new DateOnly(2025, 5, 8),
+                    new DateOnly(2025, 6, 13),
+                    new DateOnly(2025, 11, 3),
+                    new DateOnly(2025, 12, 31)
+                ]
+            },
+            new()
+            {
+                Year = 2026,
+                AdditionalNonWorkingDays =
+                [
+                    new DateOnly(2026, 1, 9),
+                    new DateOnly(2026, 3, 9),
+                    new DateOnly(2026, 5, 11),
+                    new DateOnly(2026, 12, 31)
+                ]
+            }
+        ];
+
+        public static List<KbProductionCalendarYear> NormalizeProductionCalendarYears(
+            IEnumerable<KbProductionCalendarYear>? years)
+        {
+            Dictionary<int, KbProductionCalendarYear> normalizedByYear = CreateDefaultProductionCalendarYears()
+                .ToDictionary(static year => year.Year);
+
+            foreach (KbProductionCalendarYear? yearConfiguration in years ?? Enumerable.Empty<KbProductionCalendarYear>())
+            {
+                if (yearConfiguration == null || yearConfiguration.Year < 1)
+                    continue;
+
+                int year = yearConfiguration.Year;
+                var normalizedDates = new SortedSet<DateOnly>();
+                foreach (DateOnly date in yearConfiguration.AdditionalNonWorkingDays ?? Enumerable.Empty<DateOnly>())
+                {
+                    if (date.Year != year)
+                    {
+                        throw new InvalidOperationException(
+                            $"Дата {date:yyyy-MM-dd} не относится к {year} году производственного календаря.");
+                    }
+
+                    normalizedDates.Add(date);
+                }
+
+                normalizedByYear[year] = new KbProductionCalendarYear
+                {
+                    Year = year,
+                    AdditionalNonWorkingDays = normalizedDates.ToList()
+                };
+            }
+
+            return normalizedByYear.Values
+                .OrderBy(static year => year.Year)
+                .ToList();
         }
 
         public static Dictionary<string, List<KbNode>> NormalizeWorkshops(Dictionary<string, List<KbNode>>? workshops)

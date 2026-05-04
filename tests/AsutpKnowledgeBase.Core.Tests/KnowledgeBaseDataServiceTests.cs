@@ -17,6 +17,8 @@ public class KnowledgeBaseDataServiceTests
         Assert.Equal(10, data.Config.MaxLevels);
         Assert.Equal("Уровень 1", data.Config.LevelNames[0]);
         Assert.Equal("Уровень 10", data.Config.LevelNames[9]);
+        Assert.Contains(data.Config.ProductionCalendarYears, static year => year.Year == 2025);
+        Assert.Contains(data.Config.ProductionCalendarYears, static year => year.Year == 2026);
     }
 
     [Fact]
@@ -31,6 +33,60 @@ public class KnowledgeBaseDataServiceTests
 
         Assert.Equal(2, normalized.MaxLevels);
         Assert.Equal(new[] { "Цех", "Лишний" }, normalized.LevelNames);
+    }
+
+    [Fact]
+    public void NormalizeConfig_MergesCustomProductionCalendarYearsWithBuiltInDefaults()
+    {
+        KbConfig normalized = KnowledgeBaseDataService.NormalizeConfig(
+            new KbConfig
+            {
+                MaxLevels = 2,
+                ProductionCalendarYears = new List<KbProductionCalendarYear>
+                {
+                    new()
+                    {
+                        Year = 2027,
+                        AdditionalNonWorkingDays =
+                        {
+                            new DateOnly(2027, 1, 8),
+                            new DateOnly(2027, 1, 8),
+                            new DateOnly(2027, 5, 10)
+                        }
+                    }
+                }
+            });
+
+        Assert.Contains(normalized.ProductionCalendarYears, static year => year.Year == 2025);
+        Assert.Contains(normalized.ProductionCalendarYears, static year => year.Year == 2026);
+        KbProductionCalendarYear year2027 = Assert.Single(
+            normalized.ProductionCalendarYears,
+            static year => year.Year == 2027);
+        Assert.Equal(
+            new[] { new DateOnly(2027, 1, 8), new DateOnly(2027, 5, 10) },
+            year2027.AdditionalNonWorkingDays);
+    }
+
+    [Fact]
+    public void NormalizeConfig_RejectsProductionCalendarDatesFromAnotherYear()
+    {
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+            KnowledgeBaseDataService.NormalizeConfig(
+                new KbConfig
+                {
+                    MaxLevels = 2,
+                    ProductionCalendarYears = new List<KbProductionCalendarYear>
+                    {
+                        new()
+                        {
+                            Year = 2027,
+                            AdditionalNonWorkingDays = { new DateOnly(2028, 1, 1) }
+                        }
+                    }
+                }));
+
+        Assert.Contains("2027", error.Message, StringComparison.Ordinal);
+        Assert.Contains("2028-01-01", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

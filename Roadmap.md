@@ -2,7 +2,7 @@
 
 Last updated: 2026-05-04
 Branch baseline: `to`
-Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to`
+Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to, Phase 7F production-calendar configuration complete on to`
 
 ## Goal
 
@@ -63,7 +63,7 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - The next roadmap phase is now maintenance-schedule generation, not typed-data workbook redesign.
 - `Phase 7A` is complete on `to`: `Lvl2` inventory number support now follows visible hierarchy level, typed `MaintenanceScheduleProfiles` are persisted in JSON/session state, and engineering nodes expose a `График ТО` tab with per-node `ТО1` / `ТО2` / `ТО3` hour norms.
 - `Phase 7B` is complete on `to`: Russian production-calendar calculation for `5/2` workdays is available as a reusable service.
-- Production-calendar years are currently implementation data, not a user-configurable setting; user-facing calendar configuration is deferred to a future `Phase 7F` and should not be implemented until it is explicitly prioritized.
+- `Phase 7F` is complete on `to`: production-calendar years are persisted in JSON config, editable from the Russian UI, importable from JSON, and consumed by maintenance schedule generation.
 - `Phase 7C` is complete on `to`: the resolver and monthly planner generate month demand from `ТО1` / `ТО2` / `ТО3` norms and compare it against the selected monthly workshop budget.
 - `Phase 7D` is complete on `to`: the yearly workbook export is template-driven, exposed in the UI, and can also import maintenance norms from `123.xlsx`.
 - The first `Phase 7D` follow-up slice is complete on `to`: workshop-level `Импорт норм ТО...` and `Сформировать график ТО за месяц...` commands now live in the top-level `Файл` menu instead of the per-node `График ТО` tab.
@@ -81,6 +81,8 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - On 2026-05-04, `phase7e-major-work-split-days` passed `dotnet format --verify-no-changes`, targeted monthly-planner tests, verification build, and `dotnet test` (`262/262`) using isolated output paths.
 - The maintenance-norm import coverage follow-up improves matching for leading-zero inventory numbers, `ё/е`, parenthetical equipment names from `123.xlsx`, and reports unresolved rows with source sheet/row context.
 - On 2026-05-04, `phase7e-norm-import-coverage` passed `dotnet format --verify-no-changes`, targeted norm-import tests, verification build, and `dotnet test` (`264/264`) using isolated output paths.
+- `Phase 7F` production-calendar configuration is complete on `to`: `Config.ProductionCalendarYears` stores year-specific additional non-working days, `Файл` exposes calendar edit/import commands, and schedule generation resolves the calendar from the saved configuration.
+- On 2026-05-04, `phase7f-production-calendar-config` passed `dotnet format --verify-no-changes`, verification build, and `dotnet test` (`270/270`) using isolated output paths.
 
 ## Hidden-level strategy
 
@@ -522,12 +524,12 @@ Recommended implementation slices:
   - done: split one `ТО2` / `ТО3` occurrence into assignments of up to 8 hours and distribute them across working days when possible
   - done: keep the selected monthly workshop budget as the hard constraint; do not add a hard daily total cap
 - `Phase 7F. Production calendar configuration`
-  - status: deferred, not current priority
-  - move production-calendar year data out of hardcoded service tables into persisted JSON configuration while preserving built-in defaults for already supported years
-  - add a user-facing Russian UI for viewing, adding, editing, and validating non-working transfer days by year
-  - add import support for production-calendar data from an approved external file format, separate from the legacy Excel `v3` exchange workbook unless explicitly decided otherwise
-  - keep the planner/export API consuming a resolved calendar service so schedule generation logic does not depend on the storage or UI mechanism
-  - show a clear guided error when the selected year is missing, pointing the user to calendar setup/import instead of requiring a code change
+  - status: completed on `to`
+  - done: move production-calendar year data into persisted JSON configuration while preserving built-in defaults for already supported years
+  - done: add a user-facing Russian UI for viewing, adding, editing, and validating non-working transfer days by year
+  - done: add JSON import support for production-calendar data, separate from the legacy Excel `v3` exchange workbook
+  - done: keep the planner/export API consuming a resolved calendar service so schedule generation logic does not depend on the storage or UI mechanism
+  - done: show a clear guided error when the selected year is missing, pointing the user to calendar setup/import instead of requiring a code change
 
 Acceptance:
 
@@ -615,10 +617,11 @@ Completed on `to`:
 15. Phase 7E in-app mass-editing grid, complete on `to`
 16. Major `ТО2` / `ТО3` split across multiple working days, complete on `to`
 17. Maintenance-norm import coverage and mismatch reporting, complete on `to`
+18. Phase 7F production-calendar configuration, complete on `to`
 
 Remaining:
 
-1. Phase 7F. Production calendar configuration, deferred until explicitly prioritized
+1. No next coding phase is currently prioritized
 
 ## AI handoff / next-dialog instructions
 
@@ -645,7 +648,7 @@ Keep JSON source-of-truth compatibility and treat Excel v3 as a legacy transitio
 Continue from the next explicitly prioritized task:
 
 - preserve the completed `Phase 7A` / `7B` / `7C` / `7D` workflow as the current baseline
-- keep production-calendar JSON/UI/import configuration recorded as deferred `Phase 7F`; do not implement it until it becomes a prioritized task
+- wait for the next explicitly prioritized task from the chief developer
 - treat future-month recalculation as completed `Phase 7D` orchestration/workflow built on top of the existing monthly engine, not as a replacement for it
 - keep workbook `v3` readable as legacy, but do not expand it as the main feature direction
 - keep JSON source-of-truth compatibility and preserve Russian-only UI

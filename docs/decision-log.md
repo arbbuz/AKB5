@@ -14,17 +14,20 @@ Last updated: `2026-05-04`
 - The major-work split follow-up does not introduce a hard daily total cap, does not split `ТО1`, and does not change production-calendar configuration
 - Norm import matching may use conservative name/inventory variants from the approved `123.xlsx` structure, including leading-zero inventory equivalence and parenthetical equipment-name variants, while ambiguity still leaves rows unresolved
 - Norm import mismatch reporting should include source sheet and row so users can correct either the workbook or the KB tree without guessing
-- Production-calendar JSON/UI/import remains deferred to `Phase 7F`
+- `Phase 7F` production-calendar configuration was explicitly prioritized by the user and is completed on `to`
+- Production-calendar years are persisted in `KbConfig.ProductionCalendarYears`; built-in `2025`/`2026` defaults are preserved and future years are added through UI or JSON import
+- Production-calendar import is JSON-specific and separate from the legacy Excel `v3` database exchange and from the yearly ТО source workbook
+- Missing production-calendar years should guide the user to `Файл -> Производственный календарь...` or JSON import instead of requiring a code change
 
 ## 2026-04-30
 
-- The full `Phase 7D follow-up` yearly orchestration is implemented pending manual review
+- The full `Phase 7D follow-up` yearly orchestration is implemented on `to`
 - The monthly generation mechanism remains the canonical planning/export engine
 - The whole-year generation command is implemented on top of the existing monthly mechanism rather than replacing it
 - The whole-year command applies one selected monthly workshop budget to every generated month and defaults it to the maximum calculated monthly demand in the selected year
 - Future-month recalculation is implemented by opening an existing yearly workbook and regenerating only the selected start month through December
 - Months before the selected start month are frozen during ordinary replanning and must be preserved in the existing workbook
-- Production-calendar years are currently code-configured in `KnowledgeBaseRussianProductionCalendarService`; user-facing JSON/UI/import configuration is deferred to `Phase 7F` and is not a current priority
+- Before `Phase 7F`, production-calendar years were code-configured in `KnowledgeBaseRussianProductionCalendarService`; the current local slice moves that configuration into JSON/UI/import
 - The first `Phase 7E` yearly source is stored per maintenance profile as `YearScheduleEntries`, a 12-month `ТО1` / `ТО2` / `ТО3` template
 - Empty `YearScheduleEntries` means the profile continues to use deterministic rule-based month placement
 - Manual annual placement is separate from production-calendar setup; it does not configure holidays or transfer days

@@ -11,13 +11,14 @@ Last updated: `2026-05-04`
 - Treat the `Phase 7E` in-app mass-editing grid as completed on `to`
 - Treat the major `ТО2` / `ТО3` split across working days as completed on `to`
 - Treat the norm-import coverage and mismatch-reporting follow-up as completed on `to`
+- Treat `Phase 7F` production-calendar configuration as completed on `to`
 - Keep JSON as the source of truth and keep the yearly workbook as a generated/report artifact
 - Keep all new user-facing UI strings Russian-only
 
 ## Near-term follow-up
 
 - Wait for the next explicitly prioritized task
-- Keep `Phase 7F` production-calendar configuration deferred until it becomes a priority
+- Keep `Phase 7F` as the current completed baseline
 
 ## Update rule
 

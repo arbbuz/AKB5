@@ -69,6 +69,7 @@ namespace AsutpKnowledgeBase
                 _currentWorkshop,
                 GetVisibleTreeData(),
                 _session.MaintenanceScheduleProfiles,
+                _session.Config.ProductionCalendarYears,
                 CurrentDataPath,
                 SetLastActionText);
         }
@@ -81,6 +82,7 @@ namespace AsutpKnowledgeBase
                 _currentWorkshop,
                 GetVisibleTreeData(),
                 _session.MaintenanceScheduleProfiles,
+                _session.Config.ProductionCalendarYears,
                 CurrentDataPath,
                 SetLastActionText);
         }
@@ -93,6 +95,7 @@ namespace AsutpKnowledgeBase
                 _currentWorkshop,
                 GetVisibleTreeData(),
                 _session.MaintenanceScheduleProfiles,
+                _session.Config.ProductionCalendarYears,
                 CurrentDataPath,
                 SetLastActionText);
         }

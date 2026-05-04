@@ -1,3 +1,4 @@
+using AsutpKnowledgeBase.Models;
 using AsutpKnowledgeBase.Services;
 
 namespace AsutpKnowledgeBase.Core.Tests;
@@ -60,10 +61,35 @@ public class KnowledgeBaseRussianProductionCalendarServiceTests
     }
 
     [Fact]
+    public void Constructor_UsesProductionCalendarYearsFromConfig()
+    {
+        var service = new KnowledgeBaseRussianProductionCalendarService(
+            new[]
+            {
+                new KbProductionCalendarYear
+                {
+                    Year = 2027,
+                    AdditionalNonWorkingDays =
+                    {
+                        new DateOnly(2027, 1, 8),
+                        new DateOnly(2027, 5, 10)
+                    }
+                }
+            });
+
+        Assert.False(service.IsWorkingDay(new DateOnly(2027, 1, 8)));
+        Assert.False(service.IsWorkingDay(new DateOnly(2027, 5, 10)));
+        Assert.True(service.IsWorkingDay(new DateOnly(2027, 1, 11)));
+        Assert.Contains(2027, service.GetConfiguredYears());
+    }
+
+    [Fact]
     public void GetWorkingDays_WhenYearIsNotConfigured_ThrowsReadableError()
     {
         var exception = Assert.Throws<InvalidOperationException>(() => _service.GetWorkingDays(2027, 1));
 
         Assert.Contains("2027", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("Производственный календарь", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("Файл -> Производственный календарь", exception.Message, StringComparison.Ordinal);
     }
 }

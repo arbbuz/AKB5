@@ -6,7 +6,7 @@ namespace AsutpKnowledgeBase.UiServices
 {
     public sealed class KnowledgeBaseMaintenanceWorkbookUiWorkflowService
     {
-        private readonly KnowledgeBaseMaintenanceWorkbookGenerationService _generationService;
+        private readonly KnowledgeBaseMaintenanceWorkbookGenerationService? _generationService;
         private readonly KnowledgeBaseMaintenanceMonthWorkResolverService _workResolverService;
         private readonly KnowledgeBaseMaintenanceMonthDemandSummaryService _demandSummaryService;
 
@@ -15,7 +15,7 @@ namespace AsutpKnowledgeBase.UiServices
             KnowledgeBaseMaintenanceMonthWorkResolverService? workResolverService = null,
             KnowledgeBaseMaintenanceMonthDemandSummaryService? demandSummaryService = null)
         {
-            _generationService = generationService ?? new KnowledgeBaseMaintenanceWorkbookGenerationService();
+            _generationService = generationService;
             _workResolverService = workResolverService ?? new KnowledgeBaseMaintenanceMonthWorkResolverService();
             _demandSummaryService = demandSummaryService ?? new KnowledgeBaseMaintenanceMonthDemandSummaryService(_workResolverService);
         }
@@ -25,6 +25,7 @@ namespace AsutpKnowledgeBase.UiServices
             string workshopName,
             IReadOnlyList<KbNode> roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears,
             string currentDataPath,
             Action<string> setStatusText)
         {
@@ -81,7 +82,7 @@ namespace AsutpKnowledgeBase.UiServices
                     : null;
 
                 KnowledgeBaseMaintenanceWorkbookGenerationResult generationResult =
-                    _generationService.GenerateMonthWorkbook(
+                    ResolveGenerationService(productionCalendarYears).GenerateMonthWorkbook(
                         existingWorkbookPackage,
                         exportDialog.SelectedYear,
                         exportDialog.SelectedMonth,
@@ -131,6 +132,7 @@ namespace AsutpKnowledgeBase.UiServices
             string workshopName,
             IReadOnlyList<KbNode> roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears,
             string currentDataPath,
             Action<string> setStatusText)
         {
@@ -184,7 +186,7 @@ namespace AsutpKnowledgeBase.UiServices
                     : null;
 
                 KnowledgeBaseMaintenanceYearWorkbookGenerationResult generationResult =
-                    _generationService.GenerateYearWorkbook(
+                    ResolveGenerationService(productionCalendarYears).GenerateYearWorkbook(
                         existingWorkbookPackage,
                         exportDialog.SelectedYear,
                         exportDialog.MonthlyBudgetHours,
@@ -233,6 +235,7 @@ namespace AsutpKnowledgeBase.UiServices
             string workshopName,
             IReadOnlyList<KbNode> roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears,
             string currentDataPath,
             Action<string> setStatusText)
         {
@@ -294,7 +297,7 @@ namespace AsutpKnowledgeBase.UiServices
                 byte[] existingWorkbookPackage = ReadWorkbookPackage(openDialog.FileName);
 
                 KnowledgeBaseMaintenanceYearWorkbookGenerationResult generationResult =
-                    _generationService.GenerateYearWorkbookFromMonth(
+                    ResolveGenerationService(productionCalendarYears).GenerateYearWorkbookFromMonth(
                         existingWorkbookPackage,
                         recalculationDialog.SelectedYear,
                         recalculationDialog.SelectedStartMonth,
@@ -363,6 +366,17 @@ namespace AsutpKnowledgeBase.UiServices
             }
 
             return maxMonthlyDemand;
+        }
+
+        private KnowledgeBaseMaintenanceWorkbookGenerationService ResolveGenerationService(
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears)
+        {
+            if (_generationService != null)
+                return _generationService;
+
+            var calendarService = new KnowledgeBaseRussianProductionCalendarService(productionCalendarYears);
+            var plannerService = new KnowledgeBaseMaintenanceMonthlyPlannerService(calendarService);
+            return new KnowledgeBaseMaintenanceWorkbookGenerationService(plannerService);
         }
 
         private static byte[] ReadWorkbookPackage(string path)
