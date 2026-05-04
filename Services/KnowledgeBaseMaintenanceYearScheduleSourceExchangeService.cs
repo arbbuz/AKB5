@@ -66,13 +66,15 @@ namespace AsutpKnowledgeBase.Services
             SourceModeHeader
         }.Concat(MonthHeaders).ToArray();
 
+        private readonly KnowledgeBaseMaintenanceYearScheduleSourceService _sourceService = new();
+
         public KnowledgeBaseMaintenanceYearScheduleSourceExportResult ExportWorkbook(
             IReadOnlyList<KbNode>? roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
         {
             try
             {
-                List<YearScheduleSourceExportRow> rows = BuildExportRows(roots, maintenanceScheduleProfiles);
+                List<KnowledgeBaseMaintenanceYearScheduleSourceRow> rows = _sourceService.BuildRows(roots, maintenanceScheduleProfiles);
                 return new KnowledgeBaseMaintenanceYearScheduleSourceExportResult
                 {
                     IsSuccess = true,
@@ -179,42 +181,7 @@ namespace AsutpKnowledgeBase.Services
             }
         }
 
-        private static List<YearScheduleSourceExportRow> BuildExportRows(
-            IReadOnlyList<KbNode>? roots,
-            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
-        {
-            Dictionary<string, OwnerNodeContext> ownerNodeContexts = BuildOwnerNodeContexts(roots)
-                .Where(static context => !string.IsNullOrWhiteSpace(context.OwnerNodeId))
-                .GroupBy(static context => context.OwnerNodeId, StringComparer.Ordinal)
-                .ToDictionary(
-                    static group => group.Key,
-                    static group => group.OrderBy(static context => context.TreeOrder).First(),
-                    StringComparer.Ordinal);
-
-            var rows = new List<YearScheduleSourceExportRow>();
-            foreach (KbMaintenanceScheduleProfile profile in CloneProfiles(maintenanceScheduleProfiles)
-                         .Where(static profile => !string.IsNullOrWhiteSpace(profile.OwnerNodeId)))
-            {
-                string ownerNodeId = profile.OwnerNodeId.Trim();
-                ownerNodeContexts.TryGetValue(ownerNodeId, out OwnerNodeContext? context);
-                rows.Add(new YearScheduleSourceExportRow(
-                    OwnerNodeId: ownerNodeId,
-                    Path: context?.Path ?? string.Empty,
-                    NodeName: context?.NodeName ?? string.Empty,
-                    InventoryNumber: context?.InventoryNumber ?? string.Empty,
-                    IsIncludedInSchedule: profile.IsIncludedInSchedule,
-                    YearScheduleEntries: CloneYearScheduleEntries(profile.YearScheduleEntries),
-                    TreeOrder: context?.TreeOrder ?? int.MaxValue));
-            }
-
-            return rows
-                .OrderBy(static row => row.TreeOrder)
-                .ThenBy(static row => row.Path, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(static row => row.OwnerNodeId, StringComparer.Ordinal)
-                .ToList();
-        }
-
-        private static byte[] BuildWorkbookPackage(IReadOnlyList<YearScheduleSourceExportRow> rows)
+        private static byte[] BuildWorkbookPackage(IReadOnlyList<KnowledgeBaseMaintenanceYearScheduleSourceRow> rows)
         {
             using var stream = new MemoryStream();
             using (var document = SpreadsheetDocument.Create(stream, SpreadsheetDocumentType.Workbook, autoSave: true))
@@ -262,10 +229,10 @@ namespace AsutpKnowledgeBase.Services
             };
         }
 
-        private static IEnumerable<string[]> BuildSourceRows(IReadOnlyList<YearScheduleSourceExportRow> rows)
+        private static IEnumerable<string[]> BuildSourceRows(IReadOnlyList<KnowledgeBaseMaintenanceYearScheduleSourceRow> rows)
         {
             yield return SourceHeaders;
-            foreach (YearScheduleSourceExportRow row in rows)
+            foreach (KnowledgeBaseMaintenanceYearScheduleSourceRow row in rows)
             {
                 Dictionary<int, KbMaintenanceWorkKind> entriesByMonth = row.YearScheduleEntries
                     .Where(static entry => entry != null && entry.Month is >= 1 and <= 12)
@@ -692,18 +659,6 @@ namespace AsutpKnowledgeBase.Services
             string InventoryNumber,
             string Path,
             int TreeOrder);
-
-        private sealed record YearScheduleSourceExportRow(
-            string OwnerNodeId,
-            string Path,
-            string NodeName,
-            string InventoryNumber,
-            bool IsIncludedInSchedule,
-            List<KbMaintenanceYearScheduleEntry> YearScheduleEntries,
-            int TreeOrder)
-        {
-            public bool HasManualSchedule => YearScheduleEntries.Count > 0;
-        }
 
         private sealed record ImportedYearScheduleSourceRow(
             uint RowNumber,

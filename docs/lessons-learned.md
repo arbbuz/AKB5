@@ -36,6 +36,7 @@ Last updated: `2026-05-04`
 - Importing data from human-maintained Excel files needs forgiving normalization; exact string matching is rarely enough once real equipment names diverge by spaces, suffixes, or dot-separated context
 - For maintenance norm import, match by system/equipment inventory number first and fall back to normalized names only when inventory data is missing or ambiguous
 - For yearly ТО source exchange, keep the import contract narrow: edit only `YearScheduleEntries`, and do not let a schedule-source workbook silently change norms, inclusion flags, or calendar settings
+- For in-app yearly ТО source editing, keep context columns read-only and constrain month cells to `ТО1`, `ТО2`, `ТО3`, or blank so bulk editing cannot drift into profile/norm/calendar mutation
 - If users keep the source workbook open in Excel, open it with sharing flags that tolerate `ReadWrite` and `Delete`; otherwise the import workflow fails for the wrong reason
 - Temporary debug entry points inside the repo can silently hijack a WinForms app if the project glob compiles them; explicitly exclude `artifacts/**/*.cs` from the main app project
 

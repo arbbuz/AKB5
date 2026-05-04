@@ -2,7 +2,7 @@
 
 Last updated: 2026-05-04
 Branch baseline: `to`
-Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange local waiting review`
+Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid local verified waiting review`
 
 ## Goal
 
@@ -72,9 +72,11 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - The first `Phase 7E` slice is complete on `to`: maintenance profiles can store manual 12-month `ТО1` / `ТО2` / `ТО3` placement in JSON, the profile dialog can edit it, and the resolver uses it before falling back to deterministic offsets.
 - On 2026-04-30, the current `Phase 7E` worktree passed `dotnet format --verify-no-changes`, verification build, and `dotnet test` (`250/250`) using isolated output paths.
 - On 2026-05-04, the accepted `Phase 7E` follow-up direction is `Phase 7E.2`: Excel export/import of the yearly schedule source before any dedicated in-app mass-editing grid.
-- The local `Phase 7E.2` implementation exports/imports a separate source workbook with `OwnerNodeId` and editable `M01`..`M12` values; import changes only `YearScheduleEntries` and does not change norms, inclusion flags, or production-calendar settings.
+- `Phase 7E.2` is complete on `to`: it exports/imports a separate source workbook with `OwnerNodeId` and editable `M01`..`M12` values; import changes only `YearScheduleEntries` and does not change norms, inclusion flags, or production-calendar settings.
 - On 2026-05-04, `phase7e-year-schedule-source-exchange` passed `dotnet format --verify-no-changes`, verification build, and `dotnet test` (`255/255`) using isolated output paths.
 - On 2026-05-04, the manual-review `Memory stream is not expandable` workbook generation error was fixed and `phase7e-workbook-expandable-stream-fix` passed verification build and `dotnet test` (`256/256`).
+- The local `Phase 7E` mass-editing grid adds `Файл -> Редактировать источник годового графика ТО...` for current-workshop profile rows; it edits only month placement and leaves norms, inclusion flags, and production calendars untouched.
+- On 2026-05-04, `phase7e-year-source-mass-edit-grid` passed `dotnet format --verify-no-changes`, verification build, and `dotnet test` (`261/261`) using isolated output paths.
 
 ## Hidden-level strategy
 
@@ -506,10 +508,12 @@ Recommended implementation slices:
   - done: store manual per-profile 12-month `ТО1` / `ТО2` / `ТО3` placement in JSON as `YearScheduleEntries`
   - done: expose the manual annual placement in the per-node `График ТО` profile dialog
   - done: make the monthly resolver use manual placement when present and keep deterministic offsets as fallback for profiles without it
-  - `Phase 7E.2` status: local implementation verified and waiting manual review
-  - local: export/import the yearly placement source through a separate `.xlsx` workbook keyed by stable `OwnerNodeId`
-  - local: keep import narrow so it changes only `YearScheduleEntries`, leaving norms and production calendars untouched
-  - remaining only if explicitly prioritized: dedicated in-app mass-editing grid for yearly schedule placement
+  - `Phase 7E.2` status: completed on `to`
+  - done: export/import the yearly placement source through a separate `.xlsx` workbook keyed by stable `OwnerNodeId`
+  - done: keep import narrow so it changes only `YearScheduleEntries`, leaving norms and production calendars untouched
+  - local follow-up status: in-app mass-editing grid verified and waiting manual review
+  - local: add a workshop-level grid for bulk editing `M01`..`M12` values with `ТО1`, `ТО2`, `ТО3`, or blank fallback
+  - local: keep the grid narrow so it changes only `YearScheduleEntries`, leaving norms, inclusion flags, and production calendars untouched
 - `Phase 7F. Production calendar configuration`
   - status: deferred, not current priority
   - move production-calendar year data out of hardcoded service tables into persisted JSON configuration while preserving built-in defaults for already supported years
@@ -600,11 +604,12 @@ Completed on `to`:
 11. Phase 7C. Monthly planning engine
 12. Phase 7D. Year workbook export
 13. Phase 7E. Future yearly schedule source, first slice complete on `to`
-14. Phase 7E.2 source exchange, local verified and waiting review
+14. Phase 7E.2 source exchange, complete on `to`
+15. Phase 7E in-app mass-editing grid, local verified and waiting review
 
 Remaining:
 
-1. Phase 7E in-app mass-editing grid, only if explicitly prioritized after source-exchange review
+1. Support splitting one `ТО2` / `ТО3` occurrence across multiple working days, only if prioritized
 2. Phase 7F. Production calendar configuration, deferred until explicitly prioritized
 
 ## AI handoff / next-dialog instructions
@@ -629,11 +634,11 @@ Keep JSON source-of-truth compatibility and treat Excel v3 as a legacy transitio
 
 ## Immediate next step
 
-Continue after verification and manual review of the `Phase 7E.2` source-exchange build:
+Continue after manual review of the `phase7e-year-source-mass-edit-grid` build:
 
 - preserve the completed `Phase 7A` / `7B` / `7C` / `7D` workflow as the current baseline
-- decide whether to add split-across-days support for one `ТО2` / `ТО3` occurrence
-- decide whether `Phase 7E` is complete at the Excel source-exchange layer or needs a dedicated in-app mass-editing grid
+- if accepted, commit and push the mass-editing grid to branch `to`
+- after that, decide whether to add split-across-days support for one `ТО2` / `ТО3` occurrence
 - keep production-calendar JSON/UI/import configuration recorded as deferred `Phase 7F`; do not implement it until it becomes a prioritized task
 - treat future-month recalculation as completed `Phase 7D` orchestration/workflow built on top of the existing monthly engine, not as a replacement for it
 - keep workbook `v3` readable as legacy, but do not expand it as the main feature direction

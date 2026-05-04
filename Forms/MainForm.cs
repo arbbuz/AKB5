@@ -29,6 +29,7 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseNetworkMutationService _networkMutationService = new();
         private readonly KnowledgeBaseMaintenanceScheduleProfileMutationService _maintenanceScheduleProfileMutationService = new();
         private readonly KnowledgeBaseMaintenanceScheduleNormImportService _maintenanceScheduleNormImportService = new();
+        private readonly KnowledgeBaseMaintenanceYearScheduleSourceService _maintenanceYearScheduleSourceService = new();
         private readonly KnowledgeBaseMaintenanceYearScheduleSourceExchangeService _maintenanceYearScheduleSourceExchangeService = new();
         private readonly KnowledgeBaseFormStateService _formStateService = new();
         private readonly KnowledgeBaseNodePresentationService _nodePresentationService = new();
@@ -52,6 +53,7 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem menuRenameWorkshop = null!;
         private ToolStripMenuItem menuDeleteWorkshop = null!;
         private ToolStripMenuItem menuImportMaintenanceNorms = null!;
+        private ToolStripMenuItem menuEditMaintenanceYearScheduleSource = null!;
         private ToolStripMenuItem menuExportMaintenanceYearScheduleSource = null!;
         private ToolStripMenuItem menuImportMaintenanceYearScheduleSource = null!;
         private ToolStripMenuItem menuExportMaintenanceMonthWorkbook = null!;
@@ -239,6 +241,7 @@ namespace AsutpKnowledgeBase
             menuRenameWorkshop.Enabled = hasCurrentWorkshop;
             menuDeleteWorkshop.Enabled = hasCurrentWorkshop && _session.Workshops.Count > 1;
             menuImportMaintenanceNorms.Enabled = hasCurrentWorkshop;
+            menuEditMaintenanceYearScheduleSource.Enabled = hasCurrentWorkshop;
             menuExportMaintenanceYearScheduleSource.Enabled = hasCurrentWorkshop;
             menuImportMaintenanceYearScheduleSource.Enabled = hasCurrentWorkshop;
             menuExportMaintenanceMonthWorkbook.Enabled = hasCurrentWorkshop;

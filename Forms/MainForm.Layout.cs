@@ -52,6 +52,8 @@ namespace AsutpKnowledgeBase
             menuExportMaintenanceYearWorkbook = new ToolStripMenuItem("🗓 Сформировать годовой график ТО...", null, ExportMaintenanceYearWorkbook);
             menuRecalculateMaintenanceYearWorkbook = new ToolStripMenuItem("🗓 Пересчитать график ТО до конца года...", null, RecalculateMaintenanceYearWorkbookToDecember);
 
+            menuEditMaintenanceYearScheduleSource = new ToolStripMenuItem("✏️ Редактировать источник годового графика ТО...", null, EditMaintenanceYearScheduleSource);
+
             menuFile.DropDownItems.AddRange(new ToolStripItem[]
             {
                 menuNewWorkshop,
@@ -65,6 +67,7 @@ namespace AsutpKnowledgeBase
                 menuExportExcel,
                 new ToolStripSeparator(),
                 menuImportMaintenanceNorms,
+                menuEditMaintenanceYearScheduleSource,
                 menuExportMaintenanceYearScheduleSource,
                 menuImportMaintenanceYearScheduleSource,
                 menuExportMaintenanceMonthWorkbook,

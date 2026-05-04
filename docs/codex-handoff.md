@@ -25,8 +25,9 @@ Last updated: `2026-05-04`
   - `Phase 7D follow-up` full yearly orchestration
   - `Phase 7E yearly schedule source` first implementation slice
   - `Phase 7E Lvl2 export fix`
-- Current local slice verified and waiting manual review: `Phase 7E.2 yearly schedule source exchange`
-- Next agreed implementation slice after manual review: decide whether `Phase 7E.2` is enough for the yearly source exchange or needs a mass-editing UI
+  - `Phase 7E.2 yearly schedule source exchange`
+- Current local slice verified and waiting manual review: `Phase 7E in-app mass-editing grid`
+- Next step after manual review: commit/push the mass-editing grid if accepted, then choose the next prioritized follow-up
 
 ## Integrated feature state
 
@@ -59,7 +60,8 @@ Last updated: `2026-05-04`
   - `KnowledgeBaseMaintenanceMonthlyPlannerService` plans against a monthly hour budget, distributes work across working days, and does not enforce a hard daily `<= 8` cap
   - the export workflow is template-driven and writes one selected month into a yearly accumulating workbook while preserving the rest of the workbook
   - `Файл` contains workshop-level `Импорт норм ТО...`, `Сформировать график ТО за месяц...`, `Сформировать годовой график ТО...`, and `Пересчитать график ТО до конца года...` commands; import/export commands are no longer shown inside each per-node `График ТО` tab
-  - local `Phase 7E.2` also adds `Файл -> Экспорт источника годового графика ТО...` and `Файл -> Импорт источника годового графика ТО...`
+  - `Phase 7E.2` adds `Файл -> Экспорт источника годового графика ТО...` and `Файл -> Импорт источника годового графика ТО...`
+  - local `Phase 7E` mass-editing grid adds `Файл -> Редактировать источник годового графика ТО...` for current-workshop profile rows
   - the `Сформировать график ТО` dialog shows resolved monthly demand before the user confirms the available workshop budget
   - the yearly generation command shows 12-month demand and generates all months by orchestrating the existing monthly engine
   - the future-month recalculation command opens an existing yearly workbook, preserves earlier month sheets, and rewrites only the selected start month through December
@@ -67,8 +69,9 @@ Last updated: `2026-05-04`
   - profiles without `YearScheduleEntries` keep the previous deterministic offset behavior
   - maintenance workbook export allows profiles assigned directly to visible `Lvl2`; that node is used as both the workbook group and detail row
   - the per-node `График ТО` profile dialog can enable manual annual placement and edit the 12-month source
-  - local `Phase 7E.2` adds workshop-level `.xlsx` export/import of the yearly schedule source through `YearScheduleSource` rows keyed by `OwnerNodeId`
+  - `Phase 7E.2` adds workshop-level `.xlsx` export/import of the yearly schedule source through `YearScheduleSource` rows keyed by `OwnerNodeId`
   - `Phase 7E.2` import updates only `YearScheduleEntries`; it does not change `ТО1` / `ТО2` / `ТО3` hour norms and does not create missing maintenance profiles
+  - local `Phase 7E` mass-editing grid updates only `YearScheduleEntries`; it does not change hour norms, inclusion flags, production calendars, or create missing profiles
   - maintenance norms can be imported from `C:\Users\Olga\Downloads\123.xlsx`
   - import matching uses inventory number first, then normalized equipment/system names, and can read the workbook even when it is open in Excel
 - User-facing application UI on `to` remains Russian-only
@@ -88,20 +91,21 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7e-lvl2-maintenance-export-fix
 powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7e-year-schedule-source-exchange
 powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7e-workbook-expandable-stream-fix
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7e-year-source-mass-edit-grid
 ```
 
 - `dotnet format --verify-no-changes`: passed for app, core, and tests
-- Verification `dotnet build`: passed for `phase7e-workbook-expandable-stream-fix`
-- `dotnet test`: passed, `256/256`
-- Verification artifacts: `artifacts\verify\phase7e-workbook-expandable-stream-fix`
-- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase7e-workbook-expandable-stream-fix\build\Release\net8.0-windows\asutpKB.exe`
+- Verification `dotnet build`: passed for `phase7e-year-source-mass-edit-grid`
+- `dotnet test`: passed, `261/261`
+- Verification artifacts: `artifacts\verify\phase7e-year-source-mass-edit-grid`
+- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase7e-year-source-mass-edit-grid\build\Release\net8.0-windows\asutpKB.exe`
 - Startup smoke was not rerun for the final `Phase 7D` completion slice
 - Full Excel round-trip validation (`generate -> open -> edit/save -> import back`) was not run
 
 ## Active objective
 
 - Keep the completed `Phase 7` workflow on `to` stable as the baseline
-- Manually review the verified local `Phase 7E.2` yearly source exchange build before committing/pushing it
+- Manually review the verified local `Phase 7E` mass-editing grid build before committing/pushing it
 - Preserve deterministic month placement as fallback for profiles that do not enable manual annual placement
 - Keep `Phase 7F` production-calendar JSON/UI/import configuration deferred until explicitly prioritized
 
@@ -135,6 +139,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - Manual annual placement is a 12-month profile template, not a production-calendar configuration and not a per-year holiday source
 - `Phase 7E.2` source exchange uses a separate `.xlsx` workbook with stable `OwnerNodeId` matching and editable `M01`..`M12` cells containing `ТО1`, `ТО2`, `ТО3`, or blank for fallback
 - `Phase 7E.2` import is intentionally narrow: it changes only `YearScheduleEntries` and leaves inclusion flags and labor-hour norms untouched
+- The `Phase 7E` in-app mass-editing grid is also narrow: it edits only `YearScheduleEntries` for configured profiles in the current workshop and leaves norms, inclusion flags, and calendar settings untouched
 - A maintenance profile assigned directly to a visible `Lvl2` node is valid for workbook export; only nodes above visible `Lvl2` remain invalid
 - Future-month recalculation is implemented by opening an existing yearly workbook and regenerating the selected start month through December into the same workbook
 - Months before the selected start month are treated as frozen and must be preserved during ordinary replanning
@@ -155,8 +160,10 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `Forms/KnowledgeBaseMaintenanceWorkbookExportDialog.cs`
 - `Forms/KnowledgeBaseMaintenanceYearWorkbookExportDialog.cs`
 - `Forms/KnowledgeBaseMaintenanceYearWorkbookRecalculationDialog.cs`
+- `Forms/KnowledgeBaseMaintenanceYearScheduleSourceDialog.cs`
 - `UiServices/KnowledgeBaseMaintenanceWorkbookUiWorkflowService.cs`
 - `Models/KbMaintenanceYearScheduleEntry.cs`
+- `Services/KnowledgeBaseMaintenanceYearScheduleSourceService.cs`
 - `Services/KnowledgeBaseMaintenanceYearScheduleSourceExchangeService.cs`
 - `Services/KnowledgeBaseMaintenanceWorkbookGenerationService.cs`
 - `Services/KnowledgeBaseMaintenanceWorkbookExportService.cs`
@@ -166,6 +173,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `Services/KnowledgeBaseMaintenanceScheduleNormImportService.cs`
 - `Models/KbMaintenanceScheduleProfile.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseMaintenanceMonthWorkResolverServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseMaintenanceYearScheduleSourceServiceTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseMaintenanceYearScheduleSourceExchangeServiceTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseMaintenanceWorkbookGenerationServiceTests.cs`
 - `scripts/verify-step.ps1`
@@ -175,9 +183,9 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 
 ## Known limits / open follow-up
 
-- `Phase 7E.2` local source exchange is implemented and verified pending manual review: it exports/imports the yearly placement source as `.xlsx`
-- `Phase 7E.2` does not provide a dedicated mass-editing grid inside the app; the first exchange UI is Excel-based
-- `Phase 7E.2` import does not create missing maintenance profiles and does not import labor-hour norms
+- `Phase 7E.2` source exchange is implemented on `to`: it exports/imports the yearly placement source as `.xlsx`
+- Local `Phase 7E` in-app mass-editing grid is implemented and verified pending manual review
+- `Phase 7E` source editing does not create missing maintenance profiles and does not import labor-hour norms
 - Manual-review error `Memory stream is not expandable` during May 2026 график ТО generation was fixed locally by opening the workbook package on an expandable memory stream before OpenXML rewriting
 - Manual-review screenshot errors from `C:\Users\Olga\Downloads\archive-2026-04-30_13-50-15` were caused by direct visible `Lvl2` assignments being rejected during workbook model building; the local fix is implemented and verified
 - 2027 and later production calendars are not configured yet
@@ -189,10 +197,9 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 
 ## Recommended next step
 
-- Manually review the verified `phase7e-year-schedule-source-exchange` build
+- Manually review the verified `phase7e-year-source-mass-edit-grid` build
 - After review, decide whether to:
-  - treat `Phase 7E` as complete at the Excel source-exchange layer
-  - add a dedicated in-app mass-editing grid for `Phase 7E`
+  - commit and push the mass-editing grid to branch `to`
   - split one `ТО2` / `ТО3` occurrence across multiple working days
   - improve maintenance-norm import coverage further
 

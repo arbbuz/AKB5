@@ -181,6 +181,71 @@ namespace AsutpKnowledgeBase
                 $"Импортированы нормы ТО: {importResult.CreatedProfileCount + importResult.UpdatedProfileCount} проф.");
         }
 
+        private void EditMaintenanceYearScheduleSource(object? sender, EventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(_currentWorkshop))
+            {
+                MessageBox.Show(
+                    this,
+                    "Сначала выберите цех для редактирования источника годового графика ТО.",
+                    "График ТО",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            SaveCurrentWorkshopState();
+
+            List<KnowledgeBaseMaintenanceYearScheduleSourceRow> rows =
+                _maintenanceYearScheduleSourceService.BuildRows(
+                    GetPersistedTreeData(),
+                    _session.MaintenanceScheduleProfiles);
+            if (rows.Count == 0)
+            {
+                MessageBox.Show(
+                    this,
+                    "В текущем цехе нет настроенных профилей ТО для массового редактирования.",
+                    "График ТО",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            using var dialog = new KnowledgeBaseMaintenanceYearScheduleSourceDialog(_currentWorkshop, rows);
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            KnowledgeBaseMaintenanceYearScheduleSourceApplyResult applyResult =
+                _maintenanceYearScheduleSourceService.ApplyRows(
+                    dialog.ResultRows,
+                    GetPersistedTreeData(),
+                    _session.MaintenanceScheduleProfiles);
+            if (!applyResult.IsSuccess)
+            {
+                MessageBox.Show(
+                    this,
+                    applyResult.ErrorMessage,
+                    "График ТО",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                SetLastActionText($"Ошибка редактирования источника годового графика ТО: {applyResult.ErrorMessage}");
+                return;
+            }
+
+            _session.ReplaceMaintenanceScheduleProfiles(applyResult.MaintenanceScheduleProfiles);
+            UpdateDirtyState();
+            UpdateUI();
+
+            MessageBox.Show(
+                this,
+                BuildMaintenanceYearScheduleSourceEditSummary(applyResult),
+                "График ТО",
+                MessageBoxButtons.OK,
+                applyResult.UnresolvedRows.Count > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+            SetLastActionText(
+                $"Обновлён источник годового графика ТО: {applyResult.UpdatedProfileCount + applyResult.ClearedProfileCount} изм.");
+        }
+
         private void ExportMaintenanceYearScheduleSource(object? sender, EventArgs e)
         {
             if (string.IsNullOrWhiteSpace(_currentWorkshop))
@@ -451,6 +516,32 @@ namespace AsutpKnowledgeBase
 
                 if (result.UnresolvedEntries.Count > 10)
                     lines.Add($"- ... ещё {result.UnresolvedEntries.Count - 10}");
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string BuildMaintenanceYearScheduleSourceEditSummary(
+            KnowledgeBaseMaintenanceYearScheduleSourceApplyResult result)
+        {
+            var lines = new List<string>
+            {
+                "Редактирование источника годового графика ТО завершено.",
+                $"Строк обработано: {result.EditedRowCount}",
+                $"Обновлено ручных раскладок: {result.UpdatedProfileCount}",
+                $"Очищено до автоматического fallback: {result.ClearedProfileCount}",
+                $"Без изменений: {result.UnchangedProfileCount}"
+            };
+
+            if (result.UnresolvedRows.Count > 0)
+            {
+                lines.Add(string.Empty);
+                lines.Add($"Не сопоставлено: {result.UnresolvedRows.Count}");
+                foreach (string unresolvedRow in result.UnresolvedRows.Take(10))
+                    lines.Add($"- {unresolvedRow}");
+
+                if (result.UnresolvedRows.Count > 10)
+                    lines.Add($"- ... ещё {result.UnresolvedRows.Count - 10}");
             }
 
             return string.Join(Environment.NewLine, lines);

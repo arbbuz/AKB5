@@ -8,6 +8,7 @@ Last updated: `2026-05-04`
 - `Phase 7E.2` yearly source exchange is a separate `.xlsx` workflow, not the final generated maintenance workbook and not the legacy Excel v3 database exchange
 - `Phase 7E.2` import matches rows by stable `OwnerNodeId` and updates only `KbMaintenanceScheduleProfile.YearScheduleEntries`
 - `Phase 7E.2` import intentionally does not change inclusion flags, `ТО1` / `ТО2` / `ТО3` labor-hour norms, or production-calendar settings
+- The `Phase 7E` in-app mass-editing grid follows the same narrow source-editing contract: it edits only `YearScheduleEntries` for configured current-workshop profiles and does not create profiles, import norms, toggle inclusion, or configure calendars
 - Maintenance workbook rewriting must use an expandable memory stream because real monthly exports can make the XLSX package larger than the embedded template package
 - Production-calendar JSON/UI/import remains deferred to `Phase 7F`
 
