@@ -1,6 +1,6 @@
 # Lessons Learned
 
-Last updated: `2026-04-30`
+Last updated: `2026-05-04`
 
 ## UI and tree behavior
 
@@ -29,11 +29,13 @@ Last updated: `2026-04-30`
   - stale row tails below the rewritten block
   - stale `rowBreaks`
 - When rewriting one month sheet inside an existing workbook, clear the old tail rows and related row-break metadata or Excel may report corrupted sheet content even if the new rows themselves are valid
+- When OpenXML rewrites an in-memory workbook that may grow, do not open `SpreadsheetDocument` over `new MemoryStream(byte[])`; copy the bytes into a fresh expandable `MemoryStream` first
 
 ## Import and file-handling discipline
 
 - Importing data from human-maintained Excel files needs forgiving normalization; exact string matching is rarely enough once real equipment names diverge by spaces, suffixes, or dot-separated context
 - For maintenance norm import, match by system/equipment inventory number first and fall back to normalized names only when inventory data is missing or ambiguous
+- For yearly ТО source exchange, keep the import contract narrow: edit only `YearScheduleEntries`, and do not let a schedule-source workbook silently change norms, inclusion flags, or calendar settings
 - If users keep the source workbook open in Excel, open it with sharing flags that tolerate `ReadWrite` and `Delete`; otherwise the import workflow fails for the wrong reason
 - Temporary debug entry points inside the repo can silently hijack a WinForms app if the project glob compiles them; explicitly exclude `artifacts/**/*.cs` from the main app project
 

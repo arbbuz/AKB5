@@ -46,6 +46,8 @@ namespace AsutpKnowledgeBase
             var menuImportExcel = new ToolStripMenuItem("📥 Импорт из Excel...", null, BtnImportExcel_Click);
             var menuExportExcel = new ToolStripMenuItem("📊 Экспорт в Excel...", null, BtnExportExcel_Click);
             menuImportMaintenanceNorms = new ToolStripMenuItem("📥 Импорт норм ТО...", null, ImportMaintenanceScheduleNorms);
+            menuExportMaintenanceYearScheduleSource = new ToolStripMenuItem("📤 Экспорт источника годового графика ТО...", null, ExportMaintenanceYearScheduleSource);
+            menuImportMaintenanceYearScheduleSource = new ToolStripMenuItem("📥 Импорт источника годового графика ТО...", null, ImportMaintenanceYearScheduleSource);
             menuExportMaintenanceMonthWorkbook = new ToolStripMenuItem("🗓 Сформировать график ТО за месяц...", null, ExportMaintenanceMonthWorkbook);
             menuExportMaintenanceYearWorkbook = new ToolStripMenuItem("🗓 Сформировать годовой график ТО...", null, ExportMaintenanceYearWorkbook);
             menuRecalculateMaintenanceYearWorkbook = new ToolStripMenuItem("🗓 Пересчитать график ТО до конца года...", null, RecalculateMaintenanceYearWorkbookToDecember);
@@ -63,6 +65,8 @@ namespace AsutpKnowledgeBase
                 menuExportExcel,
                 new ToolStripSeparator(),
                 menuImportMaintenanceNorms,
+                menuExportMaintenanceYearScheduleSource,
+                menuImportMaintenanceYearScheduleSource,
                 menuExportMaintenanceMonthWorkbook,
                 menuExportMaintenanceYearWorkbook,
                 menuRecalculateMaintenanceYearWorkbook

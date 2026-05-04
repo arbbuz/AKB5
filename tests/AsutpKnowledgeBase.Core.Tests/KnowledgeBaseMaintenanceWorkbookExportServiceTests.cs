@@ -153,6 +153,20 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         Assert.False(HasRowBreaks(packageBytes, "РљР¦ (4)"));
     }
 
+    [Fact]
+    public void ExportMonth_WhenWorkbookPackageGrows_UsesExpandableStream()
+    {
+        KnowledgeBaseMaintenanceWorkbookExportResult result = _service.ExportMonth(
+            null,
+            CreateModelWithDetailCount(2027, 5, "Large system", "INV-LARGE", detailCount: 300));
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        Assert.Empty(result.ErrorMessage);
+        AssertValidWorkbook(packageBytes);
+        Assert.True(packageBytes.Length > new KnowledgeBaseMaintenanceWorkbookTemplateService().GetTemplatePackage().Length);
+    }
+
     private static KbMaintenanceMonthSheetModel CreateModel(int year, int month, string systemName, string inventoryNumber) =>
         new()
         {

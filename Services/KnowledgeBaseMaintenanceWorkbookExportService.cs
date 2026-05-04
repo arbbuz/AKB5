@@ -56,7 +56,7 @@ namespace AsutpKnowledgeBase.Services
 
             try
             {
-                using var workbookStream = new MemoryStream(workbookBytes);
+                using var workbookStream = CreateExpandableMemoryStream(workbookBytes);
                 using (var templateStream = new MemoryStream(templateBytes, writable: false))
                 using (SpreadsheetDocument workbookDocument = SpreadsheetDocument.Open(workbookStream, true))
                 using (SpreadsheetDocument templateDocument = SpreadsheetDocument.Open(templateStream, false))
@@ -789,6 +789,14 @@ namespace AsutpKnowledgeBase.Services
                 IsSuccess = false,
                 ErrorMessage = errorMessage
             };
+
+        private static MemoryStream CreateExpandableMemoryStream(byte[] sourceBytes)
+        {
+            var stream = new MemoryStream();
+            stream.Write(sourceBytes, 0, sourceBytes.Length);
+            stream.Position = 0;
+            return stream;
+        }
 
         private sealed record SheetLayout(
             uint TopSummaryRowIndex,

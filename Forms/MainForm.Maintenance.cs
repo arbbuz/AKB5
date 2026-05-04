@@ -181,6 +181,165 @@ namespace AsutpKnowledgeBase
                 $"Импортированы нормы ТО: {importResult.CreatedProfileCount + importResult.UpdatedProfileCount} проф.");
         }
 
+        private void ExportMaintenanceYearScheduleSource(object? sender, EventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(_currentWorkshop))
+            {
+                MessageBox.Show(
+                    this,
+                    "Сначала выберите цех для экспорта источника годового графика ТО.",
+                    "График ТО",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            SaveCurrentWorkshopState();
+
+            using var dialog = new SaveFileDialog
+            {
+                Title = "Экспортировать источник годового графика ТО",
+                Filter = "Книги Excel (*.xlsx)|*.xlsx|Все файлы (*.*)|*.*",
+                FileName = $"Источник годового графика ТО - {BuildSafeFileNamePart(_currentWorkshop)}.xlsx",
+                OverwritePrompt = true
+            };
+
+            string? directory = Path.GetDirectoryName(CurrentDataPath);
+            if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+                dialog.InitialDirectory = directory;
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            KnowledgeBaseMaintenanceYearScheduleSourceExportResult exportResult =
+                _maintenanceYearScheduleSourceExchangeService.ExportWorkbook(
+                    GetPersistedTreeData(),
+                    _session.MaintenanceScheduleProfiles);
+
+            if (!exportResult.IsSuccess)
+            {
+                MessageBox.Show(
+                    this,
+                    exportResult.ErrorMessage,
+                    "График ТО",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                SetLastActionText($"Ошибка экспорта источника годового графика ТО: {exportResult.ErrorMessage}");
+                return;
+            }
+
+            try
+            {
+                string? targetDirectory = Path.GetDirectoryName(dialog.FileName);
+                if (!string.IsNullOrWhiteSpace(targetDirectory))
+                    Directory.CreateDirectory(targetDirectory);
+
+                File.WriteAllBytes(dialog.FileName, exportResult.WorkbookPackage);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    this,
+                    $"Ошибка записи Excel-файла: {ex.Message}",
+                    "График ТО",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                SetLastActionText($"Ошибка экспорта источника годового графика ТО: {ex.Message}");
+                return;
+            }
+
+            MessageBox.Show(
+                this,
+                BuildMaintenanceYearScheduleSourceExportSummary(exportResult),
+                "График ТО",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            SetLastActionText($"Экспортирован источник годового графика ТО: {exportResult.ExportedProfileCount} проф.");
+        }
+
+        private void ImportMaintenanceYearScheduleSource(object? sender, EventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(_currentWorkshop))
+            {
+                MessageBox.Show(
+                    this,
+                    "Сначала выберите цех для импорта источника годового графика ТО.",
+                    "График ТО",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            SaveCurrentWorkshopState();
+
+            using var dialog = new OpenFileDialog
+            {
+                Title = "Импортировать источник годового графика ТО из Excel",
+                Filter = "Книги Excel (*.xlsx)|*.xlsx|Все файлы (*.*)|*.*",
+                CheckFileExists = true
+            };
+
+            string? directory = Path.GetDirectoryName(CurrentDataPath);
+            if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+                dialog.InitialDirectory = directory;
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            KnowledgeBaseMaintenanceYearScheduleSourceImportResult importResult;
+            try
+            {
+                byte[] packageBytes;
+                using (var stream = new FileStream(dialog.FileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                using (var memory = new MemoryStream())
+                {
+                    stream.CopyTo(memory);
+                    packageBytes = memory.ToArray();
+                }
+
+                importResult = _maintenanceYearScheduleSourceExchangeService.ImportWorkbook(
+                    packageBytes,
+                    GetPersistedTreeData(),
+                    _session.MaintenanceScheduleProfiles);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    this,
+                    $"Ошибка чтения Excel-файла: {ex.Message}",
+                    "График ТО",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                SetLastActionText($"Ошибка импорта источника годового графика ТО: {ex.Message}");
+                return;
+            }
+
+            if (!importResult.IsSuccess)
+            {
+                MessageBox.Show(
+                    this,
+                    importResult.ErrorMessage,
+                    "График ТО",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                SetLastActionText($"Ошибка импорта источника годового графика ТО: {importResult.ErrorMessage}");
+                return;
+            }
+
+            _session.ReplaceMaintenanceScheduleProfiles(importResult.MaintenanceScheduleProfiles);
+            UpdateDirtyState();
+            UpdateUI();
+
+            MessageBox.Show(
+                this,
+                BuildMaintenanceYearScheduleSourceImportSummary(importResult),
+                "График ТО",
+                MessageBoxButtons.OK,
+                importResult.UnresolvedRows.Count > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+            SetLastActionText(
+                $"Импортирован источник годового графика ТО: {importResult.UpdatedProfileCount + importResult.ClearedProfileCount} изм.");
+        }
+
         private void EditMaintenanceScheduleProfileCore(
             KbNode ownerNode,
             KbMaintenanceScheduleProfile draftProfile,
@@ -295,6 +454,56 @@ namespace AsutpKnowledgeBase
             }
 
             return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string BuildMaintenanceYearScheduleSourceExportSummary(
+            KnowledgeBaseMaintenanceYearScheduleSourceExportResult result)
+        {
+            var lines = new List<string>
+            {
+                "Экспорт источника годового графика ТО завершён.",
+                $"Профилей выгружено: {result.ExportedProfileCount}",
+                $"С ручной годовой раскладкой: {result.ManualScheduleProfileCount}",
+                $"С автоматическим fallback: {result.AutomaticFallbackProfileCount}"
+            };
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string BuildMaintenanceYearScheduleSourceImportSummary(
+            KnowledgeBaseMaintenanceYearScheduleSourceImportResult result)
+        {
+            var lines = new List<string>
+            {
+                "Импорт источника годового графика ТО завершён.",
+                $"Строк обработано: {result.ImportedRowCount}",
+                $"Обновлено ручных раскладок: {result.UpdatedProfileCount}",
+                $"Очищено до автоматического fallback: {result.ClearedProfileCount}",
+                $"Без изменений: {result.UnchangedProfileCount}"
+            };
+
+            if (result.UnresolvedRows.Count > 0)
+            {
+                lines.Add(string.Empty);
+                lines.Add($"Не сопоставлено: {result.UnresolvedRows.Count}");
+                foreach (string unresolvedRow in result.UnresolvedRows.Take(10))
+                    lines.Add($"- {unresolvedRow}");
+
+                if (result.UnresolvedRows.Count > 10)
+                    lines.Add($"- ... ещё {result.UnresolvedRows.Count - 10}");
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string BuildSafeFileNamePart(string value)
+        {
+            string normalized = value?.Trim() ?? string.Empty;
+            foreach (char invalidChar in Path.GetInvalidFileNameChars())
+                normalized = normalized.Replace(invalidChar, ' ');
+
+            normalized = string.Join(" ", normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+            return string.IsNullOrWhiteSpace(normalized) ? "цех" : normalized;
         }
     }
 }

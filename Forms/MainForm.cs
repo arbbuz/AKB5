@@ -29,6 +29,7 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseNetworkMutationService _networkMutationService = new();
         private readonly KnowledgeBaseMaintenanceScheduleProfileMutationService _maintenanceScheduleProfileMutationService = new();
         private readonly KnowledgeBaseMaintenanceScheduleNormImportService _maintenanceScheduleNormImportService = new();
+        private readonly KnowledgeBaseMaintenanceYearScheduleSourceExchangeService _maintenanceYearScheduleSourceExchangeService = new();
         private readonly KnowledgeBaseFormStateService _formStateService = new();
         private readonly KnowledgeBaseNodePresentationService _nodePresentationService = new();
         private readonly KnowledgeBaseTreeViewService _treeViewService = new();
@@ -51,6 +52,8 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem menuRenameWorkshop = null!;
         private ToolStripMenuItem menuDeleteWorkshop = null!;
         private ToolStripMenuItem menuImportMaintenanceNorms = null!;
+        private ToolStripMenuItem menuExportMaintenanceYearScheduleSource = null!;
+        private ToolStripMenuItem menuImportMaintenanceYearScheduleSource = null!;
         private ToolStripMenuItem menuExportMaintenanceMonthWorkbook = null!;
         private ToolStripMenuItem menuExportMaintenanceYearWorkbook = null!;
         private ToolStripMenuItem menuRecalculateMaintenanceYearWorkbook = null!;
@@ -236,6 +239,8 @@ namespace AsutpKnowledgeBase
             menuRenameWorkshop.Enabled = hasCurrentWorkshop;
             menuDeleteWorkshop.Enabled = hasCurrentWorkshop && _session.Workshops.Count > 1;
             menuImportMaintenanceNorms.Enabled = hasCurrentWorkshop;
+            menuExportMaintenanceYearScheduleSource.Enabled = hasCurrentWorkshop;
+            menuImportMaintenanceYearScheduleSource.Enabled = hasCurrentWorkshop;
             menuExportMaintenanceMonthWorkbook.Enabled = hasCurrentWorkshop;
             menuExportMaintenanceYearWorkbook.Enabled = hasCurrentWorkshop;
             menuRecalculateMaintenanceYearWorkbook.Enabled = hasCurrentWorkshop;

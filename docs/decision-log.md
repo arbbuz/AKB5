@@ -1,6 +1,15 @@
 # Decision Log
 
-Last updated: `2026-04-30`
+Last updated: `2026-05-04`
+
+## 2026-05-04
+
+- The accepted `Phase 7E` follow-up direction is to add Excel source exchange before considering a dedicated mass-editing UI
+- `Phase 7E.2` yearly source exchange is a separate `.xlsx` workflow, not the final generated maintenance workbook and not the legacy Excel v3 database exchange
+- `Phase 7E.2` import matches rows by stable `OwnerNodeId` and updates only `KbMaintenanceScheduleProfile.YearScheduleEntries`
+- `Phase 7E.2` import intentionally does not change inclusion flags, `ТО1` / `ТО2` / `ТО3` labor-hour norms, or production-calendar settings
+- Maintenance workbook rewriting must use an expandable memory stream because real monthly exports can make the XLSX package larger than the embedded template package
+- Production-calendar JSON/UI/import remains deferred to `Phase 7F`
 
 ## 2026-04-30
 

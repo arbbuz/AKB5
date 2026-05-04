@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-04-30
+Last updated: 2026-05-04
 Branch baseline: `to`
-Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice pending review`
+Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange local waiting review`
 
 ## Goal
 
@@ -69,8 +69,12 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - The first `Phase 7D` follow-up slice is complete on `to`: workshop-level `Импорт норм ТО...` and `Сформировать график ТО за месяц...` commands now live in the top-level `Файл` menu instead of the per-node `График ТО` tab.
 - The second `Phase 7D` follow-up slice is complete on `to`: `Файл -> Сформировать годовой график ТО...` generates all 12 months in one pass by orchestrating the existing monthly engine.
 - The third `Phase 7D` follow-up slice is complete on `to`: `Файл -> Пересчитать график ТО до конца года...` opens an existing yearly workbook, preserves earlier month sheets, and rewrites only the selected start month through December.
-- The first `Phase 7E` slice is implemented pending review: maintenance profiles can store manual 12-month `ТО1` / `ТО2` / `ТО3` placement in JSON, the profile dialog can edit it, and the resolver uses it before falling back to deterministic offsets.
+- The first `Phase 7E` slice is complete on `to`: maintenance profiles can store manual 12-month `ТО1` / `ТО2` / `ТО3` placement in JSON, the profile dialog can edit it, and the resolver uses it before falling back to deterministic offsets.
 - On 2026-04-30, the current `Phase 7E` worktree passed `dotnet format --verify-no-changes`, verification build, and `dotnet test` (`250/250`) using isolated output paths.
+- On 2026-05-04, the accepted `Phase 7E` follow-up direction is `Phase 7E.2`: Excel export/import of the yearly schedule source before any dedicated in-app mass-editing grid.
+- The local `Phase 7E.2` implementation exports/imports a separate source workbook with `OwnerNodeId` and editable `M01`..`M12` values; import changes only `YearScheduleEntries` and does not change norms, inclusion flags, or production-calendar settings.
+- On 2026-05-04, `phase7e-year-schedule-source-exchange` passed `dotnet format --verify-no-changes`, verification build, and `dotnet test` (`255/255`) using isolated output paths.
+- On 2026-05-04, the manual-review `Memory stream is not expandable` workbook generation error was fixed and `phase7e-workbook-expandable-stream-fix` passed verification build and `dotnet test` (`256/256`).
 
 ## Hidden-level strategy
 
@@ -498,11 +502,14 @@ Recommended implementation slices:
     - when equipment changes during the year, recalculate only from the current month through December
     - treat past months as frozen and do not rewrite them during ordinary replanning
 - `Phase 7E. Future yearly schedule source`
-  - first slice status: implemented pending review
+  - first slice status: completed on `to`
   - done: store manual per-profile 12-month `ТО1` / `ТО2` / `ТО3` placement in JSON as `YearScheduleEntries`
   - done: expose the manual annual placement in the per-node `График ТО` profile dialog
   - done: make the monthly resolver use manual placement when present and keep deterministic offsets as fallback for profiles without it
-  - remaining only if explicitly prioritized: import or external-source hardening for yearly schedule placement
+  - `Phase 7E.2` status: local implementation verified and waiting manual review
+  - local: export/import the yearly placement source through a separate `.xlsx` workbook keyed by stable `OwnerNodeId`
+  - local: keep import narrow so it changes only `YearScheduleEntries`, leaving norms and production calendars untouched
+  - remaining only if explicitly prioritized: dedicated in-app mass-editing grid for yearly schedule placement
 - `Phase 7F. Production calendar configuration`
   - status: deferred, not current priority
   - move production-calendar year data out of hardcoded service tables into persisted JSON configuration while preserving built-in defaults for already supported years
@@ -592,11 +599,12 @@ Completed on `to`:
 10. Phase 7B. Russian production calendar
 11. Phase 7C. Monthly planning engine
 12. Phase 7D. Year workbook export
-13. Phase 7E. Future yearly schedule source, first slice pending review
+13. Phase 7E. Future yearly schedule source, first slice complete on `to`
+14. Phase 7E.2 source exchange, local verified and waiting review
 
 Remaining:
 
-1. Phase 7E import/external-source hardening, only if explicitly prioritized after review
+1. Phase 7E in-app mass-editing grid, only if explicitly prioritized after source-exchange review
 2. Phase 7F. Production calendar configuration, deferred until explicitly prioritized
 
 ## AI handoff / next-dialog instructions
@@ -621,11 +629,11 @@ Keep JSON source-of-truth compatibility and treat Excel v3 as a legacy transitio
 
 ## Immediate next step
 
-Continue after manual review of the completed `Phase 7E` first-slice build:
+Continue after verification and manual review of the `Phase 7E.2` source-exchange build:
 
 - preserve the completed `Phase 7A` / `7B` / `7C` / `7D` workflow as the current baseline
 - decide whether to add split-across-days support for one `ТО2` / `ТО3` occurrence
-- decide whether `Phase 7E` is complete at the manual per-profile source layer or needs import/external-source hardening
+- decide whether `Phase 7E` is complete at the Excel source-exchange layer or needs a dedicated in-app mass-editing grid
 - keep production-calendar JSON/UI/import configuration recorded as deferred `Phase 7F`; do not implement it until it becomes a prioritized task
 - treat future-month recalculation as completed `Phase 7D` orchestration/workflow built on top of the existing monthly engine, not as a replacement for it
 - keep workbook `v3` readable as legacy, but do not expand it as the main feature direction
