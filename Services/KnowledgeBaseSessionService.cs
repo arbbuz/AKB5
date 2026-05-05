@@ -25,6 +25,8 @@ namespace AsutpKnowledgeBase.Services
 
         public List<KbMaintenanceScheduleProfile> MaintenanceScheduleProfiles { get; private set; } = new();
 
+        public List<KbEquipmentCatalogItem> EquipmentCatalogItems { get; private set; } = new();
+
         public string CurrentWorkshop { get; private set; } = string.Empty;
 
         public string LastSavedWorkshop { get; private set; } = string.Empty;
@@ -54,6 +56,7 @@ namespace AsutpKnowledgeBase.Services
             SoftwareRecords = normalizedData.SoftwareRecords;
             NetworkFileReferences = normalizedData.NetworkFileReferences;
             MaintenanceScheduleProfiles = normalizedData.MaintenanceScheduleProfiles;
+            EquipmentCatalogItems = normalizedData.EquipmentCatalogItems;
             CurrentWorkshop = normalizedData.LastWorkshop;
 
             if (recordAsSavedState)
@@ -75,6 +78,7 @@ namespace AsutpKnowledgeBase.Services
                 SoftwareRecords = SoftwareRecords,
                 NetworkFileReferences = NetworkFileReferences,
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
+                EquipmentCatalogItems = EquipmentCatalogItems,
                 LastWorkshop = CurrentWorkshop
             });
         }
@@ -90,6 +94,7 @@ namespace AsutpKnowledgeBase.Services
                 SoftwareRecords,
                 NetworkFileReferences,
                 MaintenanceScheduleProfiles,
+                EquipmentCatalogItems,
                 CurrentWorkshop,
                 includeCurrentWorkshop);
         }
@@ -228,6 +233,7 @@ namespace AsutpKnowledgeBase.Services
                 SoftwareRecords = SoftwareRecords,
                 NetworkFileReferences = NetworkFileReferences,
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
+                EquipmentCatalogItems = EquipmentCatalogItems,
                 LastWorkshop = CurrentWorkshop
             }).CompositionEntries;
 
@@ -242,6 +248,7 @@ namespace AsutpKnowledgeBase.Services
                 SoftwareRecords = SoftwareRecords,
                 NetworkFileReferences = NetworkFileReferences,
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
+                EquipmentCatalogItems = EquipmentCatalogItems,
                 LastWorkshop = CurrentWorkshop
             }).DocumentLinks;
 
@@ -256,6 +263,7 @@ namespace AsutpKnowledgeBase.Services
                 SoftwareRecords = softwareRecords?.ToList() ?? new List<KbSoftwareRecord>(),
                 NetworkFileReferences = NetworkFileReferences,
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
+                EquipmentCatalogItems = EquipmentCatalogItems,
                 LastWorkshop = CurrentWorkshop
             }).SoftwareRecords;
 
@@ -270,6 +278,7 @@ namespace AsutpKnowledgeBase.Services
                 SoftwareRecords = SoftwareRecords,
                 NetworkFileReferences = networkFileReferences?.ToList() ?? new List<KbNetworkFileReference>(),
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
+                EquipmentCatalogItems = EquipmentCatalogItems,
                 LastWorkshop = CurrentWorkshop
             }).NetworkFileReferences;
 
@@ -284,8 +293,24 @@ namespace AsutpKnowledgeBase.Services
                 SoftwareRecords = SoftwareRecords,
                 NetworkFileReferences = NetworkFileReferences,
                 MaintenanceScheduleProfiles = maintenanceScheduleProfiles?.ToList() ?? new List<KbMaintenanceScheduleProfile>(),
+                EquipmentCatalogItems = EquipmentCatalogItems,
                 LastWorkshop = CurrentWorkshop
             }).MaintenanceScheduleProfiles;
+
+        public void ReplaceEquipmentCatalogItems(IEnumerable<KbEquipmentCatalogItem> equipmentCatalogItems) =>
+            EquipmentCatalogItems = KnowledgeBaseDataService.NormalizeSavedData(new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = Config,
+                Workshops = Workshops,
+                CompositionEntries = CompositionEntries,
+                DocumentLinks = DocumentLinks,
+                SoftwareRecords = SoftwareRecords,
+                NetworkFileReferences = NetworkFileReferences,
+                MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
+                EquipmentCatalogItems = equipmentCatalogItems?.ToList() ?? new List<KbEquipmentCatalogItem>(),
+                LastWorkshop = CurrentWorkshop
+            }).EquipmentCatalogItems;
 
         public void SetRequiresSave(bool requiresSave) => RequiresSave = requiresSave;
 

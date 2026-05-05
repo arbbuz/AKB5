@@ -38,7 +38,10 @@ Implemented on `to`:
 Next approved work:
 
 - no `Phase 7G` is approved in `Roadmap.md`
-- wait for the next explicitly prioritized task before adding new scope
+- immediate follow-up: `Phase 7F.1. Production calendar PDF import`
+- `Phase 11. Object templates and equipment catalog`
+- `Phase 12. Backup, snapshots, and change history`
+- `Phase 11A. Equipment catalog model` is accepted after manual review
 
 ## Data and persistence
 

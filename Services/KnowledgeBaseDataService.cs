@@ -34,6 +34,7 @@ namespace AsutpKnowledgeBase.Services
                 SoftwareRecords = new List<KbSoftwareRecord>(),
                 NetworkFileReferences = new List<KbNetworkFileReference>(),
                 MaintenanceScheduleProfiles = new List<KbMaintenanceScheduleProfile>(),
+                EquipmentCatalogItems = new List<KbEquipmentCatalogItem>(),
                 LastWorkshop = "Новый цех"
             };
 
@@ -47,6 +48,7 @@ namespace AsutpKnowledgeBase.Services
             var normalizedSoftwareRecords = NormalizeSoftwareRecords(source.SoftwareRecords);
             var normalizedNetworkFileReferences = NormalizeNetworkFileReferences(source.NetworkFileReferences);
             var normalizedMaintenanceScheduleProfiles = NormalizeMaintenanceScheduleProfiles(source.MaintenanceScheduleProfiles);
+            var normalizedEquipmentCatalogItems = NormalizeEquipmentCatalogItems(source.EquipmentCatalogItems);
             var reindexService = new KnowledgeBaseService(normalizedConfig, normalizedWorkshops);
 
             foreach (var roots in normalizedWorkshops.Values)
@@ -65,6 +67,7 @@ namespace AsutpKnowledgeBase.Services
                 SoftwareRecords = normalizedSoftwareRecords,
                 NetworkFileReferences = normalizedNetworkFileReferences,
                 MaintenanceScheduleProfiles = normalizedMaintenanceScheduleProfiles,
+                EquipmentCatalogItems = normalizedEquipmentCatalogItems,
                 LastWorkshop = ResolveWorkshop(normalizedWorkshops, source.LastWorkshop)
             };
         }
@@ -211,7 +214,7 @@ namespace AsutpKnowledgeBase.Services
                     if (date.Year != year)
                     {
                         throw new InvalidOperationException(
-                            $"Дата {date:yyyy-MM-dd} не относится к {year} году производственного календаря.");
+                            $"Дата {date:dd.MM.yyyy} не относится к {year} году производственного календаря.");
                     }
 
                     normalizedDates.Add(date);
@@ -280,6 +283,7 @@ namespace AsutpKnowledgeBase.Services
                 softwareRecords: null,
                 networkFileReferences: null,
                 maintenanceScheduleProfiles: null,
+                equipmentCatalogItems: null,
                 currentWorkshop,
                 includeCurrentWorkshop);
 
@@ -291,6 +295,7 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbSoftwareRecord>? softwareRecords,
             IReadOnlyList<KbNetworkFileReference>? networkFileReferences,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
+            IReadOnlyList<KbEquipmentCatalogItem>? equipmentCatalogItems,
             string currentWorkshop,
             bool includeCurrentWorkshop)
         {
@@ -304,6 +309,7 @@ namespace AsutpKnowledgeBase.Services
                 SoftwareRecords = softwareRecords?.ToList() ?? new List<KbSoftwareRecord>(),
                 NetworkFileReferences = networkFileReferences?.ToList() ?? new List<KbNetworkFileReference>(),
                 MaintenanceScheduleProfiles = maintenanceScheduleProfiles?.ToList() ?? new List<KbMaintenanceScheduleProfile>(),
+                EquipmentCatalogItems = equipmentCatalogItems?.ToList() ?? new List<KbEquipmentCatalogItem>(),
                 LastWorkshop = includeCurrentWorkshop ? currentWorkshop : string.Empty
             };
 
@@ -571,6 +577,67 @@ namespace AsutpKnowledgeBase.Services
             return normalized;
         }
 
+        public static List<KbEquipmentCatalogItem> NormalizeEquipmentCatalogItems(
+            IEnumerable<KbEquipmentCatalogItem>? items)
+        {
+            var normalized = new List<KbEquipmentCatalogItem>();
+            if (items == null)
+                return normalized;
+
+            var usedIds = new HashSet<string>(StringComparer.Ordinal);
+            var usedSemanticKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            int normalizedIndex = 0;
+
+            foreach (KbEquipmentCatalogItem? item in items)
+            {
+                if (item == null)
+                    continue;
+
+                string equipmentKind = item.EquipmentKind?.Trim() ?? string.Empty;
+                string manufacturer = item.Manufacturer?.Trim() ?? string.Empty;
+                string series = item.Series?.Trim() ?? string.Empty;
+                string model = item.Model?.Trim() ?? string.Empty;
+                string catalogItemId = item.CatalogItemId?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(equipmentKind) &&
+                    string.IsNullOrWhiteSpace(manufacturer) &&
+                    string.IsNullOrWhiteSpace(series) &&
+                    string.IsNullOrWhiteSpace(model))
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(catalogItemId) && usedIds.Contains(catalogItemId))
+                    continue;
+
+                string semanticKey = BuildEquipmentCatalogSemanticKey(equipmentKind, manufacturer, series, model);
+                if (!usedSemanticKeys.Add(semanticKey))
+                    continue;
+
+                normalized.Add(new KbEquipmentCatalogItem
+                {
+                    CatalogItemId = NormalizeEquipmentCatalogItemId(catalogItemId, semanticKey, normalizedIndex, usedIds),
+                    EquipmentKind = equipmentKind,
+                    Manufacturer = manufacturer,
+                    Series = series,
+                    Model = model,
+                    DefaultNodeType = Enum.IsDefined(typeof(KbNodeType), item.DefaultNodeType)
+                        ? item.DefaultNodeType
+                        : KbNodeType.Device,
+                    Description = item.Description?.Trim() ?? string.Empty,
+                    Properties = NormalizeEquipmentCatalogProperties(item.Properties)
+                });
+
+                normalizedIndex++;
+            }
+
+            return normalized
+                .OrderBy(static item => item.EquipmentKind, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(static item => item.Manufacturer, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(static item => item.Series, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(static item => item.Model, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
         private static List<KbMaintenanceYearScheduleEntry> NormalizeMaintenanceYearScheduleEntries(
             IEnumerable<KbMaintenanceYearScheduleEntry>? entries)
         {
@@ -598,6 +665,91 @@ namespace AsutpKnowledgeBase.Services
                     WorkKind = pair.Value
                 })
                 .ToList();
+        }
+
+        private static List<KbEquipmentCatalogProperty> NormalizeEquipmentCatalogProperties(
+            IEnumerable<KbEquipmentCatalogProperty>? properties)
+        {
+            var normalized = new List<KbEquipmentCatalogProperty>();
+            if (properties == null)
+                return normalized;
+
+            var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (KbEquipmentCatalogProperty? property in properties)
+            {
+                if (property == null)
+                    continue;
+
+                string name = property.Name?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(name) || !usedNames.Add(name))
+                    continue;
+
+                normalized.Add(new KbEquipmentCatalogProperty
+                {
+                    Name = name,
+                    Value = property.Value?.Trim() ?? string.Empty
+                });
+            }
+
+            return normalized
+                .OrderBy(static property => property.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static string BuildEquipmentCatalogSemanticKey(
+            string equipmentKind,
+            string manufacturer,
+            string series,
+            string model) =>
+            string.Join(
+                "|",
+                NormalizeTextKey(equipmentKind),
+                NormalizeTextKey(manufacturer),
+                NormalizeTextKey(series),
+                NormalizeTextKey(model));
+
+        private static string NormalizeTextKey(string? value) =>
+            string.Join(
+                " ",
+                (value ?? string.Empty)
+                    .Trim()
+                    .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                .ToUpperInvariant();
+
+        private static string NormalizeEquipmentCatalogItemId(
+            string? catalogItemId,
+            string semanticKey,
+            int normalizedIndex,
+            HashSet<string> usedIds)
+        {
+            string normalizedExistingId = catalogItemId?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(normalizedExistingId))
+            {
+                usedIds.Add(normalizedExistingId);
+                return normalizedExistingId;
+            }
+
+            string semanticId = "catalog-" + string.Join(
+                "-",
+                semanticKey
+                    .Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(static part => part.Replace(' ', '-').ToLowerInvariant())
+                    .Where(static part => part.Length > 0));
+            if (semanticId == "catalog-")
+                semanticId = $"catalog-{normalizedIndex}";
+
+            if (usedIds.Add(semanticId))
+                return semanticId;
+
+            int suffix = 2;
+            while (true)
+            {
+                string candidate = $"{semanticId}-{suffix}";
+                if (usedIds.Add(candidate))
+                    return candidate;
+
+                suffix++;
+            }
         }
 
         private static string NormalizeCompositionEntryId(

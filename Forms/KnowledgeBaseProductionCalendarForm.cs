@@ -6,7 +6,9 @@ namespace AsutpKnowledgeBase
 {
     public sealed class KnowledgeBaseProductionCalendarForm : Form
     {
-        private static readonly string[] DateFormats = { "yyyy-MM-dd", "dd.MM.yyyy" };
+        private const string RussianDateFormat = "dd.MM.yyyy";
+        private const string LegacyIsoDateFormat = "yyyy-MM-dd";
+        private static readonly string[] DateFormats = { RussianDateFormat, LegacyIsoDateFormat };
         private static readonly char[] DateSeparators = { '\r', '\n', ',', ';', ' ', '\t' };
         private static readonly HashSet<int> BuiltInYears = KnowledgeBaseDataService
             .CreateDefaultProductionCalendarYears()
@@ -123,7 +125,7 @@ namespace AsutpKnowledgeBase
 
             rightPanel.Controls.Add(new Label
             {
-                Text = "Дополнительные нерабочие дни: одна дата в строке или через пробел/запятую. Форматы: yyyy-MM-dd или dd.MM.yyyy.",
+                Text = "Дополнительные нерабочие дни: одна дата в строке или через пробел/запятую. Формат: дд.мм.гггг.",
                 AutoSize = true,
                 Margin = new Padding(0, 0, 0, 8)
             }, 0, 1);
@@ -223,7 +225,7 @@ namespace AsutpKnowledgeBase
                 Environment.NewLine,
                 year.AdditionalNonWorkingDays
                     .OrderBy(static date => date)
-                    .Select(static date => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)));
+                    .Select(static date => date.ToString(RussianDateFormat, CultureInfo.InvariantCulture)));
         }
 
         private void AddYear()
@@ -341,13 +343,13 @@ namespace AsutpKnowledgeBase
                         DateTimeStyles.None,
                         out DateOnly date))
                 {
-                    errorMessage = $"Дата '{part}' указана в неверном формате. Используйте yyyy-MM-dd или dd.MM.yyyy.";
+                    errorMessage = $"Дата '{part}' указана в неверном формате. Используйте формат дд.мм.гггг.";
                     return false;
                 }
 
                 if (date.Year != year)
                 {
-                    errorMessage = $"Дата {date:yyyy-MM-dd} не относится к {year} году.";
+                    errorMessage = $"Дата {date:dd.MM.yyyy} не относится к {year} году.";
                     return false;
                 }
 

@@ -1,6 +1,20 @@
 # Decision Log
 
-Last updated: `2026-05-04`
+Last updated: `2026-05-05`
+
+## 2026-05-05
+
+- The user approved starting the next roadmap work from `Phase 11. Object templates and equipment catalog`, followed by `Phase 12. Backup, snapshots, and change history`
+- `Phase 8` through `Phase 10` were discussed as possible directions but are not active implementation phases right now
+- `Phase 11A` starts with the equipment catalog model and JSON normalization before UI and object-template workflows
+- `Phase 11A` keeps the catalog as top-level JSON data, normalizes it on load/save, deduplicates stable catalog ids, and leaves catalog UI for `Phase 11B`
+- On 2026-05-05, `phase11a-equipment-catalog-model` passed verification build and `dotnet test` (`274/274`) using isolated output paths
+- Production-calendar manual editing should use Russian date display/input format `дд.мм.гггг`; JSON import accepts both `дд.мм.гггг` and legacy ISO dates while saved app JSON remains backward-compatible
+- On 2026-05-05, `production-calendar-russian-date-format` passed verification build and `dotnet test` (`275/275`) using isolated output paths
+- The user confirmed manual review of `Phase 11A` and accepted the practical order: commit/push the accepted local changes, then implement PDF import for production calendars before returning to `Phase 11B`
+- `Phase 7F.1` should import production calendars from PDF with preview; prefer text-layer parsing first, add OCR only if real source PDFs require it, and consider support for additional working days as well as additional non-working days
+- Equipment catalog/template work must not change legacy Excel `v3`; catalog/template exchange should use dedicated JSON when implemented
+- Template application must eventually use preview and must not silently overwrite user data
 
 ## 2026-05-04
 

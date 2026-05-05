@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-05-04
+Last updated: 2026-05-05
 Branch baseline: `to`
-Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to, Phase 7F production-calendar configuration complete on to`
+Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to, Phase 7F production-calendar configuration complete on to, Phase 11A accepted, production-calendar Russian date format accepted, Phase 7F.1 PDF calendar import approved next, Phase 11B deferred until after 7F.1`
 
 ## Goal
 
@@ -60,7 +60,7 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - On 2026-04-28, the current `Phase 6` worktree passed verification build, passed `dotnet test` (`177/177`), and `asutpKB.exe` startup was rechecked after the final `Network` UX fixes.
 - Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition, but further workbook modernization is no longer the preferred next phase.
 - Current CI workflow also verifies `dotnet format --verify-no-changes` for the app project, core project, and tests before `build` / `test`.
-- The maintenance-schedule generation roadmap through `Phase 7F` is complete on `to`; no next coding phase is currently prioritized.
+- The maintenance-schedule generation roadmap through `Phase 7F` is complete on `to`; the approved immediate follow-up is `Phase 7F.1` PDF production-calendar import before continuing `Phase 11B`.
 - `Phase 7A` is complete on `to`: `Lvl2` inventory number support now follows visible hierarchy level, typed `MaintenanceScheduleProfiles` are persisted in JSON/session state, and engineering nodes expose a `График ТО` tab with per-node `ТО1` / `ТО2` / `ТО3` hour norms.
 - `Phase 7B` is complete on `to`: Russian production-calendar calculation for `5/2` workdays is available as a reusable service.
 - `Phase 7F` is complete on `to`: production-calendar years are persisted in JSON config, editable from the Russian UI, importable from JSON, and consumed by maintenance schedule generation.
@@ -83,6 +83,8 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - On 2026-05-04, `phase7e-norm-import-coverage` passed `dotnet format --verify-no-changes`, targeted norm-import tests, verification build, and `dotnet test` (`264/264`) using isolated output paths.
 - `Phase 7F` production-calendar configuration is complete on `to`: `Config.ProductionCalendarYears` stores year-specific additional non-working days, `Файл` exposes calendar edit/import commands, and schedule generation resolves the calendar from the saved configuration.
 - On 2026-05-04, `phase7f-production-calendar-config` passed `dotnet format --verify-no-changes`, verification build, and `dotnet test` (`270/270`) using isolated output paths.
+- On 2026-05-05, the user approved starting from `Phase 11` and then `Phase 12`; `Phase 8` through `Phase 10` remain discussed candidate directions, not active implementation phases.
+- `Phase 11A` is accepted after manual review: it adds the equipment catalog domain model, JSON persistence, normalization, deduplication, and focused tests before UI work.
 
 ## Hidden-level strategy
 
@@ -530,6 +532,13 @@ Recommended implementation slices:
   - done: add JSON import support for production-calendar data, separate from the legacy Excel `v3` exchange workbook
   - done: keep the planner/export API consuming a resolved calendar service so schedule generation logic does not depend on the storage or UI mechanism
   - done: show a clear guided error when the selected year is missing, pointing the user to calendar setup/import instead of requiring a code change
+- `Phase 7F.1. Production calendar PDF import`
+  - status: approved next follow-up
+  - import production-calendar data from PDF files such as `calendar_2027.pdf`, because JSON is not convenient for ordinary use
+  - prefer text-layer PDF parsing first; add OCR only if real source files require it
+  - add import preview before applying changes
+  - keep Russian date display/input as `дд.мм.гггг`
+  - consider extending the calendar model with additional working days as well as additional non-working days so transferred weekends can be represented correctly
 
 Acceptance:
 
@@ -537,6 +546,85 @@ Acceptance:
 - the generated workbook preserves the visual structure of the enterprise sample
 - the monthly planner respects workdays only and enforces the selected monthly workshop budget
 - the design stays extensible for a future externally provided yearly maintenance schedule
+
+### Phase 11. Object templates and equipment catalog
+
+Complexity: `High`
+
+Status: approved; `Phase 11A` accepted after manual review; `Phase 11B` deferred until `Phase 7F.1`.
+
+Goals:
+
+- add a structured equipment catalog so manufacturers, series, models, equipment kinds, and typical metadata are entered consistently
+- add reusable object templates so common cabinets, PLC/HMI devices, modules, switches, UPS units, and ASUTP subsystems can be created without repeated manual entry
+- reduce naming drift and incomplete object creation when the knowledge base grows
+- keep template application explicit and previewable; never overwrite user-entered data silently
+
+Scope:
+
+- `Phase 11A. Equipment catalog model`
+  - status: accepted after manual review
+  - add catalog item domain model
+  - persist catalog items in JSON
+  - normalize catalog data on load/save
+  - deduplicate by stable catalog item id
+  - add focused tests
+- `Phase 11B. Equipment catalog UI`
+  - add Russian UI for listing, adding, editing, deleting, and searching catalog items
+  - keep catalog editing separate from tree editing until object-template creation is implemented
+- `Phase 11C. Object template model`
+  - add object-template model with template nodes and generated fresh `NodeId` values on creation
+  - support optional defaults for card fields, composition, documents/software, maintenance profile stubs, and future network interface stubs
+- `Phase 11D. Create from template`
+  - create new tree objects from templates with new ids
+  - preserve tree depth and visible-level rules
+- `Phase 11E. Save existing object as template`
+  - convert a well-filled existing object subtree into a reusable template
+  - remove real `NodeId` values and owner-specific references from the saved template
+- `Phase 11F. Apply template with preview`
+  - apply a template to an existing object only after showing what will be added, skipped, or left unchanged
+  - do not delete or overwrite user data without explicit confirmation
+- `Phase 11G. Template import/export`
+  - exchange catalog/templates through dedicated JSON files
+  - keep this separate from legacy Excel `v3`
+
+Acceptance:
+
+- the equipment catalog is persisted in JSON and survives normalization without duplicates
+- the user can maintain equipment catalog records in Russian UI
+- object templates can create new objects with fresh ids
+- applying templates uses preview and does not silently overwrite existing data
+- templates/catalog data can be exported and imported as JSON
+- tests cover normalization and object creation from templates
+
+### Phase 12. Backup, snapshots, and change history
+
+Complexity: `Medium-High`
+
+Status: approved after Phase 11.
+
+Goals:
+
+- protect the JSON source of truth from accidental loss or destructive edits
+- make important changes reviewable through snapshots and history
+- provide a practical restore path before larger multi-user or role-based workflows are considered
+
+Scope:
+
+- automatic timestamped JSON snapshots before destructive operations and save operations
+- manual snapshot creation with user note
+- snapshot browser with date, source file, size, and note
+- restore selected snapshot after confirmation
+- compare two snapshots at summary level: workshops, nodes, documents, software, network files, maintenance profiles, production calendars, catalog/template records
+- lightweight change history for high-value actions
+
+Acceptance:
+
+- users can create and restore snapshots from the UI
+- the app creates protective snapshots before risky operations
+- snapshot restore never happens without explicit confirmation
+- snapshot comparison reports what changed at a useful summary level
+- snapshot files remain separate from the main JSON and from Excel exchange workbooks
 
 ### Optional future phase. Interactive network topology
 
@@ -619,10 +707,15 @@ Completed on `to`:
 17. Maintenance-norm import coverage and mismatch reporting, complete on `to`
 18. Phase 7F production-calendar configuration, complete on `to`
 
-Remaining:
+Approved next:
 
-1. No next coding phase is currently prioritized
-2. No `Phase 7G` exists in this roadmap yet; define and accept its scope before implementation
+1. Phase 11. Object templates and equipment catalog
+2. Phase 12. Backup, snapshots, and change history
+
+Not active:
+
+1. No `Phase 7G` exists in this roadmap
+2. Phase 8 through Phase 10 were discussed as possible directions but are not currently selected for implementation
 
 ## AI handoff / next-dialog instructions
 
@@ -650,8 +743,9 @@ Keep JSON source-of-truth compatibility and treat Excel v3 as a legacy transitio
 Continue from the next explicitly prioritized task:
 
 - preserve the completed `Phase 7A` / `7B` / `7C` / `7D` / `7E` / `7F` workflow as the current baseline
-- wait for the next explicitly prioritized task from the chief developer
-- do not start a new `Phase 7G` until it is defined in this roadmap
+- after committing/pushing the accepted `Phase 11A` and production-calendar Russian date format changes, continue with `Phase 7F.1. Production calendar PDF import`
+- return to `Phase 11B. Equipment catalog UI` after `Phase 7F.1`, unless explicitly redirected
+- do not start a new `Phase 7G`; it is not part of this roadmap
 - treat future-month recalculation as completed `Phase 7D` orchestration/workflow built on top of the existing monthly engine, not as a replacement for it
 - keep workbook `v3` readable as legacy, but do not expand it as the main feature direction
 - keep JSON source-of-truth compatibility and preserve Russian-only UI

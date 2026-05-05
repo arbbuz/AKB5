@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using AsutpKnowledgeBase.Models;
 
 namespace AsutpKnowledgeBase.Services
@@ -16,9 +18,13 @@ namespace AsutpKnowledgeBase.Services
 
     public sealed class KnowledgeBaseProductionCalendarJsonImportService
     {
+        private const string RussianDateFormat = "dd.MM.yyyy";
+        private const string IsoDateFormat = "yyyy-MM-dd";
+        private static readonly string[] DateFormats = { IsoDateFormat, RussianDateFormat };
         private static readonly JsonSerializerOptions SerializerOptions = new()
         {
-            PropertyNameCaseInsensitive = true
+            PropertyNameCaseInsensitive = true,
+            Converters = { new FlexibleDateOnlyJsonConverter() }
         };
 
         public KnowledgeBaseProductionCalendarJsonImportResult ImportJson(byte[]? jsonBytes)
@@ -83,7 +89,7 @@ namespace AsutpKnowledgeBase.Services
                     if (date.Year != year)
                     {
                         throw new InvalidOperationException(
-                            $"Дата {date:yyyy-MM-dd} не относится к {year} году производственного календаря.");
+                            $"Дата {date:dd.MM.yyyy} не относится к {year} году производственного календаря.");
                     }
 
                     dates.Add(date);
@@ -109,6 +115,38 @@ namespace AsutpKnowledgeBase.Services
         private sealed class ProductionCalendarImportDocument
         {
             public List<KbProductionCalendarYear> ProductionCalendarYears { get; set; } = new();
+        }
+
+        private sealed class FlexibleDateOnlyJsonConverter : JsonConverter<DateOnly>
+        {
+            public override DateOnly Read(
+                ref Utf8JsonReader reader,
+                Type typeToConvert,
+                JsonSerializerOptions options)
+            {
+                if (reader.TokenType != JsonTokenType.String)
+                    throw new JsonException("Дата производственного календаря должна быть строкой.");
+
+                string? value = reader.GetString();
+                if (DateOnly.TryParseExact(
+                        value,
+                        DateFormats,
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.None,
+                        out DateOnly date))
+                {
+                    return date;
+                }
+
+                throw new JsonException(
+                    $"Дата '{value}' указана в неверном формате. Используйте формат дд.мм.гггг.");
+            }
+
+            public override void Write(
+                Utf8JsonWriter writer,
+                DateOnly value,
+                JsonSerializerOptions options) =>
+                writer.WriteStringValue(value.ToString(IsoDateFormat, CultureInfo.InvariantCulture));
         }
     }
 }

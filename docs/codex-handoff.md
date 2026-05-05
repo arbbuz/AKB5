@@ -1,14 +1,14 @@
 # Current State
 
-Last updated: `2026-05-04`
+Last updated: `2026-05-05`
 
 ## Repo state
 
 - Repository root: `C:\Users\Olga\AKB5`
 - Active integration branch: `to`
 - Latest feature integration commit for the maintenance-planning stream: `2f2edb1 Add production calendar configuration`
-- Latest docs synchronization commit: `2f2edb1 Add production calendar configuration`
-- Latest local implementation, not committed yet: documentation distillation only; no app-code changes in this slice
+- Latest docs synchronization commit: `68d51b6 Distill roadmap state after Phase 7F`
+- Latest accepted implementation: `Phase 11A equipment catalog model` plus the production-calendar Russian date format follow-up
 - Implemented on this branch:
   - `Phase 0`
   - `Phase 1`
@@ -30,8 +30,8 @@ Last updated: `2026-05-04`
   - major `ТО2` / `ТО3` split across working days
   - maintenance-norm import coverage and mismatch reporting
   - `Phase 7F production-calendar configuration`
-- Current local docs-only slice: documentation distillation, uncommitted
-- Next step: review/commit the documentation distillation if requested, then wait for the next explicitly prioritized task
+- Current active gate: commit/push the accepted local changes
+- Next step after commit/push: implement `Phase 7F.1. Production calendar PDF import`
 
 ## Integrated feature state
 
@@ -117,11 +117,13 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 ## Active objective
 
 - Keep the completed `Phase 7` workflow on `to` stable as the baseline
-- Keep the requested documentation distillation as a docs-only local slice without changing app behavior
-- Wait for the next explicitly prioritized local slice before implementing more maintenance-planning work
+- Commit/push the accepted `Phase 11A` first slice; app UI is intentionally unchanged in this slice
+- Preserve the production-calendar follow-up behavior: manual calendar dates are shown as `дд.мм.гггг`, JSON import accepts both `дд.мм.гггг` and legacy ISO dates, and saved app JSON remains backward-compatible
+- Implement the accepted `Phase 7F.1` next: production-calendar import from PDF with preview, using text-layer parsing first and OCR only if real source PDFs require it
 - Preserve deterministic month placement as fallback for profiles that do not enable manual annual placement
 - Keep JSON as the source of truth for calendar configuration; generated workbooks remain report artifacts
 - Do not start `Phase 7G` unless it is first defined and accepted in the roadmap
+- Keep `Phase 12` deferred until Phase 11 is finished or explicitly redirected
 
 ## Durable decisions already made
 
@@ -142,6 +144,9 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - Stored `ТО1` / `ТО2` / `ТО3` norms are per-occurrence labor hours for one equipment unit, not monthly budgets
 - The hard planner constraint is the selected monthly workshop budget, not a daily `<= 8` cap
 - Production-calendar years live in `KbConfig.ProductionCalendarYears`; built-in `2025`/`2026` defaults are preserved, while future years can be added through UI or JSON import
+- `Phase 11` is approved as object templates and equipment catalog; `Phase 11A` contains the catalog model only and passed manual review
+- `Phase 7F.1` is approved as the immediate next follow-up before `Phase 11B`; it adds PDF import for production calendars because JSON import is inconvenient for ordinary use
+- `Phase 12` is approved as backup, snapshots, and change history after Phase 11
 - A single `ТО2` / `ТО3` occurrence above 8 hours is split into assignments of up to 8 hours; this is assignment chunking for major work, not a hard daily total cap
 - The planner may place more than one large maintenance item on the same day when needed; it only prefers to spread `ТО2` / `ТО3` apart when possible
 - The first release keeps deterministic rule-based month placement for `ТО2` / `ТО3`; a future yearly schedule source may replace that without redesigning the export pipeline
@@ -182,6 +187,9 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `Models/KbProductionCalendarYear.cs`
 - `Models/KbMaintenanceYearScheduleEntry.cs`
 - `Services/KnowledgeBaseProductionCalendarJsonImportService.cs`
+- `Models/KbEquipmentCatalogItem.cs`
+- `Services/KnowledgeBaseDataService.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseDataServiceTests.cs`
 - `Services/KnowledgeBaseMaintenanceYearScheduleSourceService.cs`
 - `Services/KnowledgeBaseMaintenanceYearScheduleSourceExchangeService.cs`
 - `Services/KnowledgeBaseMaintenanceWorkbookGenerationService.cs`
@@ -216,14 +224,14 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 
 ## Recommended next step
 
-- Review/commit the documentation distillation if requested
-- Then wait for the next explicitly prioritized task
-- Keep `Phase 7F` production-calendar configuration as the current completed baseline
+- Commit/push the accepted local changes
+- Start `Phase 7F.1. Production calendar PDF import`
+- Return to `Phase 11B. Equipment catalog UI` after `Phase 7F.1`, unless explicitly redirected
 
 ## Commands to run before finishing future implementation work
 
 ```powershell
 git status --short
-powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName <approved-step-name>
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase11a-equipment-catalog-model
 # The script stops at BUILD: PASS / TESTS: PASS and leaves artifacts in artifacts\verify\<step>.
 ```

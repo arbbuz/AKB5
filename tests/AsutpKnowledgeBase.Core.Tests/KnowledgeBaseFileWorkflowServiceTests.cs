@@ -207,6 +207,17 @@ public class KnowledgeBaseFileWorkflowServiceTests
                         }
                     }
                 },
+                EquipmentCatalogItems = new List<KbEquipmentCatalogItem>
+                {
+                    new()
+                    {
+                        CatalogItemId = "catalog-plc",
+                        EquipmentKind = "ПЛК",
+                        Manufacturer = "Siemens",
+                        Model = "CPU 1214C",
+                        DefaultNodeType = KbNodeType.Controller
+                    }
+                },
                 LastWorkshop = "  Цех 2  "
             };
 
@@ -230,6 +241,11 @@ public class KnowledgeBaseFileWorkflowServiceTests
             Assert.Equal("Цех 2", saved!.LastWorkshop);
             Assert.Equal(new[] { "Цех 2" }, saved.Workshops.Keys);
             Assert.Equal("Импортированный корень", saved.Workshops["Цех 2"].Single().Name);
+            KbEquipmentCatalogItem savedCatalogItem = Assert.Single(saved.EquipmentCatalogItems);
+            Assert.Equal("catalog-plc", savedCatalogItem.CatalogItemId);
+            Assert.Equal("CPU 1214C", savedCatalogItem.Model);
+            KbEquipmentCatalogItem sessionCatalogItem = Assert.Single(session.EquipmentCatalogItems);
+            Assert.Equal("catalog-plc", sessionCatalogItem.CatalogItemId);
             Assert.True(File.Exists($"{path}.bak"));
         }
         finally

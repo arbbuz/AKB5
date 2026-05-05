@@ -1,6 +1,6 @@
 # Plans
 
-Last updated: `2026-05-04`
+Last updated: `2026-05-05`
 
 ## Active plan
 
@@ -12,15 +12,19 @@ Last updated: `2026-05-04`
 - Treat the major `ТО2` / `ТО3` split across working days as completed on `to`
 - Treat the norm-import coverage and mismatch-reporting follow-up as completed on `to`
 - Treat `Phase 7F` production-calendar configuration as completed on `to`
-- Treat the current user request as a completed local documentation-only distillation of the completed roadmap/session state
+- Treat `Phase 7F.1. Production calendar PDF import` as the accepted immediate next follow-up
+- Treat `Phase 11. Object templates and equipment catalog` as the active approved roadmap block
+- Treat `Phase 11A. Equipment catalog model` as accepted after manual review
+- Treat the production-calendar Russian date format follow-up as accepted after manual review
+- Treat `Phase 12. Backup, snapshots, and change history` as approved after Phase 11
 - Keep JSON as the source of truth and keep the yearly workbook as a generated/report artifact
 - Keep all new user-facing UI strings Russian-only
 
 ## Near-term follow-up
 
-- Review/commit the documentation distillation if requested
-- Wait for the next explicitly prioritized task
-- Keep `Phase 7F` as the current completed baseline
+- Commit/push the accepted local changes
+- Implement `Phase 7F.1`: PDF production-calendar import with preview
+- Return to `Phase 11B. Equipment catalog UI` after `Phase 7F.1`, unless explicitly redirected
 
 ## Update rule
 

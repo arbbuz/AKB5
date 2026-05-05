@@ -12,6 +12,7 @@ namespace AsutpKnowledgeBase.Models
         public List<KbSoftwareRecord> SoftwareRecords { get; set; } = new();
         public List<KbNetworkFileReference> NetworkFileReferences { get; set; } = new();
         public List<KbMaintenanceScheduleProfile> MaintenanceScheduleProfiles { get; set; } = new();
+        public List<KbEquipmentCatalogItem> EquipmentCatalogItems { get; set; } = new();
         public string LastWorkshop { get; set; } = string.Empty;
     }
 }

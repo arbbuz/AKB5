@@ -19,6 +19,7 @@ public class KnowledgeBaseDataServiceTests
         Assert.Equal("Уровень 10", data.Config.LevelNames[9]);
         Assert.Contains(data.Config.ProductionCalendarYears, static year => year.Year == 2025);
         Assert.Contains(data.Config.ProductionCalendarYears, static year => year.Year == 2026);
+        Assert.Empty(data.EquipmentCatalogItems);
     }
 
     [Fact]
@@ -86,7 +87,7 @@ public class KnowledgeBaseDataServiceTests
                 }));
 
         Assert.Contains("2027", error.Message, StringComparison.Ordinal);
-        Assert.Contains("2028-01-01", error.Message, StringComparison.Ordinal);
+        Assert.Contains("01.01.2028", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -605,6 +606,167 @@ public class KnowledgeBaseDataServiceTests
         var profile = Assert.Single(normalized.MaintenanceScheduleProfiles);
         Assert.True(profile.IsIncludedInSchedule);
         Assert.Equal(2, profile.To1Hours);
+    }
+
+    [Fact]
+    public void NormalizeSavedData_NormalizesEquipmentCatalogItems()
+    {
+        var normalized = KnowledgeBaseDataService.NormalizeSavedData(
+            new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех"] = new()
+                },
+                EquipmentCatalogItems = new List<KbEquipmentCatalogItem>
+                {
+                    new()
+                    {
+                        CatalogItemId = " plc-1214 ",
+                        EquipmentKind = " ПЛК ",
+                        Manufacturer = " Siemens ",
+                        Series = " S7-1200 ",
+                        Model = " CPU 1214C ",
+                        DefaultNodeType = KbNodeType.Controller,
+                        Description = " Контроллер шкафа ",
+                        Properties =
+                        {
+                            new KbEquipmentCatalogProperty { Name = " Питание ", Value = " 24 В DC " },
+                            new KbEquipmentCatalogProperty { Name = "питание", Value = "дубликат" },
+                            new KbEquipmentCatalogProperty { Name = " ", Value = "пустое имя" },
+                            new KbEquipmentCatalogProperty { Name = " Интерфейс ", Value = " Profinet " }
+                        }
+                    },
+                    new()
+                    {
+                        EquipmentKind = "плк",
+                        Manufacturer = "siemens",
+                        Series = "s7-1200",
+                        Model = "cpu 1214c"
+                    },
+                    new()
+                    {
+                        EquipmentKind = " ",
+                        Manufacturer = "",
+                        Series = "",
+                        Model = ""
+                    }
+                },
+                LastWorkshop = "Цех"
+            });
+
+        KbEquipmentCatalogItem item = Assert.Single(normalized.EquipmentCatalogItems);
+        Assert.Equal("plc-1214", item.CatalogItemId);
+        Assert.Equal("ПЛК", item.EquipmentKind);
+        Assert.Equal("Siemens", item.Manufacturer);
+        Assert.Equal("S7-1200", item.Series);
+        Assert.Equal("CPU 1214C", item.Model);
+        Assert.Equal(KbNodeType.Controller, item.DefaultNodeType);
+        Assert.Equal("Контроллер шкафа", item.Description);
+        Assert.Equal(new[] { "Интерфейс", "Питание" }, item.Properties.Select(static property => property.Name));
+        Assert.Equal("Profinet", item.Properties[0].Value);
+        Assert.Equal("24 В DC", item.Properties[1].Value);
+    }
+
+    [Fact]
+    public void NormalizeSavedData_DefaultsInvalidEquipmentCatalogNodeType()
+    {
+        var normalized = KnowledgeBaseDataService.NormalizeSavedData(
+            new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех"] = new()
+                },
+                EquipmentCatalogItems = new List<KbEquipmentCatalogItem>
+                {
+                    new()
+                    {
+                        EquipmentKind = "Модуль",
+                        Manufacturer = "Phoenix Contact",
+                        Model = "DI 16",
+                        DefaultNodeType = (KbNodeType)999
+                    }
+                },
+                LastWorkshop = "Цех"
+            });
+
+        KbEquipmentCatalogItem item = Assert.Single(normalized.EquipmentCatalogItems);
+        Assert.Equal(KbNodeType.Device, item.DefaultNodeType);
+    }
+
+    [Fact]
+    public void NormalizeSavedData_SkipsDuplicateEquipmentCatalogIds()
+    {
+        var normalized = KnowledgeBaseDataService.NormalizeSavedData(
+            new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех"] = new()
+                },
+                EquipmentCatalogItems = new List<KbEquipmentCatalogItem>
+                {
+                    new()
+                    {
+                        CatalogItemId = "catalog-shared",
+                        EquipmentKind = "ПЛК",
+                        Manufacturer = "Siemens",
+                        Model = "CPU 1214C"
+                    },
+                    new()
+                    {
+                        CatalogItemId = " catalog-shared ",
+                        EquipmentKind = "Панель оператора",
+                        Manufacturer = "Siemens",
+                        Model = "KTP700"
+                    }
+                },
+                LastWorkshop = "Цех"
+            });
+
+        KbEquipmentCatalogItem item = Assert.Single(normalized.EquipmentCatalogItems);
+        Assert.Equal("catalog-shared", item.CatalogItemId);
+        Assert.Equal("CPU 1214C", item.Model);
+    }
+
+    [Fact]
+    public void SerializeSnapshot_IncludesEquipmentCatalogItems()
+    {
+        var snapshot = KnowledgeBaseDataService.SerializeSnapshot(
+            KnowledgeBaseDataService.CreateDefaultConfig(),
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Цех"] = new()
+            },
+            compositionEntries: null,
+            documentLinks: null,
+            softwareRecords: null,
+            networkFileReferences: null,
+            maintenanceScheduleProfiles: null,
+            equipmentCatalogItems:
+            [
+                new KbEquipmentCatalogItem
+                {
+                    CatalogItemId = "catalog-hmi",
+                    EquipmentKind = "Панель оператора",
+                    Manufacturer = "Siemens",
+                    Model = "KTP700",
+                    DefaultNodeType = KbNodeType.Device
+                }
+            ],
+            currentWorkshop: "Цех",
+            includeCurrentWorkshop: true);
+
+        var restored = JsonSerializer.Deserialize<SavedData>(snapshot);
+
+        Assert.NotNull(restored);
+        KbEquipmentCatalogItem item = Assert.Single(restored!.EquipmentCatalogItems);
+        Assert.Equal("catalog-hmi", item.CatalogItemId);
+        Assert.Equal("KTP700", item.Model);
     }
 
     [Fact]

@@ -132,7 +132,7 @@ namespace AsutpKnowledgeBase.Services
                 if (date.Year != year)
                 {
                     throw new ArgumentException(
-                        $"Дата {date:yyyy-MM-dd} не относится к {year} году.",
+                        $"Дата {date:dd.MM.yyyy} не относится к {year} году.",
                         nameof(dates));
                 }
 

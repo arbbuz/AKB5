@@ -59,6 +59,29 @@ public class KnowledgeBaseProductionCalendarJsonImportServiceTests
     }
 
     [Fact]
+    public void ImportJson_ReadsRussianDateFormat()
+    {
+        byte[] json = Encoding.UTF8.GetBytes(
+            """
+            {
+              "ProductionCalendarYears": [
+                {
+                  "Year": 2028,
+                  "AdditionalNonWorkingDays": [ "10.01.2028" ]
+                }
+              ]
+            }
+            """);
+
+        KnowledgeBaseProductionCalendarJsonImportResult result = _service.ImportJson(json);
+
+        Assert.True(result.IsSuccess);
+        var year = Assert.Single(result.ProductionCalendarYears);
+        Assert.Equal(2028, year.Year);
+        Assert.Equal(new DateOnly(2028, 1, 10), Assert.Single(year.AdditionalNonWorkingDays));
+    }
+
+    [Fact]
     public void ImportJson_RejectsDatesFromAnotherYear()
     {
         byte[] json = Encoding.UTF8.GetBytes(
@@ -76,7 +99,7 @@ public class KnowledgeBaseProductionCalendarJsonImportServiceTests
         KnowledgeBaseProductionCalendarJsonImportResult result = _service.ImportJson(json);
 
         Assert.False(result.IsSuccess);
-        Assert.Contains("2028-01-01", result.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains("01.01.2028", result.ErrorMessage, StringComparison.Ordinal);
         Assert.Contains("2027", result.ErrorMessage, StringComparison.Ordinal);
     }
 }
