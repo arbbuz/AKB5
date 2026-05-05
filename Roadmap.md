@@ -60,7 +60,7 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - On 2026-04-28, the current `Phase 6` worktree passed verification build, passed `dotnet test` (`177/177`), and `asutpKB.exe` startup was rechecked after the final `Network` UX fixes.
 - Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition, but further workbook modernization is no longer the preferred next phase.
 - Current CI workflow also verifies `dotnet format --verify-no-changes` for the app project, core project, and tests before `build` / `test`.
-- The next roadmap phase is now maintenance-schedule generation, not typed-data workbook redesign.
+- The maintenance-schedule generation roadmap through `Phase 7F` is complete on `to`; no next coding phase is currently prioritized.
 - `Phase 7A` is complete on `to`: `Lvl2` inventory number support now follows visible hierarchy level, typed `MaintenanceScheduleProfiles` are persisted in JSON/session state, and engineering nodes expose a `График ТО` tab with per-node `ТО1` / `ТО2` / `ТО3` hour norms.
 - `Phase 7B` is complete on `to`: Russian production-calendar calculation for `5/2` workdays is available as a reusable service.
 - `Phase 7F` is complete on `to`: production-calendar years are persisted in JSON config, editable from the Russian UI, importable from JSON, and consumed by maintenance schedule generation.
@@ -622,6 +622,7 @@ Completed on `to`:
 Remaining:
 
 1. No next coding phase is currently prioritized
+2. No `Phase 7G` exists in this roadmap yet; define and accept its scope before implementation
 
 ## AI handoff / next-dialog instructions
 
@@ -631,14 +632,15 @@ When a new AI session starts, read in this exact order:
 2. `docs/codex-handoff.md`
 3. `Roadmap.md`
 
-Then continue from the next unfinished phase only.
+Then continue from the next explicitly prioritized task only. If no task is prioritized, do not invent a new phase.
 
 Recommended prompt for the next AI session:
 
 ```text
 Read AGENTS.md, docs/codex-handoff.md, and Roadmap.md.
 We are on branch to.
-Continue implementation from the next unfinished roadmap phase.
+Continue implementation only from the next explicitly prioritized roadmap task.
+If Roadmap.md says no next coding phase is prioritized, stop after reporting the current state.
 Do not redesign the roadmap unless you find a concrete technical contradiction in the codebase.
 Keep JSON source-of-truth compatibility and treat Excel v3 as a legacy transition layer.
 ```
@@ -647,8 +649,9 @@ Keep JSON source-of-truth compatibility and treat Excel v3 as a legacy transitio
 
 Continue from the next explicitly prioritized task:
 
-- preserve the completed `Phase 7A` / `7B` / `7C` / `7D` workflow as the current baseline
+- preserve the completed `Phase 7A` / `7B` / `7C` / `7D` / `7E` / `7F` workflow as the current baseline
 - wait for the next explicitly prioritized task from the chief developer
+- do not start a new `Phase 7G` until it is defined in this roadmap
 - treat future-month recalculation as completed `Phase 7D` orchestration/workflow built on top of the existing monthly engine, not as a replacement for it
 - keep workbook `v3` readable as legacy, but do not expand it as the main feature direction
 - keep JSON source-of-truth compatibility and preserve Russian-only UI

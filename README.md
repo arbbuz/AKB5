@@ -12,11 +12,11 @@ Current direction of the project:
 - Excel workbook `v3` remains a legacy transition exchange format
 - user-facing program UI is Russian-only
 
-The active integration branch is `interface`.
+The active integration branch is `to`.
 
 ## Current implementation state
 
-Implemented on `interface`:
+Implemented on `to`:
 
 - `Phase 0` - user-facing levels removed from the main UX
 - `Phase 1` - persistent `NodeId` / `NodeType` foundation and migration
@@ -25,10 +25,20 @@ Implemented on `interface`:
 - `Phase 3B` - composition templates and copy-from-existing-object
 - `Phase 4` - typed `Documentation and Software`
 - `Phase 5` - scoped search across `Tree`, `Card`, `Composition`, and `Docs/Software`
+- `Phase 6` - file-based `Network` tab with image preview and `Open original`
+- `Phase 7A` - maintenance-planning domain foundation, inventory number support, `График ТО` profiles
+- `Phase 7B` - Russian `5/2` production-calendar workday calculation
+- `Phase 7C` - monthly maintenance planning engine with monthly workshop budget validation
+- `Phase 7D` - template-driven monthly/yearly maintenance workbook generation and future-month recalculation
+- `Phase 7E` - manual annual `ТО1` / `ТО2` / `ТО3` placement source in JSON
+- `Phase 7E.2` - Excel source exchange for annual ТО placement
+- `Phase 7E` follow-ups - in-app source mass-editing grid, large `ТО2` / `ТО3` work splitting, norm-import matching/reporting
+- `Phase 7F` - production-calendar configuration through JSON, UI editor, and JSON import
 
-Next roadmap phase:
+Next approved work:
 
-- `Phase 6` - file-based `Network` tab
+- no `Phase 7G` is approved in `Roadmap.md`
+- wait for the next explicitly prioritized task before adding new scope
 
 ## Data and persistence
 
@@ -44,6 +54,9 @@ Core persisted structures:
 - `SavedData.CompositionEntries`
 - `SavedData.DocumentLinks`
 - `SavedData.SoftwareRecords`
+- `SavedData.NetworkFileReferences`
+- `SavedData.MaintenanceScheduleProfiles`
+- `Config.ProductionCalendarYears`
 
 Important persistence rules:
 
@@ -53,7 +66,7 @@ Important persistence rules:
 
 ## Search
 
-Current search behavior on `interface`:
+Current search behavior on `to`:
 
 - indexed matches across `Tree`, `Card`, `Composition`, and `Docs/Software`
 - scopes: `All`, `Tree`, `Card`, `Composition`, `Docs/Software`
@@ -71,6 +84,24 @@ It stores typed records for:
 - software folders / software links
 
 Software links record `AddedAt` in the main UI workflow.
+
+## Maintenance schedule generation
+
+The maintenance workflow is implemented through `Phase 7F` on branch `to`.
+
+Current behavior:
+
+- maintenance settings are stored in `SavedData.MaintenanceScheduleProfiles` keyed by stable `OwnerNodeId`
+- `ТО1` is monthly, `ТО2` is quarterly, `ТО3` is annual
+- `ТО2` includes `ТО1`; `ТО3` includes `ТО1` and `ТО2`
+- stored norms are per-occurrence labor hours, not monthly budgets
+- the hard planner constraint is the selected monthly workshop budget, not a daily `<= 8` cap
+- large `ТО2` / `ТО3` occurrences can be split into assignments up to 8 hours across working days
+- manual annual placement is stored as per-profile `YearScheduleEntries`; empty entries keep deterministic fallback placement
+- yearly source exchange edits only `YearScheduleEntries` and does not change norms, inclusion flags, or calendar settings
+- generated maintenance workbooks are report artifacts; JSON remains the source of truth
+- production-calendar years are configured in `Config.ProductionCalendarYears` through `Файл -> Производственный календарь...` or JSON import
+- production-calendar JSON import accepts either `{ "ProductionCalendarYears": [...] }` or an array of year objects; each date must belong to its configured year
 
 ## Excel workbook `v3`
 
@@ -110,9 +141,9 @@ Typical local verification:
 ```powershell
 dotnet restore asutpKB.csproj
 dotnet restore tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj
-dotnet format asutpKB.csproj --verify-no-changes --severity warn --no-restore
-dotnet format src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity warn --no-restore
-dotnet format tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity warn --no-restore
+dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet format src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
+dotnet format tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
 dotnet build asutpKB.csproj -c Release --no-restore
 dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-restore
 ```

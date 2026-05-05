@@ -12,11 +12,13 @@ Last updated: `2026-05-04`
 - Treat the major `ТО2` / `ТО3` split across working days as completed on `to`
 - Treat the norm-import coverage and mismatch-reporting follow-up as completed on `to`
 - Treat `Phase 7F` production-calendar configuration as completed on `to`
+- Treat the current user request as a completed local documentation-only distillation of the completed roadmap/session state
 - Keep JSON as the source of truth and keep the yearly workbook as a generated/report artifact
 - Keep all new user-facing UI strings Russian-only
 
 ## Near-term follow-up
 
+- Review/commit the documentation distillation if requested
 - Wait for the next explicitly prioritized task
 - Keep `Phase 7F` as the current completed baseline
 

@@ -6,9 +6,9 @@ Last updated: `2026-05-04`
 
 - Repository root: `C:\Users\Olga\AKB5`
 - Active integration branch: `to`
-- Latest feature integration commit for the maintenance-planning stream: current `Phase 7F production-calendar configuration` branch head
-- Latest docs synchronization commit: current `Phase 7F production-calendar configuration` branch head
-- Latest local implementation, not committed yet: none
+- Latest feature integration commit for the maintenance-planning stream: `2f2edb1 Add production calendar configuration`
+- Latest docs synchronization commit: `2f2edb1 Add production calendar configuration`
+- Latest local implementation, not committed yet: documentation distillation only; no app-code changes in this slice
 - Implemented on this branch:
   - `Phase 0`
   - `Phase 1`
@@ -30,8 +30,8 @@ Last updated: `2026-05-04`
   - major `ТО2` / `ТО3` split across working days
   - maintenance-norm import coverage and mismatch reporting
   - `Phase 7F production-calendar configuration`
-- Current local slice verified and waiting manual review: none
-- Next step: wait for the next explicitly prioritized task
+- Current local docs-only slice: documentation distillation, uncommitted
+- Next step: review/commit the documentation distillation if requested, then wait for the next explicitly prioritized task
 
 ## Integrated feature state
 
@@ -112,13 +112,16 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - Startup smoke was not rerun for the final `Phase 7D` completion slice
 - Manual UI validation of the new production-calendar editor/import workflow passed by user
 - Full Excel round-trip validation (`generate -> open -> edit/save -> import back`) was not run
+- Current documentation-distillation slice is docs-only; build/test/harness are not required unless code changes are added
 
 ## Active objective
 
 - Keep the completed `Phase 7` workflow on `to` stable as the baseline
+- Keep the requested documentation distillation as a docs-only local slice without changing app behavior
 - Wait for the next explicitly prioritized local slice before implementing more maintenance-planning work
 - Preserve deterministic month placement as fallback for profiles that do not enable manual annual placement
 - Keep JSON as the source of truth for calendar configuration; generated workbooks remain report artifacts
+- Do not start `Phase 7G` unless it is first defined and accepted in the roadmap
 
 ## Durable decisions already made
 
@@ -213,13 +216,14 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 
 ## Recommended next step
 
-- Wait for the next explicitly prioritized task
+- Review/commit the documentation distillation if requested
+- Then wait for the next explicitly prioritized task
 - Keep `Phase 7F` production-calendar configuration as the current completed baseline
 
 ## Commands to run before finishing future implementation work
 
 ```powershell
 git status --short
-powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7f-production-calendar-config
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName <approved-step-name>
 # The script stops at BUILD: PASS / TESTS: PASS and leaves artifacts in artifacts\verify\<step>.
 ```

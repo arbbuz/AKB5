@@ -61,3 +61,5 @@ Last updated: `2026-05-04`
 - Replace stale statements instead of appending transcripts
 - For this repo, the default delivery loop is `one step -> scripts/verify-step.ps1 -> stop -> manual review -> commit/push`
 - When a branch or roadmap baseline changes, synchronize the handoff/docs promptly or future sessions will continue from the wrong branch and the wrong assumptions
+- Do not treat a user-supplied phase label such as `7G` as approved scope if `Roadmap.md` has no such phase; first define and accept the scope in the roadmap
+- Documentation distillation should include `AGENTS.md` and `README.md` when they contain branch or phase summaries; otherwise stale startup guidance can override the current handoff

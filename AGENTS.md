@@ -7,11 +7,12 @@
 - Entry point: `Program.cs`, which boots `MainForm`.
 - Current engineering mode: pragmatic refactoring and stabilization, not rewrite.
 - The active roadmap implementation branch is currently `to`; `main` remains the stable branch.
-- Roadmap phases `0` through `7D` are already implemented on `to`. The next unfinished roadmap phase is `Phase 7E`.
+- Roadmap phases `0` through `7F` are implemented on `to`; no `Phase 7G` exists in the approved roadmap yet.
+- The next coding task must be explicitly prioritized before implementation starts.
 - JSON remains the source of truth. Excel exchange is a separate import/export layer.
 - Current Excel implementation uses `DocumentFormat.OpenXml` and `WorkbookFormatVersion = 3`. Legacy `v1/v2` import is no longer supported.
 - CI now enforces `dotnet format --verify-no-changes` for the WinForms app, core library, and tests before `build`/`test`.
-- The active task context is always kept in `docs/codex-handoff.md`. Read it before planning changes.
+- The active task context is always kept in `docs/codex-handoff.md`. Read it before planning changes; it is the source of truth for current completed phase, validation status, and next step.
 - The session knowledge harness is split by role:
   - `docs/codex-handoff.md` for current state
   - `docs/plans.md` for active plans

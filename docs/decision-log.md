@@ -18,6 +18,8 @@ Last updated: `2026-05-04`
 - Production-calendar years are persisted in `KbConfig.ProductionCalendarYears`; built-in `2025`/`2026` defaults are preserved and future years are added through UI or JSON import
 - Production-calendar import is JSON-specific and separate from the legacy Excel `v3` database exchange and from the yearly ТО source workbook
 - Missing production-calendar years should guide the user to `Файл -> Производственный календарь...` or JSON import instead of requiring a code change
+- There is no approved `Phase 7G` in `Roadmap.md`; new work after `Phase 7F` must be defined and accepted before implementation
+- Documentation distillation must update the full handoff harness and public-facing project docs when branch/phase state changes, not only `docs/codex-handoff.md`
 
 ## 2026-04-30
 
