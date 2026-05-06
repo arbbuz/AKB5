@@ -37,11 +37,13 @@ Implemented on `to`:
 - `Phase 7F.1` - PDF production-calendar import, verified, accepted, committed, and pushed on `to`
 - `Phase 11A` - equipment catalog model, accepted after manual review
 - `Phase 11B` - Russian equipment catalog UI for list/add/edit/delete/search
+- `Phase 11C` - object-template model, accepted after manual review
+- `Phase 11D` - create tree objects from persisted object templates, accepted after manual review
 
 Next approved work:
 
 - no `Phase 7G` is approved in `Roadmap.md`
-- immediate follow-up: `Phase 11C. Object template model`, unless redirected
+- immediate follow-up: `Phase 11E. Save existing object as template`, unless redirected
 - `Phase 12. Backup, snapshots, and change history`
 
 ## Data and persistence
@@ -60,6 +62,7 @@ Core persisted structures:
 - `SavedData.SoftwareRecords`
 - `SavedData.NetworkFileReferences`
 - `SavedData.MaintenanceScheduleProfiles`
+- `SavedData.ObjectTemplates`
 - `Config.ProductionCalendarYears`
 
 Important persistence rules:

@@ -27,6 +27,9 @@ namespace AsutpKnowledgeBase.Services
             return parentNode == null ? service.CanAddRootNode() : service.CanAddChild(parentNode);
         }
 
+        public bool CanAttachSubtree(KbNode? parentNode, KbNode subtreeRoot) =>
+            CreateKnowledgeBaseService().CanAttachSubtree(parentNode, subtreeRoot);
+
         public KbNode AddNode(string workshopName, KbNode? parentNode, string nodeName) =>
             AddNode(
                 workshopName,

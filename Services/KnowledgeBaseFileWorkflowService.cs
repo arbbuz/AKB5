@@ -247,6 +247,7 @@ namespace AsutpKnowledgeBase.Services
                 NetworkFileReferences = data.NetworkFileReferences ?? new List<KbNetworkFileReference>(),
                 MaintenanceScheduleProfiles = data.MaintenanceScheduleProfiles ?? new List<KbMaintenanceScheduleProfile>(),
                 EquipmentCatalogItems = data.EquipmentCatalogItems ?? new List<KbEquipmentCatalogItem>(),
+                ObjectTemplates = data.ObjectTemplates ?? new List<KbObjectTemplate>(),
                 LastWorkshop = lastWorkshop
             };
 

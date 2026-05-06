@@ -251,6 +251,41 @@ public class KnowledgeBaseSessionServiceTests
     }
 
     [Fact]
+    public void RefreshDirtyState_ObjectTemplatesAffectSnapshot()
+    {
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(
+            new SavedData
+            {
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех 1"] = new()
+                },
+                LastWorkshop = "Цех 1"
+            },
+            recordAsSavedState: true);
+
+        session.ReplaceObjectTemplates(
+            new[]
+            {
+                new KbObjectTemplate
+                {
+                    TemplateId = "template-cabinet",
+                    DisplayName = "Шкаф",
+                    RootNode = new KbObjectTemplateNode
+                    {
+                        TemplateNodeId = "root",
+                        Name = "Шкаф",
+                        NodeType = KbNodeType.Cabinet
+                    }
+                }
+            });
+        session.RefreshDirtyState(session.GetCurrentWorkshopNodes());
+
+        Assert.True(session.IsDirty);
+    }
+
+    [Fact]
     public void TryAddWorkshop_RejectsDuplicateNamesIgnoringTrimAndCase()
     {
         var session = new KnowledgeBaseSessionService();

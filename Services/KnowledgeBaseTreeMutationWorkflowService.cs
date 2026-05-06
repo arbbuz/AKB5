@@ -41,6 +41,7 @@ namespace AsutpKnowledgeBase.Services
         private readonly KnowledgeBaseSessionWorkflowService _sessionWorkflowService;
         private readonly KnowledgeBaseTreeController _treeController;
         private readonly KnowledgeBaseCompositionTemplateService _compositionTemplateService = new();
+        private readonly KnowledgeBaseObjectTemplateService _objectTemplateService = new();
         private readonly UndoRedoService _history;
 
         public KnowledgeBaseTreeMutationWorkflowService(
@@ -67,11 +68,21 @@ namespace AsutpKnowledgeBase.Services
             _treeController.CanAddNode(parentNode) &&
             _compositionTemplateService.TryResolveTemplateChildType(parentNode, out _);
 
+        public bool HasObjectTemplates => _session.ObjectTemplates.Count > 0;
+
+        public bool CanCreateObjectFromTemplate(KbNode? parentNode) =>
+            GetAvailableObjectTemplates(parentNode).Count > 0;
+
         public bool CanPasteNode(KbNode? parentNode) => _treeController.CanPasteNode(parentNode);
 
         public void ClearClipboard() => _treeController.ClearClipboard();
 
         public void CopyNode(KbNode node) => _treeController.CopyNode(node);
+
+        public IReadOnlyList<KbObjectTemplate> GetAvailableObjectTemplates(KbNode? parentNode) =>
+            _session.ObjectTemplates
+                .Where(template => CanAttachObjectTemplate(parentNode, template))
+                .ToList();
 
         public KnowledgeBaseTreeMutationResult AddNode(
             string workshopName,
@@ -171,6 +182,61 @@ namespace AsutpKnowledgeBase.Services
             return Success(
                 $"вћ• Р”РѕР±Р°РІР»РµРЅРѕ РїРѕ С€Р°Р±Р»РѕРЅСѓ: {newNode.Name}",
                 newNode);
+        }
+
+        public KnowledgeBaseTreeMutationResult CreateObjectFromTemplate(
+            string workshopName,
+            KbNode? parentNode,
+            string templateId,
+            string rootNameOverride,
+            List<KbNode> currentRoots)
+        {
+            var template = FindObjectTemplate(templateId);
+            if (template == null)
+            {
+                return Failure(
+                    KnowledgeBaseTreeMutationFailure.TemplateUnavailable,
+                    "Шаблон объекта не найден.");
+            }
+
+            var instance = _objectTemplateService.CreateInstance(template, rootNameOverride);
+            if (!instance.IsSuccess || instance.RootNode == null)
+            {
+                return Failure(
+                    KnowledgeBaseTreeMutationFailure.TemplateUnavailable,
+                    instance.ErrorMessage);
+            }
+
+            if (!_treeController.CanAttachSubtree(parentNode, instance.RootNode))
+            {
+                return Failure(
+                    KnowledgeBaseTreeMutationFailure.DepthLimitExceeded,
+                    $"Поддерево шаблона не помещается в глубину {_session.Config.MaxLevels}.");
+            }
+
+            string historySnapshot = CaptureHistorySnapshot(currentRoots);
+            KbNode createdNode = _treeController.AddNode(workshopName, parentNode, instance.RootNode);
+
+            if (instance.CompositionEntries.Count > 0)
+                _session.ReplaceCompositionEntries(_session.CompositionEntries.Concat(instance.CompositionEntries));
+
+            if (instance.DocumentLinks.Count > 0)
+                _session.ReplaceDocumentLinks(_session.DocumentLinks.Concat(instance.DocumentLinks));
+
+            if (instance.SoftwareRecords.Count > 0)
+                _session.ReplaceSoftwareRecords(_session.SoftwareRecords.Concat(instance.SoftwareRecords));
+
+            if (instance.NetworkFileReferences.Count > 0)
+                _session.ReplaceNetworkFileReferences(_session.NetworkFileReferences.Concat(instance.NetworkFileReferences));
+
+            if (instance.MaintenanceScheduleProfiles.Count > 0)
+                _session.ReplaceMaintenanceScheduleProfiles(
+                    _session.MaintenanceScheduleProfiles.Concat(instance.MaintenanceScheduleProfiles));
+
+            PersistVirtualWorkshopWrapperIfNeeded(parentNode, currentRoots);
+            _history.SaveState(historySnapshot);
+
+            return Success($"Создано из шаблона объекта: {createdNode.Name}", createdNode);
         }
 
         public KnowledgeBaseTreeMutationResult DeleteNode(
@@ -302,6 +368,33 @@ namespace AsutpKnowledgeBase.Services
 
             currentRoots.Add(parentNode);
             _session.SyncCurrentWorkshop(currentRoots);
+        }
+
+        private bool CanAttachObjectTemplate(KbNode? parentNode, KbObjectTemplate template)
+        {
+            if (template.RootNode == null || _session.Config.MaxLevels <= 0)
+                return false;
+
+            int newRootLevel = parentNode == null ? 0 : parentNode.LevelIndex + 1;
+            return newRootLevel + GetObjectTemplateHeight(template.RootNode) <= _session.Config.MaxLevels;
+        }
+
+        private static int GetObjectTemplateHeight(KbObjectTemplateNode node)
+        {
+            if (node.Children.Count == 0)
+                return 1;
+
+            return 1 + node.Children.Max(GetObjectTemplateHeight);
+        }
+
+        private KbObjectTemplate? FindObjectTemplate(string? templateId)
+        {
+            string normalizedTemplateId = templateId?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(normalizedTemplateId))
+                return null;
+
+            return _session.ObjectTemplates.FirstOrDefault(template =>
+                string.Equals(template.TemplateId, normalizedTemplateId, StringComparison.Ordinal));
         }
 
         private KnowledgeBaseTreeMutationResult RestoreSnapshot(string snapshot, string statusText)

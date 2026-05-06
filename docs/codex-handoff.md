@@ -8,7 +8,8 @@ Last updated: `2026-05-06`
 - Active integration branch: `to`
 - Latest feature integration commit for the maintenance-planning stream: `09bf84d Add production calendar PDF import`
 - Latest docs synchronization commit: `68d51b6 Distill roadmap state after Phase 7F`
-- Latest accepted implementation: `Phase 11B equipment catalog UI`
+- Latest accepted implementation: `Phase 11D create from template`
+- Current local implementation awaiting manual review: none
 - Implemented on this branch:
   - `Phase 0`
   - `Phase 1`
@@ -31,7 +32,11 @@ Last updated: `2026-05-06`
   - maintenance-norm import coverage and mismatch reporting
   - `Phase 7F production-calendar configuration`
   - `Phase 7F.1 production-calendar PDF import`
-- Current active gate: continue to `Phase 11C. Object template model` unless redirected
+  - `Phase 11A equipment catalog model`
+  - `Phase 11B equipment catalog UI`
+  - `Phase 11C object template model`
+  - `Phase 11D create from template`
+- Current active gate: continue to `Phase 11E. Save existing object as template`
 - `Phase 11B. Equipment catalog UI` was committed and pushed on `to` as `f80873f Add equipment catalog UI`
 
 ## Integrated feature state
@@ -87,9 +92,49 @@ Last updated: `2026-05-06`
   - `Phase 11A` adds the top-level JSON equipment catalog model and normalization
   - `Phase 11B` adds `Файл -> Каталог оборудования...` for listing, adding, editing, deleting, and searching equipment catalog items
   - catalog editing remains separate from tree editing and object-template creation
+  - local `Phase 11C` adds top-level JSON/session object templates, template nodes keyed by `TemplateNodeId`, normalization, and an instantiation service that generates fresh real `NodeId` values and remaps linked defaults
+  - local `Phase 11D` adds a tree context-menu command `Создать объект из шаблона...` and a Russian selection dialog for persisted object templates
+  - creating from a template inserts the whole template subtree, applies normal tree reindexing/depth checks, and appends remapped composition, document/software, network-file, and maintenance-profile defaults
+  - `Phase 11D` intentionally does not add template creation/editing; saving an existing object as a template remains `Phase 11E`
 - User-facing application UI on `to` remains Russian-only
 
 ## Validated status
+
+Actually run on the worktree for local `Phase 11D` on `2026-05-06`:
+
+```powershell
+dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
+dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
+dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --no-restore --filter "KnowledgeBaseTreeMutationWorkflowServiceTests|KnowledgeBaseObjectTemplateServiceTests|KnowledgeBaseDataServiceTests|KnowledgeBaseSessionServiceTests|KnowledgeBaseFileWorkflowServiceTests"
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase11d-create-from-template
+```
+
+- `dotnet format --verify-no-changes`: passed for app, core, and tests
+- Targeted create-from-template/object-template/data/session/workflow tests: passed, `58/58`
+- Verification `dotnet build`: passed for `phase11d-create-from-template`
+- `dotnet test`: passed, `294/294`
+- Verification artifacts: `artifacts\verify\phase11d-create-from-template`
+- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase11d-create-from-template\build\Release\net8.0-windows\asutpKB.exe`
+- Status: manual review passed; user requested commit/push before starting Phase 11E
+
+Actually run on the worktree for local `Phase 11C` on `2026-05-06`:
+
+```powershell
+dotnet build asutpKB.csproj --no-restore
+dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --no-restore --filter "KnowledgeBaseObjectTemplateServiceTests|KnowledgeBaseDataServiceTests|KnowledgeBaseSessionServiceTests|KnowledgeBaseFileWorkflowServiceTests"
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase11c-object-template-model
+```
+
+- App build: passed with `0` warnings and `0` errors
+- `dotnet format --verify-no-changes`: passed
+- Targeted object-template/data/session/workflow tests: passed, `46/46`
+- Verification `dotnet build`: passed for `phase11c-object-template-model`
+- `dotnet test`: passed, `292/292`
+- Verification artifacts: `artifacts\verify\phase11c-object-template-model`
+- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase11c-object-template-model\build\Release\net8.0-windows\asutpKB.exe`
+- Status: manual review passed together with Phase 11D; user requested commit/push before starting Phase 11E
 
 Actually run on the worktree for local `Phase 11B` on `2026-05-06`:
 
@@ -164,7 +209,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 ## Active objective
 
 - Keep the completed `Phase 7` workflow on `to` stable as the baseline
-- Continue from `Phase 11C. Object template model` unless redirected
+- Continue to `Phase 11E. Save existing object as template` unless redirected
 - Preserve the production-calendar follow-up behavior: manual calendar dates are shown as `дд.мм.гггг`, JSON import accepts both `дд.мм.гггг` and legacy ISO dates, saved app JSON remains backward-compatible, and additional working days can represent transferred working weekends
 - Keep `Phase 11B` as the accepted equipment-catalog UI baseline
 - Preserve deterministic month placement as fallback for profiles that do not enable manual annual placement
@@ -194,6 +239,10 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `Phase 11` is approved as object templates and equipment catalog; `Phase 11A` contains the catalog model only and passed manual review
 - `Phase 7F.1` is accepted after manual review and committed/pushed as `09bf84d`; it adds PDF import for production calendars because JSON import is inconvenient for ordinary use
 - `Phase 11B` keeps catalog editing separate from tree editing and object-template creation; it only maintains catalog records
+- `Phase 11C` kept object templates as data/model/service work only; `Phase 11D` adds the create-from-template UI/workflow on top of it
+- `Phase 11C` templates use `TemplateNodeId` for internal references and generate fresh persisted `NodeId` values only when instantiated
+- `Phase 11D` creates objects only from already persisted `SavedData.ObjectTemplates`; creating/editing/saving templates remains a later slice
+- The user confirmed manual review of Phase 11D and explicitly requested committing/pushing the Phase 11C/11D stack before Phase 11E
 - `Phase 12` is approved as backup, snapshots, and change history after Phase 11
 - A single `ТО2` / `ТО3` occurrence above 8 hours is split into assignments of up to 8 hours; this is assignment chunking for major work, not a hard daily total cap
 - The planner may place more than one large maintenance item on the same day when needed; it only prefers to spread `ТО2` / `ТО3` apart when possible
@@ -283,12 +332,12 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 
 ## Recommended next step
 
-- Continue to `Phase 11C. Object template model` unless redirected
+- Continue to `Phase 11E. Save existing object as template` unless redirected
 
 ## Commands to run before finishing future implementation work
 
 ```powershell
 git status --short
-powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase11b-equipment-catalog-ui
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName <active-step-name>
 # The script stops at BUILD: PASS / TESTS: PASS and leaves artifacts in artifacts\verify\<step>.
 ```

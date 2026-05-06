@@ -20,6 +20,7 @@ public class KnowledgeBaseDataServiceTests
         Assert.Contains(data.Config.ProductionCalendarYears, static year => year.Year == 2025);
         Assert.Contains(data.Config.ProductionCalendarYears, static year => year.Year == 2026);
         Assert.Empty(data.EquipmentCatalogItems);
+        Assert.Empty(data.ObjectTemplates);
     }
 
     [Fact]
@@ -795,6 +796,219 @@ public class KnowledgeBaseDataServiceTests
         KbEquipmentCatalogItem item = Assert.Single(restored!.EquipmentCatalogItems);
         Assert.Equal("catalog-hmi", item.CatalogItemId);
         Assert.Equal("KTP700", item.Model);
+    }
+
+    [Fact]
+    public void NormalizeSavedData_NormalizesObjectTemplates()
+    {
+        var normalized = KnowledgeBaseDataService.NormalizeSavedData(
+            new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех"] = new()
+                },
+                ObjectTemplates = new List<KbObjectTemplate>
+                {
+                    new()
+                    {
+                        TemplateId = " cabinet-template ",
+                        DisplayName = " Типовой шкаф ",
+                        Description = " Шаблон шкафа ",
+                        Category = " Шкафы ",
+                        RootNode = new KbObjectTemplateNode
+                        {
+                            TemplateNodeId = " cabinet ",
+                            CatalogItemId = " catalog-cabinet ",
+                            Name = " Шкаф АСУТП ",
+                            NodeType = KbNodeType.Cabinet,
+                            Details = new KbNodeDetails
+                            {
+                                Description = " Вводной шкаф ",
+                                Location = " Машзал ",
+                                InventoryNumber = " INV-001 ",
+                                IpAddress = " 192.168.1.10 "
+                            },
+                            Children =
+                            {
+                                new KbObjectTemplateNode
+                                {
+                                    TemplateNodeId = " controller ",
+                                    Name = " Контроллер ",
+                                    NodeType = KbNodeType.Controller
+                                }
+                            }
+                        },
+                        CompositionEntries =
+                        {
+                            new KbObjectTemplateCompositionEntry
+                            {
+                                ParentTemplateNodeId = " cabinet ",
+                                SlotNumber = 1,
+                                PositionOrder = -1,
+                                ComponentType = " CPU ",
+                                Model = " S7-1200 "
+                            },
+                            new KbObjectTemplateCompositionEntry
+                            {
+                                ParentTemplateNodeId = " missing ",
+                                ComponentType = " Игнорируется "
+                            }
+                        },
+                        DocumentLinks =
+                        {
+                            new KbObjectTemplateDocumentLink
+                            {
+                                OwnerTemplateNodeId = " cabinet ",
+                                Kind = KbDocumentKind.SchemeLink,
+                                Title = " Схема ",
+                                Path = " \\\\srv\\schema.pdf "
+                            }
+                        },
+                        SoftwareRecords =
+                        {
+                            new KbObjectTemplateSoftwareRecord
+                            {
+                                OwnerTemplateNodeId = " controller ",
+                                Title = " Проект PLC ",
+                                Path = " \\\\srv\\plc "
+                            }
+                        },
+                        NetworkFileReferences =
+                        {
+                            new KbObjectTemplateNetworkFileReference
+                            {
+                                OwnerTemplateNodeId = " cabinet ",
+                                Title = " Топология ",
+                                Path = " \\\\srv\\topology.png "
+                            }
+                        },
+                        MaintenanceScheduleProfiles =
+                        {
+                            new KbObjectTemplateMaintenanceScheduleProfile
+                            {
+                                OwnerTemplateNodeId = " cabinet ",
+                                IsIncludedInSchedule = true,
+                                To1Hours = 2,
+                                To2Hours = -4,
+                                To3Hours = 8,
+                                YearScheduleEntries =
+                                {
+                                    new KbMaintenanceYearScheduleEntry { Month = 12, WorkKind = KbMaintenanceWorkKind.To3 },
+                                    new KbMaintenanceYearScheduleEntry { Month = 13, WorkKind = KbMaintenanceWorkKind.To1 }
+                                }
+                            },
+                            new KbObjectTemplateMaintenanceScheduleProfile
+                            {
+                                OwnerTemplateNodeId = " cabinet ",
+                                To1Hours = 99
+                            }
+                        },
+                        NetworkInterfaceStubs =
+                        {
+                            new KbObjectTemplateNetworkInterfaceStub
+                            {
+                                OwnerTemplateNodeId = " controller ",
+                                InterfaceId = " eth0 ",
+                                Name = " Ethernet 1 ",
+                                IpAddress = " 192.168.1.20 ",
+                                Protocol = " Profinet "
+                            },
+                            new KbObjectTemplateNetworkInterfaceStub
+                            {
+                                OwnerTemplateNodeId = " missing ",
+                                Name = " Игнорируется "
+                            }
+                        }
+                    },
+                    new()
+                    {
+                        TemplateId = " cabinet-template ",
+                        DisplayName = " Дубликат id ",
+                        RootNode = new KbObjectTemplateNode { Name = "Не должен попасть" }
+                    }
+                },
+                LastWorkshop = "Цех"
+            });
+
+        KbObjectTemplate template = Assert.Single(normalized.ObjectTemplates);
+        Assert.Equal("cabinet-template", template.TemplateId);
+        Assert.Equal("Типовой шкаф", template.DisplayName);
+        Assert.Equal("Шкафы", template.Category);
+        Assert.Equal("cabinet", template.RootNode.TemplateNodeId);
+        Assert.Equal("catalog-cabinet", template.RootNode.CatalogItemId);
+        Assert.Equal("Шкаф АСУТП", template.RootNode.Name);
+        Assert.Equal(KbNodeType.Cabinet, template.RootNode.NodeType);
+        Assert.Equal("Вводной шкаф", template.RootNode.Details.Description);
+        Assert.Equal("Машзал", template.RootNode.Details.Location);
+        Assert.Equal("INV-001", template.RootNode.Details.InventoryNumber);
+        Assert.Equal("192.168.1.10", template.RootNode.Details.IpAddress);
+        Assert.Equal("controller", Assert.Single(template.RootNode.Children).TemplateNodeId);
+
+        KbObjectTemplateCompositionEntry compositionEntry = Assert.Single(template.CompositionEntries);
+        Assert.Equal("cabinet", compositionEntry.ParentTemplateNodeId);
+        Assert.Equal(1, compositionEntry.SlotNumber);
+        Assert.Equal(0, compositionEntry.PositionOrder);
+        Assert.Equal("CPU", compositionEntry.ComponentType);
+        Assert.Equal("S7-1200", compositionEntry.Model);
+
+        Assert.Equal("Схема", Assert.Single(template.DocumentLinks).Title);
+        Assert.Equal("Проект PLC", Assert.Single(template.SoftwareRecords).Title);
+        Assert.Equal("Топология", Assert.Single(template.NetworkFileReferences).Title);
+
+        KbObjectTemplateMaintenanceScheduleProfile maintenance = Assert.Single(template.MaintenanceScheduleProfiles);
+        Assert.True(maintenance.IsIncludedInSchedule);
+        Assert.Equal(2, maintenance.To1Hours);
+        Assert.Equal(0, maintenance.To2Hours);
+        Assert.Equal(8, maintenance.To3Hours);
+        Assert.Equal(12, Assert.Single(maintenance.YearScheduleEntries).Month);
+
+        KbObjectTemplateNetworkInterfaceStub networkInterface = Assert.Single(template.NetworkInterfaceStubs);
+        Assert.Equal("eth0", networkInterface.InterfaceId);
+        Assert.Equal("controller", networkInterface.OwnerTemplateNodeId);
+        Assert.Equal("Ethernet 1", networkInterface.Name);
+        Assert.Equal("Profinet", networkInterface.Protocol);
+    }
+
+    [Fact]
+    public void SerializeSnapshot_IncludesObjectTemplates()
+    {
+        var snapshot = KnowledgeBaseDataService.SerializeSnapshot(
+            KnowledgeBaseDataService.CreateDefaultConfig(),
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Цех"] = new()
+            },
+            compositionEntries: null,
+            documentLinks: null,
+            softwareRecords: null,
+            networkFileReferences: null,
+            maintenanceScheduleProfiles: null,
+            equipmentCatalogItems: null,
+            objectTemplates:
+            [
+                new KbObjectTemplate
+                {
+                    TemplateId = "template-cabinet",
+                    DisplayName = "Шкаф",
+                    RootNode = new KbObjectTemplateNode
+                    {
+                        TemplateNodeId = "root",
+                        Name = "Шкаф",
+                        NodeType = KbNodeType.Cabinet
+                    }
+                }
+            ],
+            currentWorkshop: "Цех",
+            includeCurrentWorkshop: true);
+
+        var restored = JsonSerializer.Deserialize<SavedData>(snapshot);
+
+        Assert.NotNull(restored);
+        KbObjectTemplate template = Assert.Single(restored!.ObjectTemplates);
+        Assert.Equal("template-cabinet", template.TemplateId);
+        Assert.Equal("Шкаф", template.RootNode.Name);
     }
 
     [Fact]

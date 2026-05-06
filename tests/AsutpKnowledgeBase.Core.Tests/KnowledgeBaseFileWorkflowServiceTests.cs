@@ -218,6 +218,20 @@ public class KnowledgeBaseFileWorkflowServiceTests
                         DefaultNodeType = KbNodeType.Controller
                     }
                 },
+                ObjectTemplates = new List<KbObjectTemplate>
+                {
+                    new()
+                    {
+                        TemplateId = "template-cabinet",
+                        DisplayName = "Шкаф",
+                        RootNode = new KbObjectTemplateNode
+                        {
+                            TemplateNodeId = "root",
+                            Name = "Шкаф",
+                            NodeType = KbNodeType.Cabinet
+                        }
+                    }
+                },
                 LastWorkshop = "  Цех 2  "
             };
 
@@ -246,6 +260,10 @@ public class KnowledgeBaseFileWorkflowServiceTests
             Assert.Equal("CPU 1214C", savedCatalogItem.Model);
             KbEquipmentCatalogItem sessionCatalogItem = Assert.Single(session.EquipmentCatalogItems);
             Assert.Equal("catalog-plc", sessionCatalogItem.CatalogItemId);
+            KbObjectTemplate savedTemplate = Assert.Single(saved.ObjectTemplates);
+            Assert.Equal("template-cabinet", savedTemplate.TemplateId);
+            KbObjectTemplate sessionTemplate = Assert.Single(session.ObjectTemplates);
+            Assert.Equal("template-cabinet", sessionTemplate.TemplateId);
             Assert.True(File.Exists($"{path}.bak"));
         }
         finally

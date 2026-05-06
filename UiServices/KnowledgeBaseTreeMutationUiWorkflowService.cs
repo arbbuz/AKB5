@@ -86,6 +86,47 @@ namespace AsutpKnowledgeBase.UiServices
             AddNodeFromTemplateWithParent(context, selectedNode);
         }
 
+        public void CreateObjectFromTemplate(KnowledgeBaseTreeMutationUiWorkflowContext context)
+        {
+            KbNode? parentNode = context.TreeView.SelectedNode?.Tag as KbNode ??
+                                 context.GetEffectiveParentForRootOperations();
+            var templates = _treeMutationWorkflowService.GetAvailableObjectTemplates(parentNode);
+            if (templates.Count == 0)
+            {
+                string message = _treeMutationWorkflowService.HasObjectTemplates
+                    ? "Для выбранного места нет шаблонов объектов, которые помещаются в глубину дерева."
+                    : "В базе нет сохранённых шаблонов объектов.";
+                MessageBox.Show(
+                    context.Owner,
+                    message,
+                    "Шаблоны объектов",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            using var dialog = new KnowledgeBaseObjectTemplateCreateDialog(
+                templates,
+                BuildObjectTemplateParentText(parentNode));
+            if (dialog.ShowDialog(context.Owner) != DialogResult.OK)
+                return;
+
+            var expandedNodes = context.CaptureExpandedNodes();
+            var result = _treeMutationWorkflowService.CreateObjectFromTemplate(
+                context.CurrentWorkshop,
+                parentNode,
+                dialog.SelectedTemplateId,
+                dialog.RootNodeName,
+                context.GetPersistedTreeData());
+            if (!result.IsSuccess)
+            {
+                ShowMutationFailure(context.Owner, result, "Создание из шаблона объекта");
+                return;
+            }
+
+            ApplySuccessfulMutation(context, result, result.AffectedNode, expandedNodes);
+        }
+
         public void DeleteNode(KnowledgeBaseTreeMutationUiWorkflowContext context)
         {
             if (context.TreeView.SelectedNode?.Tag is not KbNode node)
@@ -346,6 +387,17 @@ namespace AsutpKnowledgeBase.UiServices
                 title,
                 MessageBoxButtons.OK,
                 icon);
+        }
+
+        private static string BuildObjectTemplateParentText(KbNode? parentNode)
+        {
+            if (parentNode == null || parentNode.NodeType == KbNodeType.WorkshopRoot)
+                return "Корень текущего цеха";
+
+            string name = parentNode.Name?.Trim() ?? string.Empty;
+            return string.IsNullOrWhiteSpace(name)
+                ? "Выбранный объект"
+                : name;
         }
     }
 }

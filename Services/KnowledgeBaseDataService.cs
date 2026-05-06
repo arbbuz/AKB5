@@ -35,6 +35,7 @@ namespace AsutpKnowledgeBase.Services
                 NetworkFileReferences = new List<KbNetworkFileReference>(),
                 MaintenanceScheduleProfiles = new List<KbMaintenanceScheduleProfile>(),
                 EquipmentCatalogItems = new List<KbEquipmentCatalogItem>(),
+                ObjectTemplates = new List<KbObjectTemplate>(),
                 LastWorkshop = "Новый цех"
             };
 
@@ -49,6 +50,7 @@ namespace AsutpKnowledgeBase.Services
             var normalizedNetworkFileReferences = NormalizeNetworkFileReferences(source.NetworkFileReferences);
             var normalizedMaintenanceScheduleProfiles = NormalizeMaintenanceScheduleProfiles(source.MaintenanceScheduleProfiles);
             var normalizedEquipmentCatalogItems = NormalizeEquipmentCatalogItems(source.EquipmentCatalogItems);
+            var normalizedObjectTemplates = NormalizeObjectTemplates(source.ObjectTemplates);
             var reindexService = new KnowledgeBaseService(normalizedConfig, normalizedWorkshops);
 
             foreach (var roots in normalizedWorkshops.Values)
@@ -68,6 +70,7 @@ namespace AsutpKnowledgeBase.Services
                 NetworkFileReferences = normalizedNetworkFileReferences,
                 MaintenanceScheduleProfiles = normalizedMaintenanceScheduleProfiles,
                 EquipmentCatalogItems = normalizedEquipmentCatalogItems,
+                ObjectTemplates = normalizedObjectTemplates,
                 LastWorkshop = ResolveWorkshop(normalizedWorkshops, source.LastWorkshop)
             };
         }
@@ -305,6 +308,7 @@ namespace AsutpKnowledgeBase.Services
                 networkFileReferences: null,
                 maintenanceScheduleProfiles: null,
                 equipmentCatalogItems: null,
+                objectTemplates: null,
                 currentWorkshop,
                 includeCurrentWorkshop);
 
@@ -317,6 +321,31 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbNetworkFileReference>? networkFileReferences,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
             IReadOnlyList<KbEquipmentCatalogItem>? equipmentCatalogItems,
+            string currentWorkshop,
+            bool includeCurrentWorkshop) =>
+            SerializeSnapshot(
+                config,
+                workshops,
+                compositionEntries,
+                documentLinks,
+                softwareRecords,
+                networkFileReferences,
+                maintenanceScheduleProfiles,
+                equipmentCatalogItems,
+                objectTemplates: null,
+                currentWorkshop,
+                includeCurrentWorkshop);
+
+        public static string SerializeSnapshot(
+            KbConfig config,
+            Dictionary<string, List<KbNode>> workshops,
+            IReadOnlyList<KbCompositionEntry>? compositionEntries,
+            IReadOnlyList<KbDocumentLink>? documentLinks,
+            IReadOnlyList<KbSoftwareRecord>? softwareRecords,
+            IReadOnlyList<KbNetworkFileReference>? networkFileReferences,
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
+            IReadOnlyList<KbEquipmentCatalogItem>? equipmentCatalogItems,
+            IReadOnlyList<KbObjectTemplate>? objectTemplates,
             string currentWorkshop,
             bool includeCurrentWorkshop)
         {
@@ -331,6 +360,7 @@ namespace AsutpKnowledgeBase.Services
                 NetworkFileReferences = networkFileReferences?.ToList() ?? new List<KbNetworkFileReference>(),
                 MaintenanceScheduleProfiles = maintenanceScheduleProfiles?.ToList() ?? new List<KbMaintenanceScheduleProfile>(),
                 EquipmentCatalogItems = equipmentCatalogItems?.ToList() ?? new List<KbEquipmentCatalogItem>(),
+                ObjectTemplates = objectTemplates?.ToList() ?? new List<KbObjectTemplate>(),
                 LastWorkshop = includeCurrentWorkshop ? currentWorkshop : string.Empty
             };
 
@@ -659,6 +689,435 @@ namespace AsutpKnowledgeBase.Services
                 .ToList();
         }
 
+        public static List<KbObjectTemplate> NormalizeObjectTemplates(
+            IEnumerable<KbObjectTemplate>? templates)
+        {
+            var normalized = new List<KbObjectTemplate>();
+            if (templates == null)
+                return normalized;
+
+            var usedTemplateIds = new HashSet<string>(StringComparer.Ordinal);
+            int normalizedIndex = 0;
+
+            foreach (KbObjectTemplate? template in templates)
+            {
+                if (template == null)
+                    continue;
+
+                string displayName = template.DisplayName?.Trim() ?? string.Empty;
+                var usedTemplateNodeIds = new HashSet<string>(StringComparer.Ordinal);
+                if (!TryNormalizeObjectTemplateNode(
+                    template.RootNode,
+                    fallbackTemplateNodeId: "root",
+                    fallbackName: displayName,
+                    usedTemplateNodeIds,
+                    out KbObjectTemplateNode normalizedRootNode))
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(displayName))
+                    displayName = normalizedRootNode.Name;
+
+                if (string.IsNullOrWhiteSpace(displayName))
+                    displayName = $"Шаблон объекта {normalizedIndex + 1}";
+
+                if (string.IsNullOrWhiteSpace(normalizedRootNode.Name))
+                    normalizedRootNode.Name = displayName;
+
+                if (!TryNormalizeObjectTemplateId(
+                    template.TemplateId,
+                    displayName,
+                    normalizedIndex,
+                    usedTemplateIds,
+                    out string templateId))
+                {
+                    continue;
+                }
+
+                HashSet<string> knownTemplateNodeIds = CollectObjectTemplateNodeIds(normalizedRootNode);
+                normalized.Add(new KbObjectTemplate
+                {
+                    TemplateId = templateId,
+                    DisplayName = displayName,
+                    Description = template.Description?.Trim() ?? string.Empty,
+                    Category = template.Category?.Trim() ?? string.Empty,
+                    RootNode = normalizedRootNode,
+                    CompositionEntries = NormalizeObjectTemplateCompositionEntries(
+                        template.CompositionEntries,
+                        knownTemplateNodeIds),
+                    DocumentLinks = NormalizeObjectTemplateDocumentLinks(template.DocumentLinks, knownTemplateNodeIds),
+                    SoftwareRecords = NormalizeObjectTemplateSoftwareRecords(
+                        template.SoftwareRecords,
+                        knownTemplateNodeIds),
+                    NetworkFileReferences = NormalizeObjectTemplateNetworkFileReferences(
+                        template.NetworkFileReferences,
+                        knownTemplateNodeIds),
+                    MaintenanceScheduleProfiles = NormalizeObjectTemplateMaintenanceScheduleProfiles(
+                        template.MaintenanceScheduleProfiles,
+                        knownTemplateNodeIds),
+                    NetworkInterfaceStubs = NormalizeObjectTemplateNetworkInterfaceStubs(
+                        template.NetworkInterfaceStubs,
+                        knownTemplateNodeIds)
+                });
+
+                normalizedIndex++;
+            }
+
+            return normalized
+                .OrderBy(static template => template.Category, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(static template => template.DisplayName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static bool TryNormalizeObjectTemplateNode(
+            KbObjectTemplateNode? node,
+            string fallbackTemplateNodeId,
+            string fallbackName,
+            HashSet<string> usedTemplateNodeIds,
+            out KbObjectTemplateNode normalizedNode)
+        {
+            normalizedNode = new KbObjectTemplateNode();
+            if (node == null)
+                return false;
+
+            string templateNodeId = NormalizeObjectTemplateNodeId(
+                node.TemplateNodeId,
+                fallbackTemplateNodeId,
+                usedTemplateNodeIds);
+            string nodeName = node.Name?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(nodeName))
+                nodeName = fallbackName?.Trim() ?? string.Empty;
+
+            normalizedNode = new KbObjectTemplateNode
+            {
+                TemplateNodeId = templateNodeId,
+                CatalogItemId = node.CatalogItemId?.Trim() ?? string.Empty,
+                Name = nodeName,
+                NodeType = NormalizeObjectTemplateNodeType(node.NodeType),
+                Details = NormalizeObjectTemplateDetails(node.Details),
+                Children = new List<KbObjectTemplateNode>()
+            };
+
+            int childIndex = 0;
+            foreach (KbObjectTemplateNode? child in node.Children ?? Enumerable.Empty<KbObjectTemplateNode>())
+            {
+                string childFallbackId = $"{templateNodeId}-{childIndex + 1}";
+                if (TryNormalizeObjectTemplateNode(
+                    child,
+                    childFallbackId,
+                    fallbackName: string.Empty,
+                    usedTemplateNodeIds,
+                    out KbObjectTemplateNode normalizedChild))
+                {
+                    normalizedNode.Children.Add(normalizedChild);
+                    childIndex++;
+                }
+            }
+
+            return !string.IsNullOrWhiteSpace(normalizedNode.Name) ||
+                   !string.IsNullOrWhiteSpace(normalizedNode.CatalogItemId) ||
+                   HasObjectTemplateDetails(normalizedNode.Details) ||
+                   normalizedNode.Children.Count > 0;
+        }
+
+        private static KbNodeType NormalizeObjectTemplateNodeType(KbNodeType nodeType) =>
+            nodeType != KbNodeType.Unknown && Enum.IsDefined(typeof(KbNodeType), nodeType)
+                ? nodeType
+                : KbNodeType.Device;
+
+        private static KbNodeDetails NormalizeObjectTemplateDetails(KbNodeDetails? details) =>
+            new()
+            {
+                Description = details?.Description?.Trim() ?? string.Empty,
+                Location = details?.Location?.Trim() ?? string.Empty,
+                InventoryNumber = details?.InventoryNumber?.Trim() ?? string.Empty,
+                PhotoPath = details?.PhotoPath?.Trim() ?? string.Empty,
+                IpAddress = details?.IpAddress?.Trim() ?? string.Empty,
+                SchemaLink = details?.SchemaLink?.Trim() ?? string.Empty
+            };
+
+        private static bool HasObjectTemplateDetails(KbNodeDetails details) =>
+            !string.IsNullOrWhiteSpace(details.Description) ||
+            !string.IsNullOrWhiteSpace(details.Location) ||
+            !string.IsNullOrWhiteSpace(details.InventoryNumber) ||
+            !string.IsNullOrWhiteSpace(details.PhotoPath) ||
+            !string.IsNullOrWhiteSpace(details.IpAddress) ||
+            !string.IsNullOrWhiteSpace(details.SchemaLink);
+
+        private static HashSet<string> CollectObjectTemplateNodeIds(KbObjectTemplateNode rootNode)
+        {
+            var nodeIds = new HashSet<string>(StringComparer.Ordinal);
+            CollectObjectTemplateNodeIdsRecursive(rootNode, nodeIds);
+            return nodeIds;
+        }
+
+        private static void CollectObjectTemplateNodeIdsRecursive(
+            KbObjectTemplateNode node,
+            ISet<string> nodeIds)
+        {
+            nodeIds.Add(node.TemplateNodeId);
+            foreach (KbObjectTemplateNode child in node.Children)
+                CollectObjectTemplateNodeIdsRecursive(child, nodeIds);
+        }
+
+        private static List<KbObjectTemplateCompositionEntry> NormalizeObjectTemplateCompositionEntries(
+            IEnumerable<KbObjectTemplateCompositionEntry>? entries,
+            ISet<string> knownTemplateNodeIds)
+        {
+            var normalized = new List<KbObjectTemplateCompositionEntry>();
+            if (entries == null)
+                return normalized;
+
+            int normalizedIndex = 0;
+            foreach (KbObjectTemplateCompositionEntry? entry in entries)
+            {
+                if (entry == null)
+                    continue;
+
+                string parentTemplateNodeId = entry.ParentTemplateNodeId?.Trim() ?? string.Empty;
+                if (!knownTemplateNodeIds.Contains(parentTemplateNodeId))
+                    continue;
+
+                normalized.Add(new KbObjectTemplateCompositionEntry
+                {
+                    ParentTemplateNodeId = parentTemplateNodeId,
+                    SlotNumber = entry.SlotNumber is > 0 ? entry.SlotNumber : null,
+                    PositionOrder = entry.PositionOrder >= 0 ? entry.PositionOrder : normalizedIndex,
+                    ComponentType = entry.ComponentType?.Trim() ?? string.Empty,
+                    Model = entry.Model?.Trim() ?? string.Empty,
+                    IpAddress = entry.IpAddress?.Trim() ?? string.Empty,
+                    LastCalibrationAt = entry.LastCalibrationAt,
+                    NextCalibrationAt = entry.NextCalibrationAt,
+                    Notes = entry.Notes?.Trim() ?? string.Empty
+                });
+
+                normalizedIndex++;
+            }
+
+            return normalized
+                .OrderBy(static entry => entry.ParentTemplateNodeId, StringComparer.Ordinal)
+                .ThenBy(static entry => entry.SlotNumber.HasValue ? 0 : 1)
+                .ThenBy(static entry => entry.SlotNumber ?? int.MaxValue)
+                .ThenBy(static entry => entry.PositionOrder)
+                .ToList();
+        }
+
+        private static List<KbObjectTemplateDocumentLink> NormalizeObjectTemplateDocumentLinks(
+            IEnumerable<KbObjectTemplateDocumentLink>? links,
+            ISet<string> knownTemplateNodeIds)
+        {
+            var normalized = new List<KbObjectTemplateDocumentLink>();
+            if (links == null)
+                return normalized;
+
+            foreach (KbObjectTemplateDocumentLink? link in links)
+            {
+                if (link == null)
+                    continue;
+
+                string ownerTemplateNodeId = link.OwnerTemplateNodeId?.Trim() ?? string.Empty;
+                string title = link.Title?.Trim() ?? string.Empty;
+                string path = link.Path?.Trim() ?? string.Empty;
+                if (!knownTemplateNodeIds.Contains(ownerTemplateNodeId) ||
+                    (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(path)))
+                {
+                    continue;
+                }
+
+                normalized.Add(new KbObjectTemplateDocumentLink
+                {
+                    OwnerTemplateNodeId = ownerTemplateNodeId,
+                    Kind = Enum.IsDefined(typeof(KbDocumentKind), link.Kind)
+                        ? link.Kind
+                        : KbDocumentKind.Manual,
+                    Title = title,
+                    Path = path,
+                    UpdatedAt = link.UpdatedAt?.Date
+                });
+            }
+
+            return normalized
+                .OrderBy(static link => link.OwnerTemplateNodeId, StringComparer.Ordinal)
+                .ThenBy(static link => link.Kind)
+                .ThenBy(static link => link.Title, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static List<KbObjectTemplateSoftwareRecord> NormalizeObjectTemplateSoftwareRecords(
+            IEnumerable<KbObjectTemplateSoftwareRecord>? records,
+            ISet<string> knownTemplateNodeIds)
+        {
+            var normalized = new List<KbObjectTemplateSoftwareRecord>();
+            if (records == null)
+                return normalized;
+
+            foreach (KbObjectTemplateSoftwareRecord? record in records)
+            {
+                if (record == null)
+                    continue;
+
+                string ownerTemplateNodeId = record.OwnerTemplateNodeId?.Trim() ?? string.Empty;
+                string title = record.Title?.Trim() ?? string.Empty;
+                string path = record.Path?.Trim() ?? string.Empty;
+                if (!knownTemplateNodeIds.Contains(ownerTemplateNodeId) ||
+                    (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(path)))
+                {
+                    continue;
+                }
+
+                normalized.Add(new KbObjectTemplateSoftwareRecord
+                {
+                    OwnerTemplateNodeId = ownerTemplateNodeId,
+                    Title = title,
+                    Path = path,
+                    AddedAt = record.AddedAt?.Date,
+                    LastChangedAt = record.LastChangedAt?.Date,
+                    LastBackupAt = record.LastBackupAt?.Date,
+                    Notes = record.Notes?.Trim() ?? string.Empty
+                });
+            }
+
+            return normalized
+                .OrderBy(static record => record.OwnerTemplateNodeId, StringComparer.Ordinal)
+                .ThenBy(static record => record.Title, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static List<KbObjectTemplateNetworkFileReference> NormalizeObjectTemplateNetworkFileReferences(
+            IEnumerable<KbObjectTemplateNetworkFileReference>? references,
+            ISet<string> knownTemplateNodeIds)
+        {
+            var normalized = new List<KbObjectTemplateNetworkFileReference>();
+            if (references == null)
+                return normalized;
+
+            foreach (KbObjectTemplateNetworkFileReference? reference in references)
+            {
+                if (reference == null)
+                    continue;
+
+                string ownerTemplateNodeId = reference.OwnerTemplateNodeId?.Trim() ?? string.Empty;
+                string title = reference.Title?.Trim() ?? string.Empty;
+                string path = reference.Path?.Trim() ?? string.Empty;
+                if (!knownTemplateNodeIds.Contains(ownerTemplateNodeId) ||
+                    (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(path)))
+                {
+                    continue;
+                }
+
+                normalized.Add(new KbObjectTemplateNetworkFileReference
+                {
+                    OwnerTemplateNodeId = ownerTemplateNodeId,
+                    Title = title,
+                    Path = path
+                });
+            }
+
+            return normalized
+                .OrderBy(static reference => reference.OwnerTemplateNodeId, StringComparer.Ordinal)
+                .ThenBy(static reference => reference.Title, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static List<KbObjectTemplateMaintenanceScheduleProfile>
+            NormalizeObjectTemplateMaintenanceScheduleProfiles(
+                IEnumerable<KbObjectTemplateMaintenanceScheduleProfile>? profiles,
+                ISet<string> knownTemplateNodeIds)
+        {
+            var normalized = new List<KbObjectTemplateMaintenanceScheduleProfile>();
+            if (profiles == null)
+                return normalized;
+
+            var usedOwnerTemplateNodeIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (KbObjectTemplateMaintenanceScheduleProfile? profile in profiles)
+            {
+                if (profile == null)
+                    continue;
+
+                string ownerTemplateNodeId = profile.OwnerTemplateNodeId?.Trim() ?? string.Empty;
+                if (!knownTemplateNodeIds.Contains(ownerTemplateNodeId) ||
+                    !usedOwnerTemplateNodeIds.Add(ownerTemplateNodeId))
+                {
+                    continue;
+                }
+
+                normalized.Add(new KbObjectTemplateMaintenanceScheduleProfile
+                {
+                    OwnerTemplateNodeId = ownerTemplateNodeId,
+                    IsIncludedInSchedule = profile.IsIncludedInSchedule,
+                    To1Hours = Math.Max(0, profile.To1Hours),
+                    To2Hours = Math.Max(0, profile.To2Hours),
+                    To3Hours = Math.Max(0, profile.To3Hours),
+                    YearScheduleEntries = NormalizeMaintenanceYearScheduleEntries(profile.YearScheduleEntries)
+                });
+            }
+
+            return normalized
+                .OrderBy(static profile => profile.OwnerTemplateNodeId, StringComparer.Ordinal)
+                .ToList();
+        }
+
+        private static List<KbObjectTemplateNetworkInterfaceStub> NormalizeObjectTemplateNetworkInterfaceStubs(
+            IEnumerable<KbObjectTemplateNetworkInterfaceStub>? stubs,
+            ISet<string> knownTemplateNodeIds)
+        {
+            var normalized = new List<KbObjectTemplateNetworkInterfaceStub>();
+            if (stubs == null)
+                return normalized;
+
+            var usedInterfaceIds = new HashSet<string>(StringComparer.Ordinal);
+            int normalizedIndex = 0;
+            foreach (KbObjectTemplateNetworkInterfaceStub? stub in stubs)
+            {
+                if (stub == null)
+                    continue;
+
+                string ownerTemplateNodeId = stub.OwnerTemplateNodeId?.Trim() ?? string.Empty;
+                if (!knownTemplateNodeIds.Contains(ownerTemplateNodeId))
+                    continue;
+
+                string name = stub.Name?.Trim() ?? string.Empty;
+                string ipAddress = stub.IpAddress?.Trim() ?? string.Empty;
+                string subnetMask = stub.SubnetMask?.Trim() ?? string.Empty;
+                string gateway = stub.Gateway?.Trim() ?? string.Empty;
+                string protocol = stub.Protocol?.Trim() ?? string.Empty;
+                string notes = stub.Notes?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(name) &&
+                    string.IsNullOrWhiteSpace(ipAddress) &&
+                    string.IsNullOrWhiteSpace(subnetMask) &&
+                    string.IsNullOrWhiteSpace(gateway) &&
+                    string.IsNullOrWhiteSpace(protocol) &&
+                    string.IsNullOrWhiteSpace(notes))
+                {
+                    continue;
+                }
+
+                normalized.Add(new KbObjectTemplateNetworkInterfaceStub
+                {
+                    OwnerTemplateNodeId = ownerTemplateNodeId,
+                    InterfaceId = NormalizeObjectTemplateInterfaceId(
+                        stub.InterfaceId,
+                        ownerTemplateNodeId,
+                        normalizedIndex,
+                        usedInterfaceIds),
+                    Name = name,
+                    IpAddress = ipAddress,
+                    SubnetMask = subnetMask,
+                    Gateway = gateway,
+                    Protocol = protocol,
+                    Notes = notes
+                });
+
+                normalizedIndex++;
+            }
+
+            return normalized
+                .OrderBy(static stub => stub.OwnerTemplateNodeId, StringComparer.Ordinal)
+                .ThenBy(static stub => stub.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
         private static List<KbMaintenanceYearScheduleEntry> NormalizeMaintenanceYearScheduleEntries(
             IEnumerable<KbMaintenanceYearScheduleEntry>? entries)
         {
@@ -767,6 +1226,96 @@ namespace AsutpKnowledgeBase.Services
             {
                 string candidate = $"{semanticId}-{suffix}";
                 if (usedIds.Add(candidate))
+                    return candidate;
+
+                suffix++;
+            }
+        }
+
+        private static bool TryNormalizeObjectTemplateId(
+            string? templateId,
+            string displayName,
+            int normalizedIndex,
+            HashSet<string> usedIds,
+            out string normalizedTemplateId)
+        {
+            normalizedTemplateId = templateId?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(normalizedTemplateId))
+                return usedIds.Add(normalizedTemplateId);
+
+            string semanticId = "template-" + string.Join(
+                "-",
+                NormalizeTextKey(displayName)
+                    .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(static part => part.ToLowerInvariant()));
+            if (semanticId == "template-")
+                semanticId = $"template-{normalizedIndex}";
+
+            normalizedTemplateId = EnsureUniqueObjectTemplateId(semanticId, usedIds);
+            return true;
+        }
+
+        private static string EnsureUniqueObjectTemplateId(
+            string semanticId,
+            HashSet<string> usedIds)
+        {
+            if (usedIds.Add(semanticId))
+                return semanticId;
+
+            int suffix = 2;
+            while (true)
+            {
+                string candidate = $"{semanticId}-{suffix}";
+                if (usedIds.Add(candidate))
+                    return candidate;
+
+                suffix++;
+            }
+        }
+
+        private static string NormalizeObjectTemplateNodeId(
+            string? templateNodeId,
+            string fallbackTemplateNodeId,
+            HashSet<string> usedTemplateNodeIds)
+        {
+            string normalizedExistingId = templateNodeId?.Trim() ?? string.Empty;
+            string baseId = !string.IsNullOrWhiteSpace(normalizedExistingId)
+                ? normalizedExistingId
+                : fallbackTemplateNodeId;
+
+            if (usedTemplateNodeIds.Add(baseId))
+                return baseId;
+
+            int suffix = 2;
+            while (true)
+            {
+                string candidate = $"{baseId}-{suffix}";
+                if (usedTemplateNodeIds.Add(candidate))
+                    return candidate;
+
+                suffix++;
+            }
+        }
+
+        private static string NormalizeObjectTemplateInterfaceId(
+            string? interfaceId,
+            string ownerTemplateNodeId,
+            int normalizedIndex,
+            HashSet<string> usedInterfaceIds)
+        {
+            string normalizedExistingId = interfaceId?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(normalizedExistingId) && usedInterfaceIds.Add(normalizedExistingId))
+                return normalizedExistingId;
+
+            string deterministicId = $"iface-{ownerTemplateNodeId}-{normalizedIndex}";
+            if (usedInterfaceIds.Add(deterministicId))
+                return deterministicId;
+
+            int suffix = 2;
+            while (true)
+            {
+                string candidate = $"{deterministicId}-{suffix}";
+                if (usedInterfaceIds.Add(candidate))
                     return candidate;
 
                 suffix++;

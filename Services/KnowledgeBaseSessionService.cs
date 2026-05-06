@@ -27,6 +27,8 @@ namespace AsutpKnowledgeBase.Services
 
         public List<KbEquipmentCatalogItem> EquipmentCatalogItems { get; private set; } = new();
 
+        public List<KbObjectTemplate> ObjectTemplates { get; private set; } = new();
+
         public string CurrentWorkshop { get; private set; } = string.Empty;
 
         public string LastSavedWorkshop { get; private set; } = string.Empty;
@@ -57,6 +59,7 @@ namespace AsutpKnowledgeBase.Services
             NetworkFileReferences = normalizedData.NetworkFileReferences;
             MaintenanceScheduleProfiles = normalizedData.MaintenanceScheduleProfiles;
             EquipmentCatalogItems = normalizedData.EquipmentCatalogItems;
+            ObjectTemplates = normalizedData.ObjectTemplates;
             CurrentWorkshop = normalizedData.LastWorkshop;
 
             if (recordAsSavedState)
@@ -79,6 +82,7 @@ namespace AsutpKnowledgeBase.Services
                 NetworkFileReferences = NetworkFileReferences,
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = EquipmentCatalogItems,
+                ObjectTemplates = ObjectTemplates,
                 LastWorkshop = CurrentWorkshop
             });
         }
@@ -95,6 +99,7 @@ namespace AsutpKnowledgeBase.Services
                 NetworkFileReferences,
                 MaintenanceScheduleProfiles,
                 EquipmentCatalogItems,
+                ObjectTemplates,
                 CurrentWorkshop,
                 includeCurrentWorkshop);
         }
@@ -234,6 +239,7 @@ namespace AsutpKnowledgeBase.Services
                 NetworkFileReferences = NetworkFileReferences,
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = EquipmentCatalogItems,
+                ObjectTemplates = ObjectTemplates,
                 LastWorkshop = CurrentWorkshop
             }).CompositionEntries;
 
@@ -249,6 +255,7 @@ namespace AsutpKnowledgeBase.Services
                 NetworkFileReferences = NetworkFileReferences,
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = EquipmentCatalogItems,
+                ObjectTemplates = ObjectTemplates,
                 LastWorkshop = CurrentWorkshop
             }).DocumentLinks;
 
@@ -264,6 +271,7 @@ namespace AsutpKnowledgeBase.Services
                 NetworkFileReferences = NetworkFileReferences,
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = EquipmentCatalogItems,
+                ObjectTemplates = ObjectTemplates,
                 LastWorkshop = CurrentWorkshop
             }).SoftwareRecords;
 
@@ -279,6 +287,7 @@ namespace AsutpKnowledgeBase.Services
                 NetworkFileReferences = networkFileReferences?.ToList() ?? new List<KbNetworkFileReference>(),
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = EquipmentCatalogItems,
+                ObjectTemplates = ObjectTemplates,
                 LastWorkshop = CurrentWorkshop
             }).NetworkFileReferences;
 
@@ -294,6 +303,7 @@ namespace AsutpKnowledgeBase.Services
                 NetworkFileReferences = NetworkFileReferences,
                 MaintenanceScheduleProfiles = maintenanceScheduleProfiles?.ToList() ?? new List<KbMaintenanceScheduleProfile>(),
                 EquipmentCatalogItems = EquipmentCatalogItems,
+                ObjectTemplates = ObjectTemplates,
                 LastWorkshop = CurrentWorkshop
             }).MaintenanceScheduleProfiles;
 
@@ -309,8 +319,25 @@ namespace AsutpKnowledgeBase.Services
                 NetworkFileReferences = NetworkFileReferences,
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = equipmentCatalogItems?.ToList() ?? new List<KbEquipmentCatalogItem>(),
+                ObjectTemplates = ObjectTemplates,
                 LastWorkshop = CurrentWorkshop
             }).EquipmentCatalogItems;
+
+        public void ReplaceObjectTemplates(IEnumerable<KbObjectTemplate> objectTemplates) =>
+            ObjectTemplates = KnowledgeBaseDataService.NormalizeSavedData(new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = Config,
+                Workshops = Workshops,
+                CompositionEntries = CompositionEntries,
+                DocumentLinks = DocumentLinks,
+                SoftwareRecords = SoftwareRecords,
+                NetworkFileReferences = NetworkFileReferences,
+                MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
+                EquipmentCatalogItems = EquipmentCatalogItems,
+                ObjectTemplates = objectTemplates?.ToList() ?? new List<KbObjectTemplate>(),
+                LastWorkshop = CurrentWorkshop
+            }).ObjectTemplates;
 
         public void SetRequiresSave(bool requiresSave) => RequiresSave = requiresSave;
 

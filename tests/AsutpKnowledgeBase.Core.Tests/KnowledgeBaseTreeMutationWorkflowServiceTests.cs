@@ -265,6 +265,127 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
     }
 
     [Fact]
+    public void CreateObjectFromTemplate_WhenSuccessful_AddsSubtreeAndRemapsTypedDefaults()
+    {
+        var parentNode = new KbNode
+        {
+            NodeId = "system-1",
+            Name = "System 1",
+            LevelIndex = 0,
+            NodeType = KbNodeType.System
+        };
+        var session = CreateSession(
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Workshop 1"] = new List<KbNode> { parentNode }
+            });
+        session.ReplaceObjectTemplates(new[] { CreateCabinetObjectTemplate() });
+
+        var history = new UndoRedoService();
+        var controller = new KnowledgeBaseTreeController(session);
+        var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
+        var workflow = new KnowledgeBaseTreeMutationWorkflowService(session, sessionWorkflow, controller, history);
+
+        var result = workflow.CreateObjectFromTemplate(
+            session.CurrentWorkshop,
+            parentNode,
+            "cabinet-template",
+            "Cabinet A",
+            session.GetCurrentWorkshopNodes());
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.True(workflow.CanUndo);
+
+        var cabinet = Assert.Single(parentNode.Children);
+        Assert.Same(cabinet, result.AffectedNode);
+        Assert.Equal("Cabinet A", cabinet.Name);
+        Assert.Equal(1, cabinet.LevelIndex);
+        Assert.Equal(KbNodeType.Cabinet, cabinet.NodeType);
+        Assert.False(string.Equals("cabinet", cabinet.NodeId, StringComparison.Ordinal));
+
+        var controllerNode = Assert.Single(cabinet.Children);
+        Assert.Equal("Template controller", controllerNode.Name);
+        Assert.Equal(2, controllerNode.LevelIndex);
+        Assert.Equal(KbNodeType.Controller, controllerNode.NodeType);
+        Assert.NotEqual(cabinet.NodeId, controllerNode.NodeId);
+
+        var composition = Assert.Single(session.CompositionEntries);
+        Assert.Equal(cabinet.NodeId, composition.ParentNodeId);
+        Assert.Equal("CPU", composition.ComponentType);
+
+        var document = Assert.Single(session.DocumentLinks);
+        Assert.Equal(controllerNode.NodeId, document.OwnerNodeId);
+        Assert.Equal(KbDocumentKind.SchemeLink, document.Kind);
+
+        var software = Assert.Single(session.SoftwareRecords);
+        Assert.Equal(controllerNode.NodeId, software.OwnerNodeId);
+
+        var networkFile = Assert.Single(session.NetworkFileReferences);
+        Assert.Equal(controllerNode.NodeId, networkFile.OwnerNodeId);
+        Assert.Equal(KbNetworkPreviewKind.Image, networkFile.PreviewKind);
+
+        var maintenanceProfile = Assert.Single(session.MaintenanceScheduleProfiles);
+        Assert.Equal(controllerNode.NodeId, maintenanceProfile.OwnerNodeId);
+        Assert.Equal(2, maintenanceProfile.To1Hours);
+
+        var undoResult = workflow.Undo(session.GetCurrentWorkshopNodes());
+        Assert.True(undoResult.IsSuccess);
+        Assert.Empty(Assert.Single(session.GetCurrentWorkshopNodes()).Children);
+        Assert.Empty(session.CompositionEntries);
+        Assert.Empty(session.DocumentLinks);
+        Assert.Empty(session.SoftwareRecords);
+        Assert.Empty(session.NetworkFileReferences);
+        Assert.Empty(session.MaintenanceScheduleProfiles);
+    }
+
+    [Fact]
+    public void CreateObjectFromTemplate_WhenTemplateDoesNotFitDepth_ReturnsDepthLimitFailure()
+    {
+        var parentNode = new KbNode
+        {
+            NodeId = "system-1",
+            Name = "System 1",
+            LevelIndex = 1,
+            NodeType = KbNodeType.System
+        };
+        var rootNode = new KbNode
+        {
+            NodeId = "department-1",
+            Name = "Department 1",
+            LevelIndex = 0,
+            NodeType = KbNodeType.Department,
+            Children = { parentNode }
+        };
+        var session = CreateSession(
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Workshop 1"] = new List<KbNode> { rootNode }
+            },
+            maxLevels: 2);
+        session.ReplaceObjectTemplates(new[] { CreateCabinetObjectTemplate() });
+
+        var history = new UndoRedoService();
+        var controller = new KnowledgeBaseTreeController(session);
+        var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
+        var workflow = new KnowledgeBaseTreeMutationWorkflowService(session, sessionWorkflow, controller, history);
+
+        Assert.False(workflow.CanCreateObjectFromTemplate(parentNode));
+
+        var result = workflow.CreateObjectFromTemplate(
+            session.CurrentWorkshop,
+            parentNode,
+            "cabinet-template",
+            "Cabinet A",
+            session.GetCurrentWorkshopNodes());
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(KnowledgeBaseTreeMutationFailure.DepthLimitExceeded, result.Failure);
+        Assert.Empty(parentNode.Children);
+        Assert.Empty(session.CompositionEntries);
+        Assert.False(workflow.CanUndo);
+    }
+
+    [Fact]
     public void MoveNode_WhenTargetIsDescendant_ReturnsCycleFailure()
     {
         var root = new KbNode { Name = "Линия 1", LevelIndex = 0 };
@@ -399,7 +520,9 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
         return session;
     }
 
-    private static KnowledgeBaseSessionService CreateSession(Dictionary<string, List<KbNode>> workshops)
+    private static KnowledgeBaseSessionService CreateSession(
+        Dictionary<string, List<KbNode>> workshops,
+        int maxLevels = 4)
     {
         var session = new KnowledgeBaseSessionService();
         session.ApplyLoadedData(
@@ -408,7 +531,7 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
                 SchemaVersion = SavedData.CurrentSchemaVersion,
                 Config = new KbConfig
                 {
-                    MaxLevels = 4,
+                    MaxLevels = maxLevels,
                     LevelNames = new List<string> { "Цех", "Линия", "Щит", "Модуль" }
                 },
                 Workshops = workshops,
@@ -417,4 +540,84 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
             recordAsSavedState: true);
         return session;
     }
+
+    private static KbObjectTemplate CreateCabinetObjectTemplate() =>
+        new()
+        {
+            TemplateId = "cabinet-template",
+            DisplayName = "Cabinet template",
+            RootNode = new KbObjectTemplateNode
+            {
+                TemplateNodeId = "cabinet",
+                Name = "Template cabinet",
+                NodeType = KbNodeType.Cabinet,
+                Details = new KbNodeDetails
+                {
+                    Description = "Template description",
+                    Location = "Panel room"
+                },
+                Children =
+                {
+                    new KbObjectTemplateNode
+                    {
+                        TemplateNodeId = "controller",
+                        Name = "Template controller",
+                        NodeType = KbNodeType.Controller,
+                        Details = new KbNodeDetails
+                        {
+                            IpAddress = "10.10.10.20"
+                        }
+                    }
+                }
+            },
+            CompositionEntries =
+            {
+                new KbObjectTemplateCompositionEntry
+                {
+                    ParentTemplateNodeId = "cabinet",
+                    SlotNumber = 1,
+                    ComponentType = "CPU",
+                    Model = "PLC CPU"
+                }
+            },
+            DocumentLinks =
+            {
+                new KbObjectTemplateDocumentLink
+                {
+                    OwnerTemplateNodeId = "controller",
+                    Kind = KbDocumentKind.SchemeLink,
+                    Title = "Scheme",
+                    Path = "\\\\srv\\scheme.pdf"
+                }
+            },
+            SoftwareRecords =
+            {
+                new KbObjectTemplateSoftwareRecord
+                {
+                    OwnerTemplateNodeId = "controller",
+                    Title = "Backup",
+                    Path = "\\\\srv\\backup.zip"
+                }
+            },
+            NetworkFileReferences =
+            {
+                new KbObjectTemplateNetworkFileReference
+                {
+                    OwnerTemplateNodeId = "controller",
+                    Title = "Topology",
+                    Path = "\\\\srv\\network\\topology.png"
+                }
+            },
+            MaintenanceScheduleProfiles =
+            {
+                new KbObjectTemplateMaintenanceScheduleProfile
+                {
+                    OwnerTemplateNodeId = "controller",
+                    IsIncludedInSchedule = true,
+                    To1Hours = 2,
+                    To2Hours = 4,
+                    To3Hours = 8
+                }
+            }
+        };
 }

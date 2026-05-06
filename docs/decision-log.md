@@ -12,6 +12,12 @@ Last updated: `2026-05-06`
 - `Phase 11B` adds an in-app Russian equipment-catalog editor under `Файл -> Каталог оборудования...`; catalog editing remains separate from tree editing and object-template creation
 - On 2026-05-06, `phase11b-equipment-catalog-ui` passed verification build and `dotnet test` (`287/287`) using isolated output paths
 - `Phase 11B` was committed and pushed on `to` as `f80873f Add equipment catalog UI`
+- `Phase 11C` adds top-level JSON/session object-template persistence and normalization without adding the create-from-template UI yet
+- Object templates store stable `TemplateNodeId` values instead of persisted real `NodeId` values; instantiation creates fresh `NodeId` values and remaps card defaults, composition, documents/software, network file references, maintenance profile stubs, and future network-interface stubs by template node id
+- On 2026-05-06, `phase11c-object-template-model` passed verification build and `dotnet test` (`292/292`) using isolated output paths; manual review passed together with Phase 11D
+- `Phase 11D` adds creation of a new tree object from persisted `SavedData.ObjectTemplates` through a Russian context-menu dialog; it does not create/edit/save templates yet
+- Creating from an object template inserts the full template subtree, reindexes it through the normal tree rules, generates fresh `NodeId` values, and appends remapped composition, document/software, network-file, and maintenance-profile defaults
+- On 2026-05-06, `phase11d-create-from-template` passed verification build and `dotnet test` (`294/294`) using isolated output paths; manual review passed and the user requested commit/push before Phase 11E
 
 ## 2026-05-05
 
