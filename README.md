@@ -40,11 +40,13 @@ Implemented on `to`:
 - `Phase 11C` - object-template model, accepted after manual review and committed/pushed on `to`
 - `Phase 11D` - create tree objects from persisted object templates, accepted after manual review and committed/pushed on `to`
 - `Phase 11E` - save existing object subtree as a reusable object template, accepted locally without push by user request
+- `Phase 11F` - apply object templates to existing objects with preview, verified and waiting for manual review
 
 Next approved work:
 
 - no `Phase 7G` is approved in `Roadmap.md`
-- immediate follow-up: `Phase 11F. Apply template with preview`, unless redirected
+- current review gate: local `Phase 11F. Apply template with preview`
+- after acceptance: commit `Phase 11F`, then continue to `Phase 11G. Template import/export`, unless redirected
 - `Phase 12. Backup, snapshots, and change history`
 
 ## Data and persistence

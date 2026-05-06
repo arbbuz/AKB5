@@ -76,6 +76,9 @@ namespace AsutpKnowledgeBase.Services
         public static bool CanSaveObjectAsTemplate(KbNode? sourceNode) =>
             sourceNode != null && sourceNode.NodeType != KbNodeType.WorkshopRoot;
 
+        public bool CanApplyObjectTemplate(KbNode? targetNode) =>
+            GetApplicableObjectTemplates(targetNode).Count > 0;
+
         public bool CanPasteNode(KbNode? parentNode) => _treeController.CanPasteNode(parentNode);
 
         public void ClearClipboard() => _treeController.ClearClipboard();
@@ -86,6 +89,16 @@ namespace AsutpKnowledgeBase.Services
             _session.ObjectTemplates
                 .Where(template => CanAttachObjectTemplate(parentNode, template))
                 .ToList();
+
+        public IReadOnlyList<KbObjectTemplate> GetApplicableObjectTemplates(KbNode? targetNode)
+        {
+            if (targetNode == null || targetNode.NodeType == KbNodeType.WorkshopRoot)
+                return Array.Empty<KbObjectTemplate>();
+
+            return _session.ObjectTemplates
+                .Where(template => template.RootNode != null && template.RootNode.NodeType == targetNode.NodeType)
+                .ToList();
+        }
 
         public KnowledgeBaseTreeMutationResult AddNode(
             string workshopName,
@@ -128,21 +141,21 @@ namespace AsutpKnowledgeBase.Services
             {
                 return Failure(
                     KnowledgeBaseTreeMutationFailure.InvalidNodeName,
-                    "РќР°Р·РІР°РЅРёРµ СѓР·Р»Р° РЅРµ РґРѕР»Р¶РЅРѕ Р±С‹С‚СЊ РїСѓСЃС‚С‹Рј.");
+                    "Название узла не должно быть пустым.");
             }
 
             if (!_treeController.CanAddNode(parentNode))
             {
                 return Failure(
                     KnowledgeBaseTreeMutationFailure.DepthLimitExceeded,
-                    $"Р”РѕСЃС‚РёРіРЅСѓС‚Р° РјР°РєСЃРёРјР°Р»СЊРЅР°СЏ РіР»СѓР±РёРЅР° ({_session.Config.MaxLevels}).");
+                    $"Достигнута максимальная глубина ({_session.Config.MaxLevels}).");
             }
 
             if (!_compositionTemplateService.TryResolveTemplateChildType(parentNode, out var targetNodeType))
             {
                 return Failure(
                     KnowledgeBaseTreeMutationFailure.TemplateUnavailable,
-                    "Р”Р»СЏ РІС‹Р±СЂР°РЅРЅРѕРіРѕ СЂРѕРґРёС‚РµР»СЏ РЅРµС‚ РґРѕСЃС‚СѓРїРЅС‹С… С€Р°Р±Р»РѕРЅРѕРІ.");
+                    "Для выбранного родителя нет доступных шаблонов.");
             }
 
             var template = _compositionTemplateService.FindTemplate(templateId);
@@ -150,7 +163,7 @@ namespace AsutpKnowledgeBase.Services
             {
                 return Failure(
                     KnowledgeBaseTreeMutationFailure.TemplateUnavailable,
-                    "Р’С‹Р±СЂР°РЅРЅС‹Р№ С€Р°Р±Р»РѕРЅ РЅРµРґРѕСЃС‚СѓРїРµРЅ РґР»СЏ СЌС‚РѕРіРѕ С‚РёРїР° СѓР·Р»Р°.");
+                    "Выбранный шаблон недоступен для этого типа узла.");
             }
 
             string historySnapshot = CaptureHistorySnapshot(currentRoots);
@@ -183,7 +196,7 @@ namespace AsutpKnowledgeBase.Services
             _history.SaveState(historySnapshot);
 
             return Success(
-                $"вћ• Р”РѕР±Р°РІР»РµРЅРѕ РїРѕ С€Р°Р±Р»РѕРЅСѓ: {newNode.Name}",
+                $"Добавлено по шаблону: {newNode.Name}",
                 newNode);
         }
 
@@ -253,7 +266,7 @@ namespace AsutpKnowledgeBase.Services
             {
                 return Failure(
                     KnowledgeBaseTreeMutationFailure.TemplateUnavailable,
-                    "Р’С‹Р±РµСЂРёС‚Рµ РѕР±СЉРµРєС‚ РґРµСЂРµРІР°, РєРѕС‚РѕСЂС‹Р№ РјРѕР¶РЅРѕ СЃРѕС…СЂР°РЅРёС‚СЊ РєР°Рє С€Р°Р±Р»РѕРЅ.");
+                    "Выберите объект дерева, который можно сохранить как шаблон.");
             }
 
             var templateResult = _objectTemplateService.CreateTemplateFromExistingObject(
@@ -277,7 +290,72 @@ namespace AsutpKnowledgeBase.Services
             _session.ReplaceObjectTemplates(_session.ObjectTemplates.Concat(new[] { templateResult.Template }));
             _history.SaveState(historySnapshot);
 
-            return Success($"РЎРѕС…СЂР°РЅРµРЅ С€Р°Р±Р»РѕРЅ РѕР±СЉРµРєС‚Р°: {templateResult.Template.DisplayName}", sourceNode);
+            return Success($"Сохранён шаблон объекта: {templateResult.Template.DisplayName}", sourceNode);
+        }
+
+        public KnowledgeBaseObjectTemplateApplicationPlan PreviewApplyObjectTemplateToExistingObject(
+            KbNode? targetNode,
+            string templateId)
+        {
+            var template = FindObjectTemplate(templateId);
+            return _objectTemplateService.BuildApplyToExistingObjectPlan(
+                template,
+                targetNode,
+                _session.Config.MaxLevels,
+                _session.CompositionEntries,
+                _session.DocumentLinks,
+                _session.SoftwareRecords,
+                _session.NetworkFileReferences,
+                _session.MaintenanceScheduleProfiles);
+        }
+
+        public KnowledgeBaseTreeMutationResult ApplyObjectTemplateToExistingObject(
+            string workshopName,
+            KbNode targetNode,
+            string templateId,
+            List<KbNode> currentRoots)
+        {
+            var plan = PreviewApplyObjectTemplateToExistingObject(targetNode, templateId);
+            if (!plan.IsSuccess)
+            {
+                return Failure(
+                    KnowledgeBaseTreeMutationFailure.TemplateUnavailable,
+                    plan.ErrorMessage);
+            }
+
+            if (!plan.HasChanges)
+            {
+                return Failure(
+                    KnowledgeBaseTreeMutationFailure.NoChanges,
+                    "Шаблон не добавляет новых данных к выбранному объекту.");
+            }
+
+            string historySnapshot = CaptureHistorySnapshot(currentRoots);
+            foreach (KnowledgeBaseObjectTemplateDetailUpdate update in plan.DetailUpdates)
+                ApplyDetailUpdate(update);
+
+            foreach (KnowledgeBaseObjectTemplateNodeAddition addition in plan.NodeAdditions)
+                _treeController.AddNode(workshopName, addition.ParentNode, addition.Node);
+
+            if (plan.CompositionEntries.Count > 0)
+                _session.ReplaceCompositionEntries(_session.CompositionEntries.Concat(plan.CompositionEntries));
+
+            if (plan.DocumentLinks.Count > 0)
+                _session.ReplaceDocumentLinks(_session.DocumentLinks.Concat(plan.DocumentLinks));
+
+            if (plan.SoftwareRecords.Count > 0)
+                _session.ReplaceSoftwareRecords(_session.SoftwareRecords.Concat(plan.SoftwareRecords));
+
+            if (plan.NetworkFileReferences.Count > 0)
+                _session.ReplaceNetworkFileReferences(_session.NetworkFileReferences.Concat(plan.NetworkFileReferences));
+
+            if (plan.MaintenanceScheduleProfiles.Count > 0)
+                _session.ReplaceMaintenanceScheduleProfiles(
+                    _session.MaintenanceScheduleProfiles.Concat(plan.MaintenanceScheduleProfiles));
+
+            _history.SaveState(historySnapshot);
+
+            return Success($"Шаблон применён к объекту: {targetNode.Name}", targetNode);
         }
 
         public KnowledgeBaseTreeMutationResult DeleteNode(
@@ -436,6 +514,32 @@ namespace AsutpKnowledgeBase.Services
 
             return _session.ObjectTemplates.FirstOrDefault(template =>
                 string.Equals(template.TemplateId, normalizedTemplateId, StringComparison.Ordinal));
+        }
+
+        private static void ApplyDetailUpdate(KnowledgeBaseObjectTemplateDetailUpdate update)
+        {
+            update.TargetNode.Details ??= new KbNodeDetails();
+            switch (update.FieldKey)
+            {
+                case "description":
+                    update.TargetNode.Details.Description = update.Value;
+                    break;
+                case "location":
+                    update.TargetNode.Details.Location = update.Value;
+                    break;
+                case "inventory":
+                    update.TargetNode.Details.InventoryNumber = update.Value;
+                    break;
+                case "photo":
+                    update.TargetNode.Details.PhotoPath = update.Value;
+                    break;
+                case "ip":
+                    update.TargetNode.Details.IpAddress = update.Value;
+                    break;
+                case "schema":
+                    update.TargetNode.Details.SchemaLink = update.Value;
+                    break;
+            }
         }
 
         private KnowledgeBaseTreeMutationResult RestoreSnapshot(string snapshot, string statusText)

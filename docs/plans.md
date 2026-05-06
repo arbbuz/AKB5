@@ -18,7 +18,8 @@ Last updated: `2026-05-06`
 - Treat `Phase 11B. Equipment catalog UI` as accepted, committed, and pushed on `to`
 - Treat `Phase 11C. Object template model` as accepted after manual review and committed/pushed on `to`
 - Treat `Phase 11D. Create from template` as accepted after manual review and committed/pushed on `to`
-- Treat `Phase 11E. Save existing object as template` as accepted after manual review; keep it local and do not push unless the user asks
+- Treat `Phase 11E. Save existing object as template` as accepted after manual review and committed locally; keep it unpushed unless the user asks
+- Treat local `Phase 11F. Apply template with preview` as implemented and waiting for manual review; do not commit/push it before acceptance
 - Treat the production-calendar Russian date format follow-up as accepted after manual review
 - Treat `Phase 12. Backup, snapshots, and change history` as approved after Phase 11
 - Keep JSON as the source of truth and keep the yearly workbook as a generated/report artifact
@@ -26,8 +27,8 @@ Last updated: `2026-05-06`
 
 ## Near-term follow-up
 
-- Continue to `Phase 11F. Apply template with preview` unless redirected
-- After `Phase 11F` verification, stop for manual review before commit or push
+- Wait for manual review of local `Phase 11F. Apply template with preview`
+- After acceptance, commit `Phase 11F`; push only if the user asks, then continue to `Phase 11G. Template import/export` unless redirected
 
 ## Update rule
 

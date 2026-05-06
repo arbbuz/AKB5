@@ -170,7 +170,7 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
         var session = CreateSession(
             new Dictionary<string, List<KbNode>>
             {
-                ["Р¦РµС… 1"] = new List<KbNode> { root1, root2 }
+                ["Цех 1"] = new List<KbNode> { root1, root2 }
             });
         session.ReplaceCompositionEntries(
             new[]
@@ -436,6 +436,104 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
         Assert.Single(session.CompositionEntries);
         Assert.Single(session.DocumentLinks);
         Assert.Single(session.MaintenanceScheduleProfiles);
+    }
+
+    [Fact]
+    public void ApplyObjectTemplateToExistingObject_WhenSuccessful_AddsOnlyMissingDataAndSupportsUndo()
+    {
+        var target = new KbNode
+        {
+            NodeId = "cabinet-existing",
+            Name = "Existing cabinet",
+            LevelIndex = 2,
+            NodeType = KbNodeType.Cabinet,
+            Details = new KbNodeDetails
+            {
+                Description = "User description"
+            }
+        };
+        var system = new KbNode
+        {
+            NodeId = "system-1",
+            Name = "System 1",
+            LevelIndex = 1,
+            NodeType = KbNodeType.System,
+            Children = { target }
+        };
+        var department = new KbNode
+        {
+            NodeId = "department-1",
+            Name = "Department 1",
+            LevelIndex = 0,
+            NodeType = KbNodeType.Department,
+            Children = { system }
+        };
+        var session = CreateSession(
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Workshop 1"] = new List<KbNode> { department }
+            });
+        session.ReplaceObjectTemplates(new[] { CreateCabinetObjectTemplate() });
+
+        var history = new UndoRedoService();
+        var controller = new KnowledgeBaseTreeController(session);
+        var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
+        var workflow = new KnowledgeBaseTreeMutationWorkflowService(session, sessionWorkflow, controller, history);
+
+        KnowledgeBaseObjectTemplateApplicationPlan preview = workflow.PreviewApplyObjectTemplateToExistingObject(
+            target,
+            "cabinet-template");
+
+        Assert.True(preview.IsSuccess, preview.ErrorMessage);
+        Assert.True(preview.HasChanges);
+        Assert.Empty(target.Children);
+        Assert.Equal(string.Empty, target.Details.Location);
+
+        var result = workflow.ApplyObjectTemplateToExistingObject(
+            session.CurrentWorkshop,
+            target,
+            "cabinet-template",
+            session.GetCurrentWorkshopNodes());
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.True(workflow.CanUndo);
+        Assert.Same(target, result.AffectedNode);
+        Assert.Equal("Existing cabinet", target.Name);
+        Assert.Equal("User description", target.Details.Description);
+        Assert.Equal("Panel room", target.Details.Location);
+
+        KbNode controllerNode = Assert.Single(target.Children);
+        Assert.Equal("Template controller", controllerNode.Name);
+        Assert.Equal(3, controllerNode.LevelIndex);
+        Assert.Equal(KbNodeType.Controller, controllerNode.NodeType);
+
+        KbCompositionEntry composition = Assert.Single(session.CompositionEntries);
+        Assert.Equal("cabinet-existing", composition.ParentNodeId);
+
+        KbDocumentLink document = Assert.Single(session.DocumentLinks);
+        Assert.Equal(controllerNode.NodeId, document.OwnerNodeId);
+
+        KbSoftwareRecord software = Assert.Single(session.SoftwareRecords);
+        Assert.Equal(controllerNode.NodeId, software.OwnerNodeId);
+
+        KbNetworkFileReference network = Assert.Single(session.NetworkFileReferences);
+        Assert.Equal(controllerNode.NodeId, network.OwnerNodeId);
+
+        KbMaintenanceScheduleProfile maintenance = Assert.Single(session.MaintenanceScheduleProfiles);
+        Assert.Equal(controllerNode.NodeId, maintenance.OwnerNodeId);
+
+        var undoResult = workflow.Undo(session.GetCurrentWorkshopNodes());
+
+        Assert.True(undoResult.IsSuccess);
+        KbNode restoredTarget = Assert.Single(Assert.Single(Assert.Single(session.GetCurrentWorkshopNodes()).Children).Children);
+        Assert.Empty(restoredTarget.Children);
+        Assert.Equal("User description", restoredTarget.Details.Description);
+        Assert.Equal(string.Empty, restoredTarget.Details.Location);
+        Assert.Empty(session.CompositionEntries);
+        Assert.Empty(session.DocumentLinks);
+        Assert.Empty(session.SoftwareRecords);
+        Assert.Empty(session.NetworkFileReferences);
+        Assert.Empty(session.MaintenanceScheduleProfiles);
     }
 
     [Fact]

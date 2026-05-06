@@ -139,7 +139,7 @@ public class KnowledgeBaseSessionServiceTests
             {
                 Workshops = new Dictionary<string, List<KbNode>>
                 {
-                    ["Р¦РµС… 1"] = new()
+                    ["Цех 1"] = new()
                     {
                         new KbNode
                         {
@@ -150,7 +150,7 @@ public class KnowledgeBaseSessionServiceTests
                         }
                     }
                 },
-                LastWorkshop = "Р¦РµС… 1"
+                LastWorkshop = "Цех 1"
             },
             recordAsSavedState: true);
 
@@ -218,7 +218,7 @@ public class KnowledgeBaseSessionServiceTests
             {
                 Workshops = new Dictionary<string, List<KbNode>>
                 {
-                    ["Р¦РµС… 1"] = new()
+                    ["Цех 1"] = new()
                     {
                         new KbNode
                         {
@@ -229,7 +229,7 @@ public class KnowledgeBaseSessionServiceTests
                         }
                     }
                 },
-                LastWorkshop = "Р¦РµС… 1"
+                LastWorkshop = "Цех 1"
             },
             recordAsSavedState: true);
 

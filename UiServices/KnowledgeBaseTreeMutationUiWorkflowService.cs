@@ -76,8 +76,8 @@ namespace AsutpKnowledgeBase.UiServices
             {
                 MessageBox.Show(
                     context.Owner,
-                    "Р’С‹Р±РµСЂРёС‚Рµ СЂРѕРґРёС‚РµР»СЊСЃРєРёР№ СѓР·РµР», РІ РєРѕС‚РѕСЂС‹Р№ РЅСѓР¶РЅРѕ РґРѕР±Р°РІРёС‚СЊ СѓР·РµР» РїРѕ С€Р°Р±Р»РѕРЅСѓ.",
-                    "Р’РЅРёРјР°РЅРёРµ",
+                    "Выберите родительский узел, в который нужно добавить узел по шаблону.",
+                    "Внимание",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
                 return;
@@ -133,8 +133,8 @@ namespace AsutpKnowledgeBase.UiServices
             {
                 MessageBox.Show(
                     context.Owner,
-                    "Р’С‹Р±РµСЂРёС‚Рµ РѕР±СЉРµРєС‚, РєРѕС‚РѕСЂС‹Р№ РЅСѓР¶РЅРѕ СЃРѕС…СЂР°РЅРёС‚СЊ РєР°Рє С€Р°Р±Р»РѕРЅ.",
-                    "РЁР°Р±Р»РѕРЅС‹ РѕР±СЉРµРєС‚РѕРІ",
+                    "Выберите объект, который нужно сохранить как шаблон.",
+                    "Шаблоны объектов",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 return;
@@ -144,8 +144,8 @@ namespace AsutpKnowledgeBase.UiServices
             {
                 MessageBox.Show(
                     context.Owner,
-                    "Р­С‚РѕС‚ СѓР·РµР» РЅРµР»СЊР·СЏ СЃРѕС…СЂР°РЅРёС‚СЊ РєР°Рє С€Р°Р±Р»РѕРЅ РѕР±СЉРµРєС‚Р°.",
-                    "РЁР°Р±Р»РѕРЅС‹ РѕР±СЉРµРєС‚РѕРІ",
+                    "Этот узел нельзя сохранить как шаблон объекта.",
+                    "Шаблоны объектов",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 return;
@@ -164,7 +164,58 @@ namespace AsutpKnowledgeBase.UiServices
                 context.GetPersistedTreeData());
             if (!result.IsSuccess)
             {
-                ShowMutationFailure(context.Owner, result, "РЎРѕС…СЂР°РЅРµРЅРёРµ С€Р°Р±Р»РѕРЅР° РѕР±СЉРµРєС‚Р°");
+                ShowMutationFailure(context.Owner, result, "Сохранение шаблона объекта");
+                return;
+            }
+
+            ApplySuccessfulMutation(context, result, selectedNode, expandedNodes);
+        }
+
+        public void ApplyObjectTemplateToExistingObject(KnowledgeBaseTreeMutationUiWorkflowContext context)
+        {
+            if (context.TreeView.SelectedNode?.Tag is not KbNode selectedNode)
+            {
+                MessageBox.Show(
+                    context.Owner,
+                    "Выберите объект, к которому нужно применить шаблон.",
+                    "Шаблоны объектов",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            var templates = _treeMutationWorkflowService.GetApplicableObjectTemplates(selectedNode);
+            if (templates.Count == 0)
+            {
+                MessageBox.Show(
+                    context.Owner,
+                    _treeMutationWorkflowService.HasObjectTemplates
+                        ? "Для типа выбранного объекта нет подходящих шаблонов."
+                        : "В базе нет сохранённых шаблонов объектов.",
+                    "Шаблоны объектов",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            using var dialog = new KnowledgeBaseObjectTemplateApplyPreviewDialog(
+                selectedNode,
+                templates,
+                templateId => _treeMutationWorkflowService.PreviewApplyObjectTemplateToExistingObject(
+                    selectedNode,
+                    templateId));
+            if (dialog.ShowDialog(context.Owner) != DialogResult.OK)
+                return;
+
+            var expandedNodes = context.CaptureExpandedNodes();
+            var result = _treeMutationWorkflowService.ApplyObjectTemplateToExistingObject(
+                context.CurrentWorkshop,
+                selectedNode,
+                dialog.SelectedTemplateId,
+                context.GetPersistedTreeData());
+            if (!result.IsSuccess)
+            {
+                ShowMutationFailure(context.Owner, result, "Применение шаблона объекта");
                 return;
             }
 
@@ -357,7 +408,7 @@ namespace AsutpKnowledgeBase.UiServices
             {
                 MessageBox.Show(
                     context.Owner,
-                    "Р”Р»СЏ РІС‹Р±СЂР°РЅРЅРѕРіРѕ СѓР·Р»Р° РЅРµС‚ РґРѕСЃС‚СѓРїРЅС‹С… С€Р°Р±Р»РѕРЅРѕРІ РґРѕС‡РµСЂРЅРёС… РѕР±СЉРµРєС‚РѕРІ.",
+                    "Для выбранного узла нет доступных шаблонов дочерних объектов.",
                     "Шаблон состава",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
@@ -366,8 +417,8 @@ namespace AsutpKnowledgeBase.UiServices
 
             var templates = _compositionTemplateService.GetChildTemplates(parentNode);
             using var dialog = new KnowledgeBaseCompositionTemplateDialog(
-                "Р”РѕР±Р°РІРёС‚СЊ РёР· С€Р°Р±Р»РѕРЅР°",
-                "Р’С‹Р±РµСЂРёС‚Рµ С€Р°Р±Р»РѕРЅ Рё РёРјСЏ РЅРѕРІРѕРіРѕ СѓР·Р»Р°:",
+                "Добавить из шаблона",
+                "Выберите шаблон и имя нового узла:",
                 templates,
                 collectNodeName: true,
                 inheritedLocation: KnowledgeBaseCompositionTemplateService.BuildInheritedLocation(parentNode));
@@ -383,7 +434,7 @@ namespace AsutpKnowledgeBase.UiServices
                 context.GetPersistedTreeData());
             if (!result.IsSuccess)
             {
-                ShowMutationFailure(context.Owner, result, "РќРµРІРѕР·РјРѕР¶РЅРѕ РґРѕР±Р°РІРёС‚СЊ РёР· С€Р°Р±Р»РѕРЅР°");
+                ShowMutationFailure(context.Owner, result, "Невозможно добавить из шаблона");
                 return;
             }
 

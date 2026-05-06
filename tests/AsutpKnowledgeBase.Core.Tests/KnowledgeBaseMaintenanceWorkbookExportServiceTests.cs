@@ -148,9 +148,9 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
         AssertValidWorkbook(packageBytes);
 
-        Assert.Equal("Updated system", ReadCellText(packageBytes, "РљР¦ (4)", "B16"));
-        Assert.DoesNotContain(ReadRowIndices(packageBytes, "РљР¦ (4)"), static rowIndex => rowIndex > 25);
-        Assert.False(HasRowBreaks(packageBytes, "РљР¦ (4)"));
+        Assert.Equal("Updated system", ReadCellText(packageBytes, "КЦ (4)", "B16"));
+        Assert.DoesNotContain(ReadRowIndices(packageBytes, "КЦ (4)"), static rowIndex => rowIndex > 25);
+        Assert.False(HasRowBreaks(packageBytes, "КЦ (4)"));
     }
 
     [Fact]

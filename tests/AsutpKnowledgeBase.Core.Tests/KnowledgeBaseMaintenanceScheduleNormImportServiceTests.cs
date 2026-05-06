@@ -306,7 +306,7 @@ public class KnowledgeBaseMaintenanceScheduleNormImportServiceTests
     private static IReadOnlyList<KbNode> CreateWorkshopRoots(
         string systemInventoryNumber,
         string equipmentName,
-        string systemName = "РЎРёСЃС‚РµРјР° 1",
+        string systemName = "Система 1",
         string equipmentInventoryNumber = "")
     {
         return

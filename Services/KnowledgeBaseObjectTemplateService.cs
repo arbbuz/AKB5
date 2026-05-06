@@ -48,14 +48,14 @@ namespace AsutpKnowledgeBase.Services
             IEnumerable<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
         {
             if (sourceRoot == null)
-                return BuildFailure("Р’С‹Р±РµСЂРёС‚Рµ РѕР±СЉРµРєС‚, РєРѕС‚РѕСЂС‹Р№ РЅСѓР¶РЅРѕ СЃРѕС…СЂР°РЅРёС‚СЊ РєР°Рє С€Р°Р±Р»РѕРЅ.");
+                return BuildFailure("Выберите объект, который нужно сохранить как шаблон.");
 
             string normalizedDisplayName = displayName?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(normalizedDisplayName))
                 normalizedDisplayName = sourceRoot.Name?.Trim() ?? string.Empty;
 
             if (string.IsNullOrWhiteSpace(normalizedDisplayName))
-                return BuildFailure("РЈРєР°Р¶РёС‚Рµ РЅР°Р·РІР°РЅРёРµ С€Р°Р±Р»РѕРЅР°.");
+                return BuildFailure("Укажите название шаблона.");
 
             var nodeIdMap = new Dictionary<string, string>(StringComparer.Ordinal);
             KbObjectTemplateNode templateRoot = CreateTemplateNode(sourceRoot, nodeIdMap);
@@ -121,6 +121,94 @@ namespace AsutpKnowledgeBase.Services
             };
         }
 
+        public KnowledgeBaseObjectTemplateApplicationPlan BuildApplyToExistingObjectPlan(
+            KbObjectTemplate? template,
+            KbNode? targetRoot,
+            int maxLevels,
+            IEnumerable<KbCompositionEntry>? existingCompositionEntries,
+            IEnumerable<KbDocumentLink>? existingDocumentLinks,
+            IEnumerable<KbSoftwareRecord>? existingSoftwareRecords,
+            IEnumerable<KbNetworkFileReference>? existingNetworkFileReferences,
+            IEnumerable<KbMaintenanceScheduleProfile>? existingMaintenanceScheduleProfiles)
+        {
+            if (targetRoot == null)
+                return ApplicationFailure("Выберите объект, к которому нужно применить шаблон.");
+
+            if (template == null)
+                return ApplicationFailure("Шаблон объекта не найден или заполнен некорректно.");
+
+            List<KbObjectTemplate> normalizedTemplates =
+                KnowledgeBaseDataService.NormalizeObjectTemplates(new[] { template });
+            KbObjectTemplate? normalizedTemplate = normalizedTemplates.SingleOrDefault();
+            if (normalizedTemplate == null)
+                return ApplicationFailure("Шаблон объекта не найден или заполнен некорректно.");
+
+            if (targetRoot.NodeType != normalizedTemplate.RootNode.NodeType)
+            {
+                return ApplicationFailure(
+                    "Шаблон предназначен для другого типа объекта. Применение к выбранному объекту отменено.");
+            }
+
+            if (maxLevels <= 0)
+                return ApplicationFailure("В базе задана нулевая максимальная глубина дерева.");
+
+            var plan = new KnowledgeBaseObjectTemplateApplicationPlan
+            {
+                IsSuccess = true,
+                TemplateDisplayName = normalizedTemplate.DisplayName,
+                TargetName = targetRoot.Name
+            };
+            var nodeIdMap = new Dictionary<string, string>(StringComparer.Ordinal);
+            var templateNodePathMap = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            BuildApplyNodePlan(
+                normalizedTemplate.RootNode,
+                targetRoot,
+                BuildNodeDisplayName(targetRoot),
+                maxLevels,
+                nodeIdMap,
+                templateNodePathMap,
+                plan);
+
+            AddCompositionEntryPlans(
+                normalizedTemplate.CompositionEntries,
+                existingCompositionEntries,
+                nodeIdMap,
+                templateNodePathMap,
+                plan);
+            AddDocumentLinkPlans(
+                normalizedTemplate.DocumentLinks,
+                existingDocumentLinks,
+                nodeIdMap,
+                templateNodePathMap,
+                plan);
+            AddSoftwareRecordPlans(
+                normalizedTemplate.SoftwareRecords,
+                existingSoftwareRecords,
+                nodeIdMap,
+                templateNodePathMap,
+                plan);
+            AddNetworkFileReferencePlans(
+                normalizedTemplate.NetworkFileReferences,
+                existingNetworkFileReferences,
+                nodeIdMap,
+                templateNodePathMap,
+                plan);
+            AddMaintenanceScheduleProfilePlans(
+                normalizedTemplate.MaintenanceScheduleProfiles,
+                existingMaintenanceScheduleProfiles,
+                nodeIdMap,
+                templateNodePathMap,
+                plan);
+            AddNetworkInterfaceStubPlans(
+                normalizedTemplate.NetworkInterfaceStubs,
+                nodeIdMap,
+                templateNodePathMap,
+                plan);
+
+            return plan;
+        }
+
         private static KbObjectTemplateNode CreateTemplateNode(
             KbNode sourceNode,
             Dictionary<string, string> nodeIdMap)
@@ -141,6 +229,607 @@ namespace AsutpKnowledgeBase.Services
                     .ToList()
             };
         }
+
+        private static void BuildApplyNodePlan(
+            KbObjectTemplateNode templateNode,
+            KbNode targetNode,
+            string targetPath,
+            int maxLevels,
+            Dictionary<string, string> nodeIdMap,
+            Dictionary<string, string> templateNodePathMap,
+            KnowledgeBaseObjectTemplateApplicationPlan plan)
+        {
+            nodeIdMap[templateNode.TemplateNodeId] = targetNode.NodeId;
+            templateNodePathMap[templateNode.TemplateNodeId] = targetPath;
+            AddPreviewItem(
+                plan,
+                KnowledgeBaseObjectTemplateApplicationAction.Unchanged,
+                "Узел",
+                targetPath,
+                "Существующий объект используется как корень применения; имя и тип не меняются.");
+
+            AddDetailUpdatePlans(templateNode.Details, targetNode, targetPath, plan);
+
+            var usedExistingChildren = new HashSet<KbNode>();
+            foreach (KbObjectTemplateNode templateChild in templateNode.Children)
+            {
+                string childName = BuildTemplateNodeDisplayName(templateChild);
+                string childPath = $"{targetPath} / {childName}";
+                KbNode? existingChild = targetNode.Children.FirstOrDefault(child =>
+                    !usedExistingChildren.Contains(child) &&
+                    child.NodeType == templateChild.NodeType &&
+                    NamesEqual(child.Name, templateChild.Name));
+
+                if (existingChild != null)
+                {
+                    usedExistingChildren.Add(existingChild);
+                    BuildApplyNodePlan(
+                        templateChild,
+                        existingChild,
+                        childPath,
+                        maxLevels,
+                        nodeIdMap,
+                        templateNodePathMap,
+                        plan);
+                    continue;
+                }
+
+                bool hasSameNameDifferentType = targetNode.Children.Any(child =>
+                    child.NodeType != templateChild.NodeType &&
+                    NamesEqual(child.Name, templateChild.Name));
+                if (hasSameNameDifferentType)
+                {
+                    AddSkippedTemplateSubtree(
+                        templateChild,
+                        childPath,
+                        "Уже есть дочерний узел с таким именем, но другого типа; шаблон не добавляется автоматически.",
+                        templateNodePathMap,
+                        plan);
+                    continue;
+                }
+
+                var additionNodeIdMap = new Dictionary<string, string>(StringComparer.Ordinal);
+                KbNode addition = CreateNodeInstance(templateChild, targetNode.LevelIndex + 1, additionNodeIdMap);
+                if (!CanAttachNodeAddition(targetNode, addition, maxLevels))
+                {
+                    AddSkippedTemplateSubtree(
+                        templateChild,
+                        childPath,
+                        $"Поддерево не помещается в максимальную глубину {maxLevels}.",
+                        templateNodePathMap,
+                        plan);
+                    continue;
+                }
+
+                foreach (var pair in additionNodeIdMap)
+                    nodeIdMap[pair.Key] = pair.Value;
+
+                CollectTemplateNodePaths(templateChild, childPath, templateNodePathMap);
+                plan.NodeAdditions.Add(new KnowledgeBaseObjectTemplateNodeAddition
+                {
+                    ParentNode = targetNode,
+                    Node = addition
+                });
+                AddPreviewItem(
+                    plan,
+                    KnowledgeBaseObjectTemplateApplicationAction.Added,
+                    "Узел",
+                    childPath,
+                    $"Будет добавлено поддерево: {CountTemplateNodes(templateChild)} узл.");
+            }
+        }
+
+        private static void AddDetailUpdatePlans(
+            KbNodeDetails templateDetails,
+            KbNode targetNode,
+            string targetPath,
+            KnowledgeBaseObjectTemplateApplicationPlan plan)
+        {
+            targetNode.Details ??= new KbNodeDetails();
+            AddDetailUpdatePlan(plan, targetNode, targetPath, "description", "Описание",
+                templateDetails.Description, targetNode.Details.Description);
+            AddDetailUpdatePlan(plan, targetNode, targetPath, "location", "Местоположение",
+                templateDetails.Location, targetNode.Details.Location);
+            AddDetailUpdatePlan(plan, targetNode, targetPath, "inventory", "Инвентарный номер",
+                templateDetails.InventoryNumber, targetNode.Details.InventoryNumber);
+            AddDetailUpdatePlan(plan, targetNode, targetPath, "photo", "Фото",
+                templateDetails.PhotoPath, targetNode.Details.PhotoPath);
+            AddDetailUpdatePlan(plan, targetNode, targetPath, "ip", "IP-адрес",
+                templateDetails.IpAddress, targetNode.Details.IpAddress);
+            AddDetailUpdatePlan(plan, targetNode, targetPath, "schema", "Ссылка на схему",
+                templateDetails.SchemaLink, targetNode.Details.SchemaLink);
+        }
+
+        private static void AddDetailUpdatePlan(
+            KnowledgeBaseObjectTemplateApplicationPlan plan,
+            KbNode targetNode,
+            string targetPath,
+            string fieldKey,
+            string fieldDisplayName,
+            string? templateValue,
+            string? currentValue)
+        {
+            string normalizedTemplateValue = templateValue?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(normalizedTemplateValue))
+                return;
+
+            if (!IsDetailFieldSupported(targetNode, fieldKey))
+            {
+                AddPreviewItem(
+                    plan,
+                    KnowledgeBaseObjectTemplateApplicationAction.Skipped,
+                    "Карточка",
+                    targetPath,
+                    $"Поле \"{fieldDisplayName}\" недоступно для текущего уровня объекта.");
+                return;
+            }
+
+            string normalizedCurrentValue = currentValue?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(normalizedCurrentValue))
+            {
+                plan.DetailUpdates.Add(new KnowledgeBaseObjectTemplateDetailUpdate
+                {
+                    TargetNode = targetNode,
+                    FieldKey = fieldKey,
+                    FieldDisplayName = fieldDisplayName,
+                    Value = normalizedTemplateValue
+                });
+                AddPreviewItem(
+                    plan,
+                    KnowledgeBaseObjectTemplateApplicationAction.Added,
+                    "Карточка",
+                    targetPath,
+                    $"Будет заполнено поле \"{fieldDisplayName}\".");
+                return;
+            }
+
+            if (string.Equals(normalizedCurrentValue, normalizedTemplateValue, StringComparison.CurrentCulture))
+            {
+                AddPreviewItem(
+                    plan,
+                    KnowledgeBaseObjectTemplateApplicationAction.Unchanged,
+                    "Карточка",
+                    targetPath,
+                    $"Поле \"{fieldDisplayName}\" уже совпадает с шаблоном.");
+                return;
+            }
+
+            AddPreviewItem(
+                plan,
+                KnowledgeBaseObjectTemplateApplicationAction.Skipped,
+                "Карточка",
+                targetPath,
+                $"Поле \"{fieldDisplayName}\" уже заполнено и не будет перезаписано.");
+        }
+
+        private static bool IsDetailFieldSupported(KbNode targetNode, string fieldKey)
+        {
+            int visibleLevel = targetNode.LevelIndex + 1;
+            return fieldKey switch
+            {
+                "location" => KnowledgeBaseNodeMetadataService.SupportsLocation(visibleLevel),
+                "inventory" => KnowledgeBaseNodeMetadataService.SupportsInventoryNumber(visibleLevel),
+                "photo" => KnowledgeBaseNodeMetadataService.SupportsPhoto(visibleLevel),
+                "ip" => KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(targetNode.NodeType, visibleLevel),
+                "schema" => KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(targetNode.NodeType, visibleLevel),
+                _ => true
+            };
+        }
+
+        private static void AddCompositionEntryPlans(
+            IEnumerable<KbObjectTemplateCompositionEntry> templateEntries,
+            IEnumerable<KbCompositionEntry>? existingEntries,
+            IReadOnlyDictionary<string, string> nodeIdMap,
+            IReadOnlyDictionary<string, string> templateNodePathMap,
+            KnowledgeBaseObjectTemplateApplicationPlan plan)
+        {
+            var existing = existingEntries?.ToList() ?? new List<KbCompositionEntry>();
+            foreach (KbObjectTemplateCompositionEntry templateEntry in templateEntries)
+            {
+                if (!nodeIdMap.TryGetValue(templateEntry.ParentTemplateNodeId, out string? parentNodeId))
+                {
+                    AddSkippedForMissingMappedNode("Состав", templateEntry.ParentTemplateNodeId, templateNodePathMap, plan);
+                    continue;
+                }
+
+                var entry = new KbCompositionEntry
+                {
+                    ParentNodeId = parentNodeId,
+                    SlotNumber = templateEntry.SlotNumber,
+                    PositionOrder = templateEntry.PositionOrder,
+                    ComponentType = templateEntry.ComponentType,
+                    Model = templateEntry.Model,
+                    IpAddress = templateEntry.IpAddress,
+                    LastCalibrationAt = templateEntry.LastCalibrationAt,
+                    NextCalibrationAt = templateEntry.NextCalibrationAt,
+                    Notes = templateEntry.Notes
+                };
+                string targetPath = ResolveTemplateNodePath(templateEntry.ParentTemplateNodeId, templateNodePathMap);
+                if (existing.Concat(plan.CompositionEntries).Any(current => CompositionEntriesEqual(current, entry)))
+                {
+                    AddPreviewItem(
+                        plan,
+                        KnowledgeBaseObjectTemplateApplicationAction.Unchanged,
+                        "Состав",
+                        targetPath,
+                        BuildCompositionPreviewText(entry, "Запись состава уже есть."));
+                    continue;
+                }
+
+                plan.CompositionEntries.Add(entry);
+                AddPreviewItem(
+                    plan,
+                    KnowledgeBaseObjectTemplateApplicationAction.Added,
+                    "Состав",
+                    targetPath,
+                    BuildCompositionPreviewText(entry, "Будет добавлена запись состава."));
+            }
+        }
+
+        private static void AddDocumentLinkPlans(
+            IEnumerable<KbObjectTemplateDocumentLink> templateLinks,
+            IEnumerable<KbDocumentLink>? existingLinks,
+            IReadOnlyDictionary<string, string> nodeIdMap,
+            IReadOnlyDictionary<string, string> templateNodePathMap,
+            KnowledgeBaseObjectTemplateApplicationPlan plan)
+        {
+            var existing = existingLinks?.ToList() ?? new List<KbDocumentLink>();
+            foreach (KbObjectTemplateDocumentLink templateLink in templateLinks)
+            {
+                if (!nodeIdMap.TryGetValue(templateLink.OwnerTemplateNodeId, out string? ownerNodeId))
+                {
+                    AddSkippedForMissingMappedNode("Документы", templateLink.OwnerTemplateNodeId, templateNodePathMap, plan);
+                    continue;
+                }
+
+                var link = new KbDocumentLink
+                {
+                    OwnerNodeId = ownerNodeId,
+                    Kind = templateLink.Kind,
+                    Title = templateLink.Title,
+                    Path = templateLink.Path,
+                    UpdatedAt = templateLink.UpdatedAt
+                };
+                string targetPath = ResolveTemplateNodePath(templateLink.OwnerTemplateNodeId, templateNodePathMap);
+                if (existing.Concat(plan.DocumentLinks).Any(current => DocumentLinksEqual(current, link)))
+                {
+                    AddPreviewItem(
+                        plan,
+                        KnowledgeBaseObjectTemplateApplicationAction.Unchanged,
+                        "Документы",
+                        targetPath,
+                        BuildTitlePathPreviewText(link.Title, link.Path, "Документ уже есть."));
+                    continue;
+                }
+
+                plan.DocumentLinks.Add(link);
+                AddPreviewItem(
+                    plan,
+                    KnowledgeBaseObjectTemplateApplicationAction.Added,
+                    "Документы",
+                    targetPath,
+                    BuildTitlePathPreviewText(link.Title, link.Path, "Будет добавлен документ."));
+            }
+        }
+
+        private static void AddSoftwareRecordPlans(
+            IEnumerable<KbObjectTemplateSoftwareRecord> templateRecords,
+            IEnumerable<KbSoftwareRecord>? existingRecords,
+            IReadOnlyDictionary<string, string> nodeIdMap,
+            IReadOnlyDictionary<string, string> templateNodePathMap,
+            KnowledgeBaseObjectTemplateApplicationPlan plan)
+        {
+            var existing = existingRecords?.ToList() ?? new List<KbSoftwareRecord>();
+            foreach (KbObjectTemplateSoftwareRecord templateRecord in templateRecords)
+            {
+                if (!nodeIdMap.TryGetValue(templateRecord.OwnerTemplateNodeId, out string? ownerNodeId))
+                {
+                    AddSkippedForMissingMappedNode("ПО", templateRecord.OwnerTemplateNodeId, templateNodePathMap, plan);
+                    continue;
+                }
+
+                var record = new KbSoftwareRecord
+                {
+                    OwnerNodeId = ownerNodeId,
+                    Title = templateRecord.Title,
+                    Path = templateRecord.Path,
+                    AddedAt = templateRecord.AddedAt,
+                    LastChangedAt = templateRecord.LastChangedAt,
+                    LastBackupAt = templateRecord.LastBackupAt,
+                    Notes = templateRecord.Notes
+                };
+                string targetPath = ResolveTemplateNodePath(templateRecord.OwnerTemplateNodeId, templateNodePathMap);
+                if (existing.Concat(plan.SoftwareRecords).Any(current => SoftwareRecordsEqual(current, record)))
+                {
+                    AddPreviewItem(
+                        plan,
+                        KnowledgeBaseObjectTemplateApplicationAction.Unchanged,
+                        "ПО",
+                        targetPath,
+                        BuildTitlePathPreviewText(record.Title, record.Path, "Запись ПО уже есть."));
+                    continue;
+                }
+
+                plan.SoftwareRecords.Add(record);
+                AddPreviewItem(
+                    plan,
+                    KnowledgeBaseObjectTemplateApplicationAction.Added,
+                    "ПО",
+                    targetPath,
+                    BuildTitlePathPreviewText(record.Title, record.Path, "Будет добавлена запись ПО."));
+            }
+        }
+
+        private static void AddNetworkFileReferencePlans(
+            IEnumerable<KbObjectTemplateNetworkFileReference> templateReferences,
+            IEnumerable<KbNetworkFileReference>? existingReferences,
+            IReadOnlyDictionary<string, string> nodeIdMap,
+            IReadOnlyDictionary<string, string> templateNodePathMap,
+            KnowledgeBaseObjectTemplateApplicationPlan plan)
+        {
+            var existing = existingReferences?.ToList() ?? new List<KbNetworkFileReference>();
+            foreach (KbObjectTemplateNetworkFileReference templateReference in templateReferences)
+            {
+                if (!nodeIdMap.TryGetValue(templateReference.OwnerTemplateNodeId, out string? ownerNodeId))
+                {
+                    AddSkippedForMissingMappedNode("Файлы сети", templateReference.OwnerTemplateNodeId, templateNodePathMap, plan);
+                    continue;
+                }
+
+                var reference = new KbNetworkFileReference
+                {
+                    OwnerNodeId = ownerNodeId,
+                    Title = templateReference.Title,
+                    Path = templateReference.Path,
+                    PreviewKind = KnowledgeBaseNetworkPreviewService.ResolvePreviewKind(templateReference.Path)
+                };
+                string targetPath = ResolveTemplateNodePath(templateReference.OwnerTemplateNodeId, templateNodePathMap);
+                if (existing.Concat(plan.NetworkFileReferences).Any(current => NetworkFileReferencesEqual(current, reference)))
+                {
+                    AddPreviewItem(
+                        plan,
+                        KnowledgeBaseObjectTemplateApplicationAction.Unchanged,
+                        "Файлы сети",
+                        targetPath,
+                        BuildTitlePathPreviewText(reference.Title, reference.Path, "Файл сети уже есть."));
+                    continue;
+                }
+
+                plan.NetworkFileReferences.Add(reference);
+                AddPreviewItem(
+                    plan,
+                    KnowledgeBaseObjectTemplateApplicationAction.Added,
+                    "Файлы сети",
+                    targetPath,
+                    BuildTitlePathPreviewText(reference.Title, reference.Path, "Будет добавлен файл сети."));
+            }
+        }
+
+        private static void AddMaintenanceScheduleProfilePlans(
+            IEnumerable<KbObjectTemplateMaintenanceScheduleProfile> templateProfiles,
+            IEnumerable<KbMaintenanceScheduleProfile>? existingProfiles,
+            IReadOnlyDictionary<string, string> nodeIdMap,
+            IReadOnlyDictionary<string, string> templateNodePathMap,
+            KnowledgeBaseObjectTemplateApplicationPlan plan)
+        {
+            var existing = existingProfiles?.ToList() ?? new List<KbMaintenanceScheduleProfile>();
+            foreach (KbObjectTemplateMaintenanceScheduleProfile templateProfile in templateProfiles)
+            {
+                if (!nodeIdMap.TryGetValue(templateProfile.OwnerTemplateNodeId, out string? ownerNodeId))
+                {
+                    AddSkippedForMissingMappedNode("График ТО", templateProfile.OwnerTemplateNodeId, templateNodePathMap, plan);
+                    continue;
+                }
+
+                string targetPath = ResolveTemplateNodePath(templateProfile.OwnerTemplateNodeId, templateNodePathMap);
+                bool alreadyHasProfile = existing.Concat(plan.MaintenanceScheduleProfiles)
+                    .Any(profile => string.Equals(profile.OwnerNodeId, ownerNodeId, StringComparison.Ordinal));
+                if (alreadyHasProfile)
+                {
+                    AddPreviewItem(
+                        plan,
+                        KnowledgeBaseObjectTemplateApplicationAction.Skipped,
+                        "График ТО",
+                        targetPath,
+                        "Профиль ТО уже есть и не будет перезаписан.");
+                    continue;
+                }
+
+                var profile = new KbMaintenanceScheduleProfile
+                {
+                    OwnerNodeId = ownerNodeId,
+                    IsIncludedInSchedule = templateProfile.IsIncludedInSchedule,
+                    To1Hours = templateProfile.To1Hours,
+                    To2Hours = templateProfile.To2Hours,
+                    To3Hours = templateProfile.To3Hours,
+                    YearScheduleEntries = templateProfile.YearScheduleEntries
+                        .Select(static entry => new KbMaintenanceYearScheduleEntry
+                        {
+                            Month = entry.Month,
+                            WorkKind = entry.WorkKind
+                        })
+                        .ToList()
+                };
+                plan.MaintenanceScheduleProfiles.Add(profile);
+                AddPreviewItem(
+                    plan,
+                    KnowledgeBaseObjectTemplateApplicationAction.Added,
+                    "График ТО",
+                    targetPath,
+                    "Будет добавлен профиль ТО.");
+            }
+        }
+
+        private static void AddNetworkInterfaceStubPlans(
+            IEnumerable<KbObjectTemplateNetworkInterfaceStub> stubs,
+            IReadOnlyDictionary<string, string> nodeIdMap,
+            IReadOnlyDictionary<string, string> templateNodePathMap,
+            KnowledgeBaseObjectTemplateApplicationPlan plan)
+        {
+            foreach (KbObjectTemplateNetworkInterfaceStub stub in stubs)
+            {
+                if (!nodeIdMap.ContainsKey(stub.OwnerTemplateNodeId))
+                {
+                    AddSkippedForMissingMappedNode("Сетевые интерфейсы", stub.OwnerTemplateNodeId, templateNodePathMap, plan);
+                    continue;
+                }
+
+                AddPreviewItem(
+                    plan,
+                    KnowledgeBaseObjectTemplateApplicationAction.Skipped,
+                    "Сетевые интерфейсы",
+                    ResolveTemplateNodePath(stub.OwnerTemplateNodeId, templateNodePathMap),
+                    "Заготовка сетевого интерфейса сохранена в шаблоне, но отдельная сущность интерфейсов пока не реализована.");
+            }
+        }
+
+        private static void AddSkippedTemplateSubtree(
+            KbObjectTemplateNode templateNode,
+            string path,
+            string reason,
+            Dictionary<string, string> templateNodePathMap,
+            KnowledgeBaseObjectTemplateApplicationPlan plan)
+        {
+            CollectTemplateNodePaths(templateNode, path, templateNodePathMap);
+            AddPreviewItem(
+                plan,
+                KnowledgeBaseObjectTemplateApplicationAction.Skipped,
+                "Узел",
+                path,
+                reason);
+        }
+
+        private static void AddSkippedForMissingMappedNode(
+            string area,
+            string templateNodeId,
+            IReadOnlyDictionary<string, string> templateNodePathMap,
+            KnowledgeBaseObjectTemplateApplicationPlan plan)
+        {
+            AddPreviewItem(
+                plan,
+                KnowledgeBaseObjectTemplateApplicationAction.Skipped,
+                area,
+                ResolveTemplateNodePath(templateNodeId, templateNodePathMap),
+                "Целевой узел не найден: соответствующая часть шаблона была пропущена.");
+        }
+
+        private static void AddPreviewItem(
+            KnowledgeBaseObjectTemplateApplicationPlan plan,
+            KnowledgeBaseObjectTemplateApplicationAction action,
+            string area,
+            string target,
+            string description) =>
+            plan.PreviewItems.Add(new KnowledgeBaseObjectTemplateApplicationPreviewItem
+            {
+                Action = action,
+                Area = area,
+                Target = target,
+                Description = description
+            });
+
+        private static void CollectTemplateNodePaths(
+            KbObjectTemplateNode templateNode,
+            string path,
+            IDictionary<string, string> templateNodePathMap)
+        {
+            templateNodePathMap[templateNode.TemplateNodeId] = path;
+            foreach (KbObjectTemplateNode child in templateNode.Children)
+                CollectTemplateNodePaths(child, $"{path} / {BuildTemplateNodeDisplayName(child)}", templateNodePathMap);
+        }
+
+        private static bool CanAttachNodeAddition(KbNode parentNode, KbNode addition, int maxLevels) =>
+            parentNode.LevelIndex + 1 + GetNodeHeight(addition) <= maxLevels;
+
+        private static int GetNodeHeight(KbNode node)
+        {
+            if (node.Children.Count == 0)
+                return 1;
+
+            return 1 + node.Children.Max(GetNodeHeight);
+        }
+
+        private static int CountTemplateNodes(KbObjectTemplateNode node) =>
+            1 + node.Children.Sum(CountTemplateNodes);
+
+        private static string BuildNodeDisplayName(KbNode node)
+        {
+            string name = node.Name?.Trim() ?? string.Empty;
+            return string.IsNullOrWhiteSpace(name) ? "(без имени)" : name;
+        }
+
+        private static string BuildTemplateNodeDisplayName(KbObjectTemplateNode node)
+        {
+            string name = node.Name?.Trim() ?? string.Empty;
+            return string.IsNullOrWhiteSpace(name) ? "(без имени)" : name;
+        }
+
+        private static string ResolveTemplateNodePath(
+            string templateNodeId,
+            IReadOnlyDictionary<string, string> templateNodePathMap) =>
+            templateNodePathMap.TryGetValue(templateNodeId, out string? path)
+                ? path
+                : "(часть шаблона без целевого узла)";
+
+        private static string BuildCompositionPreviewText(KbCompositionEntry entry, string prefix)
+        {
+            string component = entry.ComponentType?.Trim() ?? string.Empty;
+            string model = entry.Model?.Trim() ?? string.Empty;
+            string summary = string.IsNullOrWhiteSpace(component) ? model : component;
+            if (!string.IsNullOrWhiteSpace(model) && !string.Equals(component, model, StringComparison.CurrentCulture))
+                summary = string.IsNullOrWhiteSpace(summary) ? model : $"{summary}: {model}";
+
+            return string.IsNullOrWhiteSpace(summary)
+                ? prefix
+                : $"{prefix} {summary}";
+        }
+
+        private static string BuildTitlePathPreviewText(string? title, string? path, string prefix)
+        {
+            string normalizedTitle = title?.Trim() ?? string.Empty;
+            string normalizedPath = path?.Trim() ?? string.Empty;
+            string summary = string.IsNullOrWhiteSpace(normalizedTitle) ? normalizedPath : normalizedTitle;
+            return string.IsNullOrWhiteSpace(summary)
+                ? prefix
+                : $"{prefix} {summary}";
+        }
+
+        private static bool NamesEqual(string? first, string? second) =>
+            string.Equals(first?.Trim() ?? string.Empty, second?.Trim() ?? string.Empty, StringComparison.CurrentCultureIgnoreCase);
+
+        private static bool TextEqual(string? first, string? second) =>
+            string.Equals(first?.Trim() ?? string.Empty, second?.Trim() ?? string.Empty, StringComparison.CurrentCulture);
+
+        private static bool CompositionEntriesEqual(KbCompositionEntry first, KbCompositionEntry second) =>
+            string.Equals(first.ParentNodeId, second.ParentNodeId, StringComparison.Ordinal) &&
+            first.SlotNumber == second.SlotNumber &&
+            first.PositionOrder == second.PositionOrder &&
+            TextEqual(first.ComponentType, second.ComponentType) &&
+            TextEqual(first.Model, second.Model) &&
+            TextEqual(first.IpAddress, second.IpAddress) &&
+            first.LastCalibrationAt == second.LastCalibrationAt &&
+            first.NextCalibrationAt == second.NextCalibrationAt &&
+            TextEqual(first.Notes, second.Notes);
+
+        private static bool DocumentLinksEqual(KbDocumentLink first, KbDocumentLink second) =>
+            string.Equals(first.OwnerNodeId, second.OwnerNodeId, StringComparison.Ordinal) &&
+            first.Kind == second.Kind &&
+            TextEqual(first.Title, second.Title) &&
+            TextEqual(first.Path, second.Path) &&
+            first.UpdatedAt == second.UpdatedAt;
+
+        private static bool SoftwareRecordsEqual(KbSoftwareRecord first, KbSoftwareRecord second) =>
+            string.Equals(first.OwnerNodeId, second.OwnerNodeId, StringComparison.Ordinal) &&
+            TextEqual(first.Title, second.Title) &&
+            TextEqual(first.Path, second.Path) &&
+            first.AddedAt == second.AddedAt &&
+            first.LastChangedAt == second.LastChangedAt &&
+            first.LastBackupAt == second.LastBackupAt &&
+            TextEqual(first.Notes, second.Notes);
+
+        private static bool NetworkFileReferencesEqual(KbNetworkFileReference first, KbNetworkFileReference second) =>
+            string.Equals(first.OwnerNodeId, second.OwnerNodeId, StringComparison.Ordinal) &&
+            TextEqual(first.Title, second.Title) &&
+            TextEqual(first.Path, second.Path);
 
         private static List<KbObjectTemplateCompositionEntry> CreateTemplateCompositionEntries(
             IEnumerable<KbCompositionEntry>? entries,
@@ -435,6 +1124,13 @@ namespace AsutpKnowledgeBase.Services
             };
 
         private static KnowledgeBaseObjectTemplateBuildResult BuildFailure(string errorMessage) =>
+            new()
+            {
+                IsSuccess = false,
+                ErrorMessage = errorMessage
+            };
+
+        private static KnowledgeBaseObjectTemplateApplicationPlan ApplicationFailure(string errorMessage) =>
             new()
             {
                 IsSuccess = false,

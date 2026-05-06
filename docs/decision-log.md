@@ -21,6 +21,10 @@ Last updated: `2026-05-06`
 - `Phase 11C` / `Phase 11D` were committed and pushed on `to` as `3caca67 Add object template creation workflow`
 - Local `Phase 11E` saves a selected existing object subtree as a persisted object template; it generates fresh template-node ids, strips real node ids, remaps typed owner references inside the selected subtree, skips records outside that subtree, and leaves source object data unchanged
 - On 2026-05-06, `phase11e-save-object-as-template` passed verification build and `dotnet test` (`296/296`) using isolated output paths; manual review passed and the user requested continuing without push
+- `Phase 11E` was committed locally as `3c87b6e Add save object as template workflow`; it was intentionally not pushed by user request
+- Local `Phase 11F` applies a selected object template to an existing object only after showing an explicit preview of added, skipped, and unchanged data; it adds missing subtree nodes and typed records, fills only empty supported card fields, and never overwrites or deletes existing user data
+- On 2026-05-06, `phase11f-apply-template-preview` passed verification build and `dotnet test` (`299/299`) using isolated output paths; it is waiting for manual review and must not be committed/pushed before acceptance
+- After manual review found mojibake in a template context-menu string, Russian template workflow context-menu/dialog/status strings and affected test literals were corrected; post-review targeted regression passed (`55/55`), the generated UTF-8/CP1251 corruption-pattern scan returned `TOTAL=0`, and `phase11f-apply-template-preview` still passed (`299/299`)
 
 ## 2026-05-05
 

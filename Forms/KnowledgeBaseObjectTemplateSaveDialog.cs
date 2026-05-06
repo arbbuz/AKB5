@@ -16,7 +16,7 @@ namespace AsutpKnowledgeBase
         {
             _sourceNode = sourceNode;
 
-            Text = "РЎРѕС…СЂР°РЅРёС‚СЊ РѕР±СЉРµРєС‚ РєР°Рє С€Р°Р±Р»РѕРЅ";
+            Text = "Сохранить объект как шаблон";
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MinimizeBox = false;
@@ -67,13 +67,13 @@ namespace AsutpKnowledgeBase
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             _txtSource = CreateReadOnlyTextBox(_sourceNode.Name);
-            AddFieldRow(layout, 0, "РСЃС…РѕРґРЅС‹Р№ РѕР±СЉРµРєС‚", _txtSource);
+            AddFieldRow(layout, 0, "Исходный объект", _txtSource);
 
             _txtDisplayName = CreateTextBox(_sourceNode.Name);
-            AddFieldRow(layout, 1, "РќР°Р·РІР°РЅРёРµ С€Р°Р±Р»РѕРЅР°", _txtDisplayName);
+            AddFieldRow(layout, 1, "Название шаблона", _txtDisplayName);
 
             _txtCategory = CreateTextBox(FormatNodeType(_sourceNode.NodeType));
-            AddFieldRow(layout, 2, "РљР°С‚РµРіРѕСЂРёСЏ", _txtCategory);
+            AddFieldRow(layout, 2, "Категория", _txtCategory);
 
             _txtDescription = new TextBox
             {
@@ -82,12 +82,12 @@ namespace AsutpKnowledgeBase
                 ScrollBars = ScrollBars.Vertical,
                 Text = _sourceNode.Details?.Description ?? string.Empty
             };
-            AddFieldRow(layout, 3, "РћРїРёСЃР°РЅРёРµ", _txtDescription);
+            AddFieldRow(layout, 3, "Описание", _txtDescription);
 
             _txtSummary = CreateReadOnlyTextBox(BuildSummary());
             _txtSummary.Multiline = true;
             _txtSummary.ScrollBars = ScrollBars.Vertical;
-            AddFieldRow(layout, 4, "РЎРѕСЃС‚Р°РІ", _txtSummary);
+            AddFieldRow(layout, 4, "Состав", _txtSummary);
 
             var buttonsPanel = new FlowLayoutPanel
             {
@@ -100,7 +100,7 @@ namespace AsutpKnowledgeBase
             var btnOk = new Button
             {
                 Name = "btnOk",
-                Text = "РЎРѕС…СЂР°РЅРёС‚СЊ",
+                Text = "Сохранить",
                 AutoSize = true
             };
             btnOk.Click += (_, _) => Submit();
@@ -108,7 +108,7 @@ namespace AsutpKnowledgeBase
             var btnCancel = new Button
             {
                 Name = "btnCancel",
-                Text = "РћС‚РјРµРЅР°",
+                Text = "Отмена",
                 AutoSize = true,
                 DialogResult = DialogResult.Cancel
             };
@@ -128,8 +128,8 @@ namespace AsutpKnowledgeBase
             {
                 MessageBox.Show(
                     this,
-                    "РЈРєР°Р¶РёС‚Рµ РЅР°Р·РІР°РЅРёРµ С€Р°Р±Р»РѕРЅР°.",
-                    "РЁР°Р±Р»РѕРЅС‹ РѕР±СЉРµРєС‚РѕРІ",
+                    "Укажите название шаблона.",
+                    "Шаблоны объектов",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 return;
@@ -145,8 +145,8 @@ namespace AsutpKnowledgeBase
         private string BuildSummary() =>
             string.Join(
                 Environment.NewLine,
-                $"РўРёРї СѓР·Р»Р°: {FormatNodeType(_sourceNode.NodeType)}",
-                $"РЈР·Р»РѕРІ РґРµСЂРµРІР°: {CountNodes(_sourceNode)}");
+                $"Тип узла: {FormatNodeType(_sourceNode.NodeType)}",
+                $"Узлов дерева: {CountNodes(_sourceNode)}");
 
         private static int CountNodes(KbNode node) =>
             1 + node.Children.Sum(CountNodes);
@@ -189,15 +189,15 @@ namespace AsutpKnowledgeBase
 
         private static string FormatNodeType(KbNodeType nodeType) => nodeType switch
         {
-            KbNodeType.System => "РЎРёСЃС‚РµРјР°",
-            KbNodeType.Cabinet => "РЁРєР°С„",
-            KbNodeType.Device => "РЈСЃС‚СЂРѕР№СЃС‚РІРѕ",
-            KbNodeType.Controller => "РљРѕРЅС‚СЂРѕР»Р»РµСЂ",
-            KbNodeType.Module => "РњРѕРґСѓР»СЊ",
-            KbNodeType.DocumentNode => "Р”РѕРєСѓРјРµРЅС‚/РїР°РїРєР°",
-            KbNodeType.Department => "РџРѕРґСЂР°Р·РґРµР»РµРЅРёРµ",
-            KbNodeType.WorkshopRoot => "Р¦РµС…",
-            _ => "РћР±СЉРµРєС‚"
+            KbNodeType.System => "Система",
+            KbNodeType.Cabinet => "Шкаф",
+            KbNodeType.Device => "Устройство",
+            KbNodeType.Controller => "Контроллер",
+            KbNodeType.Module => "Модуль",
+            KbNodeType.DocumentNode => "Документ/папка",
+            KbNodeType.Department => "Подразделение",
+            KbNodeType.WorkshopRoot => "Цех",
+            _ => "Объект"
         };
     }
 }

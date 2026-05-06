@@ -150,8 +150,8 @@ public class KnowledgeBaseWindowLayoutStateServiceTests
                 """
                 {
                   "SplitterDistancesByWorkshop": {
-                    "Р¦РµС… 1": 410,
-                    "Р¦РµС… 2": 320
+                    "Цех 1": 410,
+                    "Цех 2": 320
                   }
                 }
                 """);

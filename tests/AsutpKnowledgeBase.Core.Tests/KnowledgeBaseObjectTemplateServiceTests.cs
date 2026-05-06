@@ -213,6 +213,100 @@ public class KnowledgeBaseObjectTemplateServiceTests
         Assert.Equal(4, Assert.Single(maintenance.YearScheduleEntries).Month);
     }
 
+    [Fact]
+    public void BuildApplyToExistingObjectPlan_AddsMissingDataAndDoesNotOverwriteExistingFields()
+    {
+        KbObjectTemplate template = CreateCabinetTemplate();
+        var target = new KbNode
+        {
+            NodeId = "target-cabinet",
+            Name = "Шкаф существующий",
+            LevelIndex = 2,
+            NodeType = KbNodeType.Cabinet,
+            Details = new KbNodeDetails
+            {
+                Description = "Описание пользователя"
+            }
+        };
+
+        KnowledgeBaseObjectTemplateApplicationPlan plan = _service.BuildApplyToExistingObjectPlan(
+            template,
+            target,
+            maxLevels: 4,
+            existingCompositionEntries: Array.Empty<KbCompositionEntry>(),
+            existingDocumentLinks: Array.Empty<KbDocumentLink>(),
+            existingSoftwareRecords: Array.Empty<KbSoftwareRecord>(),
+            existingNetworkFileReferences: Array.Empty<KbNetworkFileReference>(),
+            existingMaintenanceScheduleProfiles: new[]
+            {
+                new KbMaintenanceScheduleProfile
+                {
+                    OwnerNodeId = "target-cabinet",
+                    To1Hours = 99
+                }
+            });
+
+        Assert.True(plan.IsSuccess, plan.ErrorMessage);
+        Assert.True(plan.HasChanges);
+
+        KnowledgeBaseObjectTemplateDetailUpdate detailUpdate = Assert.Single(plan.DetailUpdates);
+        Assert.Same(target, detailUpdate.TargetNode);
+        Assert.Equal("location", detailUpdate.FieldKey);
+        Assert.Equal("Машзал", detailUpdate.Value);
+
+        KnowledgeBaseObjectTemplateNodeAddition addition = Assert.Single(plan.NodeAdditions);
+        Assert.Same(target, addition.ParentNode);
+        Assert.Equal("Контроллер", addition.Node.Name);
+        Assert.NotEqual("controller", addition.Node.NodeId);
+
+        KbCompositionEntry composition = Assert.Single(plan.CompositionEntries);
+        Assert.Equal("target-cabinet", composition.ParentNodeId);
+
+        KbDocumentLink document = Assert.Single(plan.DocumentLinks);
+        Assert.Equal("target-cabinet", document.OwnerNodeId);
+
+        KbSoftwareRecord software = Assert.Single(plan.SoftwareRecords);
+        Assert.Equal(addition.Node.NodeId, software.OwnerNodeId);
+
+        KbNetworkFileReference network = Assert.Single(plan.NetworkFileReferences);
+        Assert.Equal("target-cabinet", network.OwnerNodeId);
+        Assert.Equal(KbNetworkPreviewKind.Image, network.PreviewKind);
+
+        Assert.Empty(plan.MaintenanceScheduleProfiles);
+        Assert.Contains(
+            plan.PreviewItems,
+            item => item.Action == KnowledgeBaseObjectTemplateApplicationAction.Skipped &&
+                    item.Area == "Карточка" &&
+                    item.Description.Contains("не будет перезаписано", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(
+            plan.PreviewItems,
+            item => item.Action == KnowledgeBaseObjectTemplateApplicationAction.Skipped &&
+                    item.Area == "График ТО");
+    }
+
+    [Fact]
+    public void BuildApplyToExistingObjectPlan_WhenTargetTypeDiffers_ReturnsFailure()
+    {
+        KnowledgeBaseObjectTemplateApplicationPlan plan = _service.BuildApplyToExistingObjectPlan(
+            CreateCabinetTemplate(),
+            new KbNode
+            {
+                NodeId = "controller-1",
+                Name = "PLC",
+                NodeType = KbNodeType.Controller
+            },
+            maxLevels: 4,
+            existingCompositionEntries: null,
+            existingDocumentLinks: null,
+            existingSoftwareRecords: null,
+            existingNetworkFileReferences: null,
+            existingMaintenanceScheduleProfiles: null);
+
+        Assert.False(plan.IsSuccess);
+        Assert.False(plan.HasChanges);
+        Assert.Contains("другого типа", plan.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static KbObjectTemplate CreateCabinetTemplate() =>
         new()
         {
