@@ -54,6 +54,7 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem menuNewWorkshop = null!;
         private ToolStripMenuItem menuRenameWorkshop = null!;
         private ToolStripMenuItem menuDeleteWorkshop = null!;
+        private ToolStripMenuItem menuEditEquipmentCatalog = null!;
         private ToolStripMenuItem menuImportMaintenanceNorms = null!;
         private ToolStripMenuItem menuEditMaintenanceYearScheduleSource = null!;
         private ToolStripMenuItem menuExportMaintenanceYearScheduleSource = null!;
@@ -245,6 +246,7 @@ namespace AsutpKnowledgeBase
             bool hasCurrentWorkshop = !string.IsNullOrWhiteSpace(_currentWorkshop);
             menuRenameWorkshop.Enabled = hasCurrentWorkshop;
             menuDeleteWorkshop.Enabled = hasCurrentWorkshop && _session.Workshops.Count > 1;
+            menuEditEquipmentCatalog.Enabled = true;
             menuImportMaintenanceNorms.Enabled = hasCurrentWorkshop;
             menuEditMaintenanceYearScheduleSource.Enabled = hasCurrentWorkshop;
             menuExportMaintenanceYearScheduleSource.Enabled = hasCurrentWorkshop;

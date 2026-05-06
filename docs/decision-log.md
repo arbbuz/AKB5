@@ -4,10 +4,13 @@ Last updated: `2026-05-06`
 
 ## 2026-05-06
 
-- `Phase 7F.1` local implementation imports production-calendar PDF files through a text layer first, shows a preview before applying changes, and keeps OCR deferred until a real source PDF requires it
+- `Phase 7F.1` imports production-calendar PDF files through a text layer first, shows a preview before applying changes, and keeps OCR deferred until a real source PDF requires it
 - `KbProductionCalendarYear` now supports `AdditionalWorkingDays` so transferred working Saturdays/Sundays can be represented together with additional non-working days
 - `C:\Users\Olga\Downloads\calendar_2027.pdf` has a usable text layer and imports as 2027 with additional non-working days `22.02.2027`, `03.05.2027`, `10.05.2027`, `14.06.2027`, `05.11.2027`, `31.12.2027`, plus additional working day `20.02.2027`
 - On 2026-05-06, `phase7f1-production-calendar-pdf-import` passed verification build and `dotnet test` (`281/281`) using isolated output paths; the user manually confirmed that production-calendar PDF import works
+- `Phase 7F.1` was committed and pushed on `to` as `09bf84d Add production calendar PDF import`
+- `Phase 11B` adds an in-app Russian equipment-catalog editor under `Файл -> Каталог оборудования...`; catalog editing remains separate from tree editing and object-template creation
+- On 2026-05-06, `phase11b-equipment-catalog-ui` passed verification build and `dotnet test` (`287/287`) using isolated output paths; manual UI review is pending
 
 ## 2026-05-05
 

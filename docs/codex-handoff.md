@@ -6,9 +6,9 @@ Last updated: `2026-05-06`
 
 - Repository root: `C:\Users\Olga\AKB5`
 - Active integration branch: `to`
-- Latest feature integration commit for the maintenance-planning stream: `2f2edb1 Add production calendar configuration`
+- Latest feature integration commit for the maintenance-planning stream: `09bf84d Add production calendar PDF import`
 - Latest docs synchronization commit: `68d51b6 Distill roadmap state after Phase 7F`
-- Latest accepted implementation: `Phase 11A equipment catalog model` plus the production-calendar Russian date format follow-up
+- Latest accepted implementation: `Phase 7F.1 production calendar PDF import` and `Phase 11A equipment catalog model`
 - Implemented on this branch:
   - `Phase 0`
   - `Phase 1`
@@ -30,8 +30,9 @@ Last updated: `2026-05-06`
   - major `ТО2` / `ТО3` split across working days
   - maintenance-norm import coverage and mismatch reporting
   - `Phase 7F production-calendar configuration`
-- Current active gate: commit/push the accepted local changes for `Phase 7F.1. Production calendar PDF import`
-- Next step after commit/push: return to `Phase 11B. Equipment catalog UI` unless redirected
+  - `Phase 7F.1 production-calendar PDF import`
+- Current active gate: manual review of local `Phase 11B. Equipment catalog UI`
+- Next step after manual acceptance: commit/push `Phase 11B`, then continue to `Phase 11C. Object template model` unless redirected
 
 ## Integrated feature state
 
@@ -77,16 +78,40 @@ Last updated: `2026-05-06`
   - `Phase 7E.2` import updates only `YearScheduleEntries`; it does not change `ТО1` / `ТО2` / `ТО3` hour norms and does not create missing maintenance profiles
   - `Phase 7E` mass-editing grid updates only `YearScheduleEntries`; it does not change hour norms, inclusion flags, production calendars, or create missing profiles
   - `Phase 7F` adds `Config.ProductionCalendarYears`, a Russian `Файл -> Производственный календарь...` editor, `Файл -> Импорт производственного календаря JSON...`, JSON import validation, and guided missing-year errors
-  - local `Phase 7F.1` adds `Файл -> Импорт производственного календаря PDF...`, text-layer PDF parsing through `PdfPig`, a preview dialog before applying imported dates, and `AdditionalWorkingDays` support for transferred working Saturdays/Sundays
+  - `Phase 7F.1` adds `Файл -> Импорт производственного календаря PDF...`, text-layer PDF parsing through `PdfPig`, a preview dialog before applying imported dates, and `AdditionalWorkingDays` support for transferred working Saturdays/Sundays
   - `phase7e-major-work-split-days` splits one `ТО2` / `ТО3` occurrence into up-to-8-hour assignments across working days when possible
   - `phase7e-norm-import-coverage` improves norm import matching for leading-zero inventory numbers, `ё/е`, and parenthetical equipment names; unresolved rows include source sheet/row context
   - maintenance norms can be imported from `C:\Users\Olga\Downloads\123.xlsx`
   - import matching uses inventory number first, then normalized equipment/system names, and can read the workbook even when it is open in Excel
+- `Phase 11` current state on `to`:
+  - `Phase 11A` adds the top-level JSON equipment catalog model and normalization
+  - local `Phase 11B` adds `Файл -> Каталог оборудования...` for listing, adding, editing, deleting, and searching equipment catalog items
+  - catalog editing remains separate from tree editing and object-template creation
 - User-facing application UI on `to` remains Russian-only
 
 ## Validated status
 
-Actually run on the worktree on `2026-05-06`:
+Actually run on the worktree for local `Phase 11B` on `2026-05-06`:
+
+```powershell
+dotnet build asutpKB.csproj --no-restore
+dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --no-restore --filter KnowledgeBaseEquipmentCatalogServiceTests
+dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet format src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
+dotnet format tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase11b-equipment-catalog-ui
+```
+
+- App build: passed
+- Targeted equipment-catalog service tests: passed, `6/6`
+- `dotnet format --verify-no-changes`: passed for app, core, and tests
+- Verification `dotnet build`: passed for `phase11b-equipment-catalog-ui`
+- `dotnet test`: passed, `287/287`
+- Verification artifacts: `artifacts\verify\phase11b-equipment-catalog-ui`
+- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase11b-equipment-catalog-ui\build\Release\net8.0-windows\asutpKB.exe`
+- Manual UI review of the equipment-catalog UI is not yet done
+
+Accepted `Phase 7F.1` run on `2026-05-06`:
 
 ```powershell
 dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
@@ -104,6 +129,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase7f1-production-calendar-pdf-import\build\Release\net8.0-windows\asutpKB.exe`
 - Real source smoke: `C:\Users\Olga\Downloads\calendar_2027.pdf` imports through the text layer as year `2027`, with additional non-working days `22.02.2027`, `03.05.2027`, `10.05.2027`, `14.06.2027`, `05.11.2027`, `31.12.2027`, and additional working day `20.02.2027`
 - Manual UI review of the PDF import menu/preview/apply flow passed by user on `2026-05-06`; production-calendar PDF import works
+- Committed and pushed as `09bf84d Add production calendar PDF import`
 
 Previous accepted baseline run on `2026-05-04`:
 
@@ -137,9 +163,9 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 ## Active objective
 
 - Keep the completed `Phase 7` workflow on `to` stable as the baseline
-- Commit/push the accepted local `Phase 7F.1` implementation: production-calendar PDF import with preview, text-layer parsing first, and no OCR unless future real PDFs require it
+- Complete manual review of local `Phase 11B. Equipment catalog UI`
 - Preserve the production-calendar follow-up behavior: manual calendar dates are shown as `дд.мм.гггг`, JSON import accepts both `дд.мм.гггг` and legacy ISO dates, saved app JSON remains backward-compatible, and additional working days can represent transferred working weekends
-- After manual acceptance, commit/push the accepted local changes and return to `Phase 11B. Equipment catalog UI` unless redirected
+- After manual acceptance, commit/push `Phase 11B` and continue to `Phase 11C. Object template model` unless redirected
 - Preserve deterministic month placement as fallback for profiles that do not enable manual annual placement
 - Keep JSON as the source of truth for calendar configuration; generated workbooks remain report artifacts
 - Do not start `Phase 7G` unless it is first defined and accepted in the roadmap
@@ -165,7 +191,8 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - The hard planner constraint is the selected monthly workshop budget, not a daily `<= 8` cap
 - Production-calendar years live in `KbConfig.ProductionCalendarYears`; built-in `2025`/`2026` defaults are preserved, while future years can be added through UI, JSON import, or local PDF import
 - `Phase 11` is approved as object templates and equipment catalog; `Phase 11A` contains the catalog model only and passed manual review
-- `Phase 7F.1` is accepted after manual review and ready to commit/push before `Phase 11B`; it adds PDF import for production calendars because JSON import is inconvenient for ordinary use
+- `Phase 7F.1` is accepted after manual review and committed/pushed as `09bf84d`; it adds PDF import for production calendars because JSON import is inconvenient for ordinary use
+- `Phase 11B` keeps catalog editing separate from tree editing and object-template creation; it only maintains catalog records
 - `Phase 12` is approved as backup, snapshots, and change history after Phase 11
 - A single `ТО2` / `ТО3` occurrence above 8 hours is split into assignments of up to 8 hours; this is assignment chunking for major work, not a hard daily total cap
 - The planner may place more than one large maintenance item on the same day when needed; it only prefers to spread `ТО2` / `ТО3` apart when possible
@@ -197,6 +224,9 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `Forms/MainForm.Events.cs`
 - `Forms/MainForm.Maintenance.cs`
 - `Forms/MainForm.ProductionCalendar.cs`
+- `Forms/MainForm.EquipmentCatalog.cs`
+- `Forms/KnowledgeBaseEquipmentCatalogForm.cs`
+- `Forms/KnowledgeBaseEquipmentCatalogItemDialog.cs`
 - `Forms/KnowledgeBaseProductionCalendarForm.cs`
 - `Forms/KnowledgeBaseProductionCalendarPdfImportPreviewForm.cs`
 - `Controls/KnowledgeBaseMaintenanceScheduleScreenControl.cs`
@@ -210,8 +240,10 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `Services/KnowledgeBaseProductionCalendarJsonImportService.cs`
 - `Services/KnowledgeBaseProductionCalendarPdfImportService.cs`
 - `Models/KbEquipmentCatalogItem.cs`
+- `Services/KnowledgeBaseEquipmentCatalogService.cs`
 - `Services/KnowledgeBaseDataService.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseDataServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseEquipmentCatalogServiceTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseProductionCalendarPdfImportServiceTests.cs`
 - `Services/KnowledgeBaseMaintenanceYearScheduleSourceService.cs`
 - `Services/KnowledgeBaseMaintenanceYearScheduleSourceExchangeService.cs`
@@ -242,6 +274,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - 2027 and later production calendars are not built in; configure the needed year through `Файл -> Производственный календарь...`, JSON import, or local PDF import before generating that year
 - OCR is not implemented in `Phase 7F.1`; the real `calendar_2027.pdf` source has a usable text layer, so OCR is deferred until a source PDF requires it
 - Manual UI validation of the local PDF import preview/apply workflow passed by user
+- Manual UI validation of local `Phase 11B` equipment catalog add/edit/delete/search workflow is still pending
 - `phase7e-major-work-split-days` implements and verifies splitting one `ТО2` / `ТО3` occurrence across multiple working days
 - The planner can place multiple large maintenance items on the same day; that is a soft-avoidance area, not a validated optimization target
 - Maintenance profiles have no explicit active-from / active-to dates yet, so the agreed replanning strategy is to freeze past months and recalculate only future months
@@ -250,13 +283,13 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 
 ## Recommended next step
 
-- Commit/push the accepted local `Phase 7F.1. Production calendar PDF import` changes
-- Return to `Phase 11B. Equipment catalog UI` after commit/push, unless explicitly redirected
+- Manually review `Phase 11B. Equipment catalog UI` from `artifacts\verify\phase11b-equipment-catalog-ui\build\Release\net8.0-windows\asutpKB.exe`
+- After acceptance, commit/push `Phase 11B`; next roadmap slice is `Phase 11C. Object template model` unless redirected
 
 ## Commands to run before finishing future implementation work
 
 ```powershell
 git status --short
-powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7f1-production-calendar-pdf-import
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase11b-equipment-catalog-ui
 # The script stops at BUILD: PASS / TESTS: PASS and leaves artifacts in artifacts\verify\<step>.
 ```

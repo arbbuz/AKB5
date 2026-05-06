@@ -12,9 +12,10 @@ Last updated: `2026-05-06`
 - Treat the major `ТО2` / `ТО3` split across working days as completed on `to`
 - Treat the norm-import coverage and mismatch-reporting follow-up as completed on `to`
 - Treat `Phase 7F` production-calendar configuration as completed on `to`
-- Treat `Phase 7F.1. Production calendar PDF import` as accepted after manual review and ready to commit/push
+- Treat `Phase 7F.1. Production calendar PDF import` as accepted after manual review and committed/pushed on `to`
 - Treat `Phase 11. Object templates and equipment catalog` as the active approved roadmap block
 - Treat `Phase 11A. Equipment catalog model` as accepted after manual review
+- Treat local `Phase 11B. Equipment catalog UI` as implemented and verified, waiting for manual review
 - Treat the production-calendar Russian date format follow-up as accepted after manual review
 - Treat `Phase 12. Backup, snapshots, and change history` as approved after Phase 11
 - Keep JSON as the source of truth and keep the yearly workbook as a generated/report artifact
@@ -22,8 +23,8 @@ Last updated: `2026-05-06`
 
 ## Near-term follow-up
 
-- Commit/push the accepted local `Phase 7F.1` PDF production-calendar import changes
-- Return to `Phase 11B. Equipment catalog UI` after commit/push, unless explicitly redirected
+- Manually review local `Phase 11B. Equipment catalog UI`
+- After acceptance, commit/push `Phase 11B`, then continue to `Phase 11C. Object template model` unless redirected
 
 ## Update rule
 

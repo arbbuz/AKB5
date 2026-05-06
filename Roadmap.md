@@ -2,7 +2,7 @@
 
 Last updated: 2026-05-06
 Branch baseline: `to`
-Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to, Phase 7F production-calendar configuration complete on to, Phase 11A accepted, production-calendar Russian date format accepted, Phase 7F.1 PDF calendar import accepted after manual review, Phase 11B next after 7F.1 commit/push`
+Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to, Phase 7F production-calendar configuration complete on to, Phase 7F.1 PDF calendar import complete on to, Phase 11A accepted, production-calendar Russian date format accepted, local Phase 11B equipment catalog UI verified and waiting manual review`
 
 ## Goal
 
@@ -60,7 +60,7 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - On 2026-04-28, the current `Phase 6` worktree passed verification build, passed `dotnet test` (`177/177`), and `asutpKB.exe` startup was rechecked after the final `Network` UX fixes.
 - Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition, but further workbook modernization is no longer the preferred next phase.
 - Current CI workflow also verifies `dotnet format --verify-no-changes` for the app project, core project, and tests before `build` / `test`.
-- The maintenance-schedule generation roadmap through `Phase 7F` is complete on `to`; `Phase 7F.1` PDF production-calendar import is accepted after manual review and should be committed/pushed before continuing `Phase 11B`.
+- The maintenance-schedule generation roadmap through `Phase 7F.1` is complete on `to`; local `Phase 11B` equipment catalog UI is verified and waiting for manual review.
 - `Phase 7A` is complete on `to`: `Lvl2` inventory number support now follows visible hierarchy level, typed `MaintenanceScheduleProfiles` are persisted in JSON/session state, and engineering nodes expose a `График ТО` tab with per-node `ТО1` / `ТО2` / `ТО3` hour norms.
 - `Phase 7B` is complete on `to`: Russian production-calendar calculation for `5/2` workdays is available as a reusable service.
 - `Phase 7F` is complete on `to`: production-calendar years are persisted in JSON config, editable from the Russian UI, importable from JSON, and consumed by maintenance schedule generation.
@@ -533,12 +533,12 @@ Recommended implementation slices:
   - done: keep the planner/export API consuming a resolved calendar service so schedule generation logic does not depend on the storage or UI mechanism
   - done: show a clear guided error when the selected year is missing, pointing the user to calendar setup/import instead of requiring a code change
 - `Phase 7F.1. Production calendar PDF import`
-  - status: accepted after manual review; ready to commit/push
-  - done locally: import production-calendar data from PDF files such as `calendar_2027.pdf`, because JSON is not convenient for ordinary use
-  - done locally: prefer text-layer PDF parsing first; add OCR only if real source files require it
-  - done locally: add import preview before applying changes
-  - done locally: keep Russian date display/input as `дд.мм.гггг`
-  - done locally: extend the calendar model with additional working days as well as additional non-working days so transferred weekends can be represented correctly
+  - status: complete on `to`; accepted after manual review; committed and pushed as `09bf84d`
+  - done: import production-calendar data from PDF files such as `calendar_2027.pdf`, because JSON is not convenient for ordinary use
+  - done: prefer text-layer PDF parsing first; add OCR only if real source files require it
+  - done: add import preview before applying changes
+  - done: keep Russian date display/input as `дд.мм.гггг`
+  - done: extend the calendar model with additional working days as well as additional non-working days so transferred weekends can be represented correctly
   - on 2026-05-06, `phase7f1-production-calendar-pdf-import` passed verification build and `dotnet test` (`281/281`) using isolated output paths; user manual UI review passed
 
 Acceptance:
@@ -552,7 +552,7 @@ Acceptance:
 
 Complexity: `High`
 
-Status: approved; `Phase 11A` accepted after manual review; `Phase 11B` is next after committing/pushing accepted `Phase 7F.1`.
+Status: approved; `Phase 11A` accepted after manual review; local `Phase 11B` is verified and waiting for manual review.
 
 Goals:
 
@@ -571,8 +571,10 @@ Scope:
   - deduplicate by stable catalog item id
   - add focused tests
 - `Phase 11B. Equipment catalog UI`
-  - add Russian UI for listing, adding, editing, deleting, and searching catalog items
-  - keep catalog editing separate from tree editing until object-template creation is implemented
+  - status: local implementation verified; waiting manual review
+  - done locally: add Russian UI for listing, adding, editing, deleting, and searching catalog items
+  - done locally: keep catalog editing separate from tree editing until object-template creation is implemented
+  - on 2026-05-06, `phase11b-equipment-catalog-ui` passed verification build and `dotnet test` (`287/287`) using isolated output paths
 - `Phase 11C. Object template model`
   - add object-template model with template nodes and generated fresh `NodeId` values on creation
   - support optional defaults for card fields, composition, documents/software, maintenance profile stubs, and future network interface stubs
@@ -707,14 +709,15 @@ Completed on `to`:
 16. Major `ТО2` / `ТО3` split across multiple working days, complete on `to`
 17. Maintenance-norm import coverage and mismatch reporting, complete on `to`
 18. Phase 7F production-calendar configuration, complete on `to`
+19. Phase 7F.1 PDF calendar import, complete on `to`
 
-Accepted pending commit/push:
-
-1. Phase 7F.1 PDF calendar import, verified and accepted after manual review
-
-Approved next after commit/push:
+Local verified, waiting manual review:
 
 1. Phase 11B. Equipment catalog UI
+
+Approved after manual review and commit/push:
+
+1. Phase 11C. Object template model
 2. Remaining Phase 11 object-template/catalog slices
 3. Phase 12. Backup, snapshots, and change history
 
@@ -748,9 +751,9 @@ Keep JSON source-of-truth compatibility and treat Excel v3 as a legacy transitio
 
 Continue from the next explicitly prioritized task:
 
-- preserve the completed `Phase 7A` / `7B` / `7C` / `7D` / `7E` / `7F` workflow as the current baseline
-- commit/push the accepted local `Phase 7F.1. Production calendar PDF import` changes
-- after committing/pushing `Phase 7F.1`, return to `Phase 11B. Equipment catalog UI`, unless explicitly redirected
+- preserve the completed `Phase 7A` / `7B` / `7C` / `7D` / `7E` / `7F` / `7F.1` workflow as the current baseline
+- manually review local `Phase 11B. Equipment catalog UI`
+- after accepting `Phase 11B`, commit/push it and continue to `Phase 11C. Object template model`, unless explicitly redirected
 - do not start a new `Phase 7G`; it is not part of this roadmap
 - treat future-month recalculation as completed `Phase 7D` orchestration/workflow built on top of the existing monthly engine, not as a replacement for it
 - keep workbook `v3` readable as legacy, but do not expand it as the main feature direction

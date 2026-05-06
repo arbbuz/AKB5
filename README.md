@@ -34,15 +34,19 @@ Implemented on `to`:
 - `Phase 7E.2` - Excel source exchange for annual ТО placement
 - `Phase 7E` follow-ups - in-app source mass-editing grid, large `ТО2` / `ТО3` work splitting, norm-import matching/reporting
 - `Phase 7F` - production-calendar configuration through JSON, UI editor, and JSON import
-- `Phase 7F.1` - PDF production-calendar import implementation is verified and accepted after manual review
+- `Phase 7F.1` - PDF production-calendar import, verified, accepted, committed, and pushed on `to`
+- `Phase 11A` - equipment catalog model, accepted after manual review
+
+Local verified, waiting manual review:
+
+- `Phase 11B` - Russian equipment catalog UI for list/add/edit/delete/search
 
 Next approved work:
 
 - no `Phase 7G` is approved in `Roadmap.md`
-- immediate follow-up: commit/push accepted `Phase 7F.1. Production calendar PDF import` changes, then return to `Phase 11B`
-- `Phase 11. Object templates and equipment catalog`
+- immediate follow-up: manually review local `Phase 11B. Equipment catalog UI`
+- after acceptance: commit/push `Phase 11B`, then continue to `Phase 11C. Object template model` unless redirected
 - `Phase 12. Backup, snapshots, and change history`
-- `Phase 11A. Equipment catalog model` is accepted after manual review
 
 ## Data and persistence
 

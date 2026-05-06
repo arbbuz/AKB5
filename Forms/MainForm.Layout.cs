@@ -40,6 +40,7 @@ namespace AsutpKnowledgeBase
             menuNewWorkshop = new ToolStripMenuItem("🏭 Новый цех", null, BtnAddWorkshop_Click);
             menuDeleteWorkshop = new ToolStripMenuItem("🗑 Удалить цех", null, BtnDeleteWorkshop_Click);
             menuRenameWorkshop = new ToolStripMenuItem("✏️ Переименовать цех", null, BtnRenameWorkshop_Click);
+            menuEditEquipmentCatalog = new ToolStripMenuItem("📚 Каталог оборудования...", null, EditEquipmentCatalog);
             var menuOpenDb = new ToolStripMenuItem("📂 Открыть базу...", null, BtnOpen_Click);
             var menuReloadDb = new ToolStripMenuItem("🔄 Обновить из файла", null, BtnLoad_Click);
             var menuSaveAs = new ToolStripMenuItem("💾 Сохранить как...", null, BtnSaveAs_Click);
@@ -62,6 +63,8 @@ namespace AsutpKnowledgeBase
                 menuNewWorkshop,
                 menuDeleteWorkshop,
                 menuRenameWorkshop,
+                new ToolStripSeparator(),
+                menuEditEquipmentCatalog,
                 new ToolStripSeparator(),
                 menuOpenDb,
                 menuReloadDb,
