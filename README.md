@@ -36,16 +36,12 @@ Implemented on `to`:
 - `Phase 7F` - production-calendar configuration through JSON, UI editor, and JSON import
 - `Phase 7F.1` - PDF production-calendar import, verified, accepted, committed, and pushed on `to`
 - `Phase 11A` - equipment catalog model, accepted after manual review
-
-Local verified, waiting manual review:
-
 - `Phase 11B` - Russian equipment catalog UI for list/add/edit/delete/search
 
 Next approved work:
 
 - no `Phase 7G` is approved in `Roadmap.md`
-- immediate follow-up: manually review local `Phase 11B. Equipment catalog UI`
-- after acceptance: commit/push `Phase 11B`, then continue to `Phase 11C. Object template model` unless redirected
+- immediate follow-up: `Phase 11C. Object template model`, unless redirected
 - `Phase 12. Backup, snapshots, and change history`
 
 ## Data and persistence

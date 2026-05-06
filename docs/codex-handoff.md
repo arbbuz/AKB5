@@ -8,7 +8,7 @@ Last updated: `2026-05-06`
 - Active integration branch: `to`
 - Latest feature integration commit for the maintenance-planning stream: `09bf84d Add production calendar PDF import`
 - Latest docs synchronization commit: `68d51b6 Distill roadmap state after Phase 7F`
-- Latest accepted implementation: `Phase 7F.1 production calendar PDF import` and `Phase 11A equipment catalog model`
+- Latest accepted implementation: `Phase 11B equipment catalog UI`
 - Implemented on this branch:
   - `Phase 0`
   - `Phase 1`
@@ -31,8 +31,8 @@ Last updated: `2026-05-06`
   - maintenance-norm import coverage and mismatch reporting
   - `Phase 7F production-calendar configuration`
   - `Phase 7F.1 production-calendar PDF import`
-- Current active gate: manual review of local `Phase 11B. Equipment catalog UI`
-- Next step after manual acceptance: commit/push `Phase 11B`, then continue to `Phase 11C. Object template model` unless redirected
+- Current active gate: continue to `Phase 11C. Object template model` unless redirected
+- `Phase 11B. Equipment catalog UI` was committed and pushed on `to` as `f80873f Add equipment catalog UI`
 
 ## Integrated feature state
 
@@ -85,7 +85,7 @@ Last updated: `2026-05-06`
   - import matching uses inventory number first, then normalized equipment/system names, and can read the workbook even when it is open in Excel
 - `Phase 11` current state on `to`:
   - `Phase 11A` adds the top-level JSON equipment catalog model and normalization
-  - local `Phase 11B` adds `Файл -> Каталог оборудования...` for listing, adding, editing, deleting, and searching equipment catalog items
+  - `Phase 11B` adds `Файл -> Каталог оборудования...` for listing, adding, editing, deleting, and searching equipment catalog items
   - catalog editing remains separate from tree editing and object-template creation
 - User-facing application UI on `to` remains Russian-only
 
@@ -109,7 +109,8 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `dotnet test`: passed, `287/287`
 - Verification artifacts: `artifacts\verify\phase11b-equipment-catalog-ui`
 - Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase11b-equipment-catalog-ui\build\Release\net8.0-windows\asutpKB.exe`
-- Manual UI review of the equipment-catalog UI is not yet done
+- User requested commit/push for `Phase 11B` on `2026-05-06`
+- Committed and pushed as `f80873f Add equipment catalog UI`
 
 Accepted `Phase 7F.1` run on `2026-05-06`:
 
@@ -163,9 +164,9 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 ## Active objective
 
 - Keep the completed `Phase 7` workflow on `to` stable as the baseline
-- Complete manual review of local `Phase 11B. Equipment catalog UI`
+- Continue from `Phase 11C. Object template model` unless redirected
 - Preserve the production-calendar follow-up behavior: manual calendar dates are shown as `дд.мм.гггг`, JSON import accepts both `дд.мм.гггг` and legacy ISO dates, saved app JSON remains backward-compatible, and additional working days can represent transferred working weekends
-- After manual acceptance, commit/push `Phase 11B` and continue to `Phase 11C. Object template model` unless redirected
+- Keep `Phase 11B` as the accepted equipment-catalog UI baseline
 - Preserve deterministic month placement as fallback for profiles that do not enable manual annual placement
 - Keep JSON as the source of truth for calendar configuration; generated workbooks remain report artifacts
 - Do not start `Phase 7G` unless it is first defined and accepted in the roadmap
@@ -274,7 +275,6 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - 2027 and later production calendars are not built in; configure the needed year through `Файл -> Производственный календарь...`, JSON import, or local PDF import before generating that year
 - OCR is not implemented in `Phase 7F.1`; the real `calendar_2027.pdf` source has a usable text layer, so OCR is deferred until a source PDF requires it
 - Manual UI validation of the local PDF import preview/apply workflow passed by user
-- Manual UI validation of local `Phase 11B` equipment catalog add/edit/delete/search workflow is still pending
 - `phase7e-major-work-split-days` implements and verifies splitting one `ТО2` / `ТО3` occurrence across multiple working days
 - The planner can place multiple large maintenance items on the same day; that is a soft-avoidance area, not a validated optimization target
 - Maintenance profiles have no explicit active-from / active-to dates yet, so the agreed replanning strategy is to freeze past months and recalculate only future months
@@ -283,8 +283,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 
 ## Recommended next step
 
-- Manually review `Phase 11B. Equipment catalog UI` from `artifacts\verify\phase11b-equipment-catalog-ui\build\Release\net8.0-windows\asutpKB.exe`
-- After acceptance, commit/push `Phase 11B`; next roadmap slice is `Phase 11C. Object template model` unless redirected
+- Continue to `Phase 11C. Object template model` unless redirected
 
 ## Commands to run before finishing future implementation work
 

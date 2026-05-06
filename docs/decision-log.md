@@ -10,7 +10,8 @@ Last updated: `2026-05-06`
 - On 2026-05-06, `phase7f1-production-calendar-pdf-import` passed verification build and `dotnet test` (`281/281`) using isolated output paths; the user manually confirmed that production-calendar PDF import works
 - `Phase 7F.1` was committed and pushed on `to` as `09bf84d Add production calendar PDF import`
 - `Phase 11B` adds an in-app Russian equipment-catalog editor under `Файл -> Каталог оборудования...`; catalog editing remains separate from tree editing and object-template creation
-- On 2026-05-06, `phase11b-equipment-catalog-ui` passed verification build and `dotnet test` (`287/287`) using isolated output paths; manual UI review is pending
+- On 2026-05-06, `phase11b-equipment-catalog-ui` passed verification build and `dotnet test` (`287/287`) using isolated output paths
+- `Phase 11B` was committed and pushed on `to` as `f80873f Add equipment catalog UI`
 
 ## 2026-05-05
 

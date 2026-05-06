@@ -15,7 +15,7 @@ Last updated: `2026-05-06`
 - Treat `Phase 7F.1. Production calendar PDF import` as accepted after manual review and committed/pushed on `to`
 - Treat `Phase 11. Object templates and equipment catalog` as the active approved roadmap block
 - Treat `Phase 11A. Equipment catalog model` as accepted after manual review
-- Treat local `Phase 11B. Equipment catalog UI` as implemented and verified, waiting for manual review
+- Treat `Phase 11B. Equipment catalog UI` as accepted, committed, and pushed on `to`
 - Treat the production-calendar Russian date format follow-up as accepted after manual review
 - Treat `Phase 12. Backup, snapshots, and change history` as approved after Phase 11
 - Keep JSON as the source of truth and keep the yearly workbook as a generated/report artifact
@@ -23,8 +23,7 @@ Last updated: `2026-05-06`
 
 ## Near-term follow-up
 
-- Manually review local `Phase 11B. Equipment catalog UI`
-- After acceptance, commit/push `Phase 11B`, then continue to `Phase 11C. Object template model` unless redirected
+- Continue to `Phase 11C. Object template model` unless redirected
 
 ## Update rule
 

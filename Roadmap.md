@@ -2,7 +2,7 @@
 
 Last updated: 2026-05-06
 Branch baseline: `to`
-Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to, Phase 7F production-calendar configuration complete on to, Phase 7F.1 PDF calendar import complete on to, Phase 11A accepted, production-calendar Russian date format accepted, local Phase 11B equipment catalog UI verified and waiting manual review`
+Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to, Phase 7F production-calendar configuration complete on to, Phase 7F.1 PDF calendar import complete on to, Phase 11A accepted, production-calendar Russian date format accepted, Phase 11B equipment catalog UI complete on to`
 
 ## Goal
 
@@ -60,7 +60,7 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - On 2026-04-28, the current `Phase 6` worktree passed verification build, passed `dotnet test` (`177/177`), and `asutpKB.exe` startup was rechecked after the final `Network` UX fixes.
 - Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition, but further workbook modernization is no longer the preferred next phase.
 - Current CI workflow also verifies `dotnet format --verify-no-changes` for the app project, core project, and tests before `build` / `test`.
-- The maintenance-schedule generation roadmap through `Phase 7F.1` is complete on `to`; local `Phase 11B` equipment catalog UI is verified and waiting for manual review.
+- The maintenance-schedule generation roadmap through `Phase 7F.1` is complete on `to`; `Phase 11B` equipment catalog UI is complete on `to`.
 - `Phase 7A` is complete on `to`: `Lvl2` inventory number support now follows visible hierarchy level, typed `MaintenanceScheduleProfiles` are persisted in JSON/session state, and engineering nodes expose a `График ТО` tab with per-node `ТО1` / `ТО2` / `ТО3` hour norms.
 - `Phase 7B` is complete on `to`: Russian production-calendar calculation for `5/2` workdays is available as a reusable service.
 - `Phase 7F` is complete on `to`: production-calendar years are persisted in JSON config, editable from the Russian UI, importable from JSON, and consumed by maintenance schedule generation.
@@ -552,7 +552,7 @@ Acceptance:
 
 Complexity: `High`
 
-Status: approved; `Phase 11A` accepted after manual review; local `Phase 11B` is verified and waiting for manual review.
+Status: approved; `Phase 11A` accepted after manual review; `Phase 11B` is complete on `to`.
 
 Goals:
 
@@ -571,9 +571,9 @@ Scope:
   - deduplicate by stable catalog item id
   - add focused tests
 - `Phase 11B. Equipment catalog UI`
-  - status: local implementation verified; waiting manual review
-  - done locally: add Russian UI for listing, adding, editing, deleting, and searching catalog items
-  - done locally: keep catalog editing separate from tree editing until object-template creation is implemented
+  - status: complete on `to`; committed and pushed as `f80873f`
+  - done: add Russian UI for listing, adding, editing, deleting, and searching catalog items
+  - done: keep catalog editing separate from tree editing until object-template creation is implemented
   - on 2026-05-06, `phase11b-equipment-catalog-ui` passed verification build and `dotnet test` (`287/287`) using isolated output paths
 - `Phase 11C. Object template model`
   - add object-template model with template nodes and generated fresh `NodeId` values on creation
@@ -710,12 +710,9 @@ Completed on `to`:
 17. Maintenance-norm import coverage and mismatch reporting, complete on `to`
 18. Phase 7F production-calendar configuration, complete on `to`
 19. Phase 7F.1 PDF calendar import, complete on `to`
+20. Phase 11B. Equipment catalog UI, complete on `to`
 
-Local verified, waiting manual review:
-
-1. Phase 11B. Equipment catalog UI
-
-Approved after manual review and commit/push:
+Approved next:
 
 1. Phase 11C. Object template model
 2. Remaining Phase 11 object-template/catalog slices
@@ -752,8 +749,7 @@ Keep JSON source-of-truth compatibility and treat Excel v3 as a legacy transitio
 Continue from the next explicitly prioritized task:
 
 - preserve the completed `Phase 7A` / `7B` / `7C` / `7D` / `7E` / `7F` / `7F.1` workflow as the current baseline
-- manually review local `Phase 11B. Equipment catalog UI`
-- after accepting `Phase 11B`, commit/push it and continue to `Phase 11C. Object template model`, unless explicitly redirected
+- continue to `Phase 11C. Object template model`, unless explicitly redirected
 - do not start a new `Phase 7G`; it is not part of this roadmap
 - treat future-month recalculation as completed `Phase 7D` orchestration/workflow built on top of the existing monthly engine, not as a replacement for it
 - keep workbook `v3` readable as legacy, but do not expand it as the main feature direction
