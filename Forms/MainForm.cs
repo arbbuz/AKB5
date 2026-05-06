@@ -83,6 +83,7 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem ctxAddChild = null!;
         private ToolStripMenuItem ctxAddFromTemplate = null!;
         private ToolStripMenuItem ctxCreateObjectFromTemplate = null!;
+        private ToolStripMenuItem ctxSaveObjectAsTemplate = null!;
         private ToolStripMenuItem ctxCopy = null!;
         private ToolStripMenuItem ctxPaste = null!;
         private ToolStripMenuItem ctxRename = null!;
@@ -245,6 +246,8 @@ namespace AsutpKnowledgeBase
             ctxAddFromTemplate.Enabled = hasSelection && _treeMutationWorkflowService.CanAddNodeFromTemplate(selectedNode!);
             ctxCreateObjectFromTemplate.Enabled = _treeMutationWorkflowService.CanCreateObjectFromTemplate(
                 hasSelection ? selectedNode : GetEffectiveParentForRootOperations());
+            ctxSaveObjectAsTemplate.Enabled = hasSelection &&
+                KnowledgeBaseTreeMutationWorkflowService.CanSaveObjectAsTemplate(selectedNode);
             ctxPaste.Enabled = hasSelection && _treeMutationWorkflowService.CanPasteNode(selectedNode!);
             bool hasCurrentWorkshop = !string.IsNullOrWhiteSpace(_currentWorkshop);
             menuRenameWorkshop.Enabled = hasCurrentWorkshop;
@@ -471,8 +474,13 @@ namespace AsutpKnowledgeBase
                 "Создать объект из шаблона...",
                 null,
                 (s, e) => CreateObjectFromTemplate());
+            ctxSaveObjectAsTemplate = new ToolStripMenuItem(
+                "РЎРѕС…СЂР°РЅРёС‚СЊ РєР°Рє С€Р°Р±Р»РѕРЅ РѕР±СЉРµРєС‚Р°...",
+                null,
+                (s, e) => SaveObjectAsTemplate());
             tvTree.ContextMenuStrip.Items.Insert(2, ctxAddFromTemplate);
             tvTree.ContextMenuStrip.Items.Insert(3, ctxCreateObjectFromTemplate);
+            tvTree.ContextMenuStrip.Items.Insert(4, ctxSaveObjectAsTemplate);
         }
         private sealed record SearchScopeOption(KnowledgeBaseSearchScope Scope, string DisplayText)
         {

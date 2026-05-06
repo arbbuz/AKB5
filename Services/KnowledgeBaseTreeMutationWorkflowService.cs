@@ -73,6 +73,9 @@ namespace AsutpKnowledgeBase.Services
         public bool CanCreateObjectFromTemplate(KbNode? parentNode) =>
             GetAvailableObjectTemplates(parentNode).Count > 0;
 
+        public static bool CanSaveObjectAsTemplate(KbNode? sourceNode) =>
+            sourceNode != null && sourceNode.NodeType != KbNodeType.WorkshopRoot;
+
         public bool CanPasteNode(KbNode? parentNode) => _treeController.CanPasteNode(parentNode);
 
         public void ClearClipboard() => _treeController.ClearClipboard();
@@ -237,6 +240,44 @@ namespace AsutpKnowledgeBase.Services
             _history.SaveState(historySnapshot);
 
             return Success($"Создано из шаблона объекта: {createdNode.Name}", createdNode);
+        }
+
+        public KnowledgeBaseTreeMutationResult SaveObjectAsTemplate(
+            KbNode sourceNode,
+            string displayName,
+            string category,
+            string description,
+            List<KbNode> currentRoots)
+        {
+            if (!CanSaveObjectAsTemplate(sourceNode))
+            {
+                return Failure(
+                    KnowledgeBaseTreeMutationFailure.TemplateUnavailable,
+                    "Р’С‹Р±РµСЂРёС‚Рµ РѕР±СЉРµРєС‚ РґРµСЂРµРІР°, РєРѕС‚РѕСЂС‹Р№ РјРѕР¶РЅРѕ СЃРѕС…СЂР°РЅРёС‚СЊ РєР°Рє С€Р°Р±Р»РѕРЅ.");
+            }
+
+            var templateResult = _objectTemplateService.CreateTemplateFromExistingObject(
+                sourceNode,
+                displayName,
+                category,
+                description,
+                _session.CompositionEntries,
+                _session.DocumentLinks,
+                _session.SoftwareRecords,
+                _session.NetworkFileReferences,
+                _session.MaintenanceScheduleProfiles);
+            if (!templateResult.IsSuccess || templateResult.Template == null)
+            {
+                return Failure(
+                    KnowledgeBaseTreeMutationFailure.TemplateUnavailable,
+                    templateResult.ErrorMessage);
+            }
+
+            string historySnapshot = CaptureHistorySnapshot(currentRoots);
+            _session.ReplaceObjectTemplates(_session.ObjectTemplates.Concat(new[] { templateResult.Template }));
+            _history.SaveState(historySnapshot);
+
+            return Success($"РЎРѕС…СЂР°РЅРµРЅ С€Р°Р±Р»РѕРЅ РѕР±СЉРµРєС‚Р°: {templateResult.Template.DisplayName}", sourceNode);
         }
 
         public KnowledgeBaseTreeMutationResult DeleteNode(

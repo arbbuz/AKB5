@@ -339,6 +339,106 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
     }
 
     [Fact]
+    public void SaveObjectAsTemplate_WhenSuccessful_AppendsTemplateAndSupportsUndo()
+    {
+        var controllerNode = new KbNode
+        {
+            NodeId = "controller-1",
+            Name = "PLC",
+            LevelIndex = 1,
+            NodeType = KbNodeType.Controller
+        };
+        var cabinet = new KbNode
+        {
+            NodeId = "cabinet-1",
+            Name = "Cabinet A",
+            LevelIndex = 0,
+            NodeType = KbNodeType.Cabinet,
+            Details = new KbNodeDetails
+            {
+                Description = "Cabinet description"
+            },
+            Children = { controllerNode }
+        };
+        var session = CreateSession(
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Workshop 1"] = new List<KbNode> { cabinet }
+            });
+        session.ReplaceCompositionEntries(
+            new[]
+            {
+                new KbCompositionEntry
+                {
+                    ParentNodeId = "cabinet-1",
+                    SlotNumber = 1,
+                    ComponentType = "CPU"
+                }
+            });
+        session.ReplaceDocumentLinks(
+            new[]
+            {
+                new KbDocumentLink
+                {
+                    OwnerNodeId = "controller-1",
+                    Kind = KbDocumentKind.SchemeLink,
+                    Title = "Scheme",
+                    Path = "\\\\srv\\scheme.pdf"
+                }
+            });
+        session.ReplaceMaintenanceScheduleProfiles(
+            new[]
+            {
+                new KbMaintenanceScheduleProfile
+                {
+                    OwnerNodeId = "controller-1",
+                    IsIncludedInSchedule = true,
+                    To1Hours = 2,
+                    To2Hours = 4,
+                    To3Hours = 8
+                }
+            });
+
+        var history = new UndoRedoService();
+        var controller = new KnowledgeBaseTreeController(session);
+        var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
+        var workflow = new KnowledgeBaseTreeMutationWorkflowService(session, sessionWorkflow, controller, history);
+
+        var result = workflow.SaveObjectAsTemplate(
+            cabinet,
+            "Reusable cabinet",
+            "Cabinets",
+            "Saved from real object",
+            session.GetCurrentWorkshopNodes());
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.True(workflow.CanUndo);
+        Assert.Same(cabinet, result.AffectedNode);
+
+        KbObjectTemplate template = Assert.Single(session.ObjectTemplates);
+        Assert.Equal("Reusable cabinet", template.DisplayName);
+        Assert.False(string.IsNullOrWhiteSpace(template.TemplateId));
+        Assert.NotEqual("cabinet-1", template.RootNode.TemplateNodeId);
+        KbObjectTemplateNode templateController = Assert.Single(template.RootNode.Children);
+        Assert.NotEqual("controller-1", templateController.TemplateNodeId);
+
+        KbObjectTemplateCompositionEntry composition = Assert.Single(template.CompositionEntries);
+        Assert.Equal(template.RootNode.TemplateNodeId, composition.ParentTemplateNodeId);
+        KbObjectTemplateDocumentLink document = Assert.Single(template.DocumentLinks);
+        Assert.Equal(templateController.TemplateNodeId, document.OwnerTemplateNodeId);
+        KbObjectTemplateMaintenanceScheduleProfile maintenance = Assert.Single(template.MaintenanceScheduleProfiles);
+        Assert.Equal(templateController.TemplateNodeId, maintenance.OwnerTemplateNodeId);
+
+        var undoResult = workflow.Undo(session.GetCurrentWorkshopNodes());
+
+        Assert.True(undoResult.IsSuccess);
+        Assert.Empty(session.ObjectTemplates);
+        Assert.Single(session.CompositionEntries);
+        Assert.Single(session.DocumentLinks);
+        Assert.Single(session.MaintenanceScheduleProfiles);
+    }
+
+    [Fact]
     public void CreateObjectFromTemplate_WhenTemplateDoesNotFitDepth_ReturnsDepthLimitFailure()
     {
         var parentNode = new KbNode

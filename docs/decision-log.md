@@ -18,6 +18,9 @@ Last updated: `2026-05-06`
 - `Phase 11D` adds creation of a new tree object from persisted `SavedData.ObjectTemplates` through a Russian context-menu dialog; it does not create/edit/save templates yet
 - Creating from an object template inserts the full template subtree, reindexes it through the normal tree rules, generates fresh `NodeId` values, and appends remapped composition, document/software, network-file, and maintenance-profile defaults
 - On 2026-05-06, `phase11d-create-from-template` passed verification build and `dotnet test` (`294/294`) using isolated output paths; manual review passed and the user requested commit/push before Phase 11E
+- `Phase 11C` / `Phase 11D` were committed and pushed on `to` as `3caca67 Add object template creation workflow`
+- Local `Phase 11E` saves a selected existing object subtree as a persisted object template; it generates fresh template-node ids, strips real node ids, remaps typed owner references inside the selected subtree, skips records outside that subtree, and leaves source object data unchanged
+- On 2026-05-06, `phase11e-save-object-as-template` passed verification build and `dotnet test` (`296/296`) using isolated output paths; manual review passed and the user requested continuing without push
 
 ## 2026-05-05
 

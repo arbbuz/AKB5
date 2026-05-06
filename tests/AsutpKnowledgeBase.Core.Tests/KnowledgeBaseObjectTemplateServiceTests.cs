@@ -77,6 +77,142 @@ public class KnowledgeBaseObjectTemplateServiceTests
         Assert.Contains("некорректно", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void CreateTemplateFromExistingObject_RemovesRealIdsAndRemapsTypedRecords()
+    {
+        var controller = new KbNode
+        {
+            NodeId = "controller-1",
+            Name = "PLC",
+            NodeType = KbNodeType.Controller,
+            Details = new KbNodeDetails
+            {
+                IpAddress = "10.10.10.20"
+            }
+        };
+        var cabinet = new KbNode
+        {
+            NodeId = "cabinet-1",
+            Name = "Cabinet A",
+            NodeType = KbNodeType.Cabinet,
+            Details = new KbNodeDetails
+            {
+                Description = "Filled cabinet",
+                Location = "Panel room"
+            },
+            Children = { controller }
+        };
+
+        KnowledgeBaseObjectTemplateBuildResult result = _service.CreateTemplateFromExistingObject(
+            cabinet,
+            "Reusable cabinet",
+            "Cabinets",
+            "Template description",
+            new[]
+            {
+                new KbCompositionEntry
+                {
+                    EntryId = "composition-real-id",
+                    ParentNodeId = "cabinet-1",
+                    SlotNumber = 1,
+                    PositionOrder = 2,
+                    ComponentType = "CPU",
+                    Model = "S7"
+                },
+                new KbCompositionEntry { ParentNodeId = "outside-node", ComponentType = "Skip" }
+            },
+            new[]
+            {
+                new KbDocumentLink
+                {
+                    DocumentId = "document-real-id",
+                    OwnerNodeId = "controller-1",
+                    Kind = KbDocumentKind.SchemeLink,
+                    Title = "Scheme",
+                    Path = "\\\\srv\\scheme.pdf"
+                }
+            },
+            new[]
+            {
+                new KbSoftwareRecord
+                {
+                    SoftwareId = "software-real-id",
+                    OwnerNodeId = "controller-1",
+                    Title = "PLC backup",
+                    Path = "\\\\srv\\backup.zip"
+                }
+            },
+            new[]
+            {
+                new KbNetworkFileReference
+                {
+                    NetworkAssetId = "network-real-id",
+                    OwnerNodeId = "cabinet-1",
+                    Title = "Topology",
+                    Path = "\\\\srv\\topology.png"
+                }
+            },
+            new[]
+            {
+                new KbMaintenanceScheduleProfile
+                {
+                    MaintenanceProfileId = "maintenance-real-id",
+                    OwnerNodeId = "controller-1",
+                    IsIncludedInSchedule = true,
+                    To1Hours = 1,
+                    To2Hours = 3,
+                    To3Hours = 8,
+                    YearScheduleEntries =
+                    {
+                        new KbMaintenanceYearScheduleEntry
+                        {
+                            Month = 4,
+                            WorkKind = KbMaintenanceWorkKind.To2
+                        }
+                    }
+                }
+            });
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.NotNull(result.Template);
+        KbObjectTemplate template = result.Template!;
+        Assert.Equal(string.Empty, template.TemplateId);
+        Assert.Equal("Reusable cabinet", template.DisplayName);
+        Assert.Equal("Cabinets", template.Category);
+        Assert.Equal("Template description", template.Description);
+        Assert.Equal("Cabinet A", template.RootNode.Name);
+        Assert.Equal(KbNodeType.Cabinet, template.RootNode.NodeType);
+        Assert.Equal("Filled cabinet", template.RootNode.Details.Description);
+
+        string cabinetTemplateNodeId = result.NodeIdMap["cabinet-1"];
+        string controllerTemplateNodeId = result.NodeIdMap["controller-1"];
+        Assert.Equal(cabinetTemplateNodeId, template.RootNode.TemplateNodeId);
+        Assert.NotEqual("cabinet-1", cabinetTemplateNodeId);
+        Assert.DoesNotContain("cabinet-1", CollectTemplateNodeIds(template.RootNode));
+
+        KbObjectTemplateNode templateController = Assert.Single(template.RootNode.Children);
+        Assert.Equal(controllerTemplateNodeId, templateController.TemplateNodeId);
+        Assert.NotEqual("controller-1", controllerTemplateNodeId);
+
+        KbObjectTemplateCompositionEntry composition = Assert.Single(template.CompositionEntries);
+        Assert.Equal(cabinetTemplateNodeId, composition.ParentTemplateNodeId);
+        Assert.Equal("CPU", composition.ComponentType);
+
+        KbObjectTemplateDocumentLink document = Assert.Single(template.DocumentLinks);
+        Assert.Equal(controllerTemplateNodeId, document.OwnerTemplateNodeId);
+        Assert.Equal("Scheme", document.Title);
+
+        KbObjectTemplateSoftwareRecord software = Assert.Single(template.SoftwareRecords);
+        Assert.Equal(controllerTemplateNodeId, software.OwnerTemplateNodeId);
+
+        KbObjectTemplateNetworkFileReference network = Assert.Single(template.NetworkFileReferences);
+        Assert.Equal(cabinetTemplateNodeId, network.OwnerTemplateNodeId);
+
+        KbObjectTemplateMaintenanceScheduleProfile maintenance = Assert.Single(template.MaintenanceScheduleProfiles);
+        Assert.Equal(controllerTemplateNodeId, maintenance.OwnerTemplateNodeId);
+        Assert.Equal(4, Assert.Single(maintenance.YearScheduleEntries).Month);
+    }
+
     private static KbObjectTemplate CreateCabinetTemplate() =>
         new()
         {
@@ -160,4 +296,12 @@ public class KnowledgeBaseObjectTemplateServiceTests
                 }
             }
         };
+    private static List<string> CollectTemplateNodeIds(KbObjectTemplateNode node)
+    {
+        var nodeIds = new List<string> { node.TemplateNodeId };
+        foreach (KbObjectTemplateNode child in node.Children)
+            nodeIds.AddRange(CollectTemplateNodeIds(child));
+
+        return nodeIds;
+    }
 }

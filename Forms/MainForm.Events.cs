@@ -200,6 +200,9 @@ namespace AsutpKnowledgeBase
         private void CreateObjectFromTemplate()
             => _treeMutationUiWorkflowService.CreateObjectFromTemplate(CreateTreeMutationUiWorkflowContext());
 
+        private void SaveObjectAsTemplate()
+            => _treeMutationUiWorkflowService.SaveObjectAsTemplate(CreateTreeMutationUiWorkflowContext());
+
         private void DeleteNode()
             => _treeMutationUiWorkflowService.DeleteNode(CreateTreeMutationUiWorkflowContext());
 

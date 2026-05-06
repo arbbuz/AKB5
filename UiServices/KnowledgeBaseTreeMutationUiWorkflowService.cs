@@ -127,6 +127,50 @@ namespace AsutpKnowledgeBase.UiServices
             ApplySuccessfulMutation(context, result, result.AffectedNode, expandedNodes);
         }
 
+        public void SaveObjectAsTemplate(KnowledgeBaseTreeMutationUiWorkflowContext context)
+        {
+            if (context.TreeView.SelectedNode?.Tag is not KbNode selectedNode)
+            {
+                MessageBox.Show(
+                    context.Owner,
+                    "Р’С‹Р±РµСЂРёС‚Рµ РѕР±СЉРµРєС‚, РєРѕС‚РѕСЂС‹Р№ РЅСѓР¶РЅРѕ СЃРѕС…СЂР°РЅРёС‚СЊ РєР°Рє С€Р°Р±Р»РѕРЅ.",
+                    "РЁР°Р±Р»РѕРЅС‹ РѕР±СЉРµРєС‚РѕРІ",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            if (!KnowledgeBaseTreeMutationWorkflowService.CanSaveObjectAsTemplate(selectedNode))
+            {
+                MessageBox.Show(
+                    context.Owner,
+                    "Р­С‚РѕС‚ СѓР·РµР» РЅРµР»СЊР·СЏ СЃРѕС…СЂР°РЅРёС‚СЊ РєР°Рє С€Р°Р±Р»РѕРЅ РѕР±СЉРµРєС‚Р°.",
+                    "РЁР°Р±Р»РѕРЅС‹ РѕР±СЉРµРєС‚РѕРІ",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            using var dialog = new KnowledgeBaseObjectTemplateSaveDialog(selectedNode);
+            if (dialog.ShowDialog(context.Owner) != DialogResult.OK)
+                return;
+
+            var expandedNodes = context.CaptureExpandedNodes();
+            var result = _treeMutationWorkflowService.SaveObjectAsTemplate(
+                selectedNode,
+                dialog.DisplayName,
+                dialog.Category,
+                dialog.Description,
+                context.GetPersistedTreeData());
+            if (!result.IsSuccess)
+            {
+                ShowMutationFailure(context.Owner, result, "РЎРѕС…СЂР°РЅРµРЅРёРµ С€Р°Р±Р»РѕРЅР° РѕР±СЉРµРєС‚Р°");
+                return;
+            }
+
+            ApplySuccessfulMutation(context, result, selectedNode, expandedNodes);
+        }
+
         public void DeleteNode(KnowledgeBaseTreeMutationUiWorkflowContext context)
         {
             if (context.TreeView.SelectedNode?.Tag is not KbNode node)
