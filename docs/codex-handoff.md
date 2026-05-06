@@ -8,8 +8,8 @@ Last updated: `2026-05-06`
 - Active integration branch: `to`
 - Latest feature integration commit for the maintenance-planning stream: `09bf84d Add production calendar PDF import`
 - Latest docs synchronization commit: `68d51b6 Distill roadmap state after Phase 7F`
-- Latest accepted implementation: `Phase 11E save existing object as template`
-- Current local implementation awaiting manual review: `Phase 11F apply template with preview`
+- Latest accepted implementation: `Phase 11G template import/export`
+- Current local implementation: `Phase 12 backup, snapshots, and change history`
 - Implemented on this branch:
   - `Phase 0`
   - `Phase 1`
@@ -37,10 +37,14 @@ Last updated: `2026-05-06`
   - `Phase 11C object template model`
   - `Phase 11D create from template`
   - `Phase 11E save existing object as template`
-- Current active gate: manual review of local `Phase 11F. Apply template with preview`
+  - `Phase 11F apply template with preview`
+  - `Phase 11G template import/export`
+- Current active roadmap step: `Phase 12. Backup, snapshots, and change history`
 - `Phase 11B. Equipment catalog UI` was committed and pushed on `to` as `f80873f Add equipment catalog UI`
 - `Phase 11C` / `Phase 11D` were committed and pushed on `to` as `3caca67 Add object template creation workflow`
-- `Phase 11E` passed manual review on `2026-05-06` and was committed locally as `3c87b6e Add save object as template workflow`; user requested no push before continuing
+- `Phase 11E` was committed and pushed on `to` as `3c87b6e Add save object as template workflow`
+- `Phase 11F` was committed and pushed on `to` as `ca43298 Add apply object template preview workflow`
+- `Phase 11G` was accepted after manual review and committed locally; push only if the user asks
 
 ## Integrated feature state
 
@@ -99,10 +103,39 @@ Last updated: `2026-05-06`
   - `Phase 11D` adds a tree context-menu command `Создать объект из шаблона...` and a Russian selection dialog for persisted object templates
   - creating from a template inserts the whole template subtree, applies normal tree reindexing/depth checks, and appends remapped composition, document/software, network-file, and maintenance-profile defaults
   - `Phase 11E` adds a tree context-menu command for saving the selected object subtree as a persisted template, removes real node ids, remaps typed owner references by generated template-node ids, and skips typed records outside the selected subtree
-  - local `Phase 11F` adds a tree context-menu command `Применить шаблон к объекту...`, shows an explicit preview of added/skipped/unchanged data, and applies only missing subtree nodes, typed records, and empty supported card fields
+  - `Phase 11F` adds a tree context-menu command `Применить шаблон к объекту...`, shows an explicit preview of added/skipped/unchanged data, and applies only missing subtree nodes, typed records, and empty supported card fields
+  - `Phase 11G` adds `Файл -> Экспорт каталога и шаблонов JSON...` and `Файл -> Импорт каталога и шаблонов JSON...`; export writes a dedicated UTF-8 JSON exchange file and import merges only catalog/templates without touching legacy Excel `v3`
 - User-facing application UI on `to` remains Russian-only
 
 ## Validated status
+
+Actually run on the worktree for local `Phase 11G` on `2026-05-06`:
+
+```powershell
+dotnet build asutpKB.csproj --no-restore
+dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
+dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
+dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --no-restore --filter "KnowledgeBaseCatalogTemplateExchangeServiceTests|KnowledgeBaseEquipmentCatalogServiceTests|KnowledgeBaseObjectTemplateServiceTests"
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase11g-template-import-export
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase11g-template-import-export-layout-fix
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase11g-template-import-export-apply-preview-ui-fix
+```
+
+- App build: passed with `0` errors
+- `dotnet format --verify-no-changes`: passed for app, core, and tests
+- Targeted catalog/template exchange tests: passed, `14/14`
+- Verification `dotnet build`: passed for `phase11g-template-import-export`
+- `dotnet test`: passed, `302/302`
+- Manual-review UI fix: expanded the `Состав шаблона` field in the create-object-from-template dialog so long template details are visible
+- Verification `dotnet build`: passed for `phase11g-template-import-export-layout-fix`
+- `dotnet test`: passed, `302/302`
+- Manual-review UI fix: the apply-object-template dialog now selects the first template explicitly, rebuilds preview when shown, and shows no-change/failure text instead of an empty preview; `Применить` remains enabled only for successful plans with new data
+- Verification `dotnet build`: passed for `phase11g-template-import-export-apply-preview-ui-fix`
+- `dotnet test`: passed, `302/302`
+- Verification artifacts: `artifacts\verify\phase11g-template-import-export-apply-preview-ui-fix`
+- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase11g-template-import-export-apply-preview-ui-fix\build\Release\net8.0-windows\asutpKB.exe`
+- Status: manual review passed; committed locally; do not push `Phase 11G` unless the user asks
 
 Actually run on the worktree for local `Phase 11F` on `2026-05-06`:
 
@@ -126,7 +159,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `dotnet test`: passed, `299/299`
 - Verification artifacts: `artifacts\verify\phase11f-apply-template-preview`
 - Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase11f-apply-template-preview\build\Release\net8.0-windows\asutpKB.exe`
-- Status: waiting for manual review; do not commit or push `Phase 11F` until the user accepts it
+- Status: manual review passed; committed and pushed on `to` as `ca43298 Add apply object template preview workflow`
 
 Actually run on the worktree for local `Phase 11E` on `2026-05-06`:
 
@@ -144,7 +177,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `dotnet test`: passed, `296/296`
 - Verification artifacts: `artifacts\verify\phase11e-save-object-as-template`
 - Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase11e-save-object-as-template\build\Release\net8.0-windows\asutpKB.exe`
-- Status: manual review passed; user requested no push before continuing
+- Status: manual review passed; committed and pushed on `to` as `3c87b6e Add save object as template workflow`
 
 Actually run on the worktree for local `Phase 11D` on `2026-05-06`:
 
@@ -255,13 +288,13 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 ## Active objective
 
 - Keep the completed `Phase 7` workflow on `to` stable as the baseline
-- Wait for manual review of local `Phase 11F. Apply template with preview`; keep `Phase 11E` local unless the user asks to push
+- Continue with `Phase 12. Backup, snapshots, and change history`; do not push local `Phase 11G` unless the user asks
 - Preserve the production-calendar follow-up behavior: manual calendar dates are shown as `дд.мм.гггг`, JSON import accepts both `дд.мм.гггг` and legacy ISO dates, saved app JSON remains backward-compatible, and additional working days can represent transferred working weekends
 - Keep `Phase 11B` as the accepted equipment-catalog UI baseline
 - Preserve deterministic month placement as fallback for profiles that do not enable manual annual placement
 - Keep JSON as the source of truth for calendar configuration; generated workbooks remain report artifacts
 - Do not start `Phase 7G` unless it is first defined and accepted in the roadmap
-- Keep `Phase 12` deferred until Phase 11 is finished or explicitly redirected
+- Treat `Phase 12` as active now that `Phase 11G` passed manual review
 
 ## Durable decisions already made
 
@@ -290,11 +323,11 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `Phase 11D` creates objects only from already persisted `SavedData.ObjectTemplates`; creating/editing/saving templates remains a later slice
 - The user confirmed manual review of Phase 11D and explicitly requested committing/pushing the Phase 11C/11D stack before Phase 11E
 - `Phase 11C` / `Phase 11D` were committed and pushed on `to` as `3caca67 Add object template creation workflow`
-- Local `Phase 11E` saves an existing object subtree into a template by generating fresh template-node ids, stripping real node ids, remapping typed records inside the subtree, and leaving source tree data unchanged
-- The user confirmed manual review of `Phase 11E` on `2026-05-06` and explicitly requested continuing without push
-- `Phase 11E` was committed locally as `3c87b6e Add save object as template workflow`; it was not pushed by explicit user request
-- Local `Phase 11F` applies templates to existing objects only after preview; it does not overwrite existing card values or typed records and does not delete user data
-- `Phase 12` is approved as backup, snapshots, and change history after Phase 11
+- `Phase 11E` saves an existing object subtree into a template by generating fresh template-node ids, stripping real node ids, remapping typed records inside the subtree, and leaving source tree data unchanged
+- `Phase 11E` / `Phase 11F` were committed and pushed on `to` as `3c87b6e Add save object as template workflow` and `ca43298 Add apply object template preview workflow`
+- `Phase 11F` applies templates to existing objects only after preview; it does not overwrite existing card values or typed records and does not delete user data
+- `Phase 11G` exchanges equipment catalog records and object templates through a dedicated JSON file; import is a safe merge and does not replace current duplicates
+- `Phase 12` is the active approved step: backup, snapshots, and change history
 - A single `ТО2` / `ТО3` occurrence above 8 hours is split into assignments of up to 8 hours; this is assignment chunking for major work, not a hard daily total cap
 - The planner may place more than one large maintenance item on the same day when needed; it only prefers to spread `ТО2` / `ТО3` apart when possible
 - The first release keeps deterministic rule-based month placement for `ТО2` / `ТО3`; a future yearly schedule source may replace that without redesigning the export pipeline
@@ -383,7 +416,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 
 ## Recommended next step
 
-- Wait for manual review of local `Phase 11F. Apply template with preview`; do not commit/push `Phase 11F` before acceptance
+- Continue with `Phase 12. Backup, snapshots, and change history`; do not push local `Phase 11G` unless the user asks
 
 ## Commands to run before finishing future implementation work
 

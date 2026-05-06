@@ -110,7 +110,11 @@ namespace AsutpKnowledgeBase
             AcceptButton = _btnApply;
             CancelButton = btnCancel;
 
+            if (_cmbTemplates.Items.Count > 0 && _cmbTemplates.SelectedIndex < 0)
+                _cmbTemplates.SelectedIndex = 0;
+
             UpdatePreview();
+            Shown += (_, _) => UpdatePreview();
         }
 
         public string SelectedTemplateId { get; private set; } = string.Empty;
@@ -149,20 +153,33 @@ namespace AsutpKnowledgeBase
             if (_cmbTemplates.SelectedItem is not KbObjectTemplate template)
             {
                 _currentPlan = null;
-                _txtPreview.Text = string.Empty;
+                _txtPreview.Text = "Выберите шаблон объекта для предпросмотра применения.";
                 _btnApply.Enabled = false;
                 return;
             }
 
-            _currentPlan = _buildPreview(template.TemplateId);
-            _txtPreview.Text = BuildPreviewText(_currentPlan);
-            _btnApply.Enabled = _currentPlan.IsSuccess && _currentPlan.HasChanges;
+            try
+            {
+                _currentPlan = _buildPreview(template.TemplateId);
+                _txtPreview.Text = BuildPreviewText(_currentPlan);
+                _btnApply.Enabled = _currentPlan.IsSuccess && _currentPlan.HasChanges;
+            }
+            catch (Exception ex)
+            {
+                _currentPlan = null;
+                _txtPreview.Text = $"Не удалось построить предпросмотр применения шаблона: {ex.Message}";
+                _btnApply.Enabled = false;
+            }
         }
 
         private string BuildPreviewText(KnowledgeBaseObjectTemplateApplicationPlan plan)
         {
             if (!plan.IsSuccess)
-                return plan.ErrorMessage;
+            {
+                return string.IsNullOrWhiteSpace(plan.ErrorMessage)
+                    ? "Шаблон нельзя применить к выбранному объекту."
+                    : plan.ErrorMessage;
+            }
 
             var builder = new StringBuilder();
             builder.AppendLine($"Объект: {_txtTarget.Text}");
@@ -182,6 +199,12 @@ namespace AsutpKnowledgeBase
                 builder.Append(item.Target);
                 builder.Append(" - ");
                 builder.AppendLine(item.Description);
+            }
+
+            if (plan.PreviewItems.Count == 0)
+            {
+                builder.AppendLine(
+                    "Предпросмотр не содержит действий. Кнопка \"Применить\" доступна только если шаблон добавляет новые данные.");
             }
 
             if (!plan.HasChanges)

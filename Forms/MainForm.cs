@@ -33,6 +33,7 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseMaintenanceYearScheduleSourceExchangeService _maintenanceYearScheduleSourceExchangeService = new();
         private readonly KnowledgeBaseProductionCalendarJsonImportService _productionCalendarJsonImportService = new();
         private readonly KnowledgeBaseProductionCalendarPdfImportService _productionCalendarPdfImportService = new();
+        private readonly KnowledgeBaseCatalogTemplateExchangeService _catalogTemplateExchangeService = new();
         private readonly KnowledgeBaseFormStateService _formStateService = new();
         private readonly KnowledgeBaseNodePresentationService _nodePresentationService = new();
         private readonly KnowledgeBaseTreeViewService _treeViewService = new();
@@ -55,6 +56,8 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem menuRenameWorkshop = null!;
         private ToolStripMenuItem menuDeleteWorkshop = null!;
         private ToolStripMenuItem menuEditEquipmentCatalog = null!;
+        private ToolStripMenuItem menuExportCatalogTemplates = null!;
+        private ToolStripMenuItem menuImportCatalogTemplates = null!;
         private ToolStripMenuItem menuImportMaintenanceNorms = null!;
         private ToolStripMenuItem menuEditMaintenanceYearScheduleSource = null!;
         private ToolStripMenuItem menuExportMaintenanceYearScheduleSource = null!;
@@ -256,6 +259,8 @@ namespace AsutpKnowledgeBase
             menuRenameWorkshop.Enabled = hasCurrentWorkshop;
             menuDeleteWorkshop.Enabled = hasCurrentWorkshop && _session.Workshops.Count > 1;
             menuEditEquipmentCatalog.Enabled = true;
+            menuExportCatalogTemplates.Enabled = true;
+            menuImportCatalogTemplates.Enabled = true;
             menuImportMaintenanceNorms.Enabled = hasCurrentWorkshop;
             menuEditMaintenanceYearScheduleSource.Enabled = hasCurrentWorkshop;
             menuExportMaintenanceYearScheduleSource.Enabled = hasCurrentWorkshop;

@@ -39,15 +39,15 @@ Implemented on `to`:
 - `Phase 11B` - Russian equipment catalog UI for list/add/edit/delete/search
 - `Phase 11C` - object-template model, accepted after manual review and committed/pushed on `to`
 - `Phase 11D` - create tree objects from persisted object templates, accepted after manual review and committed/pushed on `to`
-- `Phase 11E` - save existing object subtree as a reusable object template, accepted locally without push by user request
-- `Phase 11F` - apply object templates to existing objects with preview, verified and waiting for manual review
+- `Phase 11E` - save existing object subtree as a reusable object template, accepted and committed/pushed on `to`
+- `Phase 11F` - apply object templates to existing objects with preview, accepted and committed/pushed on `to`
+- `Phase 11G` - template/catalog JSON import/export, accepted after manual review and committed locally
 
 Next approved work:
 
 - no `Phase 7G` is approved in `Roadmap.md`
-- current review gate: local `Phase 11F. Apply template with preview`
-- after acceptance: commit `Phase 11F`, then continue to `Phase 11G. Template import/export`, unless redirected
-- `Phase 12. Backup, snapshots, and change history`
+- current active phase: `Phase 12. Backup, snapshots, and change history`
+- push local `Phase 11G` only if the user asks
 
 ## Data and persistence
 

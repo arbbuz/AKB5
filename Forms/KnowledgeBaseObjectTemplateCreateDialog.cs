@@ -24,7 +24,7 @@ namespace AsutpKnowledgeBase
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(680, 360);
+            ClientSize = new Size(680, 430);
             AppIconProvider.Apply(this);
 
             var layout = new TableLayoutPanel
@@ -32,10 +32,14 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Padding = new Padding(12),
                 ColumnCount = 2,
-                RowCount = 5
+                RowCount = 4
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
             layout.Controls.Add(CreateLabel("Шаблон"), 0, 0);
             _cmbTemplates = new ComboBox
@@ -73,6 +77,7 @@ namespace AsutpKnowledgeBase
                 ReadOnly = true,
                 Multiline = true,
                 ScrollBars = ScrollBars.Vertical,
+                WordWrap = true,
                 BorderStyle = BorderStyle.FixedSingle,
                 BackColor = Color.White
             };

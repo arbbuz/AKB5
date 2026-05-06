@@ -21,10 +21,17 @@ Last updated: `2026-05-06`
 - `Phase 11C` / `Phase 11D` were committed and pushed on `to` as `3caca67 Add object template creation workflow`
 - Local `Phase 11E` saves a selected existing object subtree as a persisted object template; it generates fresh template-node ids, strips real node ids, remaps typed owner references inside the selected subtree, skips records outside that subtree, and leaves source object data unchanged
 - On 2026-05-06, `phase11e-save-object-as-template` passed verification build and `dotnet test` (`296/296`) using isolated output paths; manual review passed and the user requested continuing without push
-- `Phase 11E` was committed locally as `3c87b6e Add save object as template workflow`; it was intentionally not pushed by user request
-- Local `Phase 11F` applies a selected object template to an existing object only after showing an explicit preview of added, skipped, and unchanged data; it adds missing subtree nodes and typed records, fills only empty supported card fields, and never overwrites or deletes existing user data
-- On 2026-05-06, `phase11f-apply-template-preview` passed verification build and `dotnet test` (`299/299`) using isolated output paths; it is waiting for manual review and must not be committed/pushed before acceptance
+- `Phase 11E` was committed as `3c87b6e Add save object as template workflow`; it was later pushed to `to` together with `Phase 11F`
+- `Phase 11F` applies a selected object template to an existing object only after showing an explicit preview of added, skipped, and unchanged data; it adds missing subtree nodes and typed records, fills only empty supported card fields, and never overwrites or deletes existing user data
+- On 2026-05-06, `phase11f-apply-template-preview` passed verification build and `dotnet test` (`299/299`) using isolated output paths; manual review passed
 - After manual review found mojibake in a template context-menu string, Russian template workflow context-menu/dialog/status strings and affected test literals were corrected; post-review targeted regression passed (`55/55`), the generated UTF-8/CP1251 corruption-pattern scan returned `TOTAL=0`, and `phase11f-apply-template-preview` still passed (`299/299`)
+- `Phase 11E` / `Phase 11F` were committed and pushed on `to` as `3c87b6e Add save object as template workflow` and `ca43298 Add apply object template preview workflow`
+- Local `Phase 11G` exports equipment catalog records and object templates to a dedicated UTF-8 JSON exchange file and imports that file back through a safe merge where existing catalog/template ids and catalog semantic duplicates are not overwritten
+- On 2026-05-06, targeted catalog/template exchange tests passed (`14/14`), app/core/tests format verification passed, and `phase11g-template-import-export` passed verification build and `dotnet test` (`302/302`) using isolated output paths
+- After manual review found that `Состав шаблона` was too narrow in the create-object-from-template dialog, the dialog layout was corrected and `phase11g-template-import-export-layout-fix` passed verification build and `dotnet test` (`302/302`) using isolated output paths
+- After manual review found an empty preview with an inactive `Применить` button in the apply-object-template dialog, the dialog now selects the first template explicitly, rebuilds the preview when shown, displays no-change/failure text, and `phase11g-template-import-export-apply-preview-ui-fix` passed verification build and `dotnet test` (`302/302`) using isolated output paths
+- The user confirmed manual review of `Phase 11G`; it is accepted and committed locally, while push is deferred until the user asks
+- `Phase 12. Backup, snapshots, and change history` is now the active approved roadmap step
 
 ## 2026-05-05
 

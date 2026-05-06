@@ -2,7 +2,7 @@
 
 Last updated: 2026-05-06
 Branch baseline: `to`
-Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to, Phase 7F production-calendar configuration complete on to, Phase 7F.1 PDF calendar import complete on to, Phase 11A accepted, production-calendar Russian date format accepted, Phase 11B equipment catalog UI complete on to, Phase 11C object template model accepted, Phase 11D create from template accepted, Phase 11E save existing object as template accepted locally, Phase 11F apply template with preview waiting manual review`
+Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to, Phase 7F production-calendar configuration complete on to, Phase 7F.1 PDF calendar import complete on to, Phase 11A accepted, production-calendar Russian date format accepted, Phase 11B equipment catalog UI complete on to, Phase 11C object template model accepted, Phase 11D create from template accepted, Phase 11E save existing object as template accepted, Phase 11F apply template with preview accepted, Phase 11G template import/export accepted locally, Phase 12 backup/snapshots/change history active`
 
 ## Goal
 
@@ -60,7 +60,7 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - On 2026-04-28, the current `Phase 6` worktree passed verification build, passed `dotnet test` (`177/177`), and `asutpKB.exe` startup was rechecked after the final `Network` UX fixes.
 - Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition, but further workbook modernization is no longer the preferred next phase.
 - Current CI workflow also verifies `dotnet format --verify-no-changes` for the app project, core project, and tests before `build` / `test`.
-- The maintenance-schedule generation roadmap through `Phase 7F.1` is complete on `to`; `Phase 11B` equipment catalog UI is complete on `to`; `Phase 11C` and `Phase 11D` object-template slices are accepted and committed/pushed; `Phase 11E` is accepted locally and intentionally not pushed yet by user request; local `Phase 11F` is waiting for manual review.
+- The maintenance-schedule generation roadmap through `Phase 7F.1` is complete on `to`; `Phase 11B` equipment catalog UI is complete on `to`; `Phase 11C` through `Phase 11F` object-template slices are accepted and committed/pushed; `Phase 11G` is accepted and committed locally; `Phase 12` is active next.
 - `Phase 7A` is complete on `to`: `Lvl2` inventory number support now follows visible hierarchy level, typed `MaintenanceScheduleProfiles` are persisted in JSON/session state, and engineering nodes expose a `График ТО` tab with per-node `ТО1` / `ТО2` / `ТО3` hour norms.
 - `Phase 7B` is complete on `to`: Russian production-calendar calculation for `5/2` workdays is available as a reusable service.
 - `Phase 7F` is complete on `to`: production-calendar years are persisted in JSON config, editable from the Russian UI, importable from JSON, and consumed by maintenance schedule generation.
@@ -552,7 +552,7 @@ Acceptance:
 
 Complexity: `High`
 
-Status: approved; `Phase 11A` accepted after manual review; `Phase 11B` is complete on `to`; `Phase 11C` and `Phase 11D` are accepted after manual review and committed/pushed; `Phase 11E` is accepted locally and intentionally not pushed yet by user request; local `Phase 11F` is waiting for manual review.
+Status: accepted through `Phase 11G`; `Phase 11A` accepted after manual review; `Phase 11B` is complete on `to`; `Phase 11C` through `Phase 11F` are accepted after manual review and committed/pushed; `Phase 11G` is accepted after manual review and committed locally.
 
 Goals:
 
@@ -589,21 +589,26 @@ Scope:
   - done: append remapped composition, document/software, network-file, and maintenance-profile defaults for generated nodes
   - on 2026-05-06, `phase11d-create-from-template` passed verification build and `dotnet test` (`294/294`) using isolated output paths
 - `Phase 11E. Save existing object as template`
-  - status: accepted locally after manual review; not pushed by user request
+  - status: accepted after manual review; committed and pushed on `to`
   - done: convert a well-filled existing object subtree into a reusable template
   - done: remove real `NodeId` values and owner-specific references from the saved template
   - done: remap composition, document/software, network-file, and maintenance-profile records inside the selected subtree by generated template-node ids
   - on 2026-05-06, `phase11e-save-object-as-template` passed verification build and `dotnet test` (`296/296`) using isolated output paths; manual review passed
 - `Phase 11F. Apply template with preview`
-  - status: local implementation waiting for manual review
+  - status: accepted after manual review; committed and pushed on `to` as `ca43298`
   - done: apply a template to an existing object only after showing what will be added, skipped, or left unchanged
   - done: add missing subtree nodes and typed records without deleting existing data
   - done: fill only empty supported card fields and skip already-filled fields instead of overwriting them
   - on 2026-05-06, `phase11f-apply-template-preview` passed verification build and `dotnet test` (`299/299`) using isolated output paths
   - after manual review found mojibake in a template context-menu string, Russian template workflow strings were corrected; post-review targeted regression passed (`55/55`) and a generated mojibake scan returned `TOTAL=0`
 - `Phase 11G. Template import/export`
-  - exchange catalog/templates through dedicated JSON files
-  - keep this separate from legacy Excel `v3`
+  - status: accepted after manual review; committed locally
+  - done: exchange catalog/templates through dedicated UTF-8 JSON files
+  - done: keep this separate from legacy Excel `v3`
+  - done: import through a safe merge where existing catalog/template ids and catalog semantic duplicates are not overwritten
+  - on 2026-05-06, `phase11g-template-import-export` passed verification build and `dotnet test` (`302/302`) using isolated output paths
+  - after manual review found that `Состав шаблона` was too narrow in the create-object-from-template dialog, the dialog layout was corrected and `phase11g-template-import-export-layout-fix` passed verification build and `dotnet test` (`302/302`) using isolated output paths
+  - after manual review found an empty preview with an inactive `Применить` button in the apply-object-template dialog, the dialog now selects the first template explicitly, rebuilds the preview when shown, displays no-change/failure text, and `phase11g-template-import-export-apply-preview-ui-fix` passed verification build and `dotnet test` (`302/302`) using isolated output paths
 
 Acceptance:
 
@@ -727,15 +732,14 @@ Completed on `to`:
 20. Phase 11B. Equipment catalog UI, complete on `to`
 21. Phase 11C. Object template model, accepted after manual review
 22. Phase 11D. Create from template, accepted after manual review
-23. Phase 11E. Save existing object as template, accepted locally
-24. Phase 11F. Apply template with preview, waiting manual review
+23. Phase 11E. Save existing object as template, accepted after manual review
+24. Phase 11F. Apply template with preview, accepted after manual review
+25. Phase 11G. Template import/export, accepted after manual review
 
 Approved next:
 
-1. Manual review of local Phase 11F. Apply template with preview
-2. After acceptance, commit Phase 11F and continue to Phase 11G. Template import/export
-3. Remaining Phase 11 object-template/catalog slices
-4. Phase 12. Backup, snapshots, and change history
+1. Phase 12. Backup, snapshots, and change history
+2. Push local Phase 11G only if the user asks
 
 Not active:
 
@@ -768,7 +772,7 @@ Keep JSON source-of-truth compatibility and treat Excel v3 as a legacy transitio
 Continue from the next explicitly prioritized task:
 
 - preserve the completed `Phase 7A` / `7B` / `7C` / `7D` / `7E` / `7F` / `7F.1` workflow as the current baseline
-- wait for manual review of local `Phase 11F. Apply template with preview`; do not commit/push it before acceptance
+- continue with `Phase 12. Backup, snapshots, and change history`; do not push local `Phase 11G` unless the user asks
 - do not start a new `Phase 7G`; it is not part of this roadmap
 - treat future-month recalculation as completed `Phase 7D` orchestration/workflow built on top of the existing monthly engine, not as a replacement for it
 - keep workbook `v3` readable as legacy, but do not expand it as the main feature direction
