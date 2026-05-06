@@ -1,6 +1,6 @@
 # Lessons Learned
 
-Last updated: `2026-05-04`
+Last updated: `2026-05-06`
 
 ## UI and tree behavior
 
@@ -16,12 +16,13 @@ Last updated: `2026-05-04`
 - A hand-filled enterprise workbook should be treated first as a form/layout source and only then as a rule source; validate business rules against multiple examples before hardcoding them
 - Do not invent operational caps from intuition; in this maintenance workflow the hard constraint is the monthly workshop budget, not a daily `<= 8` cap
 - When one `ТО2` / `ТО3` occurrence has more than 8 labor hours, split that occurrence into assignment chunks instead of converting the chunk size into a global daily-cap rule
-- If a future year fails with `производственный календарь ещё не настроен`, do not patch the service for one year; configure that year through the production-calendar UI or JSON import
+- If a future year fails with `производственный календарь ещё не настроен`, do not patch the service for one year; configure that year through the production-calendar UI or PDF/JSON import
 - When maintenance types include one another, keep the norms separate per type but resolve monthly demand so higher tiers replace lower tiers instead of stacking on top of them
 - If the user does not yet provide a formal yearly schedule source, a deterministic per-node cycle offset is a workable interim rule for `ТО2` / `ТО3` month placement
 - For a heavily formatted enterprise workbook with merges, print layout, formulas, and signature blocks, prefer template-driven export over rebuilding the sheet structure from scratch
 - Keep the monthly planner/export path as the canonical engine even if users want a yearly command; the yearly workflow should orchestrate repeated monthly generation instead of replacing the month-based core
 - Keep annual `ТО1/ТО2/ТО3` placement separate from production-calendar setup: the former decides maintenance type by month, the latter decides working/non-working days
+- For production-calendar PDFs, try the text layer first and validate against a real source before adding OCR; `calendar_2027.pdf` imports cleanly without OCR
 - Do not reject maintenance profiles assigned directly to visible `Lvl2` nodes; real data can store a profile on the system-level node itself, and the export should use it as both group and row
 - If equipment can appear or disappear during the year and the model has no active-from / active-to dates, the safest workflow is to freeze past months and recalculate only the current month through December
 - For future-month replanning without active date ranges, require an existing yearly workbook and rewrite only the selected month range; generating a new workbook from scratch would leave past months blank instead of preserving them

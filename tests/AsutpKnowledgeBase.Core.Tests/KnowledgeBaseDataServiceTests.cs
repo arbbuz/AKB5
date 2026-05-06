@@ -53,6 +53,11 @@ public class KnowledgeBaseDataServiceTests
                             new DateOnly(2027, 1, 8),
                             new DateOnly(2027, 1, 8),
                             new DateOnly(2027, 5, 10)
+                        },
+                        AdditionalWorkingDays =
+                        {
+                            new DateOnly(2027, 2, 20),
+                            new DateOnly(2027, 2, 20)
                         }
                     }
                 }
@@ -66,6 +71,7 @@ public class KnowledgeBaseDataServiceTests
         Assert.Equal(
             new[] { new DateOnly(2027, 1, 8), new DateOnly(2027, 5, 10) },
             year2027.AdditionalNonWorkingDays);
+        Assert.Equal(new[] { new DateOnly(2027, 2, 20) }, year2027.AdditionalWorkingDays);
     }
 
     [Fact]
@@ -88,6 +94,28 @@ public class KnowledgeBaseDataServiceTests
 
         Assert.Contains("2027", error.Message, StringComparison.Ordinal);
         Assert.Contains("01.01.2028", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NormalizeConfig_RejectsProductionCalendarDatesConfiguredAsWorkingAndNonWorking()
+    {
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+            KnowledgeBaseDataService.NormalizeConfig(
+                new KbConfig
+                {
+                    MaxLevels = 2,
+                    ProductionCalendarYears = new List<KbProductionCalendarYear>
+                    {
+                        new()
+                        {
+                            Year = 2027,
+                            AdditionalNonWorkingDays = { new DateOnly(2027, 2, 20) },
+                            AdditionalWorkingDays = { new DateOnly(2027, 2, 20) }
+                        }
+                    }
+                }));
+
+        Assert.Contains("20.02.2027", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

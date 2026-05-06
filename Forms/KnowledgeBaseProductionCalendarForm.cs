@@ -18,7 +18,8 @@ namespace AsutpKnowledgeBase
         private readonly List<KbProductionCalendarYear> _years;
         private readonly ListBox _lstYears = new();
         private readonly NumericUpDown _numYear = new();
-        private readonly TextBox _txtDates = new();
+        private readonly TextBox _txtNonWorkingDates = new();
+        private readonly TextBox _txtWorkingDates = new();
         private readonly Label _lblYearTitle = new();
         private bool _isBinding;
         private int _selectedYearIndex = -1;
@@ -112,11 +113,13 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = 3
+                RowCount = 5
             };
             rightPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             rightPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             rightPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            rightPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            rightPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 70));
 
             _lblYearTitle.AutoSize = true;
             _lblYearTitle.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
@@ -130,13 +133,29 @@ namespace AsutpKnowledgeBase
                 Margin = new Padding(0, 0, 0, 8)
             }, 0, 1);
 
-            _txtDates.Dock = DockStyle.Fill;
-            _txtDates.Multiline = true;
-            _txtDates.ScrollBars = ScrollBars.Vertical;
-            _txtDates.AcceptsReturn = true;
-            _txtDates.AcceptsTab = true;
-            _txtDates.Font = new Font("Consolas", 10F);
-            rightPanel.Controls.Add(_txtDates, 0, 2);
+            _txtNonWorkingDates.Dock = DockStyle.Fill;
+            _txtNonWorkingDates.Multiline = true;
+            _txtNonWorkingDates.ScrollBars = ScrollBars.Vertical;
+            _txtNonWorkingDates.AcceptsReturn = true;
+            _txtNonWorkingDates.AcceptsTab = true;
+            _txtNonWorkingDates.Font = new Font("Consolas", 10F);
+            _txtNonWorkingDates.Margin = new Padding(0, 0, 0, 10);
+            rightPanel.Controls.Add(_txtNonWorkingDates, 0, 2);
+
+            rightPanel.Controls.Add(new Label
+            {
+                Text = "Дополнительные рабочие дни: перенесённые рабочие субботы/воскресенья. Формат: дд.мм.гггг.",
+                AutoSize = true,
+                Margin = new Padding(0, 0, 0, 8)
+            }, 0, 3);
+
+            _txtWorkingDates.Dock = DockStyle.Fill;
+            _txtWorkingDates.Multiline = true;
+            _txtWorkingDates.ScrollBars = ScrollBars.Vertical;
+            _txtWorkingDates.AcceptsReturn = true;
+            _txtWorkingDates.AcceptsTab = true;
+            _txtWorkingDates.Font = new Font("Consolas", 10F);
+            rightPanel.Controls.Add(_txtWorkingDates, 0, 4);
 
             var buttonPanel = new FlowLayoutPanel
             {
@@ -213,19 +232,19 @@ namespace AsutpKnowledgeBase
             if (_selectedYearIndex < 0 || _selectedYearIndex >= _years.Count)
             {
                 _lblYearTitle.Text = "Год не выбран";
-                _txtDates.Text = string.Empty;
-                _txtDates.Enabled = false;
+                _txtNonWorkingDates.Text = string.Empty;
+                _txtNonWorkingDates.Enabled = false;
+                _txtWorkingDates.Text = string.Empty;
+                _txtWorkingDates.Enabled = false;
                 return;
             }
 
             KbProductionCalendarYear year = _years[_selectedYearIndex];
             _lblYearTitle.Text = $"Календарь {year.Year}";
-            _txtDates.Enabled = true;
-            _txtDates.Text = string.Join(
-                Environment.NewLine,
-                year.AdditionalNonWorkingDays
-                    .OrderBy(static date => date)
-                    .Select(static date => date.ToString(RussianDateFormat, CultureInfo.InvariantCulture)));
+            _txtNonWorkingDates.Enabled = true;
+            _txtWorkingDates.Enabled = true;
+            _txtNonWorkingDates.Text = FormatDates(year.AdditionalNonWorkingDays);
+            _txtWorkingDates.Text = FormatDates(year.AdditionalWorkingDays);
         }
 
         private void AddYear()
@@ -256,7 +275,7 @@ namespace AsutpKnowledgeBase
             {
                 MessageBox.Show(
                     this,
-                    $"Встроенный календарь для {selectedYear} года нельзя удалить. Можно изменить список дополнительных нерабочих дней.",
+                    $"Встроенный календарь для {selectedYear} года нельзя удалить. Можно изменить списки дополнительных рабочих и нерабочих дней.",
                     "Производственный календарь",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
@@ -303,7 +322,7 @@ namespace AsutpKnowledgeBase
                 return true;
 
             int year = _years[_selectedYearIndex].Year;
-            if (!TryParseDates(year, _txtDates.Text, out List<DateOnly> dates, out string errorMessage))
+            if (!TryParseDates(year, _txtNonWorkingDates.Text, out List<DateOnly> nonWorkingDates, out string errorMessage))
             {
                 if (showErrors)
                 {
@@ -318,7 +337,42 @@ namespace AsutpKnowledgeBase
                 return false;
             }
 
-            _years[_selectedYearIndex].AdditionalNonWorkingDays = dates;
+            if (!TryParseDates(year, _txtWorkingDates.Text, out List<DateOnly> workingDates, out errorMessage))
+            {
+                if (showErrors)
+                {
+                    MessageBox.Show(
+                        this,
+                        errorMessage,
+                        "Производственный календарь",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }
+
+                return false;
+            }
+
+            DateOnly? overlap = nonWorkingDates
+                .Where(workingDates.Contains)
+                .Select(static date => (DateOnly?)date)
+                .FirstOrDefault();
+            if (overlap.HasValue)
+            {
+                if (showErrors)
+                {
+                    MessageBox.Show(
+                        this,
+                        $"Дата {overlap.Value:dd.MM.yyyy} указана одновременно как рабочая и нерабочая.",
+                        "Производственный календарь",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }
+
+                return false;
+            }
+
+            _years[_selectedYearIndex].AdditionalNonWorkingDays = nonWorkingDates;
+            _years[_selectedYearIndex].AdditionalWorkingDays = workingDates;
             return true;
         }
 
@@ -366,7 +420,17 @@ namespace AsutpKnowledgeBase
                 Year = year.Year,
                 AdditionalNonWorkingDays = (year.AdditionalNonWorkingDays ?? new List<DateOnly>())
                     .OrderBy(static date => date)
+                    .ToList(),
+                AdditionalWorkingDays = (year.AdditionalWorkingDays ?? new List<DateOnly>())
+                    .OrderBy(static date => date)
                     .ToList()
             };
+
+        private static string FormatDates(IEnumerable<DateOnly>? dates) =>
+            string.Join(
+                Environment.NewLine,
+                (dates ?? Enumerable.Empty<DateOnly>())
+                    .OrderBy(static date => date)
+                    .Select(static date => date.ToString(RussianDateFormat, CultureInfo.InvariantCulture)));
     }
 }

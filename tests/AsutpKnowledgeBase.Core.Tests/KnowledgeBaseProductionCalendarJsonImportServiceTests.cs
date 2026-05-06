@@ -20,6 +20,10 @@ public class KnowledgeBaseProductionCalendarJsonImportServiceTests
                     "2027-01-08",
                     "2027-05-10",
                     "2027-05-10"
+                  ],
+                  "AdditionalWorkingDays": [
+                    "2027-02-20",
+                    "20.02.2027"
                   ]
                 }
               ]
@@ -35,6 +39,7 @@ public class KnowledgeBaseProductionCalendarJsonImportServiceTests
         Assert.Equal(
             new[] { new DateOnly(2027, 1, 8), new DateOnly(2027, 5, 10) },
             year.AdditionalNonWorkingDays);
+        Assert.Equal(new[] { new DateOnly(2027, 2, 20) }, year.AdditionalWorkingDays);
     }
 
     [Fact]
@@ -101,5 +106,27 @@ public class KnowledgeBaseProductionCalendarJsonImportServiceTests
         Assert.False(result.IsSuccess);
         Assert.Contains("01.01.2028", result.ErrorMessage, StringComparison.Ordinal);
         Assert.Contains("2027", result.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ImportJson_RejectsDatesConfiguredAsWorkingAndNonWorking()
+    {
+        byte[] json = Encoding.UTF8.GetBytes(
+            """
+            {
+              "ProductionCalendarYears": [
+                {
+                  "Year": 2027,
+                  "AdditionalNonWorkingDays": [ "20.02.2027" ],
+                  "AdditionalWorkingDays": [ "20.02.2027" ]
+                }
+              ]
+            }
+            """);
+
+        KnowledgeBaseProductionCalendarJsonImportResult result = _service.ImportJson(json);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("20.02.2027", result.ErrorMessage, StringComparison.Ordinal);
     }
 }

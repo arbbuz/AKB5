@@ -34,11 +34,12 @@ Implemented on `to`:
 - `Phase 7E.2` - Excel source exchange for annual ТО placement
 - `Phase 7E` follow-ups - in-app source mass-editing grid, large `ТО2` / `ТО3` work splitting, norm-import matching/reporting
 - `Phase 7F` - production-calendar configuration through JSON, UI editor, and JSON import
+- `Phase 7F.1` - PDF production-calendar import implementation is verified and accepted after manual review
 
 Next approved work:
 
 - no `Phase 7G` is approved in `Roadmap.md`
-- immediate follow-up: `Phase 7F.1. Production calendar PDF import`
+- immediate follow-up: commit/push accepted `Phase 7F.1. Production calendar PDF import` changes, then return to `Phase 11B`
 - `Phase 11. Object templates and equipment catalog`
 - `Phase 12. Backup, snapshots, and change history`
 - `Phase 11A. Equipment catalog model` is accepted after manual review
@@ -103,8 +104,9 @@ Current behavior:
 - manual annual placement is stored as per-profile `YearScheduleEntries`; empty entries keep deterministic fallback placement
 - yearly source exchange edits only `YearScheduleEntries` and does not change norms, inclusion flags, or calendar settings
 - generated maintenance workbooks are report artifacts; JSON remains the source of truth
-- production-calendar years are configured in `Config.ProductionCalendarYears` through `Файл -> Производственный календарь...` or JSON import
+- production-calendar years are configured in `Config.ProductionCalendarYears` through `Файл -> Производственный календарь...`, JSON import, or local PDF import
 - production-calendar JSON import accepts either `{ "ProductionCalendarYears": [...] }` or an array of year objects; each date must belong to its configured year
+- production-calendar PDF import uses the PDF text layer first and previews found working/non-working date changes before applying them
 
 ## Excel workbook `v3`
 

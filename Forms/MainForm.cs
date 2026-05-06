@@ -32,6 +32,7 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseMaintenanceYearScheduleSourceService _maintenanceYearScheduleSourceService = new();
         private readonly KnowledgeBaseMaintenanceYearScheduleSourceExchangeService _maintenanceYearScheduleSourceExchangeService = new();
         private readonly KnowledgeBaseProductionCalendarJsonImportService _productionCalendarJsonImportService = new();
+        private readonly KnowledgeBaseProductionCalendarPdfImportService _productionCalendarPdfImportService = new();
         private readonly KnowledgeBaseFormStateService _formStateService = new();
         private readonly KnowledgeBaseNodePresentationService _nodePresentationService = new();
         private readonly KnowledgeBaseTreeViewService _treeViewService = new();
@@ -59,6 +60,7 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem menuImportMaintenanceYearScheduleSource = null!;
         private ToolStripMenuItem menuEditProductionCalendar = null!;
         private ToolStripMenuItem menuImportProductionCalendar = null!;
+        private ToolStripMenuItem menuImportProductionCalendarPdf = null!;
         private ToolStripMenuItem menuExportMaintenanceMonthWorkbook = null!;
         private ToolStripMenuItem menuExportMaintenanceYearWorkbook = null!;
         private ToolStripMenuItem menuRecalculateMaintenanceYearWorkbook = null!;
@@ -249,6 +251,7 @@ namespace AsutpKnowledgeBase
             menuImportMaintenanceYearScheduleSource.Enabled = hasCurrentWorkshop;
             menuEditProductionCalendar.Enabled = true;
             menuImportProductionCalendar.Enabled = true;
+            menuImportProductionCalendarPdf.Enabled = true;
             menuExportMaintenanceMonthWorkbook.Enabled = hasCurrentWorkshop;
             menuExportMaintenanceYearWorkbook.Enabled = hasCurrentWorkshop;
             menuRecalculateMaintenanceYearWorkbook.Enabled = hasCurrentWorkshop;

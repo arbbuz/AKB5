@@ -84,6 +84,25 @@ public class KnowledgeBaseRussianProductionCalendarServiceTests
     }
 
     [Fact]
+    public void Constructor_UsesAdditionalWorkingDaysFromConfig()
+    {
+        var service = new KnowledgeBaseRussianProductionCalendarService(
+            new[]
+            {
+                new KbProductionCalendarYear
+                {
+                    Year = 2027,
+                    AdditionalWorkingDays =
+                    {
+                        new DateOnly(2027, 2, 20)
+                    }
+                }
+            });
+
+        Assert.True(service.IsWorkingDay(new DateOnly(2027, 2, 20)));
+    }
+
+    [Fact]
     public void GetWorkingDays_WhenYearIsNotConfigured_ThrowsReadableError()
     {
         var exception = Assert.Throws<InvalidOperationException>(() => _service.GetWorkingDays(2027, 1));
@@ -91,5 +110,6 @@ public class KnowledgeBaseRussianProductionCalendarServiceTests
         Assert.Contains("2027", exception.Message, StringComparison.Ordinal);
         Assert.Contains("Производственный календарь", exception.Message, StringComparison.Ordinal);
         Assert.Contains("Файл -> Производственный календарь", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("PDF/JSON", exception.Message, StringComparison.Ordinal);
     }
 }

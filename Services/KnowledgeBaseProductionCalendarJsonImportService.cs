@@ -83,7 +83,7 @@ namespace AsutpKnowledgeBase.Services
                     continue;
 
                 int year = yearConfiguration.Year;
-                var dates = new SortedSet<DateOnly>();
+                var nonWorkingDates = new SortedSet<DateOnly>();
                 foreach (DateOnly date in yearConfiguration.AdditionalNonWorkingDays ?? Enumerable.Empty<DateOnly>())
                 {
                     if (date.Year != year)
@@ -92,13 +92,32 @@ namespace AsutpKnowledgeBase.Services
                             $"Дата {date:dd.MM.yyyy} не относится к {year} году производственного календаря.");
                     }
 
-                    dates.Add(date);
+                    nonWorkingDates.Add(date);
+                }
+
+                var workingDates = new SortedSet<DateOnly>();
+                foreach (DateOnly date in yearConfiguration.AdditionalWorkingDays ?? Enumerable.Empty<DateOnly>())
+                {
+                    if (date.Year != year)
+                    {
+                        throw new InvalidOperationException(
+                            $"Дата {date:dd.MM.yyyy} не относится к {year} году производственного календаря.");
+                    }
+
+                    if (nonWorkingDates.Contains(date))
+                    {
+                        throw new InvalidOperationException(
+                            $"Дата {date:dd.MM.yyyy} указана одновременно как рабочая и нерабочая для {year} года.");
+                    }
+
+                    workingDates.Add(date);
                 }
 
                 normalizedByYear[year] = new KbProductionCalendarYear
                 {
                     Year = year,
-                    AdditionalNonWorkingDays = dates.ToList()
+                    AdditionalNonWorkingDays = nonWorkingDates.ToList(),
+                    AdditionalWorkingDays = workingDates.ToList()
                 };
             }
 

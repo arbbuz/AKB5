@@ -181,7 +181,8 @@ namespace AsutpKnowledgeBase.Services
                     new DateOnly(2025, 6, 13),
                     new DateOnly(2025, 11, 3),
                     new DateOnly(2025, 12, 31)
-                ]
+                ],
+                AdditionalWorkingDays = []
             },
             new()
             {
@@ -192,7 +193,8 @@ namespace AsutpKnowledgeBase.Services
                     new DateOnly(2026, 3, 9),
                     new DateOnly(2026, 5, 11),
                     new DateOnly(2026, 12, 31)
-                ]
+                ],
+                AdditionalWorkingDays = []
             }
         ];
 
@@ -208,7 +210,7 @@ namespace AsutpKnowledgeBase.Services
                     continue;
 
                 int year = yearConfiguration.Year;
-                var normalizedDates = new SortedSet<DateOnly>();
+                var normalizedNonWorkingDates = new SortedSet<DateOnly>();
                 foreach (DateOnly date in yearConfiguration.AdditionalNonWorkingDays ?? Enumerable.Empty<DateOnly>())
                 {
                     if (date.Year != year)
@@ -217,13 +219,32 @@ namespace AsutpKnowledgeBase.Services
                             $"Дата {date:dd.MM.yyyy} не относится к {year} году производственного календаря.");
                     }
 
-                    normalizedDates.Add(date);
+                    normalizedNonWorkingDates.Add(date);
+                }
+
+                var normalizedWorkingDates = new SortedSet<DateOnly>();
+                foreach (DateOnly date in yearConfiguration.AdditionalWorkingDays ?? Enumerable.Empty<DateOnly>())
+                {
+                    if (date.Year != year)
+                    {
+                        throw new InvalidOperationException(
+                            $"Дата {date:dd.MM.yyyy} не относится к {year} году производственного календаря.");
+                    }
+
+                    if (normalizedNonWorkingDates.Contains(date))
+                    {
+                        throw new InvalidOperationException(
+                            $"Дата {date:dd.MM.yyyy} указана одновременно как рабочая и нерабочая для {year} года.");
+                    }
+
+                    normalizedWorkingDates.Add(date);
                 }
 
                 normalizedByYear[year] = new KbProductionCalendarYear
                 {
                     Year = year,
-                    AdditionalNonWorkingDays = normalizedDates.ToList()
+                    AdditionalNonWorkingDays = normalizedNonWorkingDates.ToList(),
+                    AdditionalWorkingDays = normalizedWorkingDates.ToList()
                 };
             }
 

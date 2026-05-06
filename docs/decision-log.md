@@ -1,6 +1,13 @@
 # Decision Log
 
-Last updated: `2026-05-05`
+Last updated: `2026-05-06`
+
+## 2026-05-06
+
+- `Phase 7F.1` local implementation imports production-calendar PDF files through a text layer first, shows a preview before applying changes, and keeps OCR deferred until a real source PDF requires it
+- `KbProductionCalendarYear` now supports `AdditionalWorkingDays` so transferred working Saturdays/Sundays can be represented together with additional non-working days
+- `C:\Users\Olga\Downloads\calendar_2027.pdf` has a usable text layer and imports as 2027 with additional non-working days `22.02.2027`, `03.05.2027`, `10.05.2027`, `14.06.2027`, `05.11.2027`, `31.12.2027`, plus additional working day `20.02.2027`
+- On 2026-05-06, `phase7f1-production-calendar-pdf-import` passed verification build and `dotnet test` (`281/281`) using isolated output paths; the user manually confirmed that production-calendar PDF import works
 
 ## 2026-05-05
 
@@ -29,9 +36,9 @@ Last updated: `2026-05-05`
 - Norm import matching may use conservative name/inventory variants from the approved `123.xlsx` structure, including leading-zero inventory equivalence and parenthetical equipment-name variants, while ambiguity still leaves rows unresolved
 - Norm import mismatch reporting should include source sheet and row so users can correct either the workbook or the KB tree without guessing
 - `Phase 7F` production-calendar configuration was explicitly prioritized by the user and is completed on `to`
-- Production-calendar years are persisted in `KbConfig.ProductionCalendarYears`; built-in `2025`/`2026` defaults are preserved and future years are added through UI or JSON import
-- Production-calendar import is JSON-specific and separate from the legacy Excel `v3` database exchange and from the yearly ТО source workbook
-- Missing production-calendar years should guide the user to `Файл -> Производственный календарь...` or JSON import instead of requiring a code change
+- Production-calendar years are persisted in `KbConfig.ProductionCalendarYears`; built-in `2025`/`2026` defaults are preserved and future years are added through UI or PDF/JSON import
+- Production-calendar import is separate from the legacy Excel `v3` database exchange and from the yearly ТО source workbook
+- Missing production-calendar years should guide the user to `Файл -> Производственный календарь...` or PDF/JSON import instead of requiring a code change
 - There is no approved `Phase 7G` in `Roadmap.md`; new work after `Phase 7F` must be defined and accepted before implementation
 - Documentation distillation must update the full handoff harness and public-facing project docs when branch/phase state changes, not only `docs/codex-handoff.md`
 

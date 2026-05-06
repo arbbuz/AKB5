@@ -8,7 +8,7 @@
 - Current engineering mode: pragmatic refactoring and stabilization, not rewrite.
 - The active roadmap implementation branch is currently `to`; `main` remains the stable branch.
 - Roadmap phases `0` through `7F` are implemented on `to`; no `Phase 7G` exists in the approved roadmap.
-- `Phase 11. Object templates and equipment catalog` and `Phase 12. Backup, snapshots, and change history` are approved; `Phase 11A. Equipment catalog model` passed manual review, and `Phase 7F.1. Production calendar PDF import` is the accepted immediate follow-up before `Phase 11B`.
+- `Phase 11. Object templates and equipment catalog` and `Phase 12. Backup, snapshots, and change history` are approved; `Phase 11A. Equipment catalog model` passed manual review, and `Phase 7F.1. Production calendar PDF import` is accepted after manual review and ready to commit/push before `Phase 11B`.
 - JSON remains the source of truth. Excel exchange is a separate import/export layer.
 - Current Excel implementation uses `DocumentFormat.OpenXml` and `WorkbookFormatVersion = 3`. Legacy `v1/v2` import is no longer supported.
 - CI now enforces `dotnet format --verify-no-changes` for the WinForms app, core library, and tests before `build`/`test`.

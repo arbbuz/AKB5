@@ -22,25 +22,24 @@ namespace AsutpKnowledgeBase.Services
             (11, 4)
         };
 
-        private readonly IReadOnlyDictionary<int, HashSet<DateOnly>> _additionalNonWorkingDaysByYear;
+        private readonly IReadOnlyDictionary<int, ProductionCalendarYearConfiguration> _yearConfigurations;
 
         public KnowledgeBaseRussianProductionCalendarService(
             IReadOnlyDictionary<int, IReadOnlyCollection<DateOnly>>? additionalNonWorkingDaysByYear = null)
         {
-            _additionalNonWorkingDaysByYear = BuildYearConfiguration(additionalNonWorkingDaysByYear);
+            _yearConfigurations = BuildYearConfiguration(additionalNonWorkingDaysByYear);
         }
 
         public KnowledgeBaseRussianProductionCalendarService(
             IEnumerable<KbProductionCalendarYear>? productionCalendarYears)
         {
-            _additionalNonWorkingDaysByYear = BuildYearConfiguration(
-                ToAdditionalNonWorkingDaysByYear(productionCalendarYears));
+            _yearConfigurations = BuildYearConfiguration(productionCalendarYears);
         }
 
-        public bool HasConfiguredYear(int year) => _additionalNonWorkingDaysByYear.ContainsKey(year);
+        public bool HasConfiguredYear(int year) => _yearConfigurations.ContainsKey(year);
 
         public IReadOnlyList<int> GetConfiguredYears() =>
-            _additionalNonWorkingDaysByYear.Keys
+            _yearConfigurations.Keys
                 .OrderBy(static year => year)
                 .ToArray();
 
@@ -48,9 +47,13 @@ namespace AsutpKnowledgeBase.Services
         {
             EnsureConfiguredYear(date.Year);
 
+            ProductionCalendarYearConfiguration configuration = _yearConfigurations[date.Year];
+            if (configuration.AdditionalWorkingDays.Contains(date))
+                return true;
+
             return !IsWeekend(date) &&
                    !IsFixedNonWorkingHoliday(date) &&
-                   !_additionalNonWorkingDaysByYear[date.Year].Contains(date);
+                   !configuration.AdditionalNonWorkingDays.Contains(date);
         }
 
         public IReadOnlyList<DateOnly> GetWorkingDays(int year, int month)
@@ -75,7 +78,7 @@ namespace AsutpKnowledgeBase.Services
 
         public int CountWorkingDays(int year, int month) => GetWorkingDays(year, month).Count;
 
-        private static IReadOnlyDictionary<int, HashSet<DateOnly>> BuildYearConfiguration(
+        private static IReadOnlyDictionary<int, ProductionCalendarYearConfiguration> BuildYearConfiguration(
             IReadOnlyDictionary<int, IReadOnlyCollection<DateOnly>>? overrides)
         {
             var configuredYears = CreateDefaultYearConfiguration();
@@ -84,29 +87,38 @@ namespace AsutpKnowledgeBase.Services
                 return configuredYears;
 
             foreach (var pair in overrides)
-                configuredYears[pair.Key] = NormalizeYearDates(pair.Key, pair.Value);
+                configuredYears[pair.Key] = new ProductionCalendarYearConfiguration(
+                    NormalizeYearDates(pair.Key, pair.Value),
+                    new HashSet<DateOnly>());
 
             return configuredYears;
         }
 
-        private static Dictionary<int, HashSet<DateOnly>> CreateDefaultYearConfiguration()
+        private static IReadOnlyDictionary<int, ProductionCalendarYearConfiguration> BuildYearConfiguration(
+            IEnumerable<KbProductionCalendarYear>? productionCalendarYears)
+        {
+            var configuredYears = CreateDefaultYearConfiguration();
+            if (productionCalendarYears == null)
+                return configuredYears;
+
+            foreach (KbProductionCalendarYear year in KnowledgeBaseDataService.NormalizeProductionCalendarYears(productionCalendarYears))
+            {
+                configuredYears[year.Year] = new ProductionCalendarYearConfiguration(
+                    NormalizeYearDates(year.Year, year.AdditionalNonWorkingDays),
+                    NormalizeYearDates(year.Year, year.AdditionalWorkingDays));
+            }
+
+            return configuredYears;
+        }
+
+        private static Dictionary<int, ProductionCalendarYearConfiguration> CreateDefaultYearConfiguration()
         {
             return KnowledgeBaseDataService.CreateDefaultProductionCalendarYears()
                 .ToDictionary(
                     static year => year.Year,
-                    static year => new HashSet<DateOnly>(year.AdditionalNonWorkingDays));
-        }
-
-        private static IReadOnlyDictionary<int, IReadOnlyCollection<DateOnly>>? ToAdditionalNonWorkingDaysByYear(
-            IEnumerable<KbProductionCalendarYear>? productionCalendarYears)
-        {
-            if (productionCalendarYears == null)
-                return null;
-
-            return KnowledgeBaseDataService.NormalizeProductionCalendarYears(productionCalendarYears)
-                .ToDictionary(
-                    static year => year.Year,
-                    static year => (IReadOnlyCollection<DateOnly>)year.AdditionalNonWorkingDays);
+                    static year => new ProductionCalendarYearConfiguration(
+                        new HashSet<DateOnly>(year.AdditionalNonWorkingDays),
+                        new HashSet<DateOnly>(year.AdditionalWorkingDays)));
         }
 
         public static IReadOnlyDictionary<int, IReadOnlyCollection<DateOnly>> ToAdditionalNonWorkingDaysByYear(
@@ -156,6 +168,21 @@ namespace AsutpKnowledgeBase.Services
             return false;
         }
 
+        private sealed class ProductionCalendarYearConfiguration
+        {
+            public ProductionCalendarYearConfiguration(
+                HashSet<DateOnly> additionalNonWorkingDays,
+                HashSet<DateOnly> additionalWorkingDays)
+            {
+                AdditionalNonWorkingDays = additionalNonWorkingDays;
+                AdditionalWorkingDays = additionalWorkingDays;
+            }
+
+            public HashSet<DateOnly> AdditionalNonWorkingDays { get; }
+
+            public HashSet<DateOnly> AdditionalWorkingDays { get; }
+        }
+
         private void EnsureConfiguredYear(int year)
         {
             if (!HasConfiguredYear(year))
@@ -163,7 +190,7 @@ namespace AsutpKnowledgeBase.Services
                 throw new InvalidOperationException(
                     $"Производственный календарь для {year} года ещё не настроен. " +
                     "Настройте его через меню \"Файл -> Производственный календарь...\" " +
-                    "или импортируйте JSON производственного календаря.");
+                    "или импортируйте производственный календарь из PDF/JSON.");
             }
         }
     }

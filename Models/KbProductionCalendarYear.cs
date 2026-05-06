@@ -5,5 +5,7 @@ namespace AsutpKnowledgeBase.Models
         public int Year { get; set; }
 
         public List<DateOnly> AdditionalNonWorkingDays { get; set; } = new();
+
+        public List<DateOnly> AdditionalWorkingDays { get; set; } = new();
     }
 }

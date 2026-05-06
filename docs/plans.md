@@ -1,6 +1,6 @@
 # Plans
 
-Last updated: `2026-05-05`
+Last updated: `2026-05-06`
 
 ## Active plan
 
@@ -12,7 +12,7 @@ Last updated: `2026-05-05`
 - Treat the major `ТО2` / `ТО3` split across working days as completed on `to`
 - Treat the norm-import coverage and mismatch-reporting follow-up as completed on `to`
 - Treat `Phase 7F` production-calendar configuration as completed on `to`
-- Treat `Phase 7F.1. Production calendar PDF import` as the accepted immediate next follow-up
+- Treat `Phase 7F.1. Production calendar PDF import` as accepted after manual review and ready to commit/push
 - Treat `Phase 11. Object templates and equipment catalog` as the active approved roadmap block
 - Treat `Phase 11A. Equipment catalog model` as accepted after manual review
 - Treat the production-calendar Russian date format follow-up as accepted after manual review
@@ -22,9 +22,8 @@ Last updated: `2026-05-05`
 
 ## Near-term follow-up
 
-- Commit/push the accepted local changes
-- Implement `Phase 7F.1`: PDF production-calendar import with preview
-- Return to `Phase 11B. Equipment catalog UI` after `Phase 7F.1`, unless explicitly redirected
+- Commit/push the accepted local `Phase 7F.1` PDF production-calendar import changes
+- Return to `Phase 11B. Equipment catalog UI` after commit/push, unless explicitly redirected
 
 ## Update rule
 
