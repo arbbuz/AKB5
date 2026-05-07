@@ -53,12 +53,12 @@ Implemented on `to`:
 - local `Phase 12S6` - restore selected snapshot implemented and verified
 - local `Phase 12S7` - snapshot comparison implemented and verified
 - `Phase 12S8` - change history accepted after manual review and committed/pushed on `to`
+- `phase7e-annual-norm-import` - annual maintenance norm import by workbook structure, using `456.xlsx` as the reference example, accepted after manual review
 
 Next approved work:
 
 - no `Phase 7G` is approved in `Roadmap.md`
-- current gate: define the next roadmap task before coding further
-- no next coding phase is explicitly prioritized yet
+- current gate: define the next roadmap task before further coding
 
 ## Data and persistence
 

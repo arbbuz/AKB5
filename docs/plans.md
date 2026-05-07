@@ -11,6 +11,7 @@ Last updated: `2026-05-07`
 - Treat the `Phase 7E` in-app mass-editing grid as completed on `to`
 - Treat the major `ТО2` / `ТО3` split across working days as completed on `to`
 - Treat the norm-import coverage and mismatch-reporting follow-up as completed on `to`
+- Treat `phase7e-annual-norm-import` as accepted after manual review
 - Treat `Phase 7F` production-calendar configuration as completed on `to`
 - Treat `Phase 7F.1. Production calendar PDF import` as accepted after manual review and committed/pushed on `to`
 - Treat `Phase 11. Object templates and equipment catalog` as the active approved roadmap block
@@ -39,8 +40,7 @@ Last updated: `2026-05-07`
 
 ## Near-term follow-up
 
-- Define the next roadmap task before coding further
-- Do not start a new implementation phase until it is explicitly prioritized
+- Define the next roadmap task before further coding
 
 ## Update rule
 

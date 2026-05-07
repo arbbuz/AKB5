@@ -1,3 +1,4 @@
+using System.Globalization;
 using AsutpKnowledgeBase.Models;
 using AsutpKnowledgeBase.Services;
 using DocumentFormat.OpenXml;
@@ -75,6 +76,59 @@ public class KnowledgeBaseMaintenanceScheduleNormImportServiceTests
         Assert.Equal(0, profile.To1Hours);
         Assert.Equal(0, profile.To2Hours);
         Assert.Equal(12, profile.To3Hours);
+    }
+
+    [Fact]
+    public void ImportWorkbook_ParsesAnnualWorkbookByStructureAndImportsManualYearSchedule()
+    {
+        var roots = CreateWorkshopRoots(
+            systemInventoryNumber: "65526",
+            equipmentName: "ЩКМ 1");
+        byte[] workbookBytes = BuildWorkbook(
+            ("КЦ (2)", CreateAnnualRows(
+                "Система контроля и регулирования технологических параметров АКТ",
+                "065526",
+                "ЩКМ 1.",
+                monthWorkCells: new[]
+                {
+                    (1, "ТО1/2"),
+                    (2, "ТО2/4"),
+                    (3, "ТО3/8"),
+                    (4, "ТО1/3")
+                })));
+
+        KnowledgeBaseMaintenanceScheduleNormImportResult result = _service.ImportWorkbook(
+            workbookBytes,
+            roots,
+            Array.Empty<KbMaintenanceScheduleProfile>());
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.UnresolvedEntries);
+        Assert.Equal(1, result.ImportedEquipmentCount);
+        Assert.Equal(1, result.CreatedProfileCount);
+        Assert.Equal(1, result.MatchedByNameCount);
+        Assert.Equal(1, result.YearScheduleAppliedProfileCount);
+
+        KbMaintenanceScheduleProfile profile = Assert.Single(result.MaintenanceScheduleProfiles);
+        Assert.Equal("cabinet-1", profile.OwnerNodeId);
+        Assert.True(profile.IsIncludedInSchedule);
+        Assert.Equal(3, profile.To1Hours);
+        Assert.Equal(4, profile.To2Hours);
+        Assert.Equal(8, profile.To3Hours);
+
+        KbMaintenanceYearScheduleEntry[] entries = profile.YearScheduleEntries
+            .OrderBy(static entry => entry.Month)
+            .ToArray();
+        Assert.Equal(new[] { 1, 2, 3, 4 }, entries.Select(static entry => entry.Month).ToArray());
+        Assert.Equal(
+            new[]
+            {
+                KbMaintenanceWorkKind.To1,
+                KbMaintenanceWorkKind.To2,
+                KbMaintenanceWorkKind.To3,
+                KbMaintenanceWorkKind.To1
+            },
+            entries.Select(static entry => entry.WorkKind).ToArray());
     }
 
     [Fact]
@@ -435,6 +489,46 @@ public class KnowledgeBaseMaintenanceScheduleNormImportServiceTests
             CreateRow(18, equipmentRowCells.ToArray())
         ];
     }
+
+    private static IReadOnlyList<TestRow> CreateAnnualRows(
+        string systemName,
+        string systemInventoryNumber,
+        string equipmentName,
+        IReadOnlyList<(int Month, string WorkCellValue)> monthWorkCells,
+        string equipmentInventoryNumber = "")
+    {
+        var monthHeaderCells = new List<(int ColumnIndex, string Value)>();
+        var planHeaderCells = new List<(int ColumnIndex, string Value)>();
+        for (int month = 1; month <= 12; month++)
+        {
+            int planColumnIndex = GetAnnualPlanColumnIndex(month);
+            monthHeaderCells.Add((planColumnIndex, month.ToString(CultureInfo.InvariantCulture)));
+            planHeaderCells.Add((planColumnIndex, "план"));
+            planHeaderCells.Add((planColumnIndex + 1, "выпол."));
+        }
+
+        var equipmentRowCells = new List<(int ColumnIndex, string Value)>
+        {
+            (2, equipmentName)
+        };
+        if (!string.IsNullOrWhiteSpace(equipmentInventoryNumber))
+            equipmentRowCells.Add((4, equipmentInventoryNumber));
+
+        foreach ((int month, string workCellValue) in monthWorkCells)
+            equipmentRowCells.Add((GetAnnualPlanColumnIndex(month), workCellValue));
+
+        return
+        [
+            CreateRow(12, (2, "Наименование системы и электрооборудования"), (4, "Инв.№"), (5, "Месяцы")),
+            CreateRow(13, monthHeaderCells.ToArray()),
+            CreateRow(14, planHeaderCells.ToArray()),
+            CreateRow(15, (1, "1"), (2, "2"), (4, "4")),
+            CreateRow(16, (1, "1"), (2, systemName), (4, systemInventoryNumber)),
+            CreateRow(17, equipmentRowCells.ToArray())
+        ];
+    }
+
+    private static int GetAnnualPlanColumnIndex(int month) => 3 + (month * 2);
 
     private static TestRow CreateRow(uint rowIndex, params (int ColumnIndex, string Value)[] cells) =>
         new(rowIndex, cells);

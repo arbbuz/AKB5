@@ -68,6 +68,9 @@ Last updated: `2026-05-07`
 - On 2026-05-07, `phase12s8-change-history` passed verification build and `dotnet test` (`333/333`); harness state is `WAITING_REVIEW`
 - The user requested committing and pushing all accepted changes; `Phase 11G` was pushed as `268b550 Add catalog template JSON exchange`, and the SQLite storage/change-history stack through `Phase 12S8` was committed/pushed as `27a2aba Add SQLite storage history workflow`
 - After the user requested the next stage, the current transition step is to define the next roadmap task before coding further; no next implementation phase is explicitly prioritized yet
+- Local `phase7e-annual-norm-import` adds support for importing maintenance norms directly from annual workbooks with the same structure as `456.xlsx`; the importer detects annual files by workbook contents, still accepts monthly `123.xlsx`, and annual rows also apply `YearScheduleEntries` from the 12 plan columns
+- On 2026-05-07, targeted norm-import tests passed (`10/10`), app/core/tests format verification passed, and `phase7e-annual-norm-import` passed verification build and `dotnet test` (`334/334`); harness state is `WAITING_REVIEW`
+- On 2026-05-07, the user confirmed manual review passed for `phase7e-annual-norm-import`; the accepted follow-up is the latest completed slice before selecting the next roadmap task
 
 ## 2026-05-05
 

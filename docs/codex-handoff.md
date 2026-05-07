@@ -8,8 +8,8 @@ Last updated: `2026-05-07`
 - Active integration branch: `to`
 - Latest feature integration commit for the maintenance-planning stream: `09bf84d Add production calendar PDF import`
 - Latest docs synchronization commit: `68d51b6 Distill roadmap state after Phase 7F`
-- Latest accepted implementation: `Phase 12S8 change history`
-- Current roadmap implementation item: no coding phase is active; define the next roadmap task before further implementation
+- Latest accepted implementation: `phase7e-annual-norm-import`
+- Current roadmap implementation item: none active; define the next roadmap task before coding
 - Implemented on this branch:
   - `Phase 0`
   - `Phase 1`
@@ -30,6 +30,7 @@ Last updated: `2026-05-07`
   - `Phase 7E in-app mass-editing grid`
   - major `ТО2` / `ТО3` split across working days
   - maintenance-norm import coverage and mismatch reporting
+  - `phase7e-annual-norm-import`
   - `Phase 7F production-calendar configuration`
   - `Phase 7F.1 production-calendar PDF import`
   - `Phase 11A equipment catalog model`
@@ -47,13 +48,14 @@ Last updated: `2026-05-07`
   - local `Phase 12S6 snapshot restore`
   - local `Phase 12S7 snapshot comparison`
   - local `Phase 12S8 change history`
-- Current active gate: define the next roadmap task before coding further
+- Current active gate: define the next roadmap task before coding
 - `Phase 11B. Equipment catalog UI` was committed and pushed on `to` as `f80873f Add equipment catalog UI`
 - `Phase 11C` / `Phase 11D` were committed and pushed on `to` as `3caca67 Add object template creation workflow`
 - `Phase 11E` was committed and pushed on `to` as `3c87b6e Add save object as template workflow`
 - `Phase 11F` was committed and pushed on `to` as `ca43298 Add apply object template preview workflow`
 - `Phase 11G` was accepted after manual review and committed/pushed on `to` as `268b550`
 - `Phase 12S8` was accepted after manual review and committed/pushed on `to` as `27a2aba`
+- `phase7e-annual-norm-import` passed manual review on 2026-05-07
 - The chief developer approved the SQLite single-file storage plan choices `1A, 2B, 3A, 4A`; local JSON snapshot prototype work is paused before commit while implementation moves through the SQLite storage plan
 
 ## Integrated feature state
@@ -103,7 +105,7 @@ Last updated: `2026-05-07`
   - `Phase 7F.1` adds `Файл -> Импорт производственного календаря PDF...`, text-layer PDF parsing through `PdfPig`, a preview dialog before applying imported dates, and `AdditionalWorkingDays` support for transferred working Saturdays/Sundays
   - `phase7e-major-work-split-days` splits one `ТО2` / `ТО3` occurrence into up-to-8-hour assignments across working days when possible
   - `phase7e-norm-import-coverage` improves norm import matching for leading-zero inventory numbers, `ё/е`, and parenthetical equipment names; unresolved rows include source sheet/row context
-  - maintenance norms can be imported from `C:\Users\Olga\Downloads\123.xlsx`
+  - maintenance norms can be imported from monthly `C:\Users\Olga\Downloads\123.xlsx`; `phase7e-annual-norm-import` also supports annual workbooks with the same structure as `C:\Users\Olga\Downloads\456.xlsx`
   - import matching uses inventory number first, then normalized equipment/system names, and can read the workbook even when it is open in Excel
 - `Phase 11` current state on `to`:
   - `Phase 11A` adds the top-level JSON equipment catalog model and normalization
@@ -160,6 +162,24 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - Verification artifacts: `artifacts\verify\phase12s8-change-history`
 - Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase12s8-change-history\build\Release\net8.0-windows\asutpKB.exe`
 - Final verification before acceptance: harness status was `STATE: WAITING_REVIEW`; the accepted stack was later committed/pushed as `27a2aba`
+
+Actually run on the worktree for local `phase7e-annual-norm-import` on `2026-05-07`:
+
+```powershell
+dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --no-restore --filter "KnowledgeBaseMaintenanceScheduleNormImportServiceTests"
+dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
+dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7e-annual-norm-import
+```
+
+- Targeted norm-import tests: passed, `10/10`
+- `dotnet format --verify-no-changes`: passed for app, core, and tests
+- Verification `dotnet build`: passed for `phase7e-annual-norm-import`
+- `dotnet test`: passed, `334/334`
+- Verification artifacts: `artifacts\verify\phase7e-annual-norm-import`
+- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase7e-annual-norm-import\build\Release\net8.0-windows\asutpKB.exe`
+- Harness status was `STATE: WAITING_REVIEW`; manual review passed on 2026-05-07
 
 Actually run on the worktree for local `Phase 12S2` on `2026-05-07`:
 
@@ -441,13 +461,13 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 ## Active objective
 
 - Keep the completed `Phase 7` workflow on `to` stable as the baseline
-- Define the next roadmap task before coding further
+- Define the next roadmap task before coding
 - Preserve the production-calendar follow-up behavior: manual calendar dates are shown as `дд.мм.гггг`, JSON import accepts both `дд.мм.гггг` and legacy ISO dates, saved app JSON remains backward-compatible, and additional working days can represent transferred working weekends
 - Keep `Phase 11B` as the accepted equipment-catalog UI baseline
 - Preserve deterministic month placement as fallback for profiles that do not enable manual annual placement
 - Current builds default to SQLite `.akb` storage while retaining JSON import/export and first-launch migration compatibility; generated workbooks remain report artifacts
 - Do not start `Phase 7G` unless it is first defined and accepted in the roadmap
-- Treat `Phase 12S8. Change history` as accepted and committed/pushed; do not start a new implementation phase until the next roadmap task is explicitly prioritized
+- Treat `Phase 12S8. Change history` as accepted and committed/pushed; treat `phase7e-annual-norm-import` as accepted after manual review
 
 ## Durable decisions already made
 
@@ -599,11 +619,12 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - The planner can place multiple large maintenance items on the same day; that is a soft-avoidance area, not a validated optimization target
 - Maintenance profiles have no explicit active-from / active-to dates yet, so the agreed replanning strategy is to freeze past months and recalculate only future months
 - `phase7e-norm-import-coverage` improves norm import matching and mismatch reporting; some rows may still remain unmatched when names diverge too much from the KB tree
+- `phase7e-annual-norm-import` supports annual workbooks with the same structure as `456.xlsx` for `Импорт норм ТО...`, applies `YearScheduleEntries`, and keeps monthly `123.xlsx` compatibility
 - Full Excel round-trip import of generated yearly workbooks has not been validated
 
 ## Recommended next step
 
-- Define the next roadmap task before coding further
+- Define the next roadmap task before further coding
 
 ## Commands to run before finishing future implementation work
 

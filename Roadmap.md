@@ -2,7 +2,7 @@
 
 Last updated: 2026-05-07
 Branch baseline: `to`
-Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to, Phase 7F production-calendar configuration complete on to, Phase 7F.1 PDF calendar import complete on to, Phase 11A accepted, production-calendar Russian date format accepted, Phase 11B equipment catalog UI complete on to, Phase 11C object template model accepted, Phase 11D create from template accepted, Phase 11E save existing object as template accepted, Phase 11F apply template with preview accepted, Phase 11G template import/export complete on to, Phase 12S0 SQLite storage plan approved, Phase 12S1-S8 storage redesign complete on to, next roadmap task not selected`
+Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to, phase7e-annual-norm-import accepted, Phase 7F production-calendar configuration complete on to, Phase 7F.1 PDF calendar import complete on to, Phase 11A accepted, production-calendar Russian date format accepted, Phase 11B equipment catalog UI complete on to, Phase 11C object template model accepted, Phase 11D create from template accepted, Phase 11E save existing object as template accepted, Phase 11F apply template with preview accepted, Phase 11G template import/export complete on to, Phase 12S0 SQLite storage plan approved, Phase 12S1-S8 storage redesign complete on to`
 
 ## Goal
 
@@ -66,7 +66,7 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - `Phase 7B` is complete on `to`: Russian production-calendar calculation for `5/2` workdays is available as a reusable service.
 - `Phase 7F` is complete on `to`: production-calendar years are persisted in JSON config, editable from the Russian UI, importable from JSON, and consumed by maintenance schedule generation.
 - `Phase 7C` is complete on `to`: the resolver and monthly planner generate month demand from `ТО1` / `ТО2` / `ТО3` norms and compare it against the selected monthly workshop budget.
-- `Phase 7D` is complete on `to`: the yearly workbook export is template-driven, exposed in the UI, and can also import maintenance norms from `123.xlsx`.
+- `Phase 7D` is complete on `to`: the yearly workbook export is template-driven, exposed in the UI, and can import maintenance norms from monthly `123.xlsx`; `phase7e-annual-norm-import` also supports annual workbooks with the same structure as `456.xlsx`.
 - The first `Phase 7D` follow-up slice is complete on `to`: workshop-level `Импорт норм ТО...` and `Сформировать график ТО за месяц...` commands now live in the top-level `Файл` menu instead of the per-node `График ТО` tab.
 - The second `Phase 7D` follow-up slice is complete on `to`: `Файл -> Сформировать годовой график ТО...` generates all 12 months in one pass by orchestrating the existing monthly engine.
 - The third `Phase 7D` follow-up slice is complete on `to`: `Файл -> Пересчитать график ТО до конца года...` opens an existing yearly workbook, preserves earlier month sheets, and rewrites only the selected start month through December.
@@ -82,6 +82,7 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - On 2026-05-04, `phase7e-major-work-split-days` passed `dotnet format --verify-no-changes`, targeted monthly-planner tests, verification build, and `dotnet test` (`262/262`) using isolated output paths.
 - The maintenance-norm import coverage follow-up improves matching for leading-zero inventory numbers, `ё/е`, parenthetical equipment names from `123.xlsx`, and reports unresolved rows with source sheet/row context.
 - On 2026-05-04, `phase7e-norm-import-coverage` passed `dotnet format --verify-no-changes`, targeted norm-import tests, verification build, and `dotnet test` (`264/264`) using isolated output paths.
+- The `phase7e-annual-norm-import` follow-up lets `Файл -> Импорт норм ТО...` accept annual workbooks by structure, with `456.xlsx` as the reference example; it extracts per-occurrence `ТО1` / `ТО2` / `ТО3` hours from the annual plan columns, applies `YearScheduleEntries`, keeps `123.xlsx` compatibility, passed verification build and `dotnet test` (`334/334`) on 2026-05-07, and passed manual review.
 - `Phase 7F` production-calendar configuration is complete on `to`: `Config.ProductionCalendarYears` stores year-specific additional non-working days, `Файл` exposes calendar edit/import commands, and schedule generation resolves the calendar from the saved configuration.
 - On 2026-05-04, `phase7f-production-calendar-config` passed `dotnet format --verify-no-changes`, verification build, and `dotnet test` (`270/270`) using isolated output paths.
 - On 2026-05-05, the user approved starting from `Phase 11` and then `Phase 12`; `Phase 8` through `Phase 10` remain discussed candidate directions, not active implementation phases.
@@ -857,11 +858,11 @@ Completed on `to`:
 31. Local Phase 12S6. Restore selected snapshot, implemented and verified
 32. Local Phase 12S7. Snapshot comparison, implemented and verified
 33. Local Phase 12S8. Change history, implemented and verified
+34. `phase7e-annual-norm-import`, accepted after manual review
 
 Approved next:
 
 1. Define the next roadmap task before further coding
-2. Do not start a new implementation phase until it is explicitly prioritized
 
 Not active:
 
@@ -887,7 +888,7 @@ Continue implementation only from the next explicitly prioritized roadmap task.
 If Roadmap.md says no next coding phase is prioritized, stop after reporting the current state.
 Do not redesign the roadmap unless you find a concrete technical contradiction in the codebase.
 Keep JSON import/export and first-launch migration compatibility and treat Excel v3 as a legacy transition layer.
-Phase 12S8 is accepted and committed/pushed on to; do not start a new implementation phase until the next roadmap task is explicitly prioritized.
+Phase 12S8 is accepted and committed/pushed on to. phase7e-annual-norm-import is accepted after manual review; do not start a new implementation phase until the next roadmap task is explicitly prioritized.
 ```
 
 ## Immediate next step
@@ -895,7 +896,7 @@ Phase 12S8 is accepted and committed/pushed on to; do not start a new implementa
 Continue from the next explicitly prioritized task:
 
 - preserve the completed `Phase 7A` / `7B` / `7C` / `7D` / `7E` / `7F` / `7F.1` workflow as the current baseline
-- define the next roadmap task before further coding
+- define the next explicitly prioritized roadmap task before further coding
 - do not start a new `Phase 7G`; it is not part of this roadmap
 - treat future-month recalculation as completed `Phase 7D` orchestration/workflow built on top of the existing monthly engine, not as a replacement for it
 - keep workbook `v3` readable as legacy, but do not expand it as the main feature direction

@@ -510,6 +510,9 @@ namespace AsutpKnowledgeBase
                 $"Совпадения по названию: {result.MatchedByNameCount}"
             };
 
+            if (result.YearScheduleAppliedProfileCount > 0)
+                lines.Add($"Годовая раскладка обновлена: {result.YearScheduleAppliedProfileCount}");
+
             if (result.UnresolvedEntries.Count > 0)
             {
                 lines.Add(string.Empty);

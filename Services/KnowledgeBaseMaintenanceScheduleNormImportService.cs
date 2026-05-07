@@ -27,6 +27,8 @@ namespace AsutpKnowledgeBase.Services
 
         public int MatchedByNameCount { get; init; }
 
+        public int YearScheduleAppliedProfileCount { get; init; }
+
         public List<string> UnresolvedEntries { get; init; } = new();
     }
 
@@ -64,7 +66,8 @@ namespace AsutpKnowledgeBase.Services
                 {
                     return Failure(
                         "В книге не найдены строки плана с нормами ТО1/ТО2/ТО3. " +
-                        "Ожидается monthly workbook формата 123.xlsx.");
+                        "Ожидается XLSX с годовой структурой норм ТО как в 456.xlsx или " +
+                        "помесячной структурой как в 123.xlsx; имя файла не используется.");
                 }
 
                 List<OwnerNodeCandidate> candidates = BuildOwnerNodeCandidates(roots);
@@ -82,6 +85,7 @@ namespace AsutpKnowledgeBase.Services
                 int unchangedProfileCount = 0;
                 int matchedByInventoryCount = 0;
                 int matchedByNameCount = 0;
+                int yearScheduleAppliedProfileCount = 0;
 
                 foreach (ImportedNormEntry importedEntry in importedEntries)
                 {
@@ -106,19 +110,26 @@ namespace AsutpKnowledgeBase.Services
                             IsIncludedInSchedule = true,
                             To1Hours = importedEntry.To1Hours,
                             To2Hours = importedEntry.To2Hours,
-                            To3Hours = importedEntry.To3Hours
+                            To3Hours = importedEntry.To3Hours,
+                            YearScheduleEntries = CloneYearScheduleEntries(importedEntry.YearScheduleEntries)
                         };
 
                         updatedProfiles.Add(createdProfile);
                         profilesByOwnerNodeId[ownerNodeId] = createdProfile;
                         createdProfileCount++;
+                        if (importedEntry.YearScheduleEntries.Count > 0)
+                            yearScheduleAppliedProfileCount++;
                         continue;
                     }
 
+                    bool hasYearScheduleChanges =
+                        importedEntry.YearScheduleEntries.Count > 0 &&
+                        !YearScheduleEquals(existingProfile.YearScheduleEntries, importedEntry.YearScheduleEntries);
                     bool hasChanges =
                         existingProfile.To1Hours != importedEntry.To1Hours ||
                         existingProfile.To2Hours != importedEntry.To2Hours ||
-                        existingProfile.To3Hours != importedEntry.To3Hours;
+                        existingProfile.To3Hours != importedEntry.To3Hours ||
+                        hasYearScheduleChanges;
 
                     if (!hasChanges)
                     {
@@ -129,6 +140,12 @@ namespace AsutpKnowledgeBase.Services
                     existingProfile.To1Hours = importedEntry.To1Hours;
                     existingProfile.To2Hours = importedEntry.To2Hours;
                     existingProfile.To3Hours = importedEntry.To3Hours;
+                    if (hasYearScheduleChanges)
+                    {
+                        existingProfile.YearScheduleEntries = CloneYearScheduleEntries(importedEntry.YearScheduleEntries);
+                        yearScheduleAppliedProfileCount++;
+                    }
+
                     updatedProfileCount++;
                 }
 
@@ -142,6 +159,7 @@ namespace AsutpKnowledgeBase.Services
                     UnchangedProfileCount = unchangedProfileCount,
                     MatchedByInventoryCount = matchedByInventoryCount,
                     MatchedByNameCount = matchedByNameCount,
+                    YearScheduleAppliedProfileCount = yearScheduleAppliedProfileCount,
                     UnresolvedEntries = unresolvedEntries
                 };
             }
@@ -164,6 +182,28 @@ namespace AsutpKnowledgeBase.Services
             foreach (Sheet sheet in workbookPart.Workbook.Sheets?.Elements<Sheet>() ?? Enumerable.Empty<Sheet>())
             {
                 string sheetName = sheet.Name?.Value?.Trim() ?? string.Empty;
+                string relationshipId = sheet.Id?.Value?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(relationshipId))
+                    continue;
+
+                if (workbookPart.GetPartById(relationshipId) is not WorksheetPart worksheetPart)
+                    continue;
+
+                ParseAnnualWorksheet(sheetName, worksheetPart, sharedStrings, aggregatedEntries);
+            }
+
+            if (aggregatedEntries.Count > 0)
+            {
+                return aggregatedEntries.Values
+                    .Select(static accumulator => accumulator.ToEntry())
+                    .OrderBy(static entry => entry.SystemName, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(static entry => entry.EquipmentName, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+
+            foreach (Sheet sheet in workbookPart.Workbook.Sheets?.Elements<Sheet>() ?? Enumerable.Empty<Sheet>())
+            {
+                string sheetName = sheet.Name?.Value?.Trim() ?? string.Empty;
                 if (!TryParseMonthSheetName(sheetName, out _))
                     continue;
 
@@ -182,6 +222,198 @@ namespace AsutpKnowledgeBase.Services
                 .OrderBy(static entry => entry.SystemName, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(static entry => entry.EquipmentName, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+        }
+
+        private static void ParseAnnualWorksheet(
+            string sheetName,
+            WorksheetPart worksheetPart,
+            IReadOnlyList<string> sharedStrings,
+            IDictionary<string, ImportedNormAccumulator> aggregatedEntries)
+        {
+            SheetData sheetData = worksheetPart.Worksheet.GetFirstChild<SheetData>()
+                ?? throw new InvalidOperationException($"Лист '{sheetName}' не содержит sheetData.");
+
+            List<Row> rows = sheetData.Elements<Row>().ToList();
+            if (!TryFindAnnualPlanColumns(rows, sharedStrings, out uint planHeaderRowIndex, out Dictionary<int, int> monthByPlanColumn))
+                return;
+
+            string currentSystemName = string.Empty;
+            string currentSystemInventory = string.Empty;
+
+            foreach (Row row in rows)
+            {
+                uint rowIndex = row.RowIndex?.Value ?? 0;
+                if (rowIndex <= planHeaderRowIndex)
+                    continue;
+
+                Dictionary<int, string> values = ReadRowValues(row, sharedStrings);
+                if (values.Count == 0)
+                    continue;
+
+                if (TryParseAnnualPlanRow(
+                        sheetName,
+                        rowIndex,
+                        values,
+                        monthByPlanColumn,
+                        currentSystemName,
+                        currentSystemInventory,
+                        out ImportedNormEntry? importedEntry) &&
+                    importedEntry != null)
+                {
+                    string aggregateKey = BuildAggregateKey(importedEntry);
+                    if (!aggregatedEntries.TryGetValue(aggregateKey, out ImportedNormAccumulator? accumulator))
+                    {
+                        accumulator = ImportedNormAccumulator.Create(importedEntry);
+                        aggregatedEntries[aggregateKey] = accumulator;
+                    }
+                    else
+                    {
+                        accumulator.Absorb(importedEntry);
+                    }
+
+                    continue;
+                }
+
+                if (TryParseAnnualSystemHeaderRow(values, monthByPlanColumn.Keys, out string systemName, out string systemInventory))
+                {
+                    currentSystemName = systemName;
+                    currentSystemInventory = systemInventory;
+                }
+            }
+        }
+
+        private static bool TryFindAnnualPlanColumns(
+            IReadOnlyList<Row> rows,
+            IReadOnlyList<string> sharedStrings,
+            out uint planHeaderRowIndex,
+            out Dictionary<int, int> monthByPlanColumn)
+        {
+            planHeaderRowIndex = 0;
+            monthByPlanColumn = new Dictionary<int, int>();
+
+            foreach (Row row in rows)
+            {
+                Dictionary<int, string> values = ReadRowValues(row, sharedStrings);
+                int[] planColumns = values
+                    .Where(static pair => string.Equals(pair.Value.Trim(), "план", StringComparison.OrdinalIgnoreCase))
+                    .Select(static pair => pair.Key)
+                    .Order()
+                    .ToArray();
+
+                if (planColumns.Length < 12)
+                    continue;
+
+                int month = 1;
+                foreach (int columnIndex in planColumns.Take(12))
+                    monthByPlanColumn[columnIndex] = month++;
+
+                planHeaderRowIndex = row.RowIndex?.Value ?? 0;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryParseAnnualPlanRow(
+            string sheetName,
+            uint rowIndex,
+            IReadOnlyDictionary<int, string> values,
+            IReadOnlyDictionary<int, int> monthByPlanColumn,
+            string currentSystemName,
+            string currentSystemInventory,
+            out ImportedNormEntry? importedEntry)
+        {
+            importedEntry = null;
+
+            string equipmentName = GetCellValue(values, EquipmentNameColumnIndex).Trim();
+            if (string.IsNullOrWhiteSpace(equipmentName) ||
+                string.Equals(equipmentName, "2", StringComparison.OrdinalIgnoreCase) ||
+                equipmentName.Contains("Наименование", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            int to1Hours = 0;
+            int to2Hours = 0;
+            int to3Hours = 0;
+            var yearScheduleEntries = new List<KbMaintenanceYearScheduleEntry>();
+
+            foreach ((int columnIndex, int month) in monthByPlanColumn.OrderBy(static pair => pair.Value))
+            {
+                string cellValue = GetCellValue(values, columnIndex);
+                if (!TryParseWorkCell(cellValue, out KbMaintenanceWorkKind workKind, out int hours))
+                    continue;
+
+                switch (workKind)
+                {
+                    case KbMaintenanceWorkKind.To1:
+                        to1Hours = Math.Max(to1Hours, hours);
+                        break;
+                    case KbMaintenanceWorkKind.To2:
+                        to2Hours = Math.Max(to2Hours, hours);
+                        break;
+                    case KbMaintenanceWorkKind.To3:
+                        to3Hours = Math.Max(to3Hours, hours);
+                        break;
+                }
+
+                yearScheduleEntries.Add(new KbMaintenanceYearScheduleEntry
+                {
+                    Month = month,
+                    WorkKind = workKind
+                });
+            }
+
+            if (to1Hours <= 0 && to2Hours <= 0 && to3Hours <= 0)
+                return false;
+
+            importedEntry = new ImportedNormEntry(
+                sheetName,
+                rowIndex,
+                equipmentName.Trim().TrimEnd('.'),
+                GetCellValue(values, EquipmentInventoryColumnIndex).Trim(),
+                currentSystemName.Trim(),
+                currentSystemInventory.Trim(),
+                to1Hours,
+                to2Hours,
+                to3Hours,
+                yearScheduleEntries);
+            return true;
+        }
+
+        private static bool TryParseAnnualSystemHeaderRow(
+            IReadOnlyDictionary<int, string> values,
+            IEnumerable<int> planColumns,
+            out string systemName,
+            out string systemInventory)
+        {
+            systemName = string.Empty;
+            systemInventory = string.Empty;
+
+            foreach (int columnIndex in planColumns)
+            {
+                if (TryParseWorkCell(GetCellValue(values, columnIndex), out _, out _))
+                    return false;
+            }
+
+            string name = GetCellValue(values, EquipmentNameColumnIndex).Trim();
+            string numbering = GetCellValue(values, 1).Trim();
+            string inventory = GetCellValue(values, EquipmentInventoryColumnIndex).Trim();
+            if (string.IsNullOrWhiteSpace(name))
+                return false;
+
+            if (string.IsNullOrWhiteSpace(numbering) && string.IsNullOrWhiteSpace(inventory))
+                return false;
+
+            if (string.Equals(name, "2", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("Наименование", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            systemName = name;
+            systemInventory = inventory;
+            return true;
         }
 
         private static void ParseWorksheet(
@@ -285,7 +517,8 @@ namespace AsutpKnowledgeBase.Services
                 currentSystemInventory.Trim(),
                 to1Hours,
                 to2Hours,
-                to3Hours);
+                to3Hours,
+                new List<KbMaintenanceYearScheduleEntry>());
             return true;
         }
 
@@ -625,6 +858,27 @@ namespace AsutpKnowledgeBase.Services
             return clones;
         }
 
+        private static bool YearScheduleEquals(
+            IReadOnlyList<KbMaintenanceYearScheduleEntry>? left,
+            IReadOnlyList<KbMaintenanceYearScheduleEntry>? right)
+        {
+            List<KbMaintenanceYearScheduleEntry> leftEntries = CloneYearScheduleEntries(left);
+            List<KbMaintenanceYearScheduleEntry> rightEntries = CloneYearScheduleEntries(right);
+            if (leftEntries.Count != rightEntries.Count)
+                return false;
+
+            for (int i = 0; i < leftEntries.Count; i++)
+            {
+                if (leftEntries[i].Month != rightEntries[i].Month ||
+                    leftEntries[i].WorkKind != rightEntries[i].WorkKind)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private static string NormalizeTextKey(string? value)
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -934,7 +1188,8 @@ namespace AsutpKnowledgeBase.Services
             string SystemInventory,
             int To1Hours,
             int To2Hours,
-            int To3Hours)
+            int To3Hours,
+            List<KbMaintenanceYearScheduleEntry> YearScheduleEntries)
         {
             public string EquipmentNameKey { get; } = NormalizeTextKey(EquipmentName);
 
@@ -968,6 +1223,7 @@ namespace AsutpKnowledgeBase.Services
                 To1Hours = source.To1Hours;
                 To2Hours = source.To2Hours;
                 To3Hours = source.To3Hours;
+                YearScheduleEntries = CloneYearScheduleEntries(source.YearScheduleEntries);
             }
 
             public string SheetName { get; }
@@ -988,6 +1244,8 @@ namespace AsutpKnowledgeBase.Services
 
             public int To3Hours { get; private set; }
 
+            public List<KbMaintenanceYearScheduleEntry> YearScheduleEntries { get; private set; }
+
             public static ImportedNormAccumulator Create(ImportedNormEntry entry) => new(entry);
 
             public void Absorb(ImportedNormEntry entry)
@@ -995,6 +1253,8 @@ namespace AsutpKnowledgeBase.Services
                 To1Hours = Math.Max(To1Hours, entry.To1Hours);
                 To2Hours = Math.Max(To2Hours, entry.To2Hours);
                 To3Hours = Math.Max(To3Hours, entry.To3Hours);
+                if (entry.YearScheduleEntries.Count > 0)
+                    YearScheduleEntries = CloneYearScheduleEntries(entry.YearScheduleEntries);
             }
 
             public ImportedNormEntry ToEntry() => new(
@@ -1006,7 +1266,8 @@ namespace AsutpKnowledgeBase.Services
                 SystemInventory,
                 To1Hours,
                 To2Hours,
-                To3Hours);
+                To3Hours,
+                CloneYearScheduleEntries(YearScheduleEntries));
         }
 
         private sealed record OwnerNodeCandidate(
