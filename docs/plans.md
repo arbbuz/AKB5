@@ -20,7 +20,7 @@ Last updated: `2026-05-07`
 - Treat `Phase 11D. Create from template` as accepted after manual review and committed/pushed on `to`
 - Treat `Phase 11E. Save existing object as template` as accepted after manual review and committed/pushed on `to`
 - Treat `Phase 11F. Apply template with preview` as accepted after manual review and committed/pushed on `to`
-- Treat `Phase 11G. Template import/export` as accepted after manual review and committed locally; push only if the user asks
+- Treat `Phase 11G. Template import/export` as accepted after manual review and committed/pushed on `to`
 - Treat the production-calendar Russian date format follow-up as accepted after manual review
 - Treat `Phase 12. Storage redesign, backups, snapshots, and change history` as the active roadmap block
 - Treat local `Phase 12A. Automatic JSON snapshots before save`, `Phase 12B. Manual JSON snapshots with note`, and `Phase 12C. Snapshot browser` as verified local prototype work that is paused before commit while storage moves to SQLite
@@ -32,16 +32,15 @@ Last updated: `2026-05-07`
 - Treat local `Phase 12S5. SQLite backups and snapshots` as implemented and verified
 - Treat local `Phase 12S6. Restore selected snapshot` as implemented and verified
 - Treat local `Phase 12S7. Snapshot comparison` as implemented and verified
-- Treat local `Phase 12S8. Change history` as implemented and verified; wait for manual review before commit/push or any new roadmap task
+- Treat `Phase 12S8. Change history` as accepted after manual review and committed/pushed on `to`
 - Treat SQLite single-file `.akb` storage as the target live source of truth; keep JSON as import/export and first-launch migration compatibility
 - Keep the yearly workbook as a generated/report artifact
 - Keep all new user-facing UI strings Russian-only
 
 ## Near-term follow-up
 
-- Manual review of local `Phase 12S8. Change history`
-- After acceptance, commit the accepted stack and define the next roadmap task before coding further
-- Do not push the local `Phase 11G` commit unless the user asks
+- Define the next roadmap task before coding further
+- Do not start a new implementation phase until it is explicitly prioritized
 
 ## Update rule
 

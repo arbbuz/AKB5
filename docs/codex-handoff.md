@@ -8,8 +8,8 @@ Last updated: `2026-05-07`
 - Active integration branch: `to`
 - Latest feature integration commit for the maintenance-planning stream: `09bf84d Add production calendar PDF import`
 - Latest docs synchronization commit: `68d51b6 Distill roadmap state after Phase 7F`
-- Latest accepted implementation: `Phase 11G template import/export`
-- Current roadmap implementation item: local `Phase 12S8 Change history` waiting for manual review
+- Latest accepted implementation: `Phase 12S8 change history`
+- Current roadmap implementation item: no coding phase is active; define the next roadmap task before further implementation
 - Implemented on this branch:
   - `Phase 0`
   - `Phase 1`
@@ -47,12 +47,13 @@ Last updated: `2026-05-07`
   - local `Phase 12S6 snapshot restore`
   - local `Phase 12S7 snapshot comparison`
   - local `Phase 12S8 change history`
-- Current active gate: manual review of local `Phase 12S8. Change history`
+- Current active gate: define the next roadmap task before coding further
 - `Phase 11B. Equipment catalog UI` was committed and pushed on `to` as `f80873f Add equipment catalog UI`
 - `Phase 11C` / `Phase 11D` were committed and pushed on `to` as `3caca67 Add object template creation workflow`
 - `Phase 11E` was committed and pushed on `to` as `3c87b6e Add save object as template workflow`
 - `Phase 11F` was committed and pushed on `to` as `ca43298 Add apply object template preview workflow`
-- `Phase 11G` was accepted after manual review and committed locally; push only if the user asks
+- `Phase 11G` was accepted after manual review and committed/pushed on `to` as `268b550`
+- `Phase 12S8` was accepted after manual review and committed/pushed on `to` as `27a2aba`
 - The chief developer approved the SQLite single-file storage plan choices `1A, 2B, 3A, 4A`; local JSON snapshot prototype work is paused before commit while implementation moves through the SQLite storage plan
 
 ## Integrated feature state
@@ -133,7 +134,7 @@ Last updated: `2026-05-07`
   - `Phase 12S5. SQLite backups and snapshots` is implemented locally and verified; SQLite snapshots live inside the `.akb` database with metadata and normalized `SavedData` payloads
   - `Phase 12S6. Restore selected snapshot` is implemented locally and verified; restore requires confirmation, creates a protective `before-restore` snapshot, reloads restored data, and leaves failed restores intact
   - `Phase 12S7. Snapshot comparison` is implemented locally and verified; two snapshots can be compared at summary level across high-value data areas
-  - `Phase 12S8. Change history` is implemented locally, verified, and waiting for manual review; `.akb` databases record save, migration, manual snapshot, restore, and catalog/template import actions and expose `Файл -> История изменений...`
+  - `Phase 12S8. Change history` is accepted after manual review and committed/pushed on `to`; `.akb` databases record save, migration, manual snapshot, restore, and catalog/template import actions and expose `Файл -> История изменений...`
   - target storage direction: SQLite single-file database, default `%LocalAppData%\AKB5\knowledge-base.akb`, visible `.akb` extension, JSON full database import/export, confirmation before first-launch migration from legacy `Мои документы\ASUTP_KnowledgeBase.json`, automatic post-migration JSON safety export, and no simultaneous multi-user editing in the first SQLite version
 - User-facing application UI on `to` remains Russian-only
 
@@ -158,7 +159,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `phase12s8-change-history`: verification build passed; `dotnet test` passed, `333/333`
 - Verification artifacts: `artifacts\verify\phase12s8-change-history`
 - Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase12s8-change-history\build\Release\net8.0-windows\asutpKB.exe`
-- Harness status: `STATE: WAITING_REVIEW`; stop for manual review before commit/push or any new roadmap task
+- Final verification before acceptance: harness status was `STATE: WAITING_REVIEW`; the accepted stack was later committed/pushed as `27a2aba`
 
 Actually run on the worktree for local `Phase 12S2` on `2026-05-07`:
 
@@ -287,7 +288,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `dotnet test`: passed, `302/302`
 - Verification artifacts: `artifacts\verify\phase11g-template-import-export-apply-preview-ui-fix`
 - Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase11g-template-import-export-apply-preview-ui-fix\build\Release\net8.0-windows\asutpKB.exe`
-- Status: manual review passed; committed locally; do not push `Phase 11G` unless the user asks
+- Status: manual review passed; committed/pushed on `to` as `268b550`
 
 Actually run on the worktree for local `Phase 11F` on `2026-05-06`:
 
@@ -440,13 +441,13 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 ## Active objective
 
 - Keep the completed `Phase 7` workflow on `to` stable as the baseline
-- Wait for manual review of local `Phase 12S8. Change history`; do not push local `Phase 11G` unless the user asks
+- Define the next roadmap task before coding further
 - Preserve the production-calendar follow-up behavior: manual calendar dates are shown as `дд.мм.гггг`, JSON import accepts both `дд.мм.гггг` and legacy ISO dates, saved app JSON remains backward-compatible, and additional working days can represent transferred working weekends
 - Keep `Phase 11B` as the accepted equipment-catalog UI baseline
 - Preserve deterministic month placement as fallback for profiles that do not enable manual annual placement
 - Current builds default to SQLite `.akb` storage while retaining JSON import/export and first-launch migration compatibility; generated workbooks remain report artifacts
 - Do not start `Phase 7G` unless it is first defined and accepted in the roadmap
-- Treat `Phase 12S8. Change history` as implemented locally and waiting for manual review; do not start a new roadmap task before acceptance
+- Treat `Phase 12S8. Change history` as accepted and committed/pushed; do not start a new implementation phase until the next roadmap task is explicitly prioritized
 
 ## Durable decisions already made
 
@@ -602,7 +603,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 
 ## Recommended next step
 
-- Wait for manual review of local `Phase 12S8. Change history`; do not push local `Phase 11G` unless the user asks
+- Define the next roadmap task before coding further
 
 ## Commands to run before finishing future implementation work
 

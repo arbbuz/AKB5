@@ -2,7 +2,7 @@
 
 Last updated: 2026-05-07
 Branch baseline: `to`
-Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to, Phase 7F production-calendar configuration complete on to, Phase 7F.1 PDF calendar import complete on to, Phase 11A accepted, production-calendar Russian date format accepted, Phase 11B equipment catalog UI complete on to, Phase 11C object template model accepted, Phase 11D create from template accepted, Phase 11E save existing object as template accepted, Phase 11F apply template with preview accepted, Phase 11G template import/export accepted locally, Phase 12S0 SQLite storage plan approved, Phase 12S1-S8 storage redesign implemented locally, Phase 12S8 change history waiting review`
+Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to, Phase 7F production-calendar configuration complete on to, Phase 7F.1 PDF calendar import complete on to, Phase 11A accepted, production-calendar Russian date format accepted, Phase 11B equipment catalog UI complete on to, Phase 11C object template model accepted, Phase 11D create from template accepted, Phase 11E save existing object as template accepted, Phase 11F apply template with preview accepted, Phase 11G template import/export complete on to, Phase 12S0 SQLite storage plan approved, Phase 12S1-S8 storage redesign complete on to, next roadmap task not selected`
 
 ## Goal
 
@@ -61,7 +61,7 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - On 2026-04-28, the current `Phase 6` worktree passed verification build, passed `dotnet test` (`177/177`), and `asutpKB.exe` startup was rechecked after the final `Network` UX fixes.
 - Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition, but further workbook modernization is no longer the preferred next phase.
 - Current CI workflow also verifies `dotnet format --verify-no-changes` for the app project, core project, and tests before `build` / `test`.
-- The maintenance-schedule generation roadmap through `Phase 7F.1` is complete on `to`; `Phase 11B` equipment catalog UI is complete on `to`; `Phase 11C` through `Phase 11F` object-template slices are accepted and committed/pushed; `Phase 11G` is accepted and committed locally; `Phase 12S0` SQLite storage plan is approved, local `Phase 12S1` through `Phase 12S8` are implemented/verified, and local `Phase 12S8` change history is waiting for manual review.
+- The maintenance-schedule generation roadmap through `Phase 7F.1` is complete on `to`; `Phase 11B` equipment catalog UI is complete on `to`; `Phase 11C` through `Phase 11F` object-template slices are accepted and committed/pushed; `Phase 11G` is accepted and committed/pushed; `Phase 12S0` SQLite storage plan is approved, and `Phase 12S1` through `Phase 12S8` are accepted and committed/pushed on `to`.
 - `Phase 7A` is complete on `to`: `Lvl2` inventory number support now follows visible hierarchy level, typed `MaintenanceScheduleProfiles` are persisted in JSON/session state, and engineering nodes expose a `График ТО` tab with per-node `ТО1` / `ТО2` / `ТО3` hour norms.
 - `Phase 7B` is complete on `to`: Russian production-calendar calculation for `5/2` workdays is available as a reusable service.
 - `Phase 7F` is complete on `to`: production-calendar years are persisted in JSON config, editable from the Russian UI, importable from JSON, and consumed by maintenance schedule generation.
@@ -553,7 +553,7 @@ Acceptance:
 
 Complexity: `High`
 
-Status: accepted through `Phase 11G`; `Phase 11A` accepted after manual review; `Phase 11B` is complete on `to`; `Phase 11C` through `Phase 11F` are accepted after manual review and committed/pushed; `Phase 11G` is accepted after manual review and committed locally.
+Status: accepted through `Phase 11G`; `Phase 11A` accepted after manual review; `Phase 11B` is complete on `to`; `Phase 11C` through `Phase 11F` are accepted after manual review and committed/pushed; `Phase 11G` is accepted after manual review and committed/pushed on `to`.
 
 Goals:
 
@@ -603,7 +603,7 @@ Scope:
   - on 2026-05-06, `phase11f-apply-template-preview` passed verification build and `dotnet test` (`299/299`) using isolated output paths
   - after manual review found mojibake in a template context-menu string, Russian template workflow strings were corrected; post-review targeted regression passed (`55/55`) and a generated mojibake scan returned `TOTAL=0`
 - `Phase 11G. Template import/export`
-  - status: accepted after manual review; committed locally
+  - status: accepted after manual review; committed/pushed on `to` as `268b550`
   - done: exchange catalog/templates through dedicated UTF-8 JSON files
   - done: keep this separate from legacy Excel `v3`
   - done: import through a safe merge where existing catalog/template ids and catalog semantic duplicates are not overwritten
@@ -624,7 +624,7 @@ Acceptance:
 
 Complexity: `High`
 
-Status: SQLite single-file direction and implementation plan approved; local `Phase 12S8. Change history` is implemented and waiting for manual review.
+Status: accepted through `Phase 12S8. Change history`; committed/pushed on `to` as `27a2aba`.
 
 Current local status:
 
@@ -683,7 +683,7 @@ Current local status:
   - compares two snapshots at summary level across high-value data areas before restore/audit decisions
   - on 2026-05-07, `phase12s7-snapshot-comparison` passed verification build and `dotnet test` (`332/332`)
 - `Phase 12S8. Change history`
-  - status: implemented locally, verified, waiting for manual review
+  - status: accepted after manual review; committed/pushed on `to` as `27a2aba`
   - writes SQLite change-history entries for save, migration, manual snapshot, restore, and catalog/template import, and exposes a read-only `Файл -> История изменений...` view for `.akb` databases
   - on 2026-05-07, `phase12s8-change-history` passed verification build and `dotnet test` (`333/333`)
 
@@ -748,7 +748,7 @@ Planned implementation slices:
   - compare two snapshots at summary level across high-value data areas
   - acceptance: added/removed/changed areas are visible before restore/audit work
 - `Phase 12S8. Change history`
-  - status: implemented locally, verified, waiting for manual review
+  - status: accepted after manual review; committed/pushed on `to`
   - log save, import, migration, manual snapshot, restore, and catalog/template import actions
   - acceptance: high-value storage actions are visible after the fact
 
@@ -860,9 +860,8 @@ Completed on `to`:
 
 Approved next:
 
-1. Manual review of local `Phase 12S8. Change history`
-2. After acceptance, commit the accepted stack and define the next roadmap task before further coding
-3. Push local Phase 11G only if the user asks
+1. Define the next roadmap task before further coding
+2. Do not start a new implementation phase until it is explicitly prioritized
 
 Not active:
 
@@ -888,7 +887,7 @@ Continue implementation only from the next explicitly prioritized roadmap task.
 If Roadmap.md says no next coding phase is prioritized, stop after reporting the current state.
 Do not redesign the roadmap unless you find a concrete technical contradiction in the codebase.
 Keep JSON import/export and first-launch migration compatibility and treat Excel v3 as a legacy transition layer.
-Phase 12S8 is implemented locally and waiting for manual review; do not start a new roadmap task until it is accepted.
+Phase 12S8 is accepted and committed/pushed on to; do not start a new implementation phase until the next roadmap task is explicitly prioritized.
 ```
 
 ## Immediate next step
@@ -896,8 +895,8 @@ Phase 12S8 is implemented locally and waiting for manual review; do not start a 
 Continue from the next explicitly prioritized task:
 
 - preserve the completed `Phase 7A` / `7B` / `7C` / `7D` / `7E` / `7F` / `7F.1` workflow as the current baseline
-- wait for manual review of local `Phase 12S8. Change history`; do not push local `Phase 11G` unless the user asks
+- define the next roadmap task before further coding
 - do not start a new `Phase 7G`; it is not part of this roadmap
 - treat future-month recalculation as completed `Phase 7D` orchestration/workflow built on top of the existing monthly engine, not as a replacement for it
 - keep workbook `v3` readable as legacy, but do not expand it as the main feature direction
-- keep SQLite single-file storage, JSON import/export and first-launch migration compatibility, and Russian-only UI intact during review fixes
+- keep SQLite single-file storage, JSON import/export and first-launch migration compatibility, and Russian-only UI intact during future work

@@ -42,7 +42,7 @@ Implemented on `to`:
 - `Phase 11D` - create tree objects from persisted object templates, accepted after manual review and committed/pushed on `to`
 - `Phase 11E` - save existing object subtree as a reusable object template, accepted and committed/pushed on `to`
 - `Phase 11F` - apply object templates to existing objects with preview, accepted and committed/pushed on `to`
-- `Phase 11G` - template/catalog JSON import/export, accepted after manual review and committed locally
+- `Phase 11G` - template/catalog JSON import/export, accepted after manual review and committed/pushed on `to`
 - local `Phase 12A` / `12B` / `12C` JSON snapshot prototype - verified locally, paused before commit while storage moves to SQLite
 - `Phase 12S0` - SQLite single-file storage redesign plan, approved with choices `1A, 2B, 3A, 4A`
 - local `Phase 12S1` - storage abstraction implemented and verified
@@ -52,13 +52,13 @@ Implemented on `to`:
 - local `Phase 12S5` - SQLite-backed snapshots implemented and verified
 - local `Phase 12S6` - restore selected snapshot implemented and verified
 - local `Phase 12S7` - snapshot comparison implemented and verified
-- local `Phase 12S8` - change history implemented and waiting for manual review
+- `Phase 12S8` - change history accepted after manual review and committed/pushed on `to`
 
 Next approved work:
 
 - no `Phase 7G` is approved in `Roadmap.md`
-- current gate: manual review of `Phase 12S8. Change history`
-- push local `Phase 11G` only if the user asks
+- current gate: define the next roadmap task before coding further
+- no next coding phase is explicitly prioritized yet
 
 ## Data and persistence
 

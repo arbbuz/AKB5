@@ -30,7 +30,7 @@ Last updated: `2026-05-07`
 - On 2026-05-06, targeted catalog/template exchange tests passed (`14/14`), app/core/tests format verification passed, and `phase11g-template-import-export` passed verification build and `dotnet test` (`302/302`) using isolated output paths
 - After manual review found that `Состав шаблона` was too narrow in the create-object-from-template dialog, the dialog layout was corrected and `phase11g-template-import-export-layout-fix` passed verification build and `dotnet test` (`302/302`) using isolated output paths
 - After manual review found an empty preview with an inactive `Применить` button in the apply-object-template dialog, the dialog now selects the first template explicitly, rebuilds the preview when shown, displays no-change/failure text, and `phase11g-template-import-export-apply-preview-ui-fix` passed verification build and `dotnet test` (`302/302`) using isolated output paths
-- The user confirmed manual review of `Phase 11G`; it is accepted and committed locally, while push is deferred until the user asks
+- The user confirmed manual review of `Phase 11G`; it was later pushed to `to` as `268b550`
 - `Phase 12. Backup, snapshots, and change history` is now the active approved roadmap step
 - Local `Phase 12A` creates a timestamped JSON snapshot in `.akb-snapshots` before overwriting an existing database file, preserves the existing `.bak` fallback copy, and aborts save without overwriting if the snapshot cannot be created
 - On 2026-05-06, app/core/tests format verification passed, targeted JSON storage/snapshot tests passed (`12/12`), and `phase12a-automatic-json-snapshots` passed verification build and `dotnet test` (`306/306`) using isolated output paths; local `Phase 12A` is now treated as verified prototype work paused before commit while storage moves to SQLite
@@ -66,6 +66,8 @@ Last updated: `2026-05-07`
 - On 2026-05-07, `phase12s7-snapshot-comparison` passed verification build and `dotnet test` (`332/332`); harness state is `WAITING_REVIEW`
 - Local `Phase 12S8` adds SQLite change history records for save, migration, manual snapshot, restore, and catalog/template import, plus a read-only `Файл -> История изменений...` view for `.akb` databases; legacy JSON reports that history is unavailable
 - On 2026-05-07, `phase12s8-change-history` passed verification build and `dotnet test` (`333/333`); harness state is `WAITING_REVIEW`
+- The user requested committing and pushing all accepted changes; `Phase 11G` was pushed as `268b550 Add catalog template JSON exchange`, and the SQLite storage/change-history stack through `Phase 12S8` was committed/pushed as `27a2aba Add SQLite storage history workflow`
+- After the user requested the next stage, the current transition step is to define the next roadmap task before coding further; no next implementation phase is explicitly prioritized yet
 
 ## 2026-05-05
 

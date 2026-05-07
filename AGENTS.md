@@ -8,7 +8,7 @@
 - Current engineering mode: pragmatic refactoring and stabilization, not rewrite.
 - The active roadmap implementation branch is currently `to`; `main` remains the stable branch.
 - Roadmap phases `0` through `7F.1` are implemented on `to`; no `Phase 7G` exists in the approved roadmap.
-- `Phase 11. Object templates and equipment catalog` is accepted through `Phase 11G`; `Phase 11A. Equipment catalog model` passed manual review, `Phase 11B. Equipment catalog UI` is committed/pushed on `to`, `Phase 11C` / `Phase 11D` are accepted and committed/pushed on `to`, `Phase 11E` / `Phase 11F` are accepted and committed/pushed on `to`, and `Phase 11G. Template import/export` is accepted and committed locally. `Phase 12. Storage redesign, backups, snapshots, and change history` is implemented locally through `Phase 12S8. Change history` and is waiting for manual review.
+- `Phase 11. Object templates and equipment catalog` is accepted through `Phase 11G`; `Phase 11A. Equipment catalog model` passed manual review, `Phase 11B. Equipment catalog UI` is committed/pushed on `to`, `Phase 11C` / `Phase 11D` are accepted and committed/pushed on `to`, `Phase 11E` / `Phase 11F` are accepted and committed/pushed on `to`, and `Phase 11G. Template import/export` is accepted and committed/pushed on `to`. `Phase 12. Storage redesign, backups, snapshots, and change history` is accepted through `Phase 12S8. Change history` and committed/pushed on `to`.
 - Current builds default to SQLite single-file `.akb` storage with JSON import/export compatibility and first-launch migration from the legacy JSON database. Excel exchange is a separate import/export layer.
 - Current Excel implementation uses `DocumentFormat.OpenXml` and `WorkbookFormatVersion = 3`. Legacy `v1/v2` import is no longer supported.
 - CI now enforces `dotnet format --verify-no-changes` for the WinForms app, core library, and tests before `build`/`test`.
@@ -36,7 +36,7 @@
 ## Architecture boundaries
 
 - Do not rewrite WinForms into MVP/MVVM unless the task explicitly requires it.
-- Do not continue beyond local `Phase 12S8. Change history` until manual review accepts the current stack and the next roadmap task is defined.
+- Do not start a new roadmap implementation phase until the next task is explicitly defined and accepted.
 - The SQLite plan is approved with choices `1A, 2B, 3A, 4A`: use `.akb`, confirm first-launch migration, create a post-migration JSON safety export, and do not support simultaneous multi-user editing in the first SQLite version.
 - Replace direct `JsonStorageService` dependencies through a storage abstraction before adding SQLite code; do not move Excel logic into storage services.
 - Keep WinForms-specific behavior in `Forms/` and `UiServices/`.
