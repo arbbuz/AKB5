@@ -38,6 +38,7 @@ Last updated: `2026-05-06`
 - Importing data from human-maintained Excel files needs forgiving normalization; exact string matching is rarely enough once real equipment names diverge by spaces, suffixes, or dot-separated context
 - For maintenance norm import, match by system/equipment inventory number first and fall back to normalized names only when inventory data is missing or ambiguous
 - For maintenance norm import, unresolved messages need source sheet/row references; a short count without location is not enough for manual cleanup of enterprise workbooks
+- In annual maintenance norm workbooks, hidden rows can intentionally mark retired equipment; skip hidden rows before parsing system headers or equipment rows so old equipment does not affect monthly totals
 - For yearly ТО source exchange, keep the import contract narrow: edit only `YearScheduleEntries`, and do not let a schedule-source workbook silently change norms, inclusion flags, or calendar settings
 - For in-app yearly ТО source editing, keep context columns read-only and constrain month cells to `ТО1`, `ТО2`, `ТО3`, or blank so bulk editing cannot drift into profile/norm/calendar mutation
 - If users keep the source workbook open in Excel, open it with sharing flags that tolerate `ReadWrite` and `Delete`; otherwise the import workflow fails for the wrong reason

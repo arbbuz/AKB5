@@ -646,7 +646,8 @@ namespace AsutpKnowledgeBase.Services
                         .Select(static entry => new KbMaintenanceYearScheduleEntry
                         {
                             Month = entry.Month,
-                            WorkKind = entry.WorkKind
+                            WorkKind = entry.WorkKind,
+                            Hours = entry.Hours
                         })
                         .ToList()
                 };
@@ -948,7 +949,8 @@ namespace AsutpKnowledgeBase.Services
                         .Select(static entry => new KbMaintenanceYearScheduleEntry
                         {
                             Month = entry.Month,
-                            WorkKind = entry.WorkKind
+                            WorkKind = entry.WorkKind,
+                            Hours = entry.Hours
                         })
                         .ToList()
                 });
@@ -1096,7 +1098,8 @@ namespace AsutpKnowledgeBase.Services
                         .Select(static entry => new KbMaintenanceYearScheduleEntry
                         {
                             Month = entry.Month,
-                            WorkKind = entry.WorkKind
+                            WorkKind = entry.WorkKind,
+                            Hours = entry.Hours
                         })
                         .ToList()
                 });

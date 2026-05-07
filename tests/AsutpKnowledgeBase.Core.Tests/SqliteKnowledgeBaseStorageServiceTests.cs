@@ -470,8 +470,8 @@ public class SqliteKnowledgeBaseStorageServiceTests
                     To3Hours = 8,
                     YearScheduleEntries = new List<KbMaintenanceYearScheduleEntry>
                     {
-                        new() { Month = 1, WorkKind = KbMaintenanceWorkKind.To1 },
-                        new() { Month = 6, WorkKind = KbMaintenanceWorkKind.To2 }
+                        new() { Month = 1, WorkKind = KbMaintenanceWorkKind.To1, Hours = 2 },
+                        new() { Month = 6, WorkKind = KbMaintenanceWorkKind.To2, Hours = 5 }
                     }
                 }
             },

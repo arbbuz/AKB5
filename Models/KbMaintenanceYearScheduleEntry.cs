@@ -5,5 +5,7 @@ namespace AsutpKnowledgeBase.Models
         public int Month { get; set; }
 
         public KbMaintenanceWorkKind WorkKind { get; set; }
+
+        public int Hours { get; set; }
     }
 }

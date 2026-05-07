@@ -1121,7 +1121,7 @@ namespace AsutpKnowledgeBase.Services
         private static List<KbMaintenanceYearScheduleEntry> NormalizeMaintenanceYearScheduleEntries(
             IEnumerable<KbMaintenanceYearScheduleEntry>? entries)
         {
-            var normalizedByMonth = new SortedDictionary<int, KbMaintenanceWorkKind>();
+            var normalizedByMonth = new SortedDictionary<int, KbMaintenanceYearScheduleEntry>();
             if (entries == null)
                 return new List<KbMaintenanceYearScheduleEntry>();
 
@@ -1135,15 +1135,16 @@ namespace AsutpKnowledgeBase.Services
                     continue;
                 }
 
-                normalizedByMonth[entry.Month] = entry.WorkKind;
+                normalizedByMonth[entry.Month] = new KbMaintenanceYearScheduleEntry
+                {
+                    Month = entry.Month,
+                    WorkKind = entry.WorkKind,
+                    Hours = Math.Max(0, entry.Hours)
+                };
             }
 
             return normalizedByMonth
-                .Select(static pair => new KbMaintenanceYearScheduleEntry
-                {
-                    Month = pair.Key,
-                    WorkKind = pair.Value
-                })
+                .Select(static pair => pair.Value)
                 .ToList();
         }
 

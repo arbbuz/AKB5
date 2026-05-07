@@ -196,7 +196,8 @@ namespace AsutpKnowledgeBase.Services
                 clones.Add(new KbMaintenanceYearScheduleEntry
                 {
                     Month = entry.Month,
-                    WorkKind = entry.WorkKind
+                    WorkKind = entry.WorkKind,
+                    Hours = entry.Hours
                 });
             }
 
@@ -215,7 +216,8 @@ namespace AsutpKnowledgeBase.Services
             for (int index = 0; index < leftEntries.Count; index++)
             {
                 if (leftEntries[index].Month != rightEntries[index].Month ||
-                    leftEntries[index].WorkKind != rightEntries[index].WorkKind)
+                    leftEntries[index].WorkKind != rightEntries[index].WorkKind ||
+                    leftEntries[index].Hours != rightEntries[index].Hours)
                 {
                     return false;
                 }
@@ -259,7 +261,8 @@ namespace AsutpKnowledgeBase.Services
                 entries.Add(new KbMaintenanceYearScheduleEntry
                 {
                     Month = entry.Month,
-                    WorkKind = entry.WorkKind
+                    WorkKind = entry.WorkKind,
+                    Hours = Math.Max(0, entry.Hours)
                 });
             }
 

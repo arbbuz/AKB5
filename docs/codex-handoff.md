@@ -9,7 +9,7 @@ Last updated: `2026-05-07`
 - Latest feature integration commit for the maintenance-planning stream: `09bf84d Add production calendar PDF import`
 - Latest docs synchronization commit: `68d51b6 Distill roadmap state after Phase 7F`
 - Latest accepted implementation: `phase7e-annual-norm-import`
-- Current roadmap implementation item: none active; define the next roadmap task before coding
+- Current roadmap implementation item: local `phase7g-annual-norm-hidden-rows`; waiting for manual review before commit/push
 - Implemented on this branch:
   - `Phase 0`
   - `Phase 1`
@@ -31,6 +31,7 @@ Last updated: `2026-05-07`
   - major `ТО2` / `ТО3` split across working days
   - maintenance-norm import coverage and mismatch reporting
   - `phase7e-annual-norm-import`
+  - local `phase7g-annual-norm-hidden-rows`
   - `Phase 7F production-calendar configuration`
   - `Phase 7F.1 production-calendar PDF import`
   - `Phase 11A equipment catalog model`
@@ -48,7 +49,7 @@ Last updated: `2026-05-07`
   - local `Phase 12S6 snapshot restore`
   - local `Phase 12S7 snapshot comparison`
   - local `Phase 12S8 change history`
-- Current active gate: define the next roadmap task before coding
+- Current active gate: manual review of local `phase7g-annual-norm-hidden-rows`
 - `Phase 11B. Equipment catalog UI` was committed and pushed on `to` as `f80873f Add equipment catalog UI`
 - `Phase 11C` / `Phase 11D` were committed and pushed on `to` as `3caca67 Add object template creation workflow`
 - `Phase 11E` was committed and pushed on `to` as `3c87b6e Add save object as template workflow`
@@ -56,6 +57,7 @@ Last updated: `2026-05-07`
 - `Phase 11G` was accepted after manual review and committed/pushed on `to` as `268b550`
 - `Phase 12S8` was accepted after manual review and committed/pushed on `to` as `27a2aba`
 - `phase7e-annual-norm-import` passed manual review on 2026-05-07
+- Local `phase7g-annual-norm-hidden-rows` is implemented and verified; it skips hidden annual-plan rows during norm import because hidden rows represent retired equipment in `456.xlsx`
 - The chief developer approved the SQLite single-file storage plan choices `1A, 2B, 3A, 4A`; local JSON snapshot prototype work is paused before commit while implementation moves through the SQLite storage plan
 
 ## Integrated feature state
@@ -107,6 +109,7 @@ Last updated: `2026-05-07`
   - `phase7e-norm-import-coverage` improves norm import matching for leading-zero inventory numbers, `ё/е`, and parenthetical equipment names; unresolved rows include source sheet/row context
   - maintenance norms can be imported from monthly `C:\Users\Olga\Downloads\123.xlsx`; `phase7e-annual-norm-import` also supports annual workbooks with the same structure as `C:\Users\Olga\Downloads\456.xlsx`
   - import matching uses inventory number first, then normalized equipment/system names, and can read the workbook even when it is open in Excel
+  - local `phase7g-annual-norm-hidden-rows` skips hidden rows in annual workbooks before parsing system headers or equipment rows, so hidden retired equipment does not affect imported monthly demand
 - `Phase 11` current state on `to`:
   - `Phase 11A` adds the top-level JSON equipment catalog model and normalization
   - `Phase 11B` adds `Файл -> Каталог оборудования...` for listing, adding, editing, deleting, and searching equipment catalog items
@@ -162,6 +165,24 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - Verification artifacts: `artifacts\verify\phase12s8-change-history`
 - Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase12s8-change-history\build\Release\net8.0-windows\asutpKB.exe`
 - Final verification before acceptance: harness status was `STATE: WAITING_REVIEW`; the accepted stack was later committed/pushed as `27a2aba`
+
+Actually run on the worktree for local `phase7g-annual-norm-hidden-rows` on `2026-05-07`:
+
+```powershell
+dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --no-restore --filter "KnowledgeBaseMaintenanceScheduleNormImportServiceTests"
+dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
+dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase7g-annual-norm-hidden-rows
+```
+
+- Targeted norm-import tests: passed, `11/11`
+- `dotnet format --verify-no-changes`: passed for app, core, and tests
+- Verification `dotnet build`: passed for `phase7g-annual-norm-hidden-rows`
+- `dotnet test`: passed, `335/335`
+- Verification artifacts: `artifacts\verify\phase7g-annual-norm-hidden-rows`
+- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase7g-annual-norm-hidden-rows\build\Release\net8.0-windows\asutpKB.exe`
+- Harness status: `STATE: WAITING_REVIEW`
 
 Actually run on the worktree for local `phase7e-annual-norm-import` on `2026-05-07`:
 
@@ -456,17 +477,14 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - Startup smoke was not rerun for the final `Phase 7D` completion slice
 - Manual UI validation of the new production-calendar editor/import workflow passed by user
 - Full Excel round-trip validation (`generate -> open -> edit/save -> import back`) was not run
-- Current documentation-distillation slice is docs-only; build/test/harness are not required unless code changes are added
-
 ## Active objective
 
 - Keep the completed `Phase 7` workflow on `to` stable as the baseline
-- Define the next roadmap task before coding
+- Complete manual review of local `phase7g-annual-norm-hidden-rows`
 - Preserve the production-calendar follow-up behavior: manual calendar dates are shown as `дд.мм.гггг`, JSON import accepts both `дд.мм.гггг` and legacy ISO dates, saved app JSON remains backward-compatible, and additional working days can represent transferred working weekends
 - Keep `Phase 11B` as the accepted equipment-catalog UI baseline
 - Preserve deterministic month placement as fallback for profiles that do not enable manual annual placement
 - Current builds default to SQLite `.akb` storage while retaining JSON import/export and first-launch migration compatibility; generated workbooks remain report artifacts
-- Do not start `Phase 7G` unless it is first defined and accepted in the roadmap
 - Treat `Phase 12S8. Change history` as accepted and committed/pushed; treat `phase7e-annual-norm-import` as accepted after manual review
 
 ## Durable decisions already made
@@ -486,6 +504,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
   - `ТО3` includes `ТО1` and `ТО2`
   - a full annual profile therefore resolves to `8 x ТО1`, `3 x ТО2`, `1 x ТО3`
 - Stored `ТО1` / `ТО2` / `ТО3` norms are per-occurrence labor hours for one equipment unit, not monthly budgets
+- Hidden rows in annual norm workbooks are intentionally skipped; in `456.xlsx` they represent retired equipment and must not affect imported monthly demand
 - The hard planner constraint is the selected monthly workshop budget, not a daily `<= 8` cap
 - Production-calendar years live in `KbConfig.ProductionCalendarYears`; built-in `2025`/`2026` defaults are preserved, while future years can be added through UI, JSON import, or local PDF import
 - `Phase 11` is approved as object templates and equipment catalog; `Phase 11A` contains the catalog model only and passed manual review
@@ -595,6 +614,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `Services/KnowledgeBaseMaintenanceMonthlyPlannerService.cs`
 - `Services/KnowledgeBaseMaintenanceScheduleNormImportService.cs`
 - `Models/KbMaintenanceScheduleProfile.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseMaintenanceScheduleNormImportServiceTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseMaintenanceMonthWorkResolverServiceTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseMaintenanceYearScheduleSourceServiceTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseMaintenanceYearScheduleSourceExchangeServiceTests.cs`
@@ -620,11 +640,12 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - Maintenance profiles have no explicit active-from / active-to dates yet, so the agreed replanning strategy is to freeze past months and recalculate only future months
 - `phase7e-norm-import-coverage` improves norm import matching and mismatch reporting; some rows may still remain unmatched when names diverge too much from the KB tree
 - `phase7e-annual-norm-import` supports annual workbooks with the same structure as `456.xlsx` for `Импорт норм ТО...`, applies `YearScheduleEntries`, and keeps monthly `123.xlsx` compatibility
+- Local `phase7g-annual-norm-hidden-rows` skips hidden annual workbook rows before parsing; in `456.xlsx`, rows `29`, `30`, and `31` are hidden and should not count toward the May total
 - Full Excel round-trip import of generated yearly workbooks has not been validated
 
 ## Recommended next step
 
-- Define the next roadmap task before further coding
+- Manual review of `phase7g-annual-norm-hidden-rows`; if accepted, commit and push before starting another roadmap task
 
 ## Commands to run before finishing future implementation work
 

@@ -30,7 +30,7 @@ namespace AsutpKnowledgeBase.Services
                     StringComparer.Ordinal);
 
             var workItems = new List<KbMaintenanceMonthWorkItem>();
-            foreach (KbNode node in EnumerateNodesPreOrder(roots))
+            foreach ((KbNode node, int visibleLevel) in EnumerateNodesPreOrder(roots, visibleLevel: 1))
             {
                 string ownerNodeId = node.NodeId?.Trim() ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(ownerNodeId))
@@ -39,28 +39,47 @@ namespace AsutpKnowledgeBase.Services
                 if (!profileByOwnerNodeId.TryGetValue(ownerNodeId, out KbMaintenanceScheduleProfile? profile))
                     continue;
 
-                if (!profile.IsIncludedInSchedule || !KnowledgeBaseMaintenanceScheduleStateService.SupportsProfile(node.NodeType))
+                if (!profile.IsIncludedInSchedule ||
+                    !KnowledgeBaseMaintenanceScheduleStateService.SupportsProfile(node.NodeType, visibleLevel))
+                {
                     continue;
+                }
 
-                KbMaintenanceWorkKind dueKind = ResolveDueWorkKind(profile, ownerNodeId, month);
+                KbMaintenanceYearScheduleEntry? explicitEntry = ResolveExplicitYearScheduleEntry(profile.YearScheduleEntries, month);
+                KbMaintenanceWorkKind dueKind = explicitEntry?.WorkKind ?? ResolveDueWorkKind(profile, ownerNodeId, month);
 
-                AddWorkItemIfDue(workItems, node, profile, KbMaintenanceWorkKind.To3, profile.To3Hours, dueKind == KbMaintenanceWorkKind.To3);
-                AddWorkItemIfDue(workItems, node, profile, KbMaintenanceWorkKind.To2, profile.To2Hours, dueKind == KbMaintenanceWorkKind.To2);
-                AddWorkItemIfDue(workItems, node, profile, KbMaintenanceWorkKind.To1, profile.To1Hours, dueKind == KbMaintenanceWorkKind.To1);
+                AddWorkItemIfDue(workItems, node, profile, KbMaintenanceWorkKind.To3, ResolveDueHours(profile, explicitEntry, KbMaintenanceWorkKind.To3), dueKind == KbMaintenanceWorkKind.To3);
+                AddWorkItemIfDue(workItems, node, profile, KbMaintenanceWorkKind.To2, ResolveDueHours(profile, explicitEntry, KbMaintenanceWorkKind.To2), dueKind == KbMaintenanceWorkKind.To2);
+                AddWorkItemIfDue(workItems, node, profile, KbMaintenanceWorkKind.To1, ResolveDueHours(profile, explicitEntry, KbMaintenanceWorkKind.To1), dueKind == KbMaintenanceWorkKind.To1);
             }
 
             return workItems;
         }
 
-        private static IEnumerable<KbNode> EnumerateNodesPreOrder(IEnumerable<KbNode> roots)
+        private static IEnumerable<(KbNode Node, int VisibleLevel)> EnumerateNodesPreOrder(
+            IEnumerable<KbNode> roots,
+            int visibleLevel)
         {
             foreach (KbNode node in roots)
             {
-                yield return node;
+                int currentVisibleLevel = GetEffectiveVisibleLevel(node, visibleLevel);
+                yield return (node, currentVisibleLevel);
 
-                foreach (KbNode child in EnumerateNodesPreOrder(node.Children))
-                    yield return child;
+                foreach ((KbNode child, int childVisibleLevel) in EnumerateNodesPreOrder(
+                             node.Children,
+                             currentVisibleLevel + 1))
+                {
+                    yield return (child, childVisibleLevel);
+                }
             }
+        }
+
+        private static int GetEffectiveVisibleLevel(KbNode node, int visibleLevel)
+        {
+            if (node.NodeType == KbNodeType.WorkshopRoot && node.LevelIndex == 0)
+                return Math.Max(0, visibleLevel - 1);
+
+            return visibleLevel;
         }
 
         private static void AddWorkItemIfDue(
@@ -88,10 +107,6 @@ namespace AsutpKnowledgeBase.Services
             string ownerNodeId,
             int month)
         {
-            KbMaintenanceWorkKind? explicitKind = ResolveExplicitYearScheduleKind(profile.YearScheduleEntries, month);
-            if (explicitKind.HasValue)
-                return explicitKind.Value;
-
             // TO2 includes TO1, and TO3 includes both TO1 and TO2.
             // Without a manual yearly source the planner keeps deterministic month
             // placement for compatibility with existing profiles.
@@ -106,7 +121,24 @@ namespace AsutpKnowledgeBase.Services
             return KbMaintenanceWorkKind.To1;
         }
 
-        private static KbMaintenanceWorkKind? ResolveExplicitYearScheduleKind(
+        private static int ResolveDueHours(
+            KbMaintenanceScheduleProfile profile,
+            KbMaintenanceYearScheduleEntry? explicitEntry,
+            KbMaintenanceWorkKind workKind)
+        {
+            if (explicitEntry?.WorkKind == workKind && explicitEntry.Hours > 0)
+                return explicitEntry.Hours;
+
+            return workKind switch
+            {
+                KbMaintenanceWorkKind.To1 => profile.To1Hours,
+                KbMaintenanceWorkKind.To2 => profile.To2Hours,
+                KbMaintenanceWorkKind.To3 => profile.To3Hours,
+                _ => 0
+            };
+        }
+
+        private static KbMaintenanceYearScheduleEntry? ResolveExplicitYearScheduleEntry(
             IReadOnlyList<KbMaintenanceYearScheduleEntry>? yearScheduleEntries,
             int month)
         {
@@ -117,9 +149,8 @@ namespace AsutpKnowledgeBase.Services
                 .Where(entry => entry != null &&
                                 entry.Month == month &&
                                 Enum.IsDefined(typeof(KbMaintenanceWorkKind), entry.WorkKind))
-                .Select(static entry => entry.WorkKind)
-                .OrderByDescending(static workKind => workKind)
-                .Cast<KbMaintenanceWorkKind?>()
+                .OrderByDescending(static entry => entry.WorkKind)
+                .ThenByDescending(static entry => entry.Hours)
                 .FirstOrDefault();
         }
 

@@ -29,6 +29,8 @@ namespace AsutpKnowledgeBase.Services
 
         public int YearScheduleAppliedProfileCount { get; init; }
 
+        public int DisabledMissingProfileCount { get; init; }
+
         public List<string> UnresolvedEntries { get; init; } = new();
     }
 
@@ -86,7 +88,10 @@ namespace AsutpKnowledgeBase.Services
                 int matchedByInventoryCount = 0;
                 int matchedByNameCount = 0;
                 int yearScheduleAppliedProfileCount = 0;
+                int disabledMissingProfileCount = 0;
+                bool isAnnualSource = importedEntries.Any(static entry => entry.YearScheduleEntries.Count > 0);
 
+                var resolvedEntriesByOwnerNodeId = new Dictionary<string, ImportedNormAccumulator>(StringComparer.Ordinal);
                 foreach (ImportedNormEntry importedEntry in importedEntries)
                 {
                     MatchResolution resolution = ResolveOwnerNode(importedEntry, candidates);
@@ -102,6 +107,19 @@ namespace AsutpKnowledgeBase.Services
                         matchedByNameCount++;
 
                     string ownerNodeId = resolution.Candidate.OwnerNode.NodeId;
+                    if (!resolvedEntriesByOwnerNodeId.TryGetValue(ownerNodeId, out ImportedNormAccumulator? accumulator))
+                    {
+                        resolvedEntriesByOwnerNodeId[ownerNodeId] = ImportedNormAccumulator.Create(importedEntry);
+                    }
+                    else
+                    {
+                        accumulator.AbsorbResolvedOwnerEntry(importedEntry);
+                    }
+                }
+
+                foreach ((string ownerNodeId, ImportedNormAccumulator accumulator) in resolvedEntriesByOwnerNodeId)
+                {
+                    ImportedNormEntry importedEntry = accumulator.ToEntry();
                     if (!profilesByOwnerNodeId.TryGetValue(ownerNodeId, out KbMaintenanceScheduleProfile? existingProfile))
                     {
                         var createdProfile = new KbMaintenanceScheduleProfile
@@ -149,6 +167,26 @@ namespace AsutpKnowledgeBase.Services
                     updatedProfileCount++;
                 }
 
+                if (isAnnualSource && unresolvedEntries.Count == 0)
+                {
+                    HashSet<string> currentWorkshopOwnerNodeIds = candidates
+                        .Select(static candidate => candidate.OwnerNode.NodeId)
+                        .Where(static ownerNodeId => !string.IsNullOrWhiteSpace(ownerNodeId))
+                        .ToHashSet(StringComparer.Ordinal);
+
+                    foreach (KbMaintenanceScheduleProfile profile in updatedProfiles)
+                    {
+                        string ownerNodeId = profile.OwnerNodeId?.Trim() ?? string.Empty;
+                        if (profile.IsIncludedInSchedule &&
+                            currentWorkshopOwnerNodeIds.Contains(ownerNodeId) &&
+                            !resolvedEntriesByOwnerNodeId.ContainsKey(ownerNodeId))
+                        {
+                            profile.IsIncludedInSchedule = false;
+                            disabledMissingProfileCount++;
+                        }
+                    }
+                }
+
                 return new KnowledgeBaseMaintenanceScheduleNormImportResult
                 {
                     IsSuccess = true,
@@ -160,6 +198,7 @@ namespace AsutpKnowledgeBase.Services
                     MatchedByInventoryCount = matchedByInventoryCount,
                     MatchedByNameCount = matchedByNameCount,
                     YearScheduleAppliedProfileCount = yearScheduleAppliedProfileCount,
+                    DisabledMissingProfileCount = disabledMissingProfileCount,
                     UnresolvedEntries = unresolvedEntries
                 };
             }
@@ -246,6 +285,9 @@ namespace AsutpKnowledgeBase.Services
                 if (rowIndex <= planHeaderRowIndex)
                     continue;
 
+                if (IsHiddenRow(row))
+                    continue;
+
                 Dictionary<int, string> values = ReadRowValues(row, sharedStrings);
                 if (values.Count == 0)
                     continue;
@@ -314,6 +356,8 @@ namespace AsutpKnowledgeBase.Services
             return false;
         }
 
+        private static bool IsHiddenRow(Row row) => row.Hidden?.Value == true;
+
         private static bool TryParseAnnualPlanRow(
             string sheetName,
             uint rowIndex,
@@ -337,6 +381,7 @@ namespace AsutpKnowledgeBase.Services
             int to2Hours = 0;
             int to3Hours = 0;
             var yearScheduleEntries = new List<KbMaintenanceYearScheduleEntry>();
+            var monthWorkEntries = new List<ImportedNormMonthWorkEntry>();
 
             foreach ((int columnIndex, int month) in monthByPlanColumn.OrderBy(static pair => pair.Value))
             {
@@ -360,8 +405,10 @@ namespace AsutpKnowledgeBase.Services
                 yearScheduleEntries.Add(new KbMaintenanceYearScheduleEntry
                 {
                     Month = month,
-                    WorkKind = workKind
+                    WorkKind = workKind,
+                    Hours = hours
                 });
+                monthWorkEntries.Add(new ImportedNormMonthWorkEntry(month, workKind, hours));
             }
 
             if (to1Hours <= 0 && to2Hours <= 0 && to3Hours <= 0)
@@ -377,6 +424,7 @@ namespace AsutpKnowledgeBase.Services
                 to1Hours,
                 to2Hours,
                 to3Hours,
+                monthWorkEntries,
                 yearScheduleEntries);
             return true;
         }
@@ -518,6 +566,7 @@ namespace AsutpKnowledgeBase.Services
                 to1Hours,
                 to2Hours,
                 to3Hours,
+                new List<ImportedNormMonthWorkEntry>(),
                 new List<KbMaintenanceYearScheduleEntry>());
             return true;
         }
@@ -662,6 +711,31 @@ namespace AsutpKnowledgeBase.Services
                 MatchResolution inventoryResolution = ResolveUniqueCandidate(scopedByEquipmentInventory, MatchKind.Inventory);
                 if (inventoryResolution.IsResolved || inventoryResolution.IsAmbiguous)
                     return inventoryResolution;
+
+                MatchResolution scopedSystemOwnerResolution = ResolveUniqueCandidate(
+                    candidates.Where(candidate =>
+                        HasMatchingKey(candidate.SystemInventoryKeys, importedEntry.EquipmentInventoryKeys) &&
+                        HasMatchingNameKey(candidate.SystemNameKeys, importedEntry.EquipmentNameKeys)),
+                    MatchKind.Inventory);
+                if (scopedSystemOwnerResolution.IsResolved || scopedSystemOwnerResolution.IsAmbiguous)
+                    return scopedSystemOwnerResolution;
+
+                MatchResolution singleSystemOwnerResolution = ResolveUniqueCandidate(
+                    candidates.Where(candidate =>
+                        HasMatchingKey(candidate.SystemInventoryKeys, importedEntry.EquipmentInventoryKeys)),
+                    MatchKind.Inventory);
+                if (singleSystemOwnerResolution.IsResolved || singleSystemOwnerResolution.IsAmbiguous)
+                    return singleSystemOwnerResolution;
+            }
+
+            if (importedEntry.EquipmentInventoryKey.Length > 0)
+            {
+                MatchResolution systemOwnerByNameResolution = ResolveUniqueCandidate(
+                    candidates.Where(candidate =>
+                        HasMatchingNameKey(candidate.SystemNameKeys, importedEntry.EquipmentNameKeys)),
+                    MatchKind.Name);
+                if (systemOwnerByNameResolution.IsResolved || systemOwnerByNameResolution.IsAmbiguous)
+                    return systemOwnerByNameResolution;
             }
 
             if (importedEntry.EquipmentNameKey.Length == 0)
@@ -669,30 +743,38 @@ namespace AsutpKnowledgeBase.Services
 
             if (importedEntry.SystemInventoryKey.Length > 0)
             {
-                MatchResolution systemInventoryResolution = ResolveUniqueCandidate(
-                    candidates.Where(candidate =>
-                        HasMatchingKey(candidate.SystemInventoryKeys, importedEntry.SystemInventoryKeys) &&
-                        HasMatchingNameKey(candidate.EquipmentNameKeys, importedEntry.EquipmentNameKeys)),
-                    MatchKind.Name);
-                if (systemInventoryResolution.IsResolved || systemInventoryResolution.IsAmbiguous)
-                    return systemInventoryResolution;
+                OwnerNodeCandidate[] systemInventoryCandidates = candidates
+                    .Where(candidate => HasMatchingKey(candidate.SystemInventoryKeys, importedEntry.SystemInventoryKeys))
+                    .ToArray();
+                if (importedEntry.SystemNameKey.Length > 0)
+                {
+                    MatchResolution scopedSystemInventoryResolution = ResolveBestSystemScopedNameCandidate(
+                        systemInventoryCandidates,
+                        importedEntry);
+                    if (scopedSystemInventoryResolution.IsResolved || scopedSystemInventoryResolution.IsAmbiguous)
+                        return scopedSystemInventoryResolution;
+                }
+
+                if (importedEntry.SystemNameKey.Length == 0)
+                {
+                    MatchResolution systemInventoryResolution = ResolveBestNameCandidate(
+                        systemInventoryCandidates,
+                        importedEntry);
+                    if (systemInventoryResolution.IsResolved || systemInventoryResolution.IsAmbiguous)
+                        return systemInventoryResolution;
+                }
             }
 
             if (importedEntry.SystemNameKey.Length > 0)
             {
-                MatchResolution systemNameResolution = ResolveUniqueCandidate(
-                    candidates.Where(candidate =>
-                        HasMatchingNameKey(candidate.SystemNameKeys, importedEntry.SystemNameKeys) &&
-                        HasMatchingNameKey(candidate.EquipmentNameKeys, importedEntry.EquipmentNameKeys)),
-                    MatchKind.Name);
+                MatchResolution systemNameResolution = ResolveBestSystemScopedNameCandidate(
+                    candidates,
+                    importedEntry);
                 if (systemNameResolution.IsResolved || systemNameResolution.IsAmbiguous)
                     return systemNameResolution;
             }
 
-            return ResolveUniqueCandidate(
-                candidates.Where(candidate =>
-                    HasMatchingNameKey(candidate.EquipmentNameKeys, importedEntry.EquipmentNameKeys)),
-                MatchKind.Name);
+            return ResolveBestNameCandidate(candidates, importedEntry);
         }
 
         private static MatchResolution ResolveUniqueCandidate(
@@ -706,6 +788,150 @@ namespace AsutpKnowledgeBase.Services
                 1 => new MatchResolution(true, false, matchKind, candidateArray[0]),
                 _ => new MatchResolution(false, true, MatchKind.None, null)
             };
+        }
+
+        private static MatchResolution ResolveBestNameCandidate(
+            IEnumerable<OwnerNodeCandidate> candidates,
+            ImportedNormEntry importedEntry)
+        {
+            var matchedCandidates = candidates
+                .Select(candidate => new
+                {
+                    Candidate = candidate,
+                    Score = GetEquipmentNameMatchScore(importedEntry, candidate)
+                })
+                .Where(static match => match.Score > 0)
+                .ToArray();
+            if (matchedCandidates.Length == 0)
+                return MatchResolution.NotFound;
+
+            int bestScore = matchedCandidates.Max(static match => match.Score);
+            OwnerNodeCandidate[] bestCandidates = matchedCandidates
+                .Where(match => match.Score == bestScore)
+                .Select(static match => match.Candidate)
+                .Take(2)
+                .ToArray();
+
+            return bestCandidates.Length switch
+            {
+                1 => new MatchResolution(true, false, MatchKind.Name, bestCandidates[0]),
+                _ => new MatchResolution(false, true, MatchKind.None, null)
+            };
+        }
+
+        private static int GetEquipmentNameMatchScore(
+            ImportedNormEntry importedEntry,
+            OwnerNodeCandidate candidate)
+        {
+            if (importedEntry.EquipmentNameKey.Length == 0 || candidate.EquipmentNameKey.Length == 0)
+                return 0;
+
+            if (string.Equals(importedEntry.EquipmentNameKey, candidate.EquipmentNameKey, StringComparison.Ordinal))
+                return 400;
+
+            if (candidate.EquipmentNameKeys.Contains(importedEntry.EquipmentNameKey, StringComparer.Ordinal))
+                return 300 + Math.Min(importedEntry.EquipmentNameKey.Length, 50);
+
+            if (importedEntry.EquipmentNameKeys.Contains(candidate.EquipmentNameKey, StringComparer.Ordinal))
+                return 200 + Math.Min(candidate.EquipmentNameKey.Length, 50);
+
+            return HasMatchingNameKey(candidate.EquipmentNameKeys, importedEntry.EquipmentNameKeys) ? 100 : 0;
+        }
+
+        private static MatchResolution ResolveBestSystemScopedNameCandidate(
+            IEnumerable<OwnerNodeCandidate> candidates,
+            ImportedNormEntry importedEntry)
+        {
+            var matchedCandidates = candidates
+                .Select(candidate => new
+                {
+                    Candidate = candidate,
+                    SystemScore = GetSystemNameMatchScore(importedEntry, candidate),
+                    EquipmentScore = GetEquipmentNameMatchScore(importedEntry, candidate)
+                })
+                .Where(static match => match.SystemScore > 0 && match.EquipmentScore > 0)
+                .ToArray();
+            if (matchedCandidates.Length == 0)
+                return MatchResolution.NotFound;
+
+            int bestSystemScore = matchedCandidates.Max(static match => match.SystemScore);
+            int bestEquipmentScore = matchedCandidates
+                .Where(match => match.SystemScore == bestSystemScore)
+                .Max(static match => match.EquipmentScore);
+            OwnerNodeCandidate[] bestCandidates = matchedCandidates
+                .Where(match => match.SystemScore == bestSystemScore && match.EquipmentScore == bestEquipmentScore)
+                .Select(static match => match.Candidate)
+                .Take(2)
+                .ToArray();
+
+            return bestCandidates.Length switch
+            {
+                1 => new MatchResolution(true, false, MatchKind.Name, bestCandidates[0]),
+                _ => new MatchResolution(false, true, MatchKind.None, null)
+            };
+        }
+
+        private static int GetSystemNameMatchScore(
+            ImportedNormEntry importedEntry,
+            OwnerNodeCandidate candidate)
+        {
+            if (importedEntry.SystemNameKey.Length == 0 || candidate.SystemNameKey.Length == 0)
+                return 0;
+
+            if (string.Equals(importedEntry.SystemNameKey, candidate.SystemNameKey, StringComparison.Ordinal))
+                return 400;
+
+            if (candidate.SystemNameKeys.Contains(importedEntry.SystemNameKey, StringComparer.Ordinal))
+                return 300 + Math.Min(importedEntry.SystemNameKey.Length, 50);
+
+            if (importedEntry.SystemNameKeys.Contains(candidate.SystemNameKey, StringComparer.Ordinal))
+                return 200 + Math.Min(candidate.SystemNameKey.Length, 50);
+
+            if (HasMatchingNameKey(candidate.SystemNameKeys, importedEntry.SystemNameKeys))
+                return 100;
+
+            return GetSystemTokenSubsetMatchScore(importedEntry.SystemNameKeys, candidate.SystemNameKeys);
+        }
+
+        private static int GetSystemTokenSubsetMatchScore(
+            IReadOnlyCollection<string> importedKeys,
+            IReadOnlyCollection<string> candidateKeys)
+        {
+            foreach (string importedKey in importedKeys)
+            {
+                HashSet<string> importedTokens = BuildSignificantSystemTokens(importedKey);
+                if (importedTokens.Count < 2)
+                    continue;
+
+                foreach (string candidateKey in candidateKeys)
+                {
+                    HashSet<string> candidateTokens = BuildSignificantSystemTokens(candidateKey);
+                    if (candidateTokens.Count < 2)
+                        continue;
+
+                    if (candidateTokens.All(importedTokens.Contains))
+                        return 150 + Math.Min(candidateTokens.Count, 30);
+
+                    if (importedTokens.All(candidateTokens.Contains))
+                        return 140 + Math.Min(importedTokens.Count, 30);
+                }
+            }
+
+            return 0;
+        }
+
+        private static HashSet<string> BuildSignificantSystemTokens(string key)
+        {
+            var tokens = new HashSet<string>(StringComparer.Ordinal);
+            foreach (string token in key.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (token is "АСУ" or "АСУТП" or "СУ" or "СИСТЕМА" or "СИСТЕМЫ")
+                    continue;
+
+                tokens.Add(token);
+            }
+
+            return tokens;
         }
 
         private static IReadOnlyList<string> ReadSharedStrings(SharedStringTablePart? part)
@@ -791,7 +1017,12 @@ namespace AsutpKnowledgeBase.Services
                 return $"eqinv:{entry.EquipmentInventoryCanonicalKey}";
 
             if (entry.SystemInventoryKey.Length > 0)
-                return $"sysinv:{entry.SystemInventoryKey}|name:{entry.EquipmentNameKey}";
+            {
+                string systemNamePart = entry.SystemNameKey.Length > 0
+                    ? $"|sys:{entry.SystemNameKey}"
+                    : string.Empty;
+                return $"sysinv:{entry.SystemInventoryKey}{systemNamePart}|name:{entry.EquipmentNameKey}";
+            }
 
             if (entry.SystemNameKey.Length > 0)
                 return $"sys:{entry.SystemNameKey}|name:{entry.EquipmentNameKey}";
@@ -851,9 +1082,23 @@ namespace AsutpKnowledgeBase.Services
                 clones.Add(new KbMaintenanceYearScheduleEntry
                 {
                     Month = entry.Month,
-                    WorkKind = entry.WorkKind
+                    WorkKind = entry.WorkKind,
+                    Hours = entry.Hours
                 });
             }
+
+            return clones;
+        }
+
+        private static List<ImportedNormMonthWorkEntry> CloneMonthWorkEntries(
+            IReadOnlyList<ImportedNormMonthWorkEntry>? entries)
+        {
+            var clones = new List<ImportedNormMonthWorkEntry>();
+            if (entries == null)
+                return clones;
+
+            foreach (ImportedNormMonthWorkEntry entry in entries)
+                clones.Add(entry);
 
             return clones;
         }
@@ -870,7 +1115,8 @@ namespace AsutpKnowledgeBase.Services
             for (int i = 0; i < leftEntries.Count; i++)
             {
                 if (leftEntries[i].Month != rightEntries[i].Month ||
-                    leftEntries[i].WorkKind != rightEntries[i].WorkKind)
+                    leftEntries[i].WorkKind != rightEntries[i].WorkKind ||
+                    leftEntries[i].Hours != rightEntries[i].Hours)
                 {
                     return false;
                 }
@@ -884,6 +1130,7 @@ namespace AsutpKnowledgeBase.Services
             if (string.IsNullOrWhiteSpace(value))
                 return string.Empty;
 
+            var tokens = new List<string>();
             var builder = new StringBuilder(value.Length);
             bool pendingSeparator = false;
             foreach (char sourceCharacter in value.Trim())
@@ -892,7 +1139,10 @@ namespace AsutpKnowledgeBase.Services
                 if (char.IsLetterOrDigit(character))
                 {
                     if (pendingSeparator && builder.Length > 0)
-                        builder.Append(' ');
+                    {
+                        tokens.Add(NormalizeComparableToken(builder.ToString()));
+                        builder.Clear();
+                    }
 
                     builder.Append(character);
                     pendingSeparator = false;
@@ -902,7 +1152,10 @@ namespace AsutpKnowledgeBase.Services
                 pendingSeparator = true;
             }
 
-            return builder.ToString();
+            if (builder.Length > 0)
+                tokens.Add(NormalizeComparableToken(builder.ToString()));
+
+            return string.Join(" ", tokens.Where(static token => token.Length > 0));
         }
 
         private static string NormalizeCompactTextKey(string? value)
@@ -910,15 +1163,28 @@ namespace AsutpKnowledgeBase.Services
             if (string.IsNullOrWhiteSpace(value))
                 return string.Empty;
 
+            var tokens = new List<string>();
             var builder = new StringBuilder(value.Length);
             foreach (char sourceCharacter in value.Trim())
             {
                 char character = NormalizeComparableCharacter(sourceCharacter);
                 if (char.IsLetterOrDigit(character))
+                {
                     builder.Append(character);
+                    continue;
+                }
+
+                if (builder.Length > 0)
+                {
+                    tokens.Add(NormalizeComparableToken(builder.ToString()));
+                    builder.Clear();
+                }
             }
 
-            return builder.ToString();
+            if (builder.Length > 0)
+                tokens.Add(NormalizeComparableToken(builder.ToString()));
+
+            return string.Concat(tokens);
         }
 
         private static string NormalizeInventoryKey(string? value)
@@ -941,6 +1207,19 @@ namespace AsutpKnowledgeBase.Services
         {
             char upper = char.ToUpperInvariant(character);
             return upper == 'Ё' ? 'Е' : upper;
+        }
+
+        private static string NormalizeComparableToken(string token)
+        {
+            return token switch
+            {
+                "ПРЕССА" or "ПРЕССОМ" or "ПРЕССАМИ" => "ПРЕСС",
+                "ФП" => "ФИЛЬТРПРЕСС",
+                "СТАДИИ" or "СТАДИЕЙ" => "СТАДИЯ",
+                "Й" or "ЕЙ" => "Я",
+                "В" => string.Empty,
+                _ => token
+            };
         }
 
         private static string NormalizeInventoryAggregateKey(string? value)
@@ -1059,6 +1338,9 @@ namespace AsutpKnowledgeBase.Services
         {
             yield return value;
 
+            foreach (string leadingAutomationVariant in ExpandLeadingAutomationVariants(value))
+                yield return leadingAutomationVariant;
+
             if (TryStripLeadingAutomationPrefix(value, out string strippedPrefix))
                 yield return strippedPrefix;
 
@@ -1068,6 +1350,9 @@ namespace AsutpKnowledgeBase.Services
             if (withoutParentheses.Length > 0 && !string.Equals(withoutParentheses, value, StringComparison.Ordinal))
             {
                 yield return withoutParentheses;
+                foreach (string leadingAutomationVariant in ExpandLeadingAutomationVariants(withoutParentheses))
+                    yield return leadingAutomationVariant;
+
                 if (TryStripLeadingAutomationPrefix(withoutParentheses, out string strippedWithoutParenthesesPrefix))
                     yield return strippedWithoutParenthesesPrefix;
             }
@@ -1081,6 +1366,36 @@ namespace AsutpKnowledgeBase.Services
                 yield return parentheticalValue;
                 if (TryStripLeadingAutomationPrefix(parentheticalValue, out string strippedParentheticalPrefix))
                     yield return strippedParentheticalPrefix;
+            }
+
+            foreach (string trimmedByEmbeddedContext in TrimEmbeddedAutomationContext(value))
+                yield return trimmedByEmbeddedContext;
+
+            foreach (string withoutInlineAutomation in RemoveInlineAutomationWords(value))
+                yield return withoutInlineAutomation;
+
+            foreach (string withoutKnownContextPhrase in RemoveKnownContextPhrases(value))
+                yield return withoutKnownContextPhrase;
+
+            if (TryTrimTrailingHyphenNumber(value, out string withoutTrailingHyphenNumber))
+                yield return withoutTrailingHyphenNumber;
+        }
+
+        private static IEnumerable<string> ExpandLeadingAutomationVariants(string value)
+        {
+            string trimmed = value.Trim();
+            if (trimmed.StartsWith("АСУТП ", StringComparison.OrdinalIgnoreCase))
+            {
+                string tail = trimmed["АСУТП ".Length..].Trim();
+                if (tail.Length > 0)
+                    yield return "АСУ " + tail;
+            }
+
+            if (trimmed.StartsWith("Системы ", StringComparison.OrdinalIgnoreCase))
+            {
+                string tail = trimmed["Системы ".Length..].Trim();
+                if (tail.Length > 0)
+                    yield return "АСУ " + tail;
             }
         }
 
@@ -1109,6 +1424,95 @@ namespace AsutpKnowledgeBase.Services
 
             for (int count = segments.Length - 1; count >= 1; count--)
                 yield return string.Join(" ", segments.Take(count));
+
+            for (int startIndex = 1; startIndex < segments.Length; startIndex++)
+                yield return string.Join(" ", segments.Skip(startIndex));
+        }
+
+        private static IEnumerable<string> TrimEmbeddedAutomationContext(string value)
+        {
+            string[] markers =
+            {
+                " АСУТП ",
+                " АСУ ",
+                " СУ "
+            };
+
+            foreach (string marker in markers)
+            {
+                int markerIndex = value.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+                if (markerIndex <= 0)
+                    continue;
+
+                string trimmed = value[..markerIndex].Trim();
+                if (IsUsefulTrimmedNameVariant(trimmed))
+                {
+                    yield return trimmed;
+                    if (TryTrimTrailingHyphenNumber(trimmed, out string withoutTrailingHyphenNumber))
+                        yield return withoutTrailingHyphenNumber;
+                }
+            }
+        }
+
+        private static bool IsUsefulTrimmedNameVariant(string value)
+        {
+            string key = NormalizeTextKey(value);
+            return key.Length > 1 && key is not "АСУ" and not "АСУТП" and not "СУ";
+        }
+
+        private static IEnumerable<string> RemoveInlineAutomationWords(string value)
+        {
+            string[] phrases =
+            {
+                " АСУ ТП ",
+                " АСУТП ",
+                " АСУ "
+            };
+
+            string padded = $" {value.Trim()} ";
+            foreach (string phrase in phrases)
+            {
+                if (!padded.Contains(phrase, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                string normalized = padded.Replace(phrase, " ", StringComparison.OrdinalIgnoreCase).Trim();
+                if (normalized.Length > 0 && !string.Equals(normalized, value.Trim(), StringComparison.Ordinal))
+                    yield return normalized;
+            }
+        }
+
+        private static IEnumerable<string> RemoveKnownContextPhrases(string value)
+        {
+            string[] phrases =
+            {
+                " участка антисептика",
+                " участок антисептика"
+            };
+
+            foreach (string phrase in phrases)
+            {
+                if (!value.Contains(phrase, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                string normalized = value.Replace(phrase, string.Empty, StringComparison.OrdinalIgnoreCase).Trim();
+                if (normalized.Length > 0 && !string.Equals(normalized, value.Trim(), StringComparison.Ordinal))
+                    yield return normalized;
+            }
+        }
+
+        private static bool TryTrimTrailingHyphenNumber(string value, out string trimmed)
+        {
+            trimmed = string.Empty;
+            string normalized = value.Trim();
+            int hyphenIndex = normalized.LastIndexOf('-');
+            if (hyphenIndex <= 0 || hyphenIndex == normalized.Length - 1)
+                return false;
+
+            if (normalized[(hyphenIndex + 1)..].Any(static character => !char.IsDigit(character)))
+                return false;
+
+            trimmed = normalized[..hyphenIndex].Trim();
+            return trimmed.Length > 0;
         }
 
         private static IEnumerable<string> TrimTrailingSystemContext(string value, string? systemContext)
@@ -1189,6 +1593,7 @@ namespace AsutpKnowledgeBase.Services
             int To1Hours,
             int To2Hours,
             int To3Hours,
+            List<ImportedNormMonthWorkEntry> MonthWorkEntries,
             List<KbMaintenanceYearScheduleEntry> YearScheduleEntries)
         {
             public string EquipmentNameKey { get; } = NormalizeTextKey(EquipmentName);
@@ -1210,6 +1615,11 @@ namespace AsutpKnowledgeBase.Services
             public string[] SystemInventoryKeys { get; } = BuildInventoryMatchKeys(SystemInventory);
         }
 
+        private sealed record ImportedNormMonthWorkEntry(
+            int Month,
+            KbMaintenanceWorkKind WorkKind,
+            int Hours);
+
         private sealed class ImportedNormAccumulator
         {
             public ImportedNormAccumulator(ImportedNormEntry source)
@@ -1223,6 +1633,7 @@ namespace AsutpKnowledgeBase.Services
                 To1Hours = source.To1Hours;
                 To2Hours = source.To2Hours;
                 To3Hours = source.To3Hours;
+                MonthWorkEntries = CloneMonthWorkEntries(source.MonthWorkEntries);
                 YearScheduleEntries = CloneYearScheduleEntries(source.YearScheduleEntries);
             }
 
@@ -1244,6 +1655,8 @@ namespace AsutpKnowledgeBase.Services
 
             public int To3Hours { get; private set; }
 
+            public List<ImportedNormMonthWorkEntry> MonthWorkEntries { get; private set; }
+
             public List<KbMaintenanceYearScheduleEntry> YearScheduleEntries { get; private set; }
 
             public static ImportedNormAccumulator Create(ImportedNormEntry entry) => new(entry);
@@ -1253,8 +1666,23 @@ namespace AsutpKnowledgeBase.Services
                 To1Hours = Math.Max(To1Hours, entry.To1Hours);
                 To2Hours = Math.Max(To2Hours, entry.To2Hours);
                 To3Hours = Math.Max(To3Hours, entry.To3Hours);
+                if (entry.MonthWorkEntries.Count > 0)
+                    MonthWorkEntries = CloneMonthWorkEntries(entry.MonthWorkEntries);
+
                 if (entry.YearScheduleEntries.Count > 0)
                     YearScheduleEntries = CloneYearScheduleEntries(entry.YearScheduleEntries);
+            }
+
+            public void AbsorbResolvedOwnerEntry(ImportedNormEntry entry)
+            {
+                if (MonthWorkEntries.Count > 0 || entry.MonthWorkEntries.Count > 0)
+                {
+                    MonthWorkEntries.AddRange(CloneMonthWorkEntries(entry.MonthWorkEntries));
+                    ApplyAggregatedMonthWorkEntries();
+                    return;
+                }
+
+                Absorb(entry);
             }
 
             public ImportedNormEntry ToEntry() => new(
@@ -1267,7 +1695,46 @@ namespace AsutpKnowledgeBase.Services
                 To1Hours,
                 To2Hours,
                 To3Hours,
+                CloneMonthWorkEntries(MonthWorkEntries),
                 CloneYearScheduleEntries(YearScheduleEntries));
+
+            private void ApplyAggregatedMonthWorkEntries()
+            {
+                To1Hours = 0;
+                To2Hours = 0;
+                To3Hours = 0;
+                var yearScheduleEntries = new List<KbMaintenanceYearScheduleEntry>();
+
+                foreach (var monthGroup in MonthWorkEntries
+                             .Where(static entry => entry.Month is >= 1 and <= 12 && entry.Hours > 0)
+                             .GroupBy(static entry => entry.Month)
+                             .OrderBy(static group => group.Key))
+                {
+                    KbMaintenanceWorkKind workKind = monthGroup.Max(static entry => entry.WorkKind);
+                    int hours = monthGroup.Sum(static entry => entry.Hours);
+                    switch (workKind)
+                    {
+                        case KbMaintenanceWorkKind.To1:
+                            To1Hours = Math.Max(To1Hours, hours);
+                            break;
+                        case KbMaintenanceWorkKind.To2:
+                            To2Hours = Math.Max(To2Hours, hours);
+                            break;
+                        case KbMaintenanceWorkKind.To3:
+                            To3Hours = Math.Max(To3Hours, hours);
+                            break;
+                    }
+
+                    yearScheduleEntries.Add(new KbMaintenanceYearScheduleEntry
+                    {
+                        Month = monthGroup.Key,
+                        WorkKind = workKind,
+                        Hours = hours
+                    });
+                }
+
+                YearScheduleEntries = yearScheduleEntries;
+            }
         }
 
         private sealed record OwnerNodeCandidate(

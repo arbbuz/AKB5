@@ -1,6 +1,10 @@
 # Decision Log
 
-Last updated: `2026-05-07`
+Last updated: `2026-05-08`
+
+## 2026-05-08
+
+- Durable communication rule for AKB5 work: user-visible progress must stay brief (`current step`, `result`, `next step`). Codex must not paste raw diagnostic commands, command transcripts, internal ids, owner mappings, large diffs, or code excerpts into chat unless explicitly requested; verbose diagnostics belong in `artifacts` with only key counts/status summarized.
 
 ## 2026-05-06
 
@@ -71,6 +75,9 @@ Last updated: `2026-05-07`
 - Local `phase7e-annual-norm-import` adds support for importing maintenance norms directly from annual workbooks with the same structure as `456.xlsx`; the importer detects annual files by workbook contents, still accepts monthly `123.xlsx`, and annual rows also apply `YearScheduleEntries` from the 12 plan columns
 - On 2026-05-07, targeted norm-import tests passed (`10/10`), app/core/tests format verification passed, and `phase7e-annual-norm-import` passed verification build and `dotnet test` (`334/334`); harness state is `WAITING_REVIEW`
 - On 2026-05-07, the user confirmed manual review passed for `phase7e-annual-norm-import`; the accepted follow-up is the latest completed slice before selecting the next roadmap task
+- The user clarified that hidden rows in annual plan `456.xlsx` represent retired equipment and must not be included in norm import totals; rows `29`, `30`, and `31` are hidden in that workbook
+- Local `phase7g-annual-norm-hidden-rows` skips hidden rows before parsing annual workbook system headers or equipment rows, so hidden retired equipment cannot create or update maintenance profiles
+- On 2026-05-07, targeted norm-import tests passed (`11/11`), app/core/tests format verification passed, and `phase7g-annual-norm-hidden-rows` passed verification build and `dotnet test` (`335/335`); harness state is `WAITING_REVIEW`
 
 ## 2026-05-05
 
@@ -102,7 +109,7 @@ Last updated: `2026-05-07`
 - Production-calendar years are persisted in `KbConfig.ProductionCalendarYears`; built-in `2025`/`2026` defaults are preserved and future years are added through UI or PDF/JSON import
 - Production-calendar import is separate from the legacy Excel `v3` database exchange and from the yearly ТО source workbook
 - Missing production-calendar years should guide the user to `Файл -> Производственный календарь...` or PDF/JSON import instead of requiring a code change
-- There is no approved `Phase 7G` in `Roadmap.md`; new work after `Phase 7F` must be defined and accepted before implementation
+- `Phase 7G` is now used for the narrow annual norm import hidden-row fix; broader new work after that still must be explicitly defined and accepted before implementation
 - Documentation distillation must update the full handoff harness and public-facing project docs when branch/phase state changes, not only `docs/codex-handoff.md`
 
 ## 2026-04-30

@@ -132,6 +132,129 @@ public class KnowledgeBaseMaintenanceScheduleNormImportServiceTests
     }
 
     [Fact]
+    public void ImportWorkbook_AnnualSourceDisablesCurrentWorkshopProfilesMissingFromWorkbook()
+    {
+        var roots = CreateWorkshopRootsWithTwoCabinets(
+            systemInventoryNumber: "SYS-01",
+            firstEquipmentName: "ШУ 1",
+            secondEquipmentName: "ШУ 2");
+        byte[] workbookBytes = BuildWorkbook(
+            ("КЦ (2)", CreateAnnualRows(
+                "Система 1",
+                "SYS-01",
+                "ШУ 1",
+                monthWorkCells: new[] { (5, "ТО1/2") })));
+
+        KnowledgeBaseMaintenanceScheduleNormImportResult result = _service.ImportWorkbook(
+            workbookBytes,
+            roots,
+            new[]
+            {
+                new KbMaintenanceScheduleProfile
+                {
+                    MaintenanceProfileId = "maintenance-cabinet-1",
+                    OwnerNodeId = "cabinet-1",
+                    IsIncludedInSchedule = true,
+                    To1Hours = 1
+                },
+                new KbMaintenanceScheduleProfile
+                {
+                    MaintenanceProfileId = "maintenance-cabinet-2",
+                    OwnerNodeId = "cabinet-2",
+                    IsIncludedInSchedule = true,
+                    To2Hours = 7
+                }
+            });
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.UnresolvedEntries);
+        Assert.Equal(1, result.UpdatedProfileCount);
+        Assert.Equal(1, result.DisabledMissingProfileCount);
+
+        KbMaintenanceScheduleProfile importedProfile = Assert.Single(
+            result.MaintenanceScheduleProfiles,
+            static profile => profile.OwnerNodeId == "cabinet-1");
+        KbMaintenanceScheduleProfile missingProfile = Assert.Single(
+            result.MaintenanceScheduleProfiles,
+            static profile => profile.OwnerNodeId == "cabinet-2");
+        Assert.True(importedProfile.IsIncludedInSchedule);
+        Assert.False(missingProfile.IsIncludedInSchedule);
+    }
+
+    [Fact]
+    public void ImportWorkbook_SkipsHiddenAnnualRows()
+    {
+        IReadOnlyList<KbNode> roots =
+        [
+            new KbNode
+            {
+                NodeId = "department-1",
+                Name = "Department",
+                NodeType = KbNodeType.Department,
+                Children =
+                {
+                    new KbNode
+                    {
+                        NodeId = "system-1",
+                        Name = "System",
+                        NodeType = KbNodeType.System,
+                        Details = new KbNodeDetails
+                        {
+                            InventoryNumber = "SYS-01"
+                        },
+                        Children =
+                        {
+                            new KbNode
+                            {
+                                NodeId = "active-cabinet",
+                                Name = "Active Cabinet",
+                                NodeType = KbNodeType.Cabinet
+                            },
+                            new KbNode
+                            {
+                                NodeId = "obsolete-cabinet",
+                                Name = "Obsolete Cabinet",
+                                NodeType = KbNodeType.Cabinet
+                            }
+                        }
+                    }
+                }
+            }
+        ];
+
+        var rows = CreateAnnualRows(
+            "System",
+            "SYS-01",
+            "Active Cabinet",
+            monthWorkCells: Array.Empty<(int Month, string WorkCellValue)>()).ToList();
+        rows[^1] = CreateRow(
+            17,
+            (2, "Active Cabinet"),
+            (GetAnnualPlanColumnIndex(5), "\u0422\u041e1/7"));
+        rows.Add(CreateHiddenRow(
+            18,
+            (2, "Obsolete Cabinet"),
+            (GetAnnualPlanColumnIndex(5), "\u0422\u041e3/99")));
+
+        byte[] workbookBytes = BuildWorkbook(("Annual", rows));
+
+        KnowledgeBaseMaintenanceScheduleNormImportResult result = _service.ImportWorkbook(
+            workbookBytes,
+            roots,
+            Array.Empty<KbMaintenanceScheduleProfile>());
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.UnresolvedEntries);
+        Assert.Equal(1, result.ImportedEquipmentCount);
+
+        KbMaintenanceScheduleProfile profile = Assert.Single(result.MaintenanceScheduleProfiles);
+        Assert.Equal("active-cabinet", profile.OwnerNodeId);
+        Assert.Equal(7, profile.To1Hours);
+        Assert.Equal(0, profile.To2Hours);
+        Assert.Equal(0, profile.To3Hours);
+    }
+
+    [Fact]
     public void ImportWorkbook_WhenNameMatchIsAmbiguous_LeavesEntryUnresolved()
     {
         var roots = new[]
@@ -357,6 +480,178 @@ public class KnowledgeBaseMaintenanceScheduleNormImportServiceTests
         Assert.Equal(10, profile.To3Hours);
     }
 
+    [Fact]
+    public void ImportWorkbook_MapsSystemInventoryAnnualRowToSingleChildProfile()
+    {
+        IReadOnlyList<KbNode> roots = CreateWorkshopRootsWithSystemName(
+            systemInventoryNumber: "69439",
+            equipmentName: "ШУ",
+            systemName: "АСУ линии пакетирования MOLLERS");
+
+        byte[] workbookBytes = BuildWorkbook(
+            ("КЦ (2)", CreateAnnualRows(
+                "АСУ линии фасовки HAVER.",
+                "PARENT",
+                "АСУ линии пакетирования MOLLERS.",
+                monthWorkCells: new[] { (5, "ТО2/14") },
+                equipmentInventoryNumber: "69439")));
+
+        KnowledgeBaseMaintenanceScheduleNormImportResult result = _service.ImportWorkbook(
+            workbookBytes,
+            roots,
+            Array.Empty<KbMaintenanceScheduleProfile>());
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.UnresolvedEntries);
+        Assert.Equal(1, result.ImportedEquipmentCount);
+        Assert.Equal(1, result.MatchedByInventoryCount);
+
+        KbMaintenanceScheduleProfile profile = Assert.Single(result.MaintenanceScheduleProfiles);
+        Assert.Equal("cabinet-1", profile.OwnerNodeId);
+        Assert.Equal(14, profile.To2Hours);
+    }
+
+    [Fact]
+    public void ImportWorkbook_PrefersSpecificParentheticalNameBeforeLooseVariant()
+    {
+        IReadOnlyList<KbNode> roots =
+        [
+            new KbNode
+            {
+                NodeId = "department-1",
+                Name = "Медное отделение",
+                NodeType = KbNodeType.Department,
+                Children =
+                {
+                    new KbNode
+                    {
+                        NodeId = "system-1",
+                        Name = "АСУ установкой получения МДК",
+                        NodeType = KbNodeType.System,
+                        Details = new KbNodeDetails { InventoryNumber = "052124" },
+                        Children =
+                        {
+                            new KbNode
+                            {
+                                NodeId = "mdk",
+                                Name = "АРМ оператора (MDK)",
+                                NodeType = KbNodeType.Cabinet
+                            },
+                            new KbNode
+                            {
+                                NodeId = "mldcuporos",
+                                Name = "АРМ оператора (MLDCUPOROS)",
+                                NodeType = KbNodeType.Cabinet
+                            }
+                        }
+                    }
+                }
+            }
+        ];
+
+        byte[] workbookBytes = BuildWorkbook(
+            ("КЦ (2)", CreateAnnualRows(
+                "АСУ установкой получения МДК",
+                "052124",
+                "АРМ оператора (MDK). АСУ установкой получения МДК",
+                monthWorkCells: new[] { (5, "ТО1/5") })));
+
+        KnowledgeBaseMaintenanceScheduleNormImportResult result = _service.ImportWorkbook(
+            workbookBytes,
+            roots,
+            Array.Empty<KbMaintenanceScheduleProfile>());
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.UnresolvedEntries);
+
+        KbMaintenanceScheduleProfile profile = Assert.Single(result.MaintenanceScheduleProfiles);
+        Assert.Equal("mdk", profile.OwnerNodeId);
+        Assert.Equal(5, profile.To1Hours);
+    }
+
+    [Fact]
+    public void ImportWorkbook_DoesNotAggregateSameSystemInventoryAcrossDifferentSystemNames()
+    {
+        IReadOnlyList<KbNode> roots =
+        [
+            new KbNode
+            {
+                NodeId = "department-1",
+                Name = "Склад сырьевой серной кислоты",
+                NodeType = KbNodeType.Department,
+                Children =
+                {
+                    new KbNode
+                    {
+                        NodeId = "system-main",
+                        Name = "АСУ склада сырьевой серной кислоты.",
+                        NodeType = KbNodeType.System,
+                        Details = new KbNodeDetails { InventoryNumber = "72001" },
+                        Children =
+                        {
+                            new KbNode
+                            {
+                                NodeId = "main-antiseptic",
+                                Name = "ЩУ участка антисептика",
+                                NodeType = KbNodeType.Cabinet
+                            }
+                        }
+                    },
+                    new KbNode
+                    {
+                        NodeId = "system-paz",
+                        Name = "АСУ противоаварийной защиты подразделений КЦ",
+                        NodeType = KbNodeType.System,
+                        Details = new KbNodeDetails { InventoryNumber = "72001" },
+                        Children =
+                        {
+                            new KbNode
+                            {
+                                NodeId = "paz-antiseptic",
+                                Name = "ЩУ участка антисептика",
+                                NodeType = KbNodeType.Cabinet
+                            }
+                        }
+                    }
+                }
+            }
+        ];
+
+        byte[] workbookBytes = BuildWorkbook(
+            ("КЦ (2)", CreateAnnualRows(
+                "АСУ склада сырьевой серной кислоты.",
+                "72001",
+                "ЩУ участка антисептика",
+                monthWorkCells: new[] { (5, "ТО1/2") })
+                .Concat(CreateAnnualRows(
+                    "АСУ противоаварийной защиты подразделений КЦ",
+                    "72001",
+                    "ЩУ участка антисептика",
+                    monthWorkCells: new[] { (5, "ТО2/3") })
+                    .Skip(4)
+                    .Select(row => row with { RowIndex = row.RowIndex + 10 }))
+                .ToArray()));
+
+        KnowledgeBaseMaintenanceScheduleNormImportResult result = _service.ImportWorkbook(
+            workbookBytes,
+            roots,
+            Array.Empty<KbMaintenanceScheduleProfile>());
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.UnresolvedEntries);
+        Assert.Equal(2, result.ImportedEquipmentCount);
+        Assert.Equal(2, result.CreatedProfileCount);
+
+        KbMaintenanceScheduleProfile mainProfile = Assert.Single(
+            result.MaintenanceScheduleProfiles,
+            profile => profile.OwnerNodeId == "main-antiseptic");
+        KbMaintenanceScheduleProfile pazProfile = Assert.Single(
+            result.MaintenanceScheduleProfiles,
+            profile => profile.OwnerNodeId == "paz-antiseptic");
+        Assert.Equal(2, mainProfile.To1Hours);
+        Assert.Equal(3, pazProfile.To2Hours);
+    }
+
     private static IReadOnlyList<KbNode> CreateWorkshopRoots(
         string systemInventoryNumber,
         string equipmentName,
@@ -429,6 +724,50 @@ public class KnowledgeBaseMaintenanceScheduleNormImportServiceTests
                             {
                                 NodeId = "cabinet-1",
                                 Name = equipmentName,
+                                NodeType = KbNodeType.Cabinet
+                            }
+                        }
+                    }
+                }
+            }
+        ];
+    }
+
+    private static IReadOnlyList<KbNode> CreateWorkshopRootsWithTwoCabinets(
+        string systemInventoryNumber,
+        string firstEquipmentName,
+        string secondEquipmentName)
+    {
+        return
+        [
+            new KbNode
+            {
+                NodeId = "department-1",
+                Name = "Отделение 1",
+                NodeType = KbNodeType.Department,
+                Children =
+                {
+                    new KbNode
+                    {
+                        NodeId = "system-1",
+                        Name = "Система 1",
+                        NodeType = KbNodeType.System,
+                        Details = new KbNodeDetails
+                        {
+                            InventoryNumber = systemInventoryNumber
+                        },
+                        Children =
+                        {
+                            new KbNode
+                            {
+                                NodeId = "cabinet-1",
+                                Name = firstEquipmentName,
+                                NodeType = KbNodeType.Cabinet
+                            },
+                            new KbNode
+                            {
+                                NodeId = "cabinet-2",
+                                Name = secondEquipmentName,
                                 NodeType = KbNodeType.Cabinet
                             }
                         }
@@ -533,6 +872,9 @@ public class KnowledgeBaseMaintenanceScheduleNormImportServiceTests
     private static TestRow CreateRow(uint rowIndex, params (int ColumnIndex, string Value)[] cells) =>
         new(rowIndex, cells);
 
+    private static TestRow CreateHiddenRow(uint rowIndex, params (int ColumnIndex, string Value)[] cells) =>
+        new(rowIndex, cells, IsHidden: true);
+
     private static byte[] BuildWorkbook(params (string SheetName, IReadOnlyList<TestRow> Rows)[] sheets)
     {
         using var stream = new MemoryStream();
@@ -551,6 +893,9 @@ public class KnowledgeBaseMaintenanceScheduleNormImportServiceTests
                 foreach (TestRow row in rows.OrderBy(static row => row.RowIndex))
                 {
                     var worksheetRow = new Row { RowIndex = row.RowIndex };
+                    if (row.IsHidden)
+                        worksheetRow.Hidden = true;
+
                     foreach ((int columnIndex, string value) in row.Cells.OrderBy(static cell => cell.ColumnIndex))
                         worksheetRow.Append(CreateInlineStringCell(columnIndex, row.RowIndex, value));
 
@@ -598,5 +943,8 @@ public class KnowledgeBaseMaintenanceScheduleNormImportServiceTests
         return name;
     }
 
-    private sealed record TestRow(uint RowIndex, IReadOnlyList<(int ColumnIndex, string Value)> Cells);
+    private sealed record TestRow(
+        uint RowIndex,
+        IReadOnlyList<(int ColumnIndex, string Value)> Cells,
+        bool IsHidden = false);
 }

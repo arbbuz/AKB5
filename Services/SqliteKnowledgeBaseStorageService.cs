@@ -9,7 +9,7 @@ namespace AsutpKnowledgeBase.Services
 {
     public sealed class SqliteKnowledgeBaseStorageService : IKnowledgeBaseStorageService
     {
-        public const int CurrentDatabaseSchemaVersion = 3;
+        public const int CurrentDatabaseSchemaVersion = 4;
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -541,7 +541,40 @@ namespace AsutpKnowledgeBase.Services
             foreach (string statement in SchemaStatements)
                 ExecuteNonQuery(connection, transaction, statement);
 
+            EnsureMaintenanceYearScheduleHoursColumn(connection, transaction);
             ExecuteNonQuery(connection, transaction, $"PRAGMA user_version={CurrentDatabaseSchemaVersion};");
+        }
+
+        private static void EnsureMaintenanceYearScheduleHoursColumn(
+            SqliteConnection connection,
+            SqliteTransaction? transaction)
+        {
+            if (ColumnExists(connection, transaction, "maintenance_year_schedule_entries", "hours"))
+                return;
+
+            ExecuteNonQuery(
+                connection,
+                transaction,
+                "ALTER TABLE maintenance_year_schedule_entries ADD COLUMN hours INTEGER NOT NULL DEFAULT 0;");
+        }
+
+        private static bool ColumnExists(
+            SqliteConnection connection,
+            SqliteTransaction? transaction,
+            string tableName,
+            string columnName)
+        {
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = $"PRAGMA table_info({tableName});";
+            using SqliteDataReader reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                if (string.Equals(GetString(reader, "name"), columnName, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
         }
 
         private static void ClearData(SqliteConnection connection, SqliteTransaction transaction)
@@ -1117,13 +1150,14 @@ namespace AsutpKnowledgeBase.Services
                     connection,
                     transaction,
                     """
-                    INSERT INTO maintenance_year_schedule_entries (maintenance_profile_id, entry_order, month, work_kind)
-                    VALUES (@maintenance_profile_id, @entry_order, @month, @work_kind);
+                    INSERT INTO maintenance_year_schedule_entries (maintenance_profile_id, entry_order, month, work_kind, hours)
+                    VALUES (@maintenance_profile_id, @entry_order, @month, @work_kind, @hours);
                     """,
                     ("@maintenance_profile_id", profileId),
                     ("@entry_order", i),
                     ("@month", entries[i].Month),
-                    ("@work_kind", (int)entries[i].WorkKind));
+                    ("@work_kind", (int)entries[i].WorkKind),
+                    ("@hours", Math.Max(0, entries[i].Hours)));
             }
         }
 
@@ -1133,7 +1167,7 @@ namespace AsutpKnowledgeBase.Services
             Query(
                 connection,
                 """
-                SELECT month, work_kind
+                SELECT month, work_kind, hours
                 FROM maintenance_year_schedule_entries
                 WHERE maintenance_profile_id = @maintenance_profile_id
                 ORDER BY entry_order;
@@ -1141,7 +1175,8 @@ namespace AsutpKnowledgeBase.Services
                 static reader => new KbMaintenanceYearScheduleEntry
                 {
                     Month = GetInt(reader, "month"),
-                    WorkKind = ToEnum(GetInt(reader, "work_kind"), KbMaintenanceWorkKind.To1)
+                    WorkKind = ToEnum(GetInt(reader, "work_kind"), KbMaintenanceWorkKind.To1),
+                    Hours = GetInt(reader, "hours")
                 },
                 ("@maintenance_profile_id", profileId))
                 .ToList();
@@ -1849,6 +1884,7 @@ namespace AsutpKnowledgeBase.Services
                 entry_order INTEGER NOT NULL,
                 month INTEGER NOT NULL,
                 work_kind INTEGER NOT NULL,
+                hours INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY (maintenance_profile_id, entry_order),
                 FOREIGN KEY (maintenance_profile_id) REFERENCES maintenance_schedule_profiles(maintenance_profile_id) ON DELETE CASCADE
             );

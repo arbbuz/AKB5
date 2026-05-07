@@ -7,13 +7,14 @@
 - Entry point: `Program.cs`, which boots `MainForm`.
 - Current engineering mode: pragmatic refactoring and stabilization, not rewrite.
 - The active roadmap implementation branch is currently `to`; `main` remains the stable branch.
-- Roadmap phases `0` through `7F.1` are implemented on `to`; no `Phase 7G` exists in the approved roadmap.
+- Roadmap phases `0` through `7F.1` are implemented on `to`; local `Phase 7G` is the narrow `phase7g-annual-norm-hidden-rows` fix and is waiting for manual review.
 - `Phase 11. Object templates and equipment catalog` is accepted through `Phase 11G`; `Phase 11A. Equipment catalog model` passed manual review, `Phase 11B. Equipment catalog UI` is committed/pushed on `to`, `Phase 11C` / `Phase 11D` are accepted and committed/pushed on `to`, `Phase 11E` / `Phase 11F` are accepted and committed/pushed on `to`, and `Phase 11G. Template import/export` is accepted and committed/pushed on `to`. `Phase 12. Storage redesign, backups, snapshots, and change history` is accepted through `Phase 12S8. Change history` and committed/pushed on `to`.
-- Latest accepted follow-up: `phase7e-annual-norm-import` supports importing maintenance norms from annual workbooks with the same structure as `456.xlsx`; it passed verification and manual review.
+- Latest accepted follow-up: `phase7e-annual-norm-import` supports importing maintenance norms from annual workbooks with the same structure as `456.xlsx`; local `phase7g-annual-norm-hidden-rows` additionally skips hidden annual rows for retired equipment and passed verification, but still needs manual review.
 - Current builds default to SQLite single-file `.akb` storage with JSON import/export compatibility and first-launch migration from the legacy JSON database. Excel exchange is a separate import/export layer.
 - Current Excel implementation uses `DocumentFormat.OpenXml` and `WorkbookFormatVersion = 3`. Legacy `v1/v2` import is no longer supported.
 - CI now enforces `dotnet format --verify-no-changes` for the WinForms app, core library, and tests before `build`/`test`.
 - The active task context is always kept in `docs/codex-handoff.md`. Read it before planning changes; it is the source of truth for current completed phase, validation status, and next step.
+- Chat progress must stay semantic and short. Do not add separate narrative after transcript/tool items such as `Ran`, `Running`, or `Edited`; without an explicit request, only send brief progress statements and the final result.
 - The session knowledge harness is split by role:
   - `docs/codex-handoff.md` for current state
   - `docs/plans.md` for active plans
@@ -37,7 +38,7 @@
 ## Architecture boundaries
 
 - Do not rewrite WinForms into MVP/MVVM unless the task explicitly requires it.
-- Do not start a new implementation phase until the next roadmap task is explicitly defined.
+- Do not start another implementation phase until local `phase7g-annual-norm-hidden-rows` is manually reviewed and either accepted or redirected.
 - The SQLite plan is approved with choices `1A, 2B, 3A, 4A`: use `.akb`, confirm first-launch migration, create a post-migration JSON safety export, and do not support simultaneous multi-user editing in the first SQLite version.
 - Replace direct `JsonStorageService` dependencies through a storage abstraction before adding SQLite code; do not move Excel logic into storage services.
 - Keep WinForms-specific behavior in `Forms/` and `UiServices/`.
@@ -130,6 +131,13 @@ Use a short final report with these sections:
 - `Handoff updated`
 
 Be explicit about what was inspected, what was executed, and what was not verified.
+
+## User-visible communication and context budget
+
+- During implementation, user-visible updates must be short stage reports: current step, result, and next step.
+- Do not paste diagnostic commands, raw command transcripts, internal ids, owner mappings, large diffs, or code excerpts into chat unless the user explicitly asks for them.
+- Keep verbose logs, traces, and diagnostic details in `artifacts`; summarize only pass/fail status, key counts, changed files, and artifact paths.
+- If context usage is rising or a task needs heavy diagnostics, checkpoint the state and continue in a fresh/forked session instead of filling the chat.
 
 ## End-of-session handoff update rules
 

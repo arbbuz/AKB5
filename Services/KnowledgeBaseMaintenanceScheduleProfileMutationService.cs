@@ -218,7 +218,8 @@ namespace AsutpKnowledgeBase.Services
                 clones.Add(new KbMaintenanceYearScheduleEntry
                 {
                     Month = entry.Month,
-                    WorkKind = entry.WorkKind
+                    WorkKind = entry.WorkKind,
+                    Hours = Math.Max(0, entry.Hours)
                 });
             }
 

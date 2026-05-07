@@ -491,7 +491,8 @@ namespace AsutpKnowledgeBase
                     .Select(static entry => new KbMaintenanceYearScheduleEntry
                     {
                         Month = entry.Month,
-                        WorkKind = entry.WorkKind
+                        WorkKind = entry.WorkKind,
+                        Hours = entry.Hours
                     })
                     .ToList()
             };
@@ -512,6 +513,9 @@ namespace AsutpKnowledgeBase
 
             if (result.YearScheduleAppliedProfileCount > 0)
                 lines.Add($"Годовая раскладка обновлена: {result.YearScheduleAppliedProfileCount}");
+
+            if (result.DisabledMissingProfileCount > 0)
+                lines.Add($"Отключено отсутствующих в файле профилей: {result.DisabledMissingProfileCount}");
 
             if (result.UnresolvedEntries.Count > 0)
             {
