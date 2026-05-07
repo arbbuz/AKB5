@@ -652,6 +652,89 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
     }
 
     [Fact]
+    public void MoveNode_WhenLevelChanges_RebasesNodeMetadataAndRemovesUnsupportedTypedData()
+    {
+        var cabinet = new KbNode
+        {
+            NodeId = "cabinet-1",
+            Name = "ШУ",
+            LevelIndex = 3,
+            NodeType = KbNodeType.Cabinet,
+            Details = new KbNodeDetails
+            {
+                Description = "Описание оставить",
+                Location = "Старое место",
+                InventoryNumber = "OLD-INV",
+                PhotoPath = "old-photo.png",
+                IpAddress = "192.168.1.10",
+                SchemaLink = "old-schema"
+            }
+        };
+        var sourceSystem = new KbNode
+        {
+            NodeId = "system-1",
+            Name = "Система 1",
+            LevelIndex = 2,
+            NodeType = KbNodeType.System,
+            Children = { cabinet }
+        };
+        var department = new KbNode
+        {
+            NodeId = "department-1",
+            Name = "Отделение 1",
+            LevelIndex = 1,
+            NodeType = KbNodeType.Department,
+            Children = { sourceSystem }
+        };
+        var wrapperRoot = new KbNode
+        {
+            NodeId = "workshop-root",
+            Name = "Цех 1",
+            LevelIndex = 0,
+            NodeType = KbNodeType.WorkshopRoot,
+            Children = { department }
+        };
+        var session = CreateSession(
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Цех 1"] = new List<KbNode> { wrapperRoot }
+            });
+        session.ReplaceMaintenanceScheduleProfiles(
+        [
+            new KbMaintenanceScheduleProfile
+            {
+                OwnerNodeId = "cabinet-1",
+                IsIncludedInSchedule = true,
+                To1Hours = 2
+            }
+        ]);
+        var history = new UndoRedoService();
+        var controller = new KnowledgeBaseTreeController(session);
+        var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
+        var workflow = new KnowledgeBaseTreeMutationWorkflowService(session, sessionWorkflow, controller, history);
+
+        var result = workflow.MoveNode(
+            session.CurrentWorkshop,
+            cabinet,
+            oldParentNode: sourceSystem,
+            targetNode: department,
+            currentRoots: session.GetCurrentWorkshopNodes());
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(sourceSystem.Children);
+        Assert.Single(department.Children.Where(child => ReferenceEquals(child, cabinet)));
+        Assert.Equal(2, cabinet.LevelIndex);
+        Assert.Equal(KbNodeType.System, cabinet.NodeType);
+        Assert.Equal("Описание оставить", cabinet.Details.Description);
+        Assert.Equal(string.Empty, cabinet.Details.Location);
+        Assert.Equal(string.Empty, cabinet.Details.InventoryNumber);
+        Assert.Equal(string.Empty, cabinet.Details.PhotoPath);
+        Assert.Equal(string.Empty, cabinet.Details.IpAddress);
+        Assert.Equal(string.Empty, cabinet.Details.SchemaLink);
+        Assert.Empty(session.MaintenanceScheduleProfiles);
+    }
+
+    [Fact]
     public void Undo_RestoresPreviousSnapshot()
     {
         var root = new KbNode

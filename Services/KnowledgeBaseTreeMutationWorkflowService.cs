@@ -452,6 +452,7 @@ namespace AsutpKnowledgeBase.Services
                     "Не удалось переместить узел в новую позицию.");
             }
 
+            DeleteUnsupportedTypedDataForMovedSubtree(draggedNode, currentRoots);
             _history.SaveState(historySnapshot);
             return Success($"↕ Перемещено: {draggedNode.Name}", draggedNode);
         }
@@ -595,6 +596,75 @@ namespace AsutpKnowledgeBase.Services
                 .ToList();
             if (remainingMaintenanceScheduleProfiles.Count != _session.MaintenanceScheduleProfiles.Count)
                 _session.ReplaceMaintenanceScheduleProfiles(remainingMaintenanceScheduleProfiles);
+        }
+
+        private void DeleteUnsupportedTypedDataForMovedSubtree(KbNode movedRoot, IReadOnlyList<KbNode> currentRoots)
+        {
+            Dictionary<string, int> visibleLevelByNodeId = BuildVisibleLevelByNodeId(currentRoots);
+            HashSet<string> unsupportedNodeIds = CollectMovedSubtreeUnsupportedEngineeringNodeIds(
+                movedRoot,
+                visibleLevelByNodeId);
+            DeleteTypedDataForNodeIds(unsupportedNodeIds);
+        }
+
+        private static HashSet<string> CollectMovedSubtreeUnsupportedEngineeringNodeIds(
+            KbNode root,
+            IReadOnlyDictionary<string, int> visibleLevelByNodeId)
+        {
+            var nodeIds = new HashSet<string>(StringComparer.Ordinal);
+            CollectMovedSubtreeUnsupportedEngineeringNodeIdsRecursive(root, visibleLevelByNodeId, nodeIds);
+            return nodeIds;
+        }
+
+        private static void CollectMovedSubtreeUnsupportedEngineeringNodeIdsRecursive(
+            KbNode node,
+            IReadOnlyDictionary<string, int> visibleLevelByNodeId,
+            ISet<string> nodeIds)
+        {
+            string nodeId = node.NodeId?.Trim() ?? string.Empty;
+            int visibleLevel = visibleLevelByNodeId.TryGetValue(nodeId, out int value)
+                ? value
+                : Math.Max(1, node.LevelIndex);
+
+            if (!string.IsNullOrWhiteSpace(nodeId) &&
+                !KnowledgeBaseEngineeringNodeSupportService.SupportsEngineeringWorkspace(node.NodeType, visibleLevel))
+            {
+                nodeIds.Add(nodeId);
+            }
+
+            foreach (KbNode child in node.Children)
+                CollectMovedSubtreeUnsupportedEngineeringNodeIdsRecursive(child, visibleLevelByNodeId, nodeIds);
+        }
+
+        private static Dictionary<string, int> BuildVisibleLevelByNodeId(IEnumerable<KbNode> roots)
+        {
+            var levels = new Dictionary<string, int>(StringComparer.Ordinal);
+            CollectVisibleLevels(roots, visibleLevel: 1, levels);
+            return levels;
+        }
+
+        private static void CollectVisibleLevels(
+            IEnumerable<KbNode> nodes,
+            int visibleLevel,
+            IDictionary<string, int> levels)
+        {
+            foreach (KbNode node in nodes)
+            {
+                int currentVisibleLevel = GetEffectiveVisibleLevel(node, visibleLevel);
+                string nodeId = node.NodeId?.Trim() ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(nodeId))
+                    levels[nodeId] = currentVisibleLevel;
+
+                CollectVisibleLevels(node.Children, currentVisibleLevel + 1, levels);
+            }
+        }
+
+        private static int GetEffectiveVisibleLevel(KbNode node, int visibleLevel)
+        {
+            if (node.NodeType == KbNodeType.WorkshopRoot && node.LevelIndex == 0)
+                return Math.Max(0, visibleLevel - 1);
+
+            return visibleLevel;
         }
 
         private static HashSet<string> CollectSubtreeNodeIds(KbNode root)

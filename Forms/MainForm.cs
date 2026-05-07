@@ -52,6 +52,7 @@ namespace AsutpKnowledgeBase
         private ToolStripButton btnSave = null!;
         private ToolStripButton btnCollapseTree = null!;
         private ToolStripMenuItem menuFile = null!;
+        private ToolStripMenuItem menuMaintenance = null!;
         private ToolStripMenuItem menuNewWorkshop = null!;
         private ToolStripMenuItem menuRenameWorkshop = null!;
         private ToolStripMenuItem menuDeleteWorkshop = null!;

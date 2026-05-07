@@ -40,21 +40,47 @@ namespace AsutpKnowledgeBase.Services
 
         public static void NormalizeRuntimeSubtree(KbNode node, int levelIndex, KbNodeType? parentNodeType)
         {
+            NormalizeRuntimeSubtree(node, levelIndex, parentNodeType, rebaseHierarchyMetadata: false);
+        }
+
+        public static void NormalizeMovedRuntimeSubtree(KbNode node, int levelIndex, KbNodeType? parentNodeType)
+        {
+            NormalizeRuntimeSubtree(node, levelIndex, parentNodeType, rebaseHierarchyMetadata: true);
+        }
+
+        private static void NormalizeRuntimeSubtree(
+            KbNode node,
+            int levelIndex,
+            KbNodeType? parentNodeType,
+            bool rebaseHierarchyMetadata)
+        {
+            int previousLevelIndex = node.LevelIndex;
+            KbNodeType previousNodeType = node.NodeType;
+
             node.Name ??= string.Empty;
             node.NodeId = NormalizeRuntimeNodeId(node.NodeId);
             node.LevelIndex = levelIndex;
-            node.NodeType = ResolveNodeType(
-                node.NodeType,
-                node.Name,
-                levelIndex,
-                parentNodeType,
-                isWorkshopRootCandidate: parentNodeType == null && node.NodeType == KbNodeType.WorkshopRoot);
+            bool isWorkshopRootCandidate = parentNodeType == null && node.NodeType == KbNodeType.WorkshopRoot;
+            node.NodeType = rebaseHierarchyMetadata
+                ? ResolveHierarchyNodeType(levelIndex, parentNodeType, isWorkshopRootCandidate)
+                : ResolveNodeType(
+                    node.NodeType,
+                    node.Name,
+                    levelIndex,
+                    parentNodeType,
+                    isWorkshopRootCandidate);
             node.Details ??= new KbNodeDetails();
+            if (rebaseHierarchyMetadata &&
+                (previousLevelIndex != node.LevelIndex || previousNodeType != node.NodeType))
+            {
+                ClearLevelScopedDetails(node.Details);
+            }
+
             NormalizeTechnicalFields(node);
             node.Children ??= new List<KbNode>();
 
             foreach (var child in node.Children)
-                NormalizeRuntimeSubtree(child, levelIndex + 1, node.NodeType);
+                NormalizeRuntimeSubtree(child, levelIndex + 1, node.NodeType, rebaseHierarchyMetadata);
         }
 
         public static KbNodeType ResolveNodeType(
@@ -89,6 +115,26 @@ namespace AsutpKnowledgeBase.Services
 
             if (LooksLikeDepartment(normalizedName))
                 return KbNodeType.Department;
+
+            if (parentNodeType.HasValue)
+                return GetChildFallbackType(parentNodeType.Value, levelIndex);
+
+            return levelIndex switch
+            {
+                <= 1 => KbNodeType.Department,
+                2 => KbNodeType.System,
+                3 => KbNodeType.Cabinet,
+                _ => KbNodeType.Device
+            };
+        }
+
+        private static KbNodeType ResolveHierarchyNodeType(
+            int levelIndex,
+            KbNodeType? parentNodeType,
+            bool isWorkshopRootCandidate)
+        {
+            if (isWorkshopRootCandidate)
+                return KbNodeType.WorkshopRoot;
 
             if (parentNodeType.HasValue)
                 return GetChildFallbackType(parentNodeType.Value, levelIndex);
@@ -190,6 +236,15 @@ namespace AsutpKnowledgeBase.Services
 
             node.Details.IpAddress = string.Empty;
             node.Details.SchemaLink = string.Empty;
+        }
+
+        private static void ClearLevelScopedDetails(KbNodeDetails details)
+        {
+            details.Location = string.Empty;
+            details.InventoryNumber = string.Empty;
+            details.PhotoPath = string.Empty;
+            details.IpAddress = string.Empty;
+            details.SchemaLink = string.Empty;
         }
 
         private static bool IsKnownNodeType(KbNodeType nodeType) =>

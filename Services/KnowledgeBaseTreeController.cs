@@ -91,7 +91,7 @@ namespace AsutpKnowledgeBase.Services
             if (!removed)
                 return false;
 
-            service.AddChildNode(targetNode, draggedNode);
+            service.AddChildNode(targetNode, draggedNode, rebaseHierarchyMetadata: true);
             return true;
         }
 

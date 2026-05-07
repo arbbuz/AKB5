@@ -37,6 +37,7 @@ namespace AsutpKnowledgeBase
             };
 
             menuFile = new ToolStripMenuItem("📃 Файл");
+            menuMaintenance = new ToolStripMenuItem("🗓 ТО");
             menuNewWorkshop = new ToolStripMenuItem("🏭 Новый цех", null, BtnAddWorkshop_Click);
             menuDeleteWorkshop = new ToolStripMenuItem("🗑 Удалить цех", null, BtnDeleteWorkshop_Click);
             menuRenameWorkshop = new ToolStripMenuItem("✏️ Переименовать цех", null, BtnRenameWorkshop_Click);
@@ -88,20 +89,26 @@ namespace AsutpKnowledgeBase
                 menuCompareSnapshots,
                 menuBrowseChangeHistory,
                 menuImportExcel,
-                menuExportExcel,
-                new ToolStripSeparator(),
+                menuExportExcel
+            });
+
+            menuMaintenance.DropDownItems.AddRange(new ToolStripItem[]
+            {
                 menuImportMaintenanceNorms,
                 menuEditMaintenanceYearScheduleSource,
                 menuExportMaintenanceYearScheduleSource,
                 menuImportMaintenanceYearScheduleSource,
+                new ToolStripSeparator(),
                 menuEditProductionCalendar,
                 menuImportProductionCalendarPdf,
                 menuImportProductionCalendar,
+                new ToolStripSeparator(),
                 menuExportMaintenanceMonthWorkbook,
                 menuExportMaintenanceYearWorkbook,
                 menuRecalculateMaintenanceYearWorkbook
             });
             toolStrip.Items.Add(menuFile);
+            toolStrip.Items.Add(menuMaintenance);
             toolStrip.Items.Add(new ToolStripSeparator());
 
             btnSave = new ToolStripButton("💾 Сохранить") { ToolTipText = "Сохранить базу данных" };

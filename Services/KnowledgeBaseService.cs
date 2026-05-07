@@ -27,9 +27,16 @@ namespace AsutpKnowledgeBase.Services
             _workshops[workshopName].Add(node);
         }
 
-        public void AddChildNode(KbNode parentNode, KbNode childNode)
+        public void AddChildNode(KbNode parentNode, KbNode childNode, bool rebaseHierarchyMetadata = false)
         {
-            ReindexSubtree(childNode, parentNode.LevelIndex + 1, parentNode.NodeType);
+            if (rebaseHierarchyMetadata)
+                KnowledgeBaseNodeMetadataService.NormalizeMovedRuntimeSubtree(
+                    childNode,
+                    parentNode.LevelIndex + 1,
+                    parentNode.NodeType);
+            else
+                ReindexSubtree(childNode, parentNode.LevelIndex + 1, parentNode.NodeType);
+
             parentNode.Children.Add(childNode);
         }
 

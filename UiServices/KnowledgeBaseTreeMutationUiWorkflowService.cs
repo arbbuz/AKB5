@@ -324,6 +324,16 @@ namespace AsutpKnowledgeBase.UiServices
             if (targetNode.Tag is not KbNode targetData || draggedNode.Tag is not KbNode draggedData)
                 return;
 
+            DialogResult confirmation = MessageBox.Show(
+                context.Owner,
+                $"Переместить объект \"{draggedData.Name}\" в \"{targetData.Name}\"?\n\nИерархия объектов будет изменена.",
+                "Подтверждение перемещения",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button2);
+            if (confirmation != DialogResult.Yes)
+                return;
+
             var expandedNodes = context.CaptureExpandedNodes();
             var result = _treeMutationWorkflowService.MoveNode(
                 context.CurrentWorkshop,
