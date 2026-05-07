@@ -1,6 +1,6 @@
 # Decision Log
 
-Last updated: `2026-05-06`
+Last updated: `2026-05-07`
 
 ## 2026-05-06
 
@@ -32,6 +32,40 @@ Last updated: `2026-05-06`
 - After manual review found an empty preview with an inactive `Применить` button in the apply-object-template dialog, the dialog now selects the first template explicitly, rebuilds the preview when shown, displays no-change/failure text, and `phase11g-template-import-export-apply-preview-ui-fix` passed verification build and `dotnet test` (`302/302`) using isolated output paths
 - The user confirmed manual review of `Phase 11G`; it is accepted and committed locally, while push is deferred until the user asks
 - `Phase 12. Backup, snapshots, and change history` is now the active approved roadmap step
+- Local `Phase 12A` creates a timestamped JSON snapshot in `.akb-snapshots` before overwriting an existing database file, preserves the existing `.bak` fallback copy, and aborts save without overwriting if the snapshot cannot be created
+- On 2026-05-06, app/core/tests format verification passed, targeted JSON storage/snapshot tests passed (`12/12`), and `phase12a-automatic-json-snapshots` passed verification build and `dotnet test` (`306/306`) using isolated output paths; local `Phase 12A` is now treated as verified prototype work paused before commit while storage moves to SQLite
+
+## 2026-05-07
+
+- Local `Phase 12B` adds `Файл -> Создать снимок базы...`, requires a user note, writes the current in-memory JSON state to `.akb-snapshots` without changing the main JSON file, and stores note/source/timestamp/size in a `.meta.json` sidecar for future snapshot browser/restore work
+- On 2026-05-07, app/core/tests format verification passed, targeted JSON storage/snapshot/file-workflow tests passed (`22/22`), and `phase12b-manual-json-snapshots` passed verification build and `dotnet test` (`309/309`) using isolated output paths; local `Phase 12B` is carried into the `Phase 12C` review stack and must not be committed/pushed before acceptance
+- Local `Phase 12C` adds `Файл -> Просмотреть снимки базы...` and a read-only snapshot browser that lists current database snapshots from `.akb-snapshots` with date, type, snapshot file, source file, size, and note
+- `Phase 12C` reads manual snapshot notes from `.meta.json` sidecars and derives fallback date/type/source/size for automatic snapshots that have no metadata sidecar
+- On 2026-05-07, app/core/tests format verification passed, targeted JSON storage/snapshot/file-workflow tests passed (`25/25`), and `phase12c-snapshot-browser` passed verification build and `dotnet test` (`312/312`) using isolated output paths; local `Phase 12C` is now treated as verified prototype work paused before commit while storage moves to SQLite
+- The chief developer rejected using a live JSON database in `Мои документы`; the approved target direction is SQLite single-file storage with JSON import/export compatibility and first-launch migration from the existing legacy JSON database
+- JSON-specific `Phase 12A` / `12B` / `12C` snapshot work is treated as verified local prototype work and is paused before commit; the SQLite storage implementation plan is approved in `docs/sqlite-storage-plan.md`
+- The proposed default live database path is `%LocalAppData%\AKB5\knowledge-base.akb`; the legacy `Мои документы\ASUTP_KnowledgeBase.json` file must remain untouched during first-launch migration
+- The chief developer approved the SQLite storage plan choices as `1A, 2B, 3A, 4A`: visible `.akb` extension, confirmation dialog before first-launch migration, automatic post-migration JSON safety export next to the new `.akb`, and no simultaneous multi-user editing support in the first SQLite version
+- With `Phase 12S0` approved, the next implementation step is `Phase 12S1. Storage abstraction`; SQLite code should not be added before direct `JsonStorageService` dependencies are moved behind an app-facing storage interface
+- Local `Phase 12S1` introduces `IKnowledgeBaseStorageService`, `KnowledgeBaseStorageLoadResult`, and `KnowledgeBaseStorageServiceFactory`; current JSON persistence remains the implementation behind the abstraction and no SQLite dependency is added in this slice
+- `KnowledgeBaseFileWorkflowService` now depends on `IKnowledgeBaseStorageService`, and `Forms` no longer creates `JsonStorageService` directly
+- On 2026-05-07, targeted storage/file-workflow/snapshot tests passed (`27/27`), app/core/tests format verification passed, and `phase12s1-storage-abstraction` passed verification build and `dotnet test` (`314/314`); harness state is `WAITING_REVIEW`
+- The user requested starting `Phase 12S2` after local `Phase 12S1` verification
+- Local `Phase 12S2` adds `Microsoft.Data.Sqlite` `8.0.13`, `KnowledgeBaseSqliteConnectionFactory`, and `SqliteKnowledgeBaseStorageService`; it creates SQLite schema version `1` and round-trips normalized `SavedData` through the storage abstraction without switching the UI default away from JSON
+- SQLite schema version `1` stores metadata, config, production calendars, workshops, nodes, typed records, maintenance profiles/year entries, catalog records/properties, object templates, and template nodes in dedicated tables
+- On 2026-05-07, targeted SQLite storage tests passed (`3/3`), targeted storage/file-workflow/snapshot tests passed (`30/30`), app/core/tests format verification passed, and `phase12s2-sqlite-schema-repository` passed verification build and `dotnet test` (`317/317`); harness state is `WAITING_REVIEW`
+- Local `Phase 12S3` adds first-launch migration from legacy `Мои документы\ASUTP_KnowledgeBase.json` to `%LocalAppData%\AKB5\knowledge-base.akb`; migration is offered only when the `.akb` file is missing and legacy JSON exists, requires user confirmation in the UI, leaves the JSON source unchanged, and writes a post-migration JSON safety export next to the `.akb`
+- On 2026-05-07, `phase12s3-first-launch-json-migration` passed verification build and `dotnet test` (`322/322`); harness state is `WAITING_REVIEW`
+- Local `Phase 12S4` switches the default live path to `.akb` through `KnowledgeBaseRoutedStorageService`, keeps legacy JSON readable by extension, updates open/save dialogs for `.akb`, and adds full database JSON import/export commands separate from catalog/template JSON exchange
+- On 2026-05-07, `phase12s4-database-file-ux-json-compatibility` passed verification build and `dotnet test` (`325/325`); harness state is `WAITING_REVIEW`
+- Local `Phase 12S5` stores SQLite snapshots inside the `.akb` database instead of `.akb-snapshots` sidecars for SQLite-backed storage; manual snapshots and automatic before-save snapshots write metadata and a normalized `SavedData` payload
+- On 2026-05-07, `phase12s5-sqlite-snapshots` passed verification build and `dotnet test` (`328/328`); harness state is `WAITING_REVIEW`
+- Local `Phase 12S6` restores a selected SQLite snapshot only after explicit confirmation, creates a protective `before-restore` snapshot first, reloads the UI from restored data, and leaves failed restores without replacing current data
+- On 2026-05-07, `phase12s6-snapshot-restore` passed verification build and `dotnet test` (`330/330`); harness state is `WAITING_REVIEW`
+- Local `Phase 12S7` adds snapshot comparison at summary level across high-value data areas and exposes it from the snapshot browser / `Файл -> Сравнить снимки...`
+- On 2026-05-07, `phase12s7-snapshot-comparison` passed verification build and `dotnet test` (`332/332`); harness state is `WAITING_REVIEW`
+- Local `Phase 12S8` adds SQLite change history records for save, migration, manual snapshot, restore, and catalog/template import, plus a read-only `Файл -> История изменений...` view for `.akb` databases; legacy JSON reports that history is unavailable
+- On 2026-05-07, `phase12s8-change-history` passed verification build and `dotnet test` (`333/333`); harness state is `WAITING_REVIEW`
 
 ## 2026-05-05
 

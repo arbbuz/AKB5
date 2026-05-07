@@ -58,6 +58,13 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem menuEditEquipmentCatalog = null!;
         private ToolStripMenuItem menuExportCatalogTemplates = null!;
         private ToolStripMenuItem menuImportCatalogTemplates = null!;
+        private ToolStripMenuItem menuExportDatabaseJson = null!;
+        private ToolStripMenuItem menuImportDatabaseJson = null!;
+        private ToolStripMenuItem menuCreateSnapshot = null!;
+        private ToolStripMenuItem menuBrowseSnapshots = null!;
+        private ToolStripMenuItem menuRestoreSnapshot = null!;
+        private ToolStripMenuItem menuCompareSnapshots = null!;
+        private ToolStripMenuItem menuBrowseChangeHistory = null!;
         private ToolStripMenuItem menuImportMaintenanceNorms = null!;
         private ToolStripMenuItem menuEditMaintenanceYearScheduleSource = null!;
         private ToolStripMenuItem menuExportMaintenanceYearScheduleSource = null!;
@@ -128,10 +135,10 @@ namespace AsutpKnowledgeBase
             AppIconProvider.Apply(this);
             _savedSplitterDistance = _windowLayoutStateService.LoadSplitterDistance();
             RestoreSavedWindowLayout();
-            var storageService = new JsonStorageService(GetDefaultJsonPath(), _appLogger);
+            var startupStorage = CreateStartupStorageService();
             var fileWorkflowService = new KnowledgeBaseFileWorkflowService(
                 _session,
-                storageService,
+                startupStorage.StorageService,
                 _appLogger);
             _excelUiWorkflowService = new KnowledgeBaseExcelUiWorkflowService(
                 new KnowledgeBaseExcelExchangeService(_appLogger));
@@ -153,12 +160,75 @@ namespace AsutpKnowledgeBase
                 _treeMutationWorkflowService);
             FormClosing += MainForm_FormClosing;
             _fileUiWorkflowService.LoadData(CreateFileUiWorkflowContext());
+            if (!string.IsNullOrWhiteSpace(startupStorage.StatusText))
+                SetLastActionText(startupStorage.StatusText);
         }
 
         private static string GetDefaultJsonPath() =>
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                "ASUTP_KnowledgeBase.json");
+            KnowledgeBaseStoragePaths.GetLegacyJsonPath();
+
+        private StartupStorageServiceSelection CreateStartupStorageService()
+        {
+            string defaultSqlitePath = KnowledgeBaseStoragePaths.GetDefaultSqlitePath();
+            string legacyJsonPath = GetDefaultJsonPath();
+            string startupPath = defaultSqlitePath;
+            string statusText = string.Empty;
+
+            var migrationService = new KnowledgeBaseFirstLaunchMigrationService(_appLogger);
+            KnowledgeBaseFirstLaunchMigrationPlan migrationPlan =
+                migrationService.CreatePlan(defaultSqlitePath, legacyJsonPath);
+
+            if (migrationPlan.ShouldOfferMigration)
+            {
+                DialogResult confirmation = MessageBox.Show(
+                    this,
+                    $"Найдена старая JSON-база:\n{legacyJsonPath}\n\n" +
+                    $"Перенести данные в новую базу SQLite?\n{defaultSqlitePath}\n\n" +
+                    "Старый JSON-файл останется без изменений.",
+                    "Переход на базу .akb",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                if (confirmation == DialogResult.Yes)
+                {
+                    KnowledgeBaseFirstLaunchMigrationResult migrationResult =
+                        migrationService.Migrate(migrationPlan);
+                    if (migrationResult.IsSuccess)
+                    {
+                        startupPath = defaultSqlitePath;
+                        statusText = $"База перенесена в .akb: {Path.GetFileName(defaultSqlitePath)}";
+                        MessageBox.Show(
+                            this,
+                            $"Миграция завершена.\n\nНовая база:\n{migrationResult.TargetSqlitePath}\n\n" +
+                            $"Контрольный JSON-экспорт:\n{migrationResult.SafetyJsonExportPath}",
+                            "Миграция базы",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Information);
+                    }
+                    else
+                    {
+                        startupPath = legacyJsonPath;
+                        statusText = "Миграция не выполнена; загружается старая JSON-база.";
+                        MessageBox.Show(
+                            this,
+                            $"Не удалось перенести базу в SQLite.\n\n{migrationResult.ErrorMessage}\n\n" +
+                            "Старый JSON-файл не изменён, приложение загрузит его как раньше.",
+                            "Ошибка миграции базы",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                    }
+                }
+                else
+                {
+                    startupPath = legacyJsonPath;
+                    statusText = "Миграция отложена; загружается старая JSON-база.";
+                }
+            }
+
+            return new StartupStorageServiceSelection(
+                KnowledgeBaseStorageServiceFactory.CreateFileStorage(startupPath, _appLogger),
+                statusText);
+        }
 
         private string CurrentDataPath => _fileUiWorkflowService.CurrentDataPath;
 
@@ -261,6 +331,13 @@ namespace AsutpKnowledgeBase
             menuEditEquipmentCatalog.Enabled = true;
             menuExportCatalogTemplates.Enabled = true;
             menuImportCatalogTemplates.Enabled = true;
+            menuExportDatabaseJson.Enabled = true;
+            menuImportDatabaseJson.Enabled = true;
+            menuCreateSnapshot.Enabled = !string.IsNullOrWhiteSpace(CurrentDataPath);
+            menuBrowseSnapshots.Enabled = !string.IsNullOrWhiteSpace(CurrentDataPath);
+            menuRestoreSnapshot.Enabled = !string.IsNullOrWhiteSpace(CurrentDataPath);
+            menuCompareSnapshots.Enabled = !string.IsNullOrWhiteSpace(CurrentDataPath);
+            menuBrowseChangeHistory.Enabled = !string.IsNullOrWhiteSpace(CurrentDataPath);
             menuImportMaintenanceNorms.Enabled = hasCurrentWorkshop;
             menuEditMaintenanceYearScheduleSource.Enabled = hasCurrentWorkshop;
             menuExportMaintenanceYearScheduleSource.Enabled = hasCurrentWorkshop;
@@ -499,5 +576,9 @@ namespace AsutpKnowledgeBase
         {
             public override string ToString() => DisplayText;
         }
+
+        private sealed record StartupStorageServiceSelection(
+            IKnowledgeBaseStorageService StorageService,
+            string StatusText);
     }
 }

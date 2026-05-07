@@ -1,8 +1,10 @@
 # Excel Workbook v3
 
+> Storage note: this document describes the legacy workbook `v3` exchange contract. The approved target storage direction is SQLite single-file storage; JSON remains a migration/import/export compatibility format, and workbook `v3` remains a separate legacy exchange layer.
+
 ## Назначение
 
-Workbook `v3` — это редактируемый `*.xlsx` exchange-формат между JSON storage и пользователем. JSON остаётся source of truth приложения, а workbook нужен для безопасного ручного редактирования в Excel и обратного импорта.
+Workbook `v3` — это редактируемый `*.xlsx` exchange-формат между сохраненной базой и пользователем. В текущих сборках он работает через JSON/SavedData compatibility boundary; после перехода на SQLite он должен остаться безопасным ручным exchange-форматом, а не live-хранилищем приложения.
 
 Legacy workbook `v1/v2` больше не поддерживаются.
 

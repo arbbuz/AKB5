@@ -65,6 +65,134 @@ public class JsonStorageServiceTests
     }
 
     [Fact]
+    public void Save_WhenFileAlreadyExists_CreatesTimestampedSnapshotBeforeOverwrite()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "kb.json");
+            var snapshotService = new KnowledgeBaseSnapshotService(
+                () => new DateTimeOffset(2026, 5, 6, 12, 30, 0, 0, TimeSpan.Zero));
+            var service = new JsonStorageService(path, snapshotService: snapshotService);
+
+            Assert.True(service.Save(CreateSampleData(lastWorkshop: "Первый"), out _));
+            Assert.True(service.Save(CreateSampleData(lastWorkshop: "Второй"), out _));
+
+            string snapshotDirectory = Path.Combine(tempDirectory, KnowledgeBaseSnapshotService.SnapshotDirectoryName);
+            string snapshotPath = Assert.Single(Directory.GetFiles(snapshotDirectory, "*.json"));
+            SavedData snapshotData = JsonSerializer.Deserialize<SavedData>(File.ReadAllText(snapshotPath))!;
+            SavedData currentData = JsonSerializer.Deserialize<SavedData>(File.ReadAllText(path))!;
+
+            Assert.Equal("Первый", snapshotData.LastWorkshop);
+            Assert.Equal("Второй", currentData.LastWorkshop);
+            Assert.Equal("kb.20260506-123000-000Z.before-save.json", Path.GetFileName(snapshotPath));
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Save_WhenSnapshotCannotBeCreated_DoesNotOverwriteExistingFile()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "kb.json");
+            var service = new JsonStorageService(path);
+
+            Assert.True(service.Save(CreateSampleData(lastWorkshop: "Первый"), out _));
+            File.WriteAllText(
+                Path.Combine(tempDirectory, KnowledgeBaseSnapshotService.SnapshotDirectoryName),
+                "snapshot directory is blocked");
+
+            bool saved = service.Save(CreateSampleData(lastWorkshop: "Второй"), out string? errorMessage);
+            SavedData currentData = JsonSerializer.Deserialize<SavedData>(File.ReadAllText(path))!;
+
+            Assert.False(saved);
+            Assert.NotNull(errorMessage);
+            Assert.Equal("Первый", currentData.LastWorkshop);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void CreateManualSnapshot_WritesCurrentDataWithoutOverwritingSourceFile()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "kb.json");
+            var snapshotService = new KnowledgeBaseSnapshotService(
+                () => new DateTimeOffset(2026, 5, 6, 14, 0, 0, 0, TimeSpan.Zero));
+            var service = new JsonStorageService(path, snapshotService: snapshotService);
+
+            Assert.True(service.Save(CreateSampleData(lastWorkshop: "Сохранено"), out _));
+            KnowledgeBaseSnapshotCreateResult result =
+                service.CreateManualSnapshot(CreateSampleData(lastWorkshop: "В снимке"), "Контрольная точка");
+
+            Assert.True(result.IsSuccess, result.ErrorMessage);
+            SavedData currentData = JsonSerializer.Deserialize<SavedData>(File.ReadAllText(path))!;
+            SavedData snapshotData = JsonSerializer.Deserialize<SavedData>(File.ReadAllText(result.SnapshotPath))!;
+            KnowledgeBaseSnapshotMetadata metadata =
+                JsonSerializer.Deserialize<KnowledgeBaseSnapshotMetadata>(File.ReadAllText(result.MetadataPath))!;
+
+            Assert.Equal("Сохранено", currentData.LastWorkshop);
+            Assert.Equal("В снимке", snapshotData.LastWorkshop);
+            Assert.Equal("Контрольная точка", metadata.Note);
+            Assert.Equal("manual", metadata.Kind);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ListSnapshots_ReturnsEntriesForCurrentSavePath()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "kb.json");
+            DateTimeOffset snapshotTime = new(2026, 5, 6, 15, 0, 0, 0, TimeSpan.Zero);
+            var snapshotService = new KnowledgeBaseSnapshotService(() => snapshotTime);
+            var service = new JsonStorageService(path, snapshotService: snapshotService);
+
+            Assert.True(service.Save(CreateSampleData(lastWorkshop: "Первый"), out _));
+            snapshotTime = new DateTimeOffset(2026, 5, 6, 15, 30, 0, 0, TimeSpan.Zero);
+            Assert.True(service.Save(CreateSampleData(lastWorkshop: "Второй"), out _));
+            snapshotTime = new DateTimeOffset(2026, 5, 6, 16, 0, 0, 0, TimeSpan.Zero);
+            KnowledgeBaseSnapshotCreateResult manualResult =
+                service.CreateManualSnapshot(CreateSampleData(lastWorkshop: "Третий"), "Перед массовой правкой");
+
+            KnowledgeBaseSnapshotListResult result = service.ListSnapshots();
+
+            Assert.True(manualResult.IsSuccess, manualResult.ErrorMessage);
+            Assert.True(result.IsSuccess, result.ErrorMessage);
+            Assert.Equal(2, result.Snapshots.Count);
+            Assert.Contains(result.Snapshots, entry =>
+                entry.Kind == "before-save" &&
+                entry.SourcePath == Path.GetFullPath(path));
+            Assert.Contains(result.Snapshots, entry =>
+                entry.Kind == "manual" &&
+                entry.Note == "Перед массовой правкой");
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Load_WhenPrimaryFileIsBroken_FallsBackToBackup()
     {
         string tempDirectory = CreateTempDirectory();

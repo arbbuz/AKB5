@@ -318,6 +318,59 @@ public class KnowledgeBaseFileWorkflowServiceTests
         }
     }
 
+    [Fact]
+    public void Load_UsesStorageAbstraction()
+    {
+        var storage = new InMemoryKnowledgeBaseStorageService
+        {
+            SavePath = "memory.akb",
+            LoadResult = new KnowledgeBaseStorageLoadResult
+            {
+                Data = CreateAbstractionSampleData(lastWorkshop: "Workshop B"),
+                SourcePath = "memory.akb"
+            }
+        };
+        var session = new KnowledgeBaseSessionService();
+        var workflow = new KnowledgeBaseFileWorkflowService(session, storage);
+
+        var result = workflow.Load(createDefaultIfMissing: false, fallbackToDefaultOnError: false);
+
+        Assert.Equal(KnowledgeBaseFileLoadOutcome.LoadedExisting, result.Outcome);
+        Assert.Equal(1, storage.LoadCallCount);
+        Assert.Equal("Workshop B", session.CurrentWorkshop);
+        Assert.Equal("Workshop B", result.ViewState!.CurrentWorkshop);
+    }
+
+    [Fact]
+    public void Save_UsesStorageAbstraction()
+    {
+        var storage = new InMemoryKnowledgeBaseStorageService
+        {
+            SavePath = "memory.akb"
+        };
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(CreateAbstractionSampleData(lastWorkshop: "Workshop A"), recordAsSavedState: true);
+
+        var workflow = new KnowledgeBaseFileWorkflowService(session, storage)
+        {
+            SavePath = "changed.akb"
+        };
+        var currentRoots = new List<KbNode>
+        {
+            new() { Name = "Saved root", LevelIndex = 0 }
+        };
+
+        var result = workflow.Save(currentRoots);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("changed.akb", storage.SavePath);
+        Assert.Equal(1, storage.SaveCallCount);
+        Assert.NotNull(storage.LastSavedData);
+        Assert.Equal("Saved root", storage.LastSavedData!.Workshops["Workshop A"].Single().Name);
+        Assert.False(session.IsDirty);
+        Assert.False(session.RequiresSave);
+    }
+
     private static SavedData CreateSampleData(string lastWorkshop) =>
         new()
         {
@@ -342,10 +395,108 @@ public class KnowledgeBaseFileWorkflowServiceTests
             LastWorkshop = lastWorkshop
         };
 
+    private static SavedData CreateAbstractionSampleData(string lastWorkshop) =>
+        new()
+        {
+            SchemaVersion = SavedData.CurrentSchemaVersion,
+            Config = new KbConfig
+            {
+                MaxLevels = 2,
+                LevelNames = new List<string> { "Level 1", "Level 2" }
+            },
+            Workshops = new Dictionary<string, List<KbNode>>
+            {
+                ["Workshop A"] = new List<KbNode>
+                {
+                    new()
+                    {
+                        Name = "Line A",
+                        LevelIndex = 0
+                    }
+                },
+                ["Workshop B"] = new List<KbNode>()
+            },
+            LastWorkshop = lastWorkshop
+        };
+
     private static string CreateTempDirectory()
     {
         string path = Path.Combine(Path.GetTempPath(), $"asutp-file-workflow-tests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(path);
         return path;
+    }
+
+    private sealed class InMemoryKnowledgeBaseStorageService : IKnowledgeBaseStorageService
+    {
+        public string SavePath { get; set; } = string.Empty;
+
+        public KnowledgeBaseStorageLoadResult LoadResult { get; init; } =
+            new()
+            {
+                FileMissing = true
+            };
+
+        public int LoadCallCount { get; private set; }
+
+        public int SaveCallCount { get; private set; }
+
+        public SavedData? LastSavedData { get; private set; }
+
+        public string? SaveErrorMessage { get; init; }
+
+        public KnowledgeBaseStorageLoadResult Load()
+        {
+            LoadCallCount++;
+            return LoadResult;
+        }
+
+        public bool Save(SavedData data, out string? errorMessage)
+        {
+            SaveCallCount++;
+            LastSavedData = data;
+            errorMessage = SaveErrorMessage;
+            return string.IsNullOrWhiteSpace(SaveErrorMessage);
+        }
+
+        public KnowledgeBaseSnapshotCreateResult CreateManualSnapshot(SavedData data, string note) =>
+            new()
+            {
+                IsSuccess = true
+            };
+
+        public KnowledgeBaseSnapshotListResult ListSnapshots() =>
+            new()
+            {
+                IsSuccess = true
+            };
+
+        public KnowledgeBaseSnapshotDataResult ReadSnapshotData(KnowledgeBaseSnapshotEntry snapshot) =>
+            new()
+            {
+                IsSuccess = true,
+                Data = LoadResult.Data
+            };
+
+        public KnowledgeBaseSnapshotRestoreResult RestoreSnapshot(KnowledgeBaseSnapshotEntry snapshot) =>
+            new()
+            {
+                IsSuccess = true,
+                RestoredData = LoadResult.Data
+            };
+
+        public KnowledgeBaseChangeLogAppendResult AppendChangeLog(
+            string actionKind,
+            string summary,
+            string details = "") =>
+            new()
+            {
+                IsSuccess = true
+            };
+
+        public KnowledgeBaseChangeLogListResult ListChangeLog() =>
+            new()
+            {
+                IsSuccess = true
+            };
     }
 }

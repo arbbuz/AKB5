@@ -147,6 +147,10 @@ namespace AsutpKnowledgeBase
             {
                 _session.ReplaceEquipmentCatalogItems(importResult.EquipmentCatalogItems);
                 _session.ReplaceObjectTemplates(importResult.ObjectTemplates);
+                _fileUiWorkflowService.AppendChangeLog(
+                    "catalog-template-import",
+                    "Импортированы каталог оборудования и шаблоны объектов.",
+                    $"+{importResult.AddedCatalogItemCount} зап. каталога, +{importResult.AddedTemplateCount} шабл.");
                 UpdateDirtyState();
                 UpdateUI(refreshSelectedNodeState: false);
             }

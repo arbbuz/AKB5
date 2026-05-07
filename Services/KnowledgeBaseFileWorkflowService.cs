@@ -44,6 +44,19 @@ namespace AsutpKnowledgeBase.Services
         public KnowledgeBaseSessionViewState? ViewState { get; init; }
     }
 
+    public class KnowledgeBaseSnapshotRestoreWorkflowResult
+    {
+        public bool IsSuccess { get; init; }
+
+        public string SnapshotPath { get; init; } = string.Empty;
+
+        public string ProtectiveSnapshotPath { get; init; } = string.Empty;
+
+        public string? ErrorMessage { get; init; }
+
+        public KnowledgeBaseSessionViewState? ViewState { get; init; }
+    }
+
     /// <summary>
     /// Координирует прикладные файловые сценарии поверх session-state и JSON-хранилища.
     /// Не зависит от UI, поэтому может тестироваться отдельно от формы.
@@ -52,12 +65,12 @@ namespace AsutpKnowledgeBase.Services
     {
         private readonly KnowledgeBaseSessionService _session;
         private readonly KnowledgeBaseSessionWorkflowService _sessionWorkflowService;
-        private readonly JsonStorageService _storage;
+        private readonly IKnowledgeBaseStorageService _storage;
         private readonly IAppLogger _logger;
 
         public KnowledgeBaseFileWorkflowService(
             KnowledgeBaseSessionService session,
-            JsonStorageService storage,
+            IKnowledgeBaseStorageService storage,
             IAppLogger? logger = null)
         {
             _session = session;
@@ -222,6 +235,101 @@ namespace AsutpKnowledgeBase.Services
         public KnowledgeBaseFileSaveResult Save(List<KbNode> currentRoots) =>
             SaveCore(currentRoots, emitWorkflowEvent: true);
 
+        public SavedData CreateSaveData(List<KbNode> currentRoots) =>
+            _session.CreateSaveData(currentRoots);
+
+        public KnowledgeBaseSnapshotCreateResult CreateManualSnapshot(
+            List<KbNode> currentRoots,
+            string note)
+        {
+            var data = _session.CreateSaveData(currentRoots);
+            var result = _storage.CreateManualSnapshot(data, note);
+
+            Log(
+                result.IsSuccess ? "FileWorkflowManualSnapshotCreated" : "FileWorkflowManualSnapshotFailed",
+                result.IsSuccess ? AppLogLevel.Information : AppLogLevel.Error,
+                result.IsSuccess
+                    ? "Manual knowledge base snapshot was created."
+                    : "Manual knowledge base snapshot creation failed.",
+                properties: CreateProperties(
+                    ("snapshotPath", result.SnapshotPath),
+                    ("metadataPath", result.MetadataPath),
+                    ("snapshotSizeBytes", result.SizeBytes),
+                    ("errorMessage", result.ErrorMessage),
+                    ("requiresSave", _session.RequiresSave)));
+
+            return result;
+        }
+
+        public KnowledgeBaseSnapshotListResult ListSnapshots()
+        {
+            var result = _storage.ListSnapshots();
+
+            Log(
+                result.IsSuccess ? "FileWorkflowSnapshotListSucceeded" : "FileWorkflowSnapshotListFailed",
+                result.IsSuccess ? AppLogLevel.Information : AppLogLevel.Error,
+                result.IsSuccess
+                    ? "Knowledge base snapshot list was read."
+                    : "Knowledge base snapshot list read failed.",
+                properties: CreateProperties(
+                    ("snapshotDirectoryPath", result.SnapshotDirectoryPath),
+                    ("snapshotCount", result.Snapshots.Count),
+                    ("errorMessage", result.ErrorMessage),
+                    ("requiresSave", _session.RequiresSave)));
+
+            return result;
+        }
+
+        public KnowledgeBaseSnapshotDataResult ReadSnapshotData(KnowledgeBaseSnapshotEntry snapshot) =>
+            _storage.ReadSnapshotData(snapshot);
+
+        public KnowledgeBaseSnapshotRestoreWorkflowResult RestoreSnapshot(KnowledgeBaseSnapshotEntry snapshot)
+        {
+            var result = _storage.RestoreSnapshot(snapshot);
+            if (result.IsSuccess && result.RestoredData != null)
+            {
+                _session.ApplyLoadedData(result.RestoredData, recordAsSavedState: true);
+                var successResult = new KnowledgeBaseSnapshotRestoreWorkflowResult
+                {
+                    IsSuccess = true,
+                    SnapshotPath = result.SnapshotPath,
+                    ProtectiveSnapshotPath = result.ProtectiveSnapshotPath,
+                    ViewState = BuildViewState()
+                };
+
+                Log(
+                    "FileWorkflowSnapshotRestoreSucceeded",
+                    AppLogLevel.Information,
+                    "Knowledge base snapshot was restored.",
+                    properties: CreateProperties(
+                        ("snapshotPath", successResult.SnapshotPath),
+                        ("protectiveSnapshotPath", successResult.ProtectiveSnapshotPath),
+                        ("requiresSave", _session.RequiresSave)));
+
+                return successResult;
+            }
+
+            var failureResult = new KnowledgeBaseSnapshotRestoreWorkflowResult
+            {
+                IsSuccess = false,
+                SnapshotPath = result.SnapshotPath,
+                ProtectiveSnapshotPath = result.ProtectiveSnapshotPath,
+                ErrorMessage = result.ErrorMessage
+            };
+
+            Log(
+                "FileWorkflowSnapshotRestoreFailed",
+                AppLogLevel.Error,
+                "Knowledge base snapshot restore failed.",
+                properties: CreateProperties(
+                    ("snapshotPath", failureResult.SnapshotPath),
+                    ("protectiveSnapshotPath", failureResult.ProtectiveSnapshotPath),
+                    ("errorMessage", failureResult.ErrorMessage),
+                    ("requiresSave", _session.RequiresSave)));
+
+            return failureResult;
+        }
+
         public KnowledgeBaseFileSaveResult ReplaceAllData(SavedData data)
         {
             string? schemaVersionError = KnowledgeBaseDataService.ValidateSupportedSchemaVersion(data.SchemaVersion);
@@ -267,6 +375,11 @@ namespace AsutpKnowledgeBase.Services
                     properties: CreateProperties(
                         ("requiresSave", _session.RequiresSave)));
 
+                _storage.AppendChangeLog(
+                    "import",
+                    "Данные базы заменены импортом.",
+                    $"Файл: {SavePath}");
+
                 return result;
             }
 
@@ -286,6 +399,15 @@ namespace AsutpKnowledgeBase.Services
 
             return failureResult;
         }
+
+        public KnowledgeBaseChangeLogAppendResult AppendChangeLog(
+            string actionKind,
+            string summary,
+            string details = "") =>
+            _storage.AppendChangeLog(actionKind, summary, details);
+
+        public KnowledgeBaseChangeLogListResult ListChangeLog() =>
+            _storage.ListChangeLog();
 
         private KnowledgeBaseFileSaveResult BuildReplaceAllDataValidationFailure(string errorMessage)
         {

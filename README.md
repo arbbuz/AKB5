@@ -8,7 +8,8 @@ Current direction of the project:
 
 - the left side is a physical object tree
 - the right side is a type-driven workspace resolved by `NodeType`
-- JSON remains the source of truth
+- current builds default to SQLite single-file `.akb` storage
+- JSON remains an import/export and first-launch migration compatibility format
 - Excel workbook `v3` remains a legacy transition exchange format
 - user-facing program UI is Russian-only
 
@@ -42,11 +43,21 @@ Implemented on `to`:
 - `Phase 11E` - save existing object subtree as a reusable object template, accepted and committed/pushed on `to`
 - `Phase 11F` - apply object templates to existing objects with preview, accepted and committed/pushed on `to`
 - `Phase 11G` - template/catalog JSON import/export, accepted after manual review and committed locally
+- local `Phase 12A` / `12B` / `12C` JSON snapshot prototype - verified locally, paused before commit while storage moves to SQLite
+- `Phase 12S0` - SQLite single-file storage redesign plan, approved with choices `1A, 2B, 3A, 4A`
+- local `Phase 12S1` - storage abstraction implemented and verified
+- local `Phase 12S2` - SQLite schema/repository implemented and verified
+- local `Phase 12S3` - first-launch JSON migration implemented and verified
+- local `Phase 12S4` - `.akb` database file UX and full JSON import/export implemented and verified
+- local `Phase 12S5` - SQLite-backed snapshots implemented and verified
+- local `Phase 12S6` - restore selected snapshot implemented and verified
+- local `Phase 12S7` - snapshot comparison implemented and verified
+- local `Phase 12S8` - change history implemented and waiting for manual review
 
 Next approved work:
 
 - no `Phase 7G` is approved in `Roadmap.md`
-- current active phase: `Phase 12. Backup, snapshots, and change history`
+- current gate: manual review of `Phase 12S8. Change history`
 - push local `Phase 11G` only if the user asks
 
 ## Data and persistence
@@ -70,7 +81,8 @@ Core persisted structures:
 
 Important persistence rules:
 
-- JSON is the primary source of truth
+- SQLite single-file `.akb` is the current target live storage format
+- JSON is the legacy persistence and full database import/export compatibility format
 - typed cross-links must use stable IDs, never node names or paths
 - Excel `v3` must stay readable during the transition
 
@@ -109,7 +121,7 @@ Current behavior:
 - large `ТО2` / `ТО3` occurrences can be split into assignments up to 8 hours across working days
 - manual annual placement is stored as per-profile `YearScheduleEntries`; empty entries keep deterministic fallback placement
 - yearly source exchange edits only `YearScheduleEntries` and does not change norms, inclusion flags, or calendar settings
-- generated maintenance workbooks are report artifacts; JSON remains the source of truth
+- generated maintenance workbooks are report artifacts; current builds default to `.akb` storage and keep JSON for import/export and migration compatibility
 - production-calendar years are configured in `Config.ProductionCalendarYears` through `Файл -> Производственный календарь...`, JSON import, or local PDF import
 - production-calendar JSON import accepts either `{ "ProductionCalendarYears": [...] }` or an array of year objects; each date must belong to its configured year
 - production-calendar PDF import uses the PDF text layer first and previews found working/non-working date changes before applying them

@@ -1,0 +1,1934 @@
+using System.Globalization;
+using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using AsutpKnowledgeBase.Models;
+using Microsoft.Data.Sqlite;
+
+namespace AsutpKnowledgeBase.Services
+{
+    public sealed class SqliteKnowledgeBaseStorageService : IKnowledgeBaseStorageService
+    {
+        public const int CurrentDatabaseSchemaVersion = 3;
+
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true
+        };
+
+        private static readonly JsonSerializerOptions SnapshotJsonOptions = new()
+        {
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            PropertyNameCaseInsensitive = true,
+            WriteIndented = false
+        };
+
+        private readonly KnowledgeBaseSqliteConnectionFactory _connectionFactory;
+        private readonly IAppLogger _logger;
+        private readonly Func<DateTimeOffset> _clock;
+
+        public SqliteKnowledgeBaseStorageService(
+            string savePath,
+            IAppLogger? logger = null,
+            KnowledgeBaseSqliteConnectionFactory? connectionFactory = null,
+            Func<DateTimeOffset>? clock = null)
+        {
+            SavePath = savePath;
+            _logger = logger ?? NullAppLogger.Instance;
+            _connectionFactory = connectionFactory ?? new KnowledgeBaseSqliteConnectionFactory();
+            _clock = clock ?? (() => DateTimeOffset.Now);
+        }
+
+        public string SavePath { get; set; }
+
+        public KnowledgeBaseStorageLoadResult Load()
+        {
+            if (!File.Exists(SavePath))
+            {
+                return new KnowledgeBaseStorageLoadResult
+                {
+                    FileMissing = true,
+                    SourcePath = SavePath
+                };
+            }
+
+            try
+            {
+                using var connection = _connectionFactory.OpenConnection(SavePath);
+                EnsureSchema(connection);
+
+                var data = LoadData(connection);
+                return new KnowledgeBaseStorageLoadResult
+                {
+                    Data = KnowledgeBaseDataService.NormalizeSavedData(data),
+                    SourcePath = SavePath
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.Log(
+                    "SqliteLoadFailed",
+                    AppLogLevel.Error,
+                    "SQLite database load failed.",
+                    ex,
+                    CreateProperties(("path", SavePath)));
+
+                return new KnowledgeBaseStorageLoadResult
+                {
+                    SourcePath = SavePath,
+                    ErrorMessage = ex.Message,
+                    PrimaryErrorMessage = ex.Message
+                };
+            }
+        }
+
+        public bool Save(SavedData data, out string? errorMessage)
+        {
+            errorMessage = null;
+            var normalizedData = KnowledgeBaseDataService.NormalizeSavedData(data);
+
+            try
+            {
+                string? directory = Path.GetDirectoryName(SavePath);
+                if (!string.IsNullOrWhiteSpace(directory))
+                    Directory.CreateDirectory(directory);
+
+                using var connection = _connectionFactory.OpenConnection(SavePath);
+                EnsureSchema(connection);
+                SavedData? previousData = HasExistingSavedData(connection)
+                    ? KnowledgeBaseDataService.NormalizeSavedData(LoadData(connection))
+                    : null;
+
+                using var transaction = connection.BeginTransaction();
+
+                if (previousData != null)
+                {
+                    InsertSnapshot(
+                        connection,
+                        transaction,
+                        previousData,
+                        "before-save",
+                        "Автоматический снимок перед сохранением.");
+                }
+
+                ClearData(connection, transaction);
+                SaveData(connection, transaction, normalizedData);
+                InsertChangeLog(
+                    connection,
+                    transaction,
+                    "save",
+                    "База сохранена.",
+                    $"Файл: {Path.GetFullPath(SavePath)}");
+
+                transaction.Commit();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = ex.Message;
+                _logger.Log(
+                    "SqliteSaveFailed",
+                    AppLogLevel.Error,
+                    "SQLite database save failed.",
+                    ex,
+                    CreateProperties(("path", SavePath)));
+                return false;
+            }
+        }
+
+        public KnowledgeBaseSnapshotCreateResult CreateManualSnapshot(SavedData data, string note)
+        {
+            if (string.IsNullOrWhiteSpace(SavePath))
+            {
+                return new KnowledgeBaseSnapshotCreateResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = "Не указан путь к SQLite-базе для создания снимка."
+                };
+            }
+
+            string normalizedNote = note?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(normalizedNote))
+            {
+                return new KnowledgeBaseSnapshotCreateResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = "Укажите примечание к снимку."
+                };
+            }
+
+            try
+            {
+                SavedData normalizedData = KnowledgeBaseDataService.NormalizeSavedData(data);
+                string? directory = Path.GetDirectoryName(SavePath);
+                if (!string.IsNullOrWhiteSpace(directory))
+                    Directory.CreateDirectory(directory);
+
+                using var connection = _connectionFactory.OpenConnection(SavePath);
+                using var transaction = connection.BeginTransaction();
+                EnsureSchema(connection, transaction);
+                KnowledgeBaseSnapshotCreateResult result = InsertSnapshot(
+                    connection,
+                    transaction,
+                    normalizedData,
+                    "manual",
+                    normalizedNote);
+                InsertChangeLog(
+                    connection,
+                    transaction,
+                    "manual-snapshot",
+                    "Создан ручной снимок базы.",
+                    normalizedNote);
+                transaction.Commit();
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.Log(
+                    "SqliteManualSnapshotFailed",
+                    AppLogLevel.Error,
+                    "SQLite manual snapshot creation failed.",
+                    ex,
+                    CreateProperties(("path", SavePath)));
+
+                return new KnowledgeBaseSnapshotCreateResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
+
+        public KnowledgeBaseSnapshotListResult ListSnapshots()
+        {
+            if (!File.Exists(SavePath))
+            {
+                return new KnowledgeBaseSnapshotListResult
+                {
+                    IsSuccess = true,
+                    SnapshotDirectoryPath = SavePath
+                };
+            }
+
+            try
+            {
+                using var connection = _connectionFactory.OpenConnection(SavePath);
+                EnsureSchema(connection);
+
+                var snapshots = Query(
+                    connection,
+                    """
+                    SELECT snapshot_id, created_at, kind, source_database_path, size_bytes, note
+                    FROM snapshots
+                    ORDER BY created_at DESC, snapshot_id DESC;
+                    """,
+                    reader =>
+                    {
+                        string snapshotId = GetString(reader, "snapshot_id");
+                        DateTimeOffset createdAt = DateTimeOffset.Parse(
+                            GetString(reader, "created_at"),
+                            CultureInfo.InvariantCulture,
+                            DateTimeStyles.RoundtripKind);
+
+                        return new KnowledgeBaseSnapshotEntry
+                        {
+                            SnapshotId = snapshotId,
+                            SnapshotPath = BuildSnapshotReference(SavePath, snapshotId),
+                            SnapshotFileName = snapshotId,
+                            SourcePath = GetString(reader, "source_database_path"),
+                            Kind = GetString(reader, "kind"),
+                            Note = GetString(reader, "note"),
+                            CreatedAt = createdAt,
+                            SizeBytes = GetInt64(reader, "size_bytes"),
+                            HasMetadata = true
+                        };
+                    });
+
+                return new KnowledgeBaseSnapshotListResult
+                {
+                    IsSuccess = true,
+                    SnapshotDirectoryPath = SavePath,
+                    Snapshots = snapshots
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.Log(
+                    "SqliteSnapshotListFailed",
+                    AppLogLevel.Error,
+                    "SQLite snapshot list read failed.",
+                    ex,
+                    CreateProperties(("path", SavePath)));
+
+                return new KnowledgeBaseSnapshotListResult
+                {
+                    IsSuccess = false,
+                    SnapshotDirectoryPath = SavePath,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
+
+        public KnowledgeBaseSnapshotDataResult ReadSnapshotData(KnowledgeBaseSnapshotEntry snapshot)
+        {
+            string snapshotId = ResolveSnapshotId(snapshot);
+            string snapshotPath = string.IsNullOrWhiteSpace(snapshot?.SnapshotPath)
+                ? BuildSnapshotReference(SavePath, snapshotId)
+                : snapshot.SnapshotPath;
+
+            if (string.IsNullOrWhiteSpace(snapshotId))
+            {
+                return new KnowledgeBaseSnapshotDataResult
+                {
+                    IsSuccess = false,
+                    SnapshotPath = snapshotPath,
+                    ErrorMessage = "Не указан идентификатор снимка базы."
+                };
+            }
+
+            if (!File.Exists(SavePath))
+            {
+                return new KnowledgeBaseSnapshotDataResult
+                {
+                    IsSuccess = false,
+                    SnapshotPath = snapshotPath,
+                    ErrorMessage = "Файл базы не найден."
+                };
+            }
+
+            try
+            {
+                using var connection = _connectionFactory.OpenConnection(SavePath);
+                EnsureSchema(connection);
+                SavedData data = LoadSnapshotData(connection, snapshotId);
+
+                return new KnowledgeBaseSnapshotDataResult
+                {
+                    IsSuccess = true,
+                    SnapshotPath = BuildSnapshotReference(SavePath, snapshotId),
+                    Data = data
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.Log(
+                    "SqliteSnapshotReadFailed",
+                    AppLogLevel.Error,
+                    "SQLite snapshot read failed.",
+                    ex,
+                    CreateProperties(("path", SavePath), ("snapshotId", snapshotId)));
+
+                return new KnowledgeBaseSnapshotDataResult
+                {
+                    IsSuccess = false,
+                    SnapshotPath = snapshotPath,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
+
+        public KnowledgeBaseSnapshotRestoreResult RestoreSnapshot(KnowledgeBaseSnapshotEntry snapshot)
+        {
+            string snapshotId = ResolveSnapshotId(snapshot);
+            KnowledgeBaseSnapshotDataResult snapshotDataResult = ReadSnapshotData(snapshot);
+            if (!snapshotDataResult.IsSuccess || snapshotDataResult.Data == null)
+            {
+                return new KnowledgeBaseSnapshotRestoreResult
+                {
+                    IsSuccess = false,
+                    SnapshotPath = snapshotDataResult.SnapshotPath,
+                    ErrorMessage = snapshotDataResult.ErrorMessage ?? "Не удалось прочитать снимок базы."
+                };
+            }
+
+            try
+            {
+                string? directory = Path.GetDirectoryName(SavePath);
+                if (!string.IsNullOrWhiteSpace(directory))
+                    Directory.CreateDirectory(directory);
+
+                SavedData restoredData = KnowledgeBaseDataService.NormalizeSavedData(snapshotDataResult.Data);
+                using var connection = _connectionFactory.OpenConnection(SavePath);
+                EnsureSchema(connection);
+                SavedData? currentData = HasExistingSavedData(connection)
+                    ? KnowledgeBaseDataService.NormalizeSavedData(LoadData(connection))
+                    : null;
+
+                using var transaction = connection.BeginTransaction();
+                KnowledgeBaseSnapshotCreateResult protectiveSnapshot = currentData == null
+                    ? new KnowledgeBaseSnapshotCreateResult { IsSkipped = true }
+                    : InsertSnapshot(
+                        connection,
+                        transaction,
+                        currentData,
+                        "before-restore",
+                        $"Защитный снимок перед восстановлением {snapshotId}.");
+
+                ClearData(connection, transaction);
+                SaveData(connection, transaction, restoredData);
+                InsertChangeLog(
+                    connection,
+                    transaction,
+                    "restore",
+                    "База восстановлена из снимка.",
+                    $"Снимок: {snapshotId}");
+
+                transaction.Commit();
+                return new KnowledgeBaseSnapshotRestoreResult
+                {
+                    IsSuccess = true,
+                    SnapshotPath = snapshotDataResult.SnapshotPath,
+                    ProtectiveSnapshotPath = protectiveSnapshot.SnapshotPath,
+                    RestoredData = restoredData
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.Log(
+                    "SqliteSnapshotRestoreFailed",
+                    AppLogLevel.Error,
+                    "SQLite snapshot restore failed.",
+                    ex,
+                    CreateProperties(("path", SavePath), ("snapshotId", snapshotId)));
+
+                return new KnowledgeBaseSnapshotRestoreResult
+                {
+                    IsSuccess = false,
+                    SnapshotPath = snapshotDataResult.SnapshotPath,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
+
+        public void EnsureSchema()
+        {
+            using var connection = _connectionFactory.OpenConnection(SavePath);
+            EnsureSchema(connection);
+        }
+
+        public void WriteAppMetadata(IReadOnlyDictionary<string, string> metadata)
+        {
+            if (metadata.Count == 0)
+                return;
+
+            using var connection = _connectionFactory.OpenConnection(SavePath);
+            using var transaction = connection.BeginTransaction();
+            EnsureSchema(connection, transaction);
+
+            foreach (var pair in metadata)
+            {
+                if (string.IsNullOrWhiteSpace(pair.Key))
+                    continue;
+
+                UpsertMetadata(connection, transaction, pair.Key, pair.Value);
+            }
+
+            if (metadata.TryGetValue("last_migration_status", out string? migrationStatus) &&
+                string.Equals(migrationStatus, "success", StringComparison.OrdinalIgnoreCase))
+            {
+                metadata.TryGetValue("last_migration_source_path", out string? sourcePath);
+                metadata.TryGetValue("last_migration_safety_export_path", out string? safetyExportPath);
+                InsertChangeLog(
+                    connection,
+                    transaction,
+                    "migration",
+                    "База перенесена из legacy JSON в SQLite.",
+                    $"Источник: {sourcePath}; контрольный JSON: {safetyExportPath}");
+            }
+
+            transaction.Commit();
+        }
+
+        public KnowledgeBaseChangeLogAppendResult AppendChangeLog(
+            string actionKind,
+            string summary,
+            string details = "")
+        {
+            if (!File.Exists(SavePath))
+            {
+                return new KnowledgeBaseChangeLogAppendResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = "Файл базы не найден."
+                };
+            }
+
+            try
+            {
+                using var connection = _connectionFactory.OpenConnection(SavePath);
+                using var transaction = connection.BeginTransaction();
+                EnsureSchema(connection, transaction);
+                InsertChangeLog(connection, transaction, actionKind, summary, details);
+                transaction.Commit();
+                return new KnowledgeBaseChangeLogAppendResult { IsSuccess = true };
+            }
+            catch (Exception ex)
+            {
+                _logger.Log(
+                    "SqliteChangeLogAppendFailed",
+                    AppLogLevel.Error,
+                    "SQLite change log append failed.",
+                    ex,
+                    CreateProperties(("path", SavePath), ("actionKind", actionKind)));
+
+                return new KnowledgeBaseChangeLogAppendResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
+
+        public KnowledgeBaseChangeLogListResult ListChangeLog()
+        {
+            if (!File.Exists(SavePath))
+            {
+                return new KnowledgeBaseChangeLogListResult
+                {
+                    IsSuccess = true
+                };
+            }
+
+            try
+            {
+                using var connection = _connectionFactory.OpenConnection(SavePath);
+                EnsureSchema(connection);
+
+                var entries = Query(
+                    connection,
+                    """
+                    SELECT change_id, created_at, action_kind, summary, details
+                    FROM change_log
+                    ORDER BY created_at DESC, change_id DESC;
+                    """,
+                    reader => new KnowledgeBaseChangeLogEntry
+                    {
+                        ChangeId = GetString(reader, "change_id"),
+                        CreatedAt = DateTimeOffset.Parse(
+                            GetString(reader, "created_at"),
+                            CultureInfo.InvariantCulture,
+                            DateTimeStyles.RoundtripKind),
+                        ActionKind = GetString(reader, "action_kind"),
+                        Summary = GetString(reader, "summary"),
+                        Details = GetString(reader, "details")
+                    });
+
+                return new KnowledgeBaseChangeLogListResult
+                {
+                    IsSuccess = true,
+                    Entries = entries
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.Log(
+                    "SqliteChangeLogListFailed",
+                    AppLogLevel.Error,
+                    "SQLite change log list read failed.",
+                    ex,
+                    CreateProperties(("path", SavePath)));
+
+                return new KnowledgeBaseChangeLogListResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
+
+        private static void EnsureSchema(SqliteConnection connection, SqliteTransaction? transaction = null)
+        {
+            foreach (string statement in SchemaStatements)
+                ExecuteNonQuery(connection, transaction, statement);
+
+            ExecuteNonQuery(connection, transaction, $"PRAGMA user_version={CurrentDatabaseSchemaVersion};");
+        }
+
+        private static void ClearData(SqliteConnection connection, SqliteTransaction transaction)
+        {
+            foreach (string table in DataTablesInDeleteOrder)
+                ExecuteNonQuery(connection, transaction, $"DELETE FROM {table};");
+        }
+
+        private static bool HasExistingSavedData(SqliteConnection connection)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText =
+                """
+                SELECT
+                    (SELECT COUNT(*) FROM config) +
+                    (SELECT COUNT(*) FROM workshops) +
+                    (SELECT COUNT(*) FROM nodes);
+                """;
+            long count = Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+            return count > 0;
+        }
+
+        private static void SaveData(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            SavedData data)
+        {
+            UpsertMetadata(connection, transaction, "schema_version", CurrentDatabaseSchemaVersion.ToString(CultureInfo.InvariantCulture));
+            UpsertMetadata(connection, transaction, "saved_data_schema_version", data.SchemaVersion.ToString(CultureInfo.InvariantCulture));
+            UpsertMetadata(connection, transaction, "last_workshop", data.LastWorkshop);
+
+            InsertConfig(connection, transaction, data.Config);
+            InsertWorkshops(connection, transaction, data.Workshops);
+            InsertCompositionEntries(connection, transaction, data.CompositionEntries);
+            InsertDocumentLinks(connection, transaction, data.DocumentLinks);
+            InsertSoftwareRecords(connection, transaction, data.SoftwareRecords);
+            InsertNetworkFileReferences(connection, transaction, data.NetworkFileReferences);
+            InsertMaintenanceScheduleProfiles(connection, transaction, data.MaintenanceScheduleProfiles);
+            InsertEquipmentCatalogItems(connection, transaction, data.EquipmentCatalogItems);
+            InsertObjectTemplates(connection, transaction, data.ObjectTemplates);
+        }
+
+        private static SavedData LoadData(SqliteConnection connection)
+        {
+            var metadata = LoadMetadata(connection);
+            var config = LoadConfig(connection);
+            var data = new SavedData
+            {
+                SchemaVersion = ParseInt(metadata.TryGetValue("saved_data_schema_version", out string? schemaVersion)
+                    ? schemaVersion
+                    : null,
+                    SavedData.CurrentSchemaVersion),
+                Config = config,
+                Workshops = LoadWorkshops(connection),
+                CompositionEntries = LoadCompositionEntries(connection),
+                DocumentLinks = LoadDocumentLinks(connection),
+                SoftwareRecords = LoadSoftwareRecords(connection),
+                NetworkFileReferences = LoadNetworkFileReferences(connection),
+                MaintenanceScheduleProfiles = LoadMaintenanceScheduleProfiles(connection),
+                EquipmentCatalogItems = LoadEquipmentCatalogItems(connection),
+                ObjectTemplates = LoadObjectTemplates(connection),
+                LastWorkshop = metadata.TryGetValue("last_workshop", out string? lastWorkshop)
+                    ? lastWorkshop
+                    : string.Empty
+            };
+
+            return data;
+        }
+
+        private static void InsertConfig(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            KbConfig config)
+        {
+            Execute(
+                connection,
+                transaction,
+                """
+                INSERT INTO config (id, max_levels)
+                VALUES (1, @max_levels);
+                """,
+                ("@max_levels", config.MaxLevels));
+
+            for (int i = 0; i < config.LevelNames.Count; i++)
+            {
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO config_level_names (position_order, level_name)
+                    VALUES (@position_order, @level_name);
+                    """,
+                    ("@position_order", i),
+                    ("@level_name", config.LevelNames[i]));
+            }
+
+            foreach (KbProductionCalendarYear calendarYear in config.ProductionCalendarYears)
+            {
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO production_calendar_years (year)
+                    VALUES (@year);
+                    """,
+                    ("@year", calendarYear.Year));
+
+                InsertProductionCalendarDates(
+                    connection,
+                    transaction,
+                    calendarYear.Year,
+                    "non_working",
+                    calendarYear.AdditionalNonWorkingDays);
+                InsertProductionCalendarDates(
+                    connection,
+                    transaction,
+                    calendarYear.Year,
+                    "working",
+                    calendarYear.AdditionalWorkingDays);
+            }
+        }
+
+        private static KbConfig LoadConfig(SqliteConnection connection)
+        {
+            var config = KnowledgeBaseDataService.CreateDefaultConfig();
+
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "SELECT max_levels FROM config WHERE id = 1;";
+                object? result = command.ExecuteScalar();
+                if (result != null && result != DBNull.Value)
+                    config.MaxLevels = Convert.ToInt32(result, CultureInfo.InvariantCulture);
+            }
+
+            config.LevelNames = Query(
+                connection,
+                "SELECT level_name FROM config_level_names ORDER BY position_order;",
+                static reader => GetString(reader, "level_name"))
+                .ToList();
+
+            config.ProductionCalendarYears = LoadProductionCalendarYears(connection);
+            return config;
+        }
+
+        private static void InsertProductionCalendarDates(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            int year,
+            string kind,
+            IReadOnlyList<DateOnly> dates)
+        {
+            for (int i = 0; i < dates.Count; i++)
+            {
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO production_calendar_dates (year, date_kind, date_value, position_order)
+                    VALUES (@year, @date_kind, @date_value, @position_order);
+                    """,
+                    ("@year", year),
+                    ("@date_kind", kind),
+                    ("@date_value", FormatDateOnly(dates[i])),
+                    ("@position_order", i));
+            }
+        }
+
+        private static List<KbProductionCalendarYear> LoadProductionCalendarYears(SqliteConnection connection)
+        {
+            var years = Query(
+                connection,
+                "SELECT year FROM production_calendar_years ORDER BY year;",
+                static reader => new KbProductionCalendarYear
+                {
+                    Year = GetInt(reader, "year")
+                }).ToList();
+
+            foreach (KbProductionCalendarYear year in years)
+            {
+                year.AdditionalNonWorkingDays = LoadProductionCalendarDates(connection, year.Year, "non_working");
+                year.AdditionalWorkingDays = LoadProductionCalendarDates(connection, year.Year, "working");
+            }
+
+            return years;
+        }
+
+        private static List<DateOnly> LoadProductionCalendarDates(
+            SqliteConnection connection,
+            int year,
+            string kind) =>
+            Query(
+                connection,
+                """
+                SELECT date_value
+                FROM production_calendar_dates
+                WHERE year = @year AND date_kind = @date_kind
+                ORDER BY position_order;
+                """,
+                static reader => ParseDateOnly(GetString(reader, "date_value")),
+                ("@year", year),
+                ("@date_kind", kind))
+                .ToList();
+
+        private static void InsertWorkshops(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            Dictionary<string, List<KbNode>> workshops)
+        {
+            int workshopOrder = 0;
+            foreach (var pair in workshops)
+            {
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO workshops (workshop_name, position_order)
+                    VALUES (@workshop_name, @position_order);
+                    """,
+                    ("@workshop_name", pair.Key),
+                    ("@position_order", workshopOrder));
+
+                long workshopId = GetLastInsertRowId(connection, transaction);
+                InsertNodes(connection, transaction, workshopId, parentNodeId: null, pair.Value);
+                workshopOrder++;
+            }
+        }
+
+        private static Dictionary<string, List<KbNode>> LoadWorkshops(SqliteConnection connection)
+        {
+            var workshops = new Dictionary<string, List<KbNode>>(KnowledgeBaseDataService.WorkshopNameComparer);
+            var workshopRows = Query(
+                connection,
+                "SELECT workshop_id, workshop_name FROM workshops ORDER BY position_order;",
+                static reader => new
+                {
+                    WorkshopId = GetInt64(reader, "workshop_id"),
+                    Name = GetString(reader, "workshop_name")
+                });
+
+            foreach (var row in workshopRows)
+                workshops[row.Name] = LoadNodes(connection, row.WorkshopId);
+
+            return workshops;
+        }
+
+        private static void InsertNodes(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            long workshopId,
+            string? parentNodeId,
+            IReadOnlyList<KbNode> nodes)
+        {
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                KbNode node = nodes[i];
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO nodes (
+                        node_id, workshop_id, parent_node_id, position_order, name, level_index, node_type,
+                        details_description, details_location, details_inventory_number, details_photo_path,
+                        details_ip_address, details_schema_link)
+                    VALUES (
+                        @node_id, @workshop_id, @parent_node_id, @position_order, @name, @level_index, @node_type,
+                        @details_description, @details_location, @details_inventory_number, @details_photo_path,
+                        @details_ip_address, @details_schema_link);
+                    """,
+                    ("@node_id", node.NodeId),
+                    ("@workshop_id", workshopId),
+                    ("@parent_node_id", parentNodeId),
+                    ("@position_order", i),
+                    ("@name", node.Name),
+                    ("@level_index", node.LevelIndex),
+                    ("@node_type", (int)node.NodeType),
+                    ("@details_description", node.Details.Description),
+                    ("@details_location", node.Details.Location),
+                    ("@details_inventory_number", node.Details.InventoryNumber),
+                    ("@details_photo_path", node.Details.PhotoPath),
+                    ("@details_ip_address", node.Details.IpAddress),
+                    ("@details_schema_link", node.Details.SchemaLink));
+
+                InsertNodes(connection, transaction, workshopId, node.NodeId, node.Children);
+            }
+        }
+
+        private static List<KbNode> LoadNodes(SqliteConnection connection, long workshopId)
+        {
+            var rows = Query(
+                connection,
+                """
+                SELECT *
+                FROM nodes
+                WHERE workshop_id = @workshop_id
+                ORDER BY COALESCE(parent_node_id, ''), position_order;
+                """,
+                static reader => new NodeRow(
+                    GetString(reader, "node_id"),
+                    GetNullableString(reader, "parent_node_id"),
+                    GetInt(reader, "position_order"),
+                    new KbNode
+                    {
+                        NodeId = GetString(reader, "node_id"),
+                        Name = GetString(reader, "name"),
+                        LevelIndex = GetInt(reader, "level_index"),
+                        NodeType = ToEnum(GetInt(reader, "node_type"), KbNodeType.Unknown),
+                        Details = new KbNodeDetails
+                        {
+                            Description = GetString(reader, "details_description"),
+                            Location = GetString(reader, "details_location"),
+                            InventoryNumber = GetString(reader, "details_inventory_number"),
+                            PhotoPath = GetString(reader, "details_photo_path"),
+                            IpAddress = GetString(reader, "details_ip_address"),
+                            SchemaLink = GetString(reader, "details_schema_link")
+                        }
+                    }),
+                ("@workshop_id", workshopId))
+                .OrderBy(static row => row.PositionOrder)
+                .ToList();
+
+            var byId = rows.ToDictionary(static row => row.NodeId, static row => row.Node, StringComparer.Ordinal);
+            var roots = new List<KbNode>();
+            foreach (NodeRow row in rows)
+            {
+                if (string.IsNullOrWhiteSpace(row.ParentNodeId))
+                {
+                    roots.Add(row.Node);
+                    continue;
+                }
+
+                if (byId.TryGetValue(row.ParentNodeId, out KbNode? parent))
+                    parent.Children.Add(row.Node);
+            }
+
+            return roots;
+        }
+
+        private static void InsertCompositionEntries(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            IReadOnlyList<KbCompositionEntry> entries)
+        {
+            for (int i = 0; i < entries.Count; i++)
+            {
+                KbCompositionEntry entry = entries[i];
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO composition_entries (
+                        entry_id, entry_order, parent_node_id, slot_number, position_order, component_type, model,
+                        ip_address, last_calibration_at, next_calibration_at, notes)
+                    VALUES (
+                        @entry_id, @entry_order, @parent_node_id, @slot_number, @position_order, @component_type, @model,
+                        @ip_address, @last_calibration_at, @next_calibration_at, @notes);
+                    """,
+                    ("@entry_id", entry.EntryId),
+                    ("@entry_order", i),
+                    ("@parent_node_id", entry.ParentNodeId),
+                    ("@slot_number", entry.SlotNumber),
+                    ("@position_order", entry.PositionOrder),
+                    ("@component_type", entry.ComponentType),
+                    ("@model", entry.Model),
+                    ("@ip_address", entry.IpAddress),
+                    ("@last_calibration_at", FormatDateTime(entry.LastCalibrationAt)),
+                    ("@next_calibration_at", FormatDateTime(entry.NextCalibrationAt)),
+                    ("@notes", entry.Notes));
+            }
+        }
+
+        private static List<KbCompositionEntry> LoadCompositionEntries(SqliteConnection connection) =>
+            Query(
+                connection,
+                "SELECT * FROM composition_entries ORDER BY entry_order;",
+                static reader => new KbCompositionEntry
+                {
+                    EntryId = GetString(reader, "entry_id"),
+                    ParentNodeId = GetString(reader, "parent_node_id"),
+                    SlotNumber = GetNullableInt(reader, "slot_number"),
+                    PositionOrder = GetInt(reader, "position_order"),
+                    ComponentType = GetString(reader, "component_type"),
+                    Model = GetString(reader, "model"),
+                    IpAddress = GetString(reader, "ip_address"),
+                    LastCalibrationAt = GetNullableDateTime(reader, "last_calibration_at"),
+                    NextCalibrationAt = GetNullableDateTime(reader, "next_calibration_at"),
+                    Notes = GetString(reader, "notes")
+                }).ToList();
+
+        private static void InsertDocumentLinks(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            IReadOnlyList<KbDocumentLink> links)
+        {
+            for (int i = 0; i < links.Count; i++)
+            {
+                KbDocumentLink link = links[i];
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO document_links (document_id, entry_order, owner_node_id, kind, title, path, updated_at)
+                    VALUES (@document_id, @entry_order, @owner_node_id, @kind, @title, @path, @updated_at);
+                    """,
+                    ("@document_id", link.DocumentId),
+                    ("@entry_order", i),
+                    ("@owner_node_id", link.OwnerNodeId),
+                    ("@kind", (int)link.Kind),
+                    ("@title", link.Title),
+                    ("@path", link.Path),
+                    ("@updated_at", FormatDateTime(link.UpdatedAt)));
+            }
+        }
+
+        private static List<KbDocumentLink> LoadDocumentLinks(SqliteConnection connection) =>
+            Query(
+                connection,
+                "SELECT * FROM document_links ORDER BY entry_order;",
+                static reader => new KbDocumentLink
+                {
+                    DocumentId = GetString(reader, "document_id"),
+                    OwnerNodeId = GetString(reader, "owner_node_id"),
+                    Kind = ToEnum(GetInt(reader, "kind"), KbDocumentKind.Manual),
+                    Title = GetString(reader, "title"),
+                    Path = GetString(reader, "path"),
+                    UpdatedAt = GetNullableDateTime(reader, "updated_at")
+                }).ToList();
+
+        private static void InsertSoftwareRecords(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            IReadOnlyList<KbSoftwareRecord> records)
+        {
+            for (int i = 0; i < records.Count; i++)
+            {
+                KbSoftwareRecord record = records[i];
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO software_records (
+                        software_id, entry_order, owner_node_id, title, path, added_at, last_changed_at, last_backup_at, notes)
+                    VALUES (
+                        @software_id, @entry_order, @owner_node_id, @title, @path, @added_at, @last_changed_at, @last_backup_at, @notes);
+                    """,
+                    ("@software_id", record.SoftwareId),
+                    ("@entry_order", i),
+                    ("@owner_node_id", record.OwnerNodeId),
+                    ("@title", record.Title),
+                    ("@path", record.Path),
+                    ("@added_at", FormatDateTime(record.AddedAt)),
+                    ("@last_changed_at", FormatDateTime(record.LastChangedAt)),
+                    ("@last_backup_at", FormatDateTime(record.LastBackupAt)),
+                    ("@notes", record.Notes));
+            }
+        }
+
+        private static List<KbSoftwareRecord> LoadSoftwareRecords(SqliteConnection connection) =>
+            Query(
+                connection,
+                "SELECT * FROM software_records ORDER BY entry_order;",
+                static reader => new KbSoftwareRecord
+                {
+                    SoftwareId = GetString(reader, "software_id"),
+                    OwnerNodeId = GetString(reader, "owner_node_id"),
+                    Title = GetString(reader, "title"),
+                    Path = GetString(reader, "path"),
+                    AddedAt = GetNullableDateTime(reader, "added_at"),
+                    LastChangedAt = GetNullableDateTime(reader, "last_changed_at"),
+                    LastBackupAt = GetNullableDateTime(reader, "last_backup_at"),
+                    Notes = GetString(reader, "notes")
+                }).ToList();
+
+        private static void InsertNetworkFileReferences(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            IReadOnlyList<KbNetworkFileReference> references)
+        {
+            for (int i = 0; i < references.Count; i++)
+            {
+                KbNetworkFileReference reference = references[i];
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO network_file_references (network_asset_id, entry_order, owner_node_id, title, path, preview_kind)
+                    VALUES (@network_asset_id, @entry_order, @owner_node_id, @title, @path, @preview_kind);
+                    """,
+                    ("@network_asset_id", reference.NetworkAssetId),
+                    ("@entry_order", i),
+                    ("@owner_node_id", reference.OwnerNodeId),
+                    ("@title", reference.Title),
+                    ("@path", reference.Path),
+                    ("@preview_kind", (int)reference.PreviewKind));
+            }
+        }
+
+        private static List<KbNetworkFileReference> LoadNetworkFileReferences(SqliteConnection connection) =>
+            Query(
+                connection,
+                "SELECT * FROM network_file_references ORDER BY entry_order;",
+                static reader => new KbNetworkFileReference
+                {
+                    NetworkAssetId = GetString(reader, "network_asset_id"),
+                    OwnerNodeId = GetString(reader, "owner_node_id"),
+                    Title = GetString(reader, "title"),
+                    Path = GetString(reader, "path"),
+                    PreviewKind = ToEnum(GetInt(reader, "preview_kind"), KbNetworkPreviewKind.MetadataOnly)
+                }).ToList();
+
+        private static void InsertMaintenanceScheduleProfiles(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            IReadOnlyList<KbMaintenanceScheduleProfile> profiles)
+        {
+            for (int i = 0; i < profiles.Count; i++)
+            {
+                KbMaintenanceScheduleProfile profile = profiles[i];
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO maintenance_schedule_profiles (
+                        maintenance_profile_id, entry_order, owner_node_id, is_included_in_schedule, to1_hours, to2_hours, to3_hours)
+                    VALUES (
+                        @maintenance_profile_id, @entry_order, @owner_node_id, @is_included_in_schedule, @to1_hours, @to2_hours, @to3_hours);
+                    """,
+                    ("@maintenance_profile_id", profile.MaintenanceProfileId),
+                    ("@entry_order", i),
+                    ("@owner_node_id", profile.OwnerNodeId),
+                    ("@is_included_in_schedule", ToSqlBool(profile.IsIncludedInSchedule)),
+                    ("@to1_hours", profile.To1Hours),
+                    ("@to2_hours", profile.To2Hours),
+                    ("@to3_hours", profile.To3Hours));
+
+                InsertMaintenanceYearScheduleEntries(
+                    connection,
+                    transaction,
+                    profile.MaintenanceProfileId,
+                    profile.YearScheduleEntries);
+            }
+        }
+
+        private static List<KbMaintenanceScheduleProfile> LoadMaintenanceScheduleProfiles(SqliteConnection connection)
+        {
+            var profiles = Query(
+                connection,
+                "SELECT * FROM maintenance_schedule_profiles ORDER BY entry_order;",
+                static reader => new KbMaintenanceScheduleProfile
+                {
+                    MaintenanceProfileId = GetString(reader, "maintenance_profile_id"),
+                    OwnerNodeId = GetString(reader, "owner_node_id"),
+                    IsIncludedInSchedule = GetBool(reader, "is_included_in_schedule"),
+                    To1Hours = GetInt(reader, "to1_hours"),
+                    To2Hours = GetInt(reader, "to2_hours"),
+                    To3Hours = GetInt(reader, "to3_hours")
+                }).ToList();
+
+            foreach (KbMaintenanceScheduleProfile profile in profiles)
+                profile.YearScheduleEntries = LoadMaintenanceYearScheduleEntries(connection, profile.MaintenanceProfileId);
+
+            return profiles;
+        }
+
+        private static void InsertMaintenanceYearScheduleEntries(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            string profileId,
+            IReadOnlyList<KbMaintenanceYearScheduleEntry> entries)
+        {
+            for (int i = 0; i < entries.Count; i++)
+            {
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO maintenance_year_schedule_entries (maintenance_profile_id, entry_order, month, work_kind)
+                    VALUES (@maintenance_profile_id, @entry_order, @month, @work_kind);
+                    """,
+                    ("@maintenance_profile_id", profileId),
+                    ("@entry_order", i),
+                    ("@month", entries[i].Month),
+                    ("@work_kind", (int)entries[i].WorkKind));
+            }
+        }
+
+        private static List<KbMaintenanceYearScheduleEntry> LoadMaintenanceYearScheduleEntries(
+            SqliteConnection connection,
+            string profileId) =>
+            Query(
+                connection,
+                """
+                SELECT month, work_kind
+                FROM maintenance_year_schedule_entries
+                WHERE maintenance_profile_id = @maintenance_profile_id
+                ORDER BY entry_order;
+                """,
+                static reader => new KbMaintenanceYearScheduleEntry
+                {
+                    Month = GetInt(reader, "month"),
+                    WorkKind = ToEnum(GetInt(reader, "work_kind"), KbMaintenanceWorkKind.To1)
+                },
+                ("@maintenance_profile_id", profileId))
+                .ToList();
+
+        private static void InsertEquipmentCatalogItems(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            IReadOnlyList<KbEquipmentCatalogItem> items)
+        {
+            for (int i = 0; i < items.Count; i++)
+            {
+                KbEquipmentCatalogItem item = items[i];
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO equipment_catalog_items (
+                        catalog_item_id, entry_order, equipment_kind, manufacturer, series, model, default_node_type, description)
+                    VALUES (
+                        @catalog_item_id, @entry_order, @equipment_kind, @manufacturer, @series, @model, @default_node_type, @description);
+                    """,
+                    ("@catalog_item_id", item.CatalogItemId),
+                    ("@entry_order", i),
+                    ("@equipment_kind", item.EquipmentKind),
+                    ("@manufacturer", item.Manufacturer),
+                    ("@series", item.Series),
+                    ("@model", item.Model),
+                    ("@default_node_type", (int)item.DefaultNodeType),
+                    ("@description", item.Description));
+
+                for (int propertyIndex = 0; propertyIndex < item.Properties.Count; propertyIndex++)
+                {
+                    Execute(
+                        connection,
+                        transaction,
+                        """
+                        INSERT INTO equipment_catalog_properties (catalog_item_id, property_order, name, value)
+                        VALUES (@catalog_item_id, @property_order, @name, @value);
+                        """,
+                        ("@catalog_item_id", item.CatalogItemId),
+                        ("@property_order", propertyIndex),
+                        ("@name", item.Properties[propertyIndex].Name),
+                        ("@value", item.Properties[propertyIndex].Value));
+                }
+            }
+        }
+
+        private static List<KbEquipmentCatalogItem> LoadEquipmentCatalogItems(SqliteConnection connection)
+        {
+            var items = Query(
+                connection,
+                "SELECT * FROM equipment_catalog_items ORDER BY entry_order;",
+                static reader => new KbEquipmentCatalogItem
+                {
+                    CatalogItemId = GetString(reader, "catalog_item_id"),
+                    EquipmentKind = GetString(reader, "equipment_kind"),
+                    Manufacturer = GetString(reader, "manufacturer"),
+                    Series = GetString(reader, "series"),
+                    Model = GetString(reader, "model"),
+                    DefaultNodeType = ToEnum(GetInt(reader, "default_node_type"), KbNodeType.Device),
+                    Description = GetString(reader, "description")
+                }).ToList();
+
+            foreach (KbEquipmentCatalogItem item in items)
+            {
+                item.Properties = Query(
+                    connection,
+                    """
+                    SELECT name, value
+                    FROM equipment_catalog_properties
+                    WHERE catalog_item_id = @catalog_item_id
+                    ORDER BY property_order;
+                    """,
+                    static reader => new KbEquipmentCatalogProperty
+                    {
+                        Name = GetString(reader, "name"),
+                        Value = GetString(reader, "value")
+                    },
+                    ("@catalog_item_id", item.CatalogItemId))
+                    .ToList();
+            }
+
+            return items;
+        }
+
+        private static void InsertObjectTemplates(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            IReadOnlyList<KbObjectTemplate> templates)
+        {
+            for (int i = 0; i < templates.Count; i++)
+            {
+                KbObjectTemplate template = templates[i];
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO object_templates (
+                        template_id, entry_order, display_name, description, category, composition_entries_json,
+                        document_links_json, software_records_json, network_file_references_json,
+                        maintenance_schedule_profiles_json, network_interface_stubs_json)
+                    VALUES (
+                        @template_id, @entry_order, @display_name, @description, @category, @composition_entries_json,
+                        @document_links_json, @software_records_json, @network_file_references_json,
+                        @maintenance_schedule_profiles_json, @network_interface_stubs_json);
+                    """,
+                    ("@template_id", template.TemplateId),
+                    ("@entry_order", i),
+                    ("@display_name", template.DisplayName),
+                    ("@description", template.Description),
+                    ("@category", template.Category),
+                    ("@composition_entries_json", SerializeJson(template.CompositionEntries)),
+                    ("@document_links_json", SerializeJson(template.DocumentLinks)),
+                    ("@software_records_json", SerializeJson(template.SoftwareRecords)),
+                    ("@network_file_references_json", SerializeJson(template.NetworkFileReferences)),
+                    ("@maintenance_schedule_profiles_json", SerializeJson(template.MaintenanceScheduleProfiles)),
+                    ("@network_interface_stubs_json", SerializeJson(template.NetworkInterfaceStubs)));
+
+                InsertObjectTemplateNodes(
+                    connection,
+                    transaction,
+                    template.TemplateId,
+                    parentTemplateNodeId: null,
+                    new[] { template.RootNode });
+            }
+        }
+
+        private static List<KbObjectTemplate> LoadObjectTemplates(SqliteConnection connection)
+        {
+            var templates = Query(
+                connection,
+                "SELECT * FROM object_templates ORDER BY entry_order;",
+                static reader => new KbObjectTemplate
+                {
+                    TemplateId = GetString(reader, "template_id"),
+                    DisplayName = GetString(reader, "display_name"),
+                    Description = GetString(reader, "description"),
+                    Category = GetString(reader, "category"),
+                    CompositionEntries = DeserializeJson<List<KbObjectTemplateCompositionEntry>>(GetString(reader, "composition_entries_json")),
+                    DocumentLinks = DeserializeJson<List<KbObjectTemplateDocumentLink>>(GetString(reader, "document_links_json")),
+                    SoftwareRecords = DeserializeJson<List<KbObjectTemplateSoftwareRecord>>(GetString(reader, "software_records_json")),
+                    NetworkFileReferences = DeserializeJson<List<KbObjectTemplateNetworkFileReference>>(GetString(reader, "network_file_references_json")),
+                    MaintenanceScheduleProfiles = DeserializeJson<List<KbObjectTemplateMaintenanceScheduleProfile>>(GetString(reader, "maintenance_schedule_profiles_json")),
+                    NetworkInterfaceStubs = DeserializeJson<List<KbObjectTemplateNetworkInterfaceStub>>(GetString(reader, "network_interface_stubs_json"))
+                }).ToList();
+
+            foreach (KbObjectTemplate template in templates)
+                template.RootNode = LoadObjectTemplateRootNode(connection, template.TemplateId);
+
+            return templates;
+        }
+
+        private static void InsertObjectTemplateNodes(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            string templateId,
+            string? parentTemplateNodeId,
+            IReadOnlyList<KbObjectTemplateNode> nodes)
+        {
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                KbObjectTemplateNode node = nodes[i];
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO object_template_nodes (
+                        template_id, template_node_id, parent_template_node_id, position_order, catalog_item_id,
+                        name, node_type, details_description, details_location, details_inventory_number,
+                        details_photo_path, details_ip_address, details_schema_link)
+                    VALUES (
+                        @template_id, @template_node_id, @parent_template_node_id, @position_order, @catalog_item_id,
+                        @name, @node_type, @details_description, @details_location, @details_inventory_number,
+                        @details_photo_path, @details_ip_address, @details_schema_link);
+                    """,
+                    ("@template_id", templateId),
+                    ("@template_node_id", node.TemplateNodeId),
+                    ("@parent_template_node_id", parentTemplateNodeId),
+                    ("@position_order", i),
+                    ("@catalog_item_id", node.CatalogItemId),
+                    ("@name", node.Name),
+                    ("@node_type", (int)node.NodeType),
+                    ("@details_description", node.Details.Description),
+                    ("@details_location", node.Details.Location),
+                    ("@details_inventory_number", node.Details.InventoryNumber),
+                    ("@details_photo_path", node.Details.PhotoPath),
+                    ("@details_ip_address", node.Details.IpAddress),
+                    ("@details_schema_link", node.Details.SchemaLink));
+
+                InsertObjectTemplateNodes(connection, transaction, templateId, node.TemplateNodeId, node.Children);
+            }
+        }
+
+        private static KbObjectTemplateNode LoadObjectTemplateRootNode(SqliteConnection connection, string templateId)
+        {
+            var rows = Query(
+                connection,
+                """
+                SELECT *
+                FROM object_template_nodes
+                WHERE template_id = @template_id
+                ORDER BY COALESCE(parent_template_node_id, ''), position_order;
+                """,
+                static reader => new TemplateNodeRow(
+                    GetString(reader, "template_node_id"),
+                    GetNullableString(reader, "parent_template_node_id"),
+                    GetInt(reader, "position_order"),
+                    new KbObjectTemplateNode
+                    {
+                        TemplateNodeId = GetString(reader, "template_node_id"),
+                        CatalogItemId = GetString(reader, "catalog_item_id"),
+                        Name = GetString(reader, "name"),
+                        NodeType = ToEnum(GetInt(reader, "node_type"), KbNodeType.Device),
+                        Details = new KbNodeDetails
+                        {
+                            Description = GetString(reader, "details_description"),
+                            Location = GetString(reader, "details_location"),
+                            InventoryNumber = GetString(reader, "details_inventory_number"),
+                            PhotoPath = GetString(reader, "details_photo_path"),
+                            IpAddress = GetString(reader, "details_ip_address"),
+                            SchemaLink = GetString(reader, "details_schema_link")
+                        }
+                    }),
+                ("@template_id", templateId))
+                .OrderBy(static row => row.PositionOrder)
+                .ToList();
+
+            if (rows.Count == 0)
+                return new KbObjectTemplateNode();
+
+            var byId = rows.ToDictionary(static row => row.TemplateNodeId, static row => row.Node, StringComparer.Ordinal);
+            KbObjectTemplateNode? root = null;
+            foreach (TemplateNodeRow row in rows)
+            {
+                if (string.IsNullOrWhiteSpace(row.ParentTemplateNodeId))
+                {
+                    root ??= row.Node;
+                    continue;
+                }
+
+                if (byId.TryGetValue(row.ParentTemplateNodeId, out KbObjectTemplateNode? parent))
+                    parent.Children.Add(row.Node);
+            }
+
+            return root ?? rows[0].Node;
+        }
+
+        private static void UpsertMetadata(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            string key,
+            string value) =>
+            Execute(
+                connection,
+                transaction,
+                """
+                INSERT INTO app_metadata (key, value)
+                VALUES (@key, @value)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+                """,
+                ("@key", key),
+                ("@value", value));
+
+        private static Dictionary<string, string> LoadMetadata(SqliteConnection connection) =>
+            Query(
+                connection,
+                "SELECT key, value FROM app_metadata;",
+                static reader => new KeyValuePair<string, string>(
+                    GetString(reader, "key"),
+                    GetString(reader, "value")))
+                .ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal);
+
+        private KnowledgeBaseSnapshotCreateResult InsertSnapshot(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            SavedData data,
+            string kind,
+            string note)
+        {
+            DateTimeOffset createdAt = _clock();
+            string snapshotId = BuildSnapshotId(createdAt, kind);
+            string payloadJson = JsonSerializer.Serialize(
+                KnowledgeBaseDataService.NormalizeSavedData(data),
+                SnapshotJsonOptions);
+            long sizeBytes = Encoding.UTF8.GetByteCount(payloadJson);
+
+            Execute(
+                connection,
+                transaction,
+                """
+                INSERT INTO snapshots (
+                    snapshot_id, created_at, kind, source_database_path, size_bytes, note, payload_json)
+                VALUES (
+                    @snapshot_id, @created_at, @kind, @source_database_path, @size_bytes, @note, @payload_json);
+                """,
+                ("@snapshot_id", snapshotId),
+                ("@created_at", createdAt.ToString("O", CultureInfo.InvariantCulture)),
+                ("@kind", kind),
+                ("@source_database_path", Path.GetFullPath(SavePath)),
+                ("@size_bytes", sizeBytes),
+                ("@note", note),
+                ("@payload_json", payloadJson));
+
+            return new KnowledgeBaseSnapshotCreateResult
+            {
+                IsSuccess = true,
+                SnapshotPath = BuildSnapshotReference(SavePath, snapshotId),
+                CreatedAt = createdAt,
+                SizeBytes = sizeBytes
+            };
+        }
+
+        private void InsertChangeLog(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            string actionKind,
+            string summary,
+            string details)
+        {
+            DateTimeOffset createdAt = _clock();
+            string normalizedActionKind = NormalizeIdentifierPart(actionKind, "action");
+            string changeId = BuildChangeLogId(createdAt, normalizedActionKind);
+
+            Execute(
+                connection,
+                transaction,
+                """
+                INSERT INTO change_log (change_id, created_at, action_kind, summary, details)
+                VALUES (@change_id, @created_at, @action_kind, @summary, @details);
+                """,
+                ("@change_id", changeId),
+                ("@created_at", createdAt.ToString("O", CultureInfo.InvariantCulture)),
+                ("@action_kind", normalizedActionKind),
+                ("@summary", summary?.Trim() ?? string.Empty),
+                ("@details", details?.Trim() ?? string.Empty));
+        }
+
+        private static SavedData LoadSnapshotData(SqliteConnection connection, string snapshotId)
+        {
+            string payloadJson = Query(
+                connection,
+                """
+                SELECT payload_json
+                FROM snapshots
+                WHERE snapshot_id = @snapshot_id;
+                """,
+                static reader => GetString(reader, "payload_json"),
+                ("@snapshot_id", snapshotId))
+                .SingleOrDefault() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(payloadJson))
+                throw new InvalidOperationException("Снимок базы не найден.");
+
+            SavedData data = JsonSerializer.Deserialize<SavedData>(payloadJson, SnapshotJsonOptions) ??
+                throw new InvalidOperationException("Снимок базы не содержит корректные данные.");
+
+            return KnowledgeBaseDataService.NormalizeSavedData(data);
+        }
+
+        private static string BuildSnapshotId(DateTimeOffset createdAt, string kind)
+        {
+            string timestamp = createdAt
+                .ToUniversalTime()
+                .ToString("yyyyMMdd-HHmmss-fff'Z'", CultureInfo.InvariantCulture);
+            string normalizedKind = NormalizeIdentifierPart(kind, "snapshot");
+            return $"{timestamp}.{normalizedKind}.{Guid.NewGuid():N}";
+        }
+
+        private static string BuildChangeLogId(DateTimeOffset createdAt, string actionKind)
+        {
+            string timestamp = createdAt
+                .ToUniversalTime()
+                .ToString("yyyyMMdd-HHmmss-fff'Z'", CultureInfo.InvariantCulture);
+            return $"{timestamp}.{actionKind}.{Guid.NewGuid():N}";
+        }
+
+        private static string BuildSnapshotReference(string savePath, string snapshotId) =>
+            $"{Path.GetFullPath(savePath)}#snapshot:{snapshotId}";
+
+        private static string ResolveSnapshotId(KnowledgeBaseSnapshotEntry? snapshot)
+        {
+            string snapshotId = snapshot?.SnapshotId?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(snapshotId))
+                return snapshotId;
+
+            string snapshotPath = snapshot?.SnapshotPath?.Trim() ?? string.Empty;
+            const string marker = "#snapshot:";
+            int markerIndex = snapshotPath.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            return markerIndex < 0
+                ? string.Empty
+                : snapshotPath[(markerIndex + marker.Length)..].Trim();
+        }
+
+        private static string NormalizeIdentifierPart(string? value, string fallback)
+        {
+            string normalized = value?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(normalized))
+                normalized = fallback;
+
+            foreach (char invalidChar in Path.GetInvalidFileNameChars())
+                normalized = normalized.Replace(invalidChar, '-');
+
+            normalized = normalized.Replace(' ', '-');
+            return string.IsNullOrWhiteSpace(normalized) ? fallback : normalized;
+        }
+
+        private static void Execute(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            string commandText,
+            params (string Name, object? Value)[] parameters)
+        {
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = commandText;
+            AddParameters(command, parameters);
+            command.ExecuteNonQuery();
+        }
+
+        private static void ExecuteNonQuery(
+            SqliteConnection connection,
+            SqliteTransaction? transaction,
+            string commandText)
+        {
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = commandText;
+            command.ExecuteNonQuery();
+        }
+
+        private static List<T> Query<T>(
+            SqliteConnection connection,
+            string commandText,
+            Func<SqliteDataReader, T> map,
+            params (string Name, object? Value)[] parameters)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = commandText;
+            AddParameters(command, parameters);
+
+            using var reader = command.ExecuteReader();
+            var results = new List<T>();
+            while (reader.Read())
+                results.Add(map(reader));
+
+            return results;
+        }
+
+        private static void AddParameters(
+            SqliteCommand command,
+            params (string Name, object? Value)[] parameters)
+        {
+            foreach (var (name, value) in parameters)
+                command.Parameters.AddWithValue(name, value ?? DBNull.Value);
+        }
+
+        private static long GetLastInsertRowId(SqliteConnection connection, SqliteTransaction transaction)
+        {
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = "SELECT last_insert_rowid();";
+            return Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+        }
+
+        private static string GetString(SqliteDataReader reader, string name)
+        {
+            int ordinal = reader.GetOrdinal(name);
+            return reader.IsDBNull(ordinal) ? string.Empty : reader.GetString(ordinal);
+        }
+
+        private static string? GetNullableString(SqliteDataReader reader, string name)
+        {
+            int ordinal = reader.GetOrdinal(name);
+            return reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+        }
+
+        private static int GetInt(SqliteDataReader reader, string name)
+        {
+            int ordinal = reader.GetOrdinal(name);
+            return reader.IsDBNull(ordinal) ? 0 : reader.GetInt32(ordinal);
+        }
+
+        private static long GetInt64(SqliteDataReader reader, string name)
+        {
+            int ordinal = reader.GetOrdinal(name);
+            return reader.IsDBNull(ordinal) ? 0 : reader.GetInt64(ordinal);
+        }
+
+        private static int? GetNullableInt(SqliteDataReader reader, string name)
+        {
+            int ordinal = reader.GetOrdinal(name);
+            return reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
+        }
+
+        private static bool GetBool(SqliteDataReader reader, string name) =>
+            GetInt(reader, name) != 0;
+
+        private static DateTime? GetNullableDateTime(SqliteDataReader reader, string name)
+        {
+            string? value = GetNullableString(reader, name);
+            return string.IsNullOrWhiteSpace(value)
+                ? null
+                : DateTime.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+        }
+
+        private static TEnum ToEnum<TEnum>(int value, TEnum fallback)
+            where TEnum : struct, Enum =>
+            Enum.IsDefined(typeof(TEnum), value) ? (TEnum)Enum.ToObject(typeof(TEnum), value) : fallback;
+
+        private static string? FormatDateTime(DateTime? value) =>
+            value?.ToString("O", CultureInfo.InvariantCulture);
+
+        private static string FormatDateOnly(DateOnly value) =>
+            value.ToString("O", CultureInfo.InvariantCulture);
+
+        private static DateOnly ParseDateOnly(string value) =>
+            DateOnly.ParseExact(value, "O", CultureInfo.InvariantCulture);
+
+        private static int ToSqlBool(bool value) => value ? 1 : 0;
+
+        private static int ParseInt(string? value, int fallback) =>
+            int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed)
+                ? parsed
+                : fallback;
+
+        private static string SerializeJson<T>(T value) =>
+            JsonSerializer.Serialize(value, JsonOptions);
+
+        private static T DeserializeJson<T>(string json)
+            where T : new() =>
+            string.IsNullOrWhiteSpace(json)
+                ? new T()
+                : JsonSerializer.Deserialize<T>(json, JsonOptions) ?? new T();
+
+        private Dictionary<string, object?> CreateProperties(params (string Key, object? Value)[] values)
+        {
+            var properties = new Dictionary<string, object?>(StringComparer.Ordinal);
+            foreach (var (key, value) in values)
+            {
+                if (string.IsNullOrWhiteSpace(key) || value == null)
+                    continue;
+
+                properties[key] = value;
+            }
+
+            return properties;
+        }
+
+        private sealed record NodeRow(
+            string NodeId,
+            string? ParentNodeId,
+            int PositionOrder,
+            KbNode Node);
+
+        private sealed record TemplateNodeRow(
+            string TemplateNodeId,
+            string? ParentTemplateNodeId,
+            int PositionOrder,
+            KbObjectTemplateNode Node);
+
+        private static readonly string[] DataTablesInDeleteOrder =
+        [
+            "object_template_nodes",
+            "object_templates",
+            "equipment_catalog_properties",
+            "equipment_catalog_items",
+            "maintenance_year_schedule_entries",
+            "maintenance_schedule_profiles",
+            "network_file_references",
+            "software_records",
+            "document_links",
+            "composition_entries",
+            "nodes",
+            "workshops",
+            "production_calendar_dates",
+            "production_calendar_years",
+            "config_level_names",
+            "config"
+        ];
+
+        private static readonly string[] SchemaStatements =
+        [
+            """
+            CREATE TABLE IF NOT EXISTS app_metadata (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS config (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                max_levels INTEGER NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS config_level_names (
+                position_order INTEGER PRIMARY KEY,
+                level_name TEXT NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS production_calendar_years (
+                year INTEGER PRIMARY KEY
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS production_calendar_dates (
+                year INTEGER NOT NULL,
+                date_kind TEXT NOT NULL,
+                date_value TEXT NOT NULL,
+                position_order INTEGER NOT NULL,
+                PRIMARY KEY (year, date_kind, date_value),
+                FOREIGN KEY (year) REFERENCES production_calendar_years(year) ON DELETE CASCADE
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS workshops (
+                workshop_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                workshop_name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                position_order INTEGER NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS nodes (
+                node_id TEXT PRIMARY KEY,
+                workshop_id INTEGER NOT NULL,
+                parent_node_id TEXT NULL,
+                position_order INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                level_index INTEGER NOT NULL,
+                node_type INTEGER NOT NULL,
+                details_description TEXT NOT NULL,
+                details_location TEXT NOT NULL,
+                details_inventory_number TEXT NOT NULL,
+                details_photo_path TEXT NOT NULL,
+                details_ip_address TEXT NOT NULL,
+                details_schema_link TEXT NOT NULL,
+                FOREIGN KEY (workshop_id) REFERENCES workshops(workshop_id) ON DELETE CASCADE,
+                FOREIGN KEY (parent_node_id) REFERENCES nodes(node_id) ON DELETE CASCADE
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS composition_entries (
+                entry_id TEXT PRIMARY KEY,
+                entry_order INTEGER NOT NULL,
+                parent_node_id TEXT NOT NULL,
+                slot_number INTEGER NULL,
+                position_order INTEGER NOT NULL,
+                component_type TEXT NOT NULL,
+                model TEXT NOT NULL,
+                ip_address TEXT NOT NULL,
+                last_calibration_at TEXT NULL,
+                next_calibration_at TEXT NULL,
+                notes TEXT NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS document_links (
+                document_id TEXT PRIMARY KEY,
+                entry_order INTEGER NOT NULL,
+                owner_node_id TEXT NOT NULL,
+                kind INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                path TEXT NOT NULL,
+                updated_at TEXT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS software_records (
+                software_id TEXT PRIMARY KEY,
+                entry_order INTEGER NOT NULL,
+                owner_node_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                path TEXT NOT NULL,
+                added_at TEXT NULL,
+                last_changed_at TEXT NULL,
+                last_backup_at TEXT NULL,
+                notes TEXT NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS network_file_references (
+                network_asset_id TEXT PRIMARY KEY,
+                entry_order INTEGER NOT NULL,
+                owner_node_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                path TEXT NOT NULL,
+                preview_kind INTEGER NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS maintenance_schedule_profiles (
+                maintenance_profile_id TEXT PRIMARY KEY,
+                entry_order INTEGER NOT NULL,
+                owner_node_id TEXT NOT NULL,
+                is_included_in_schedule INTEGER NOT NULL,
+                to1_hours INTEGER NOT NULL,
+                to2_hours INTEGER NOT NULL,
+                to3_hours INTEGER NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS maintenance_year_schedule_entries (
+                maintenance_profile_id TEXT NOT NULL,
+                entry_order INTEGER NOT NULL,
+                month INTEGER NOT NULL,
+                work_kind INTEGER NOT NULL,
+                PRIMARY KEY (maintenance_profile_id, entry_order),
+                FOREIGN KEY (maintenance_profile_id) REFERENCES maintenance_schedule_profiles(maintenance_profile_id) ON DELETE CASCADE
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS equipment_catalog_items (
+                catalog_item_id TEXT PRIMARY KEY,
+                entry_order INTEGER NOT NULL,
+                equipment_kind TEXT NOT NULL,
+                manufacturer TEXT NOT NULL,
+                series TEXT NOT NULL,
+                model TEXT NOT NULL,
+                default_node_type INTEGER NOT NULL,
+                description TEXT NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS equipment_catalog_properties (
+                catalog_item_id TEXT NOT NULL,
+                property_order INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                value TEXT NOT NULL,
+                PRIMARY KEY (catalog_item_id, property_order),
+                FOREIGN KEY (catalog_item_id) REFERENCES equipment_catalog_items(catalog_item_id) ON DELETE CASCADE
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS snapshots (
+                snapshot_id TEXT PRIMARY KEY,
+                created_at TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                source_database_path TEXT NOT NULL,
+                size_bytes INTEGER NOT NULL,
+                note TEXT NOT NULL,
+                payload_json TEXT NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS change_log (
+                change_id TEXT PRIMARY KEY,
+                created_at TEXT NOT NULL,
+                action_kind TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                details TEXT NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS object_templates (
+                template_id TEXT PRIMARY KEY,
+                entry_order INTEGER NOT NULL,
+                display_name TEXT NOT NULL,
+                description TEXT NOT NULL,
+                category TEXT NOT NULL,
+                composition_entries_json TEXT NOT NULL,
+                document_links_json TEXT NOT NULL,
+                software_records_json TEXT NOT NULL,
+                network_file_references_json TEXT NOT NULL,
+                maintenance_schedule_profiles_json TEXT NOT NULL,
+                network_interface_stubs_json TEXT NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS object_template_nodes (
+                template_id TEXT NOT NULL,
+                template_node_id TEXT NOT NULL,
+                parent_template_node_id TEXT NULL,
+                position_order INTEGER NOT NULL,
+                catalog_item_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                node_type INTEGER NOT NULL,
+                details_description TEXT NOT NULL,
+                details_location TEXT NOT NULL,
+                details_inventory_number TEXT NOT NULL,
+                details_photo_path TEXT NOT NULL,
+                details_ip_address TEXT NOT NULL,
+                details_schema_link TEXT NOT NULL,
+                PRIMARY KEY (template_id, template_node_id),
+                FOREIGN KEY (template_id) REFERENCES object_templates(template_id) ON DELETE CASCADE
+            );
+            """
+        ];
+    }
+}

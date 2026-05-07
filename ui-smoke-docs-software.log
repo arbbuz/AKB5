@@ -1,0 +1,9 @@
+﻿
+[23:14:27] Prepared search target: Система противоаварийной защиты (ПАЗ) раздачи серной кислоты КЦ
+[23:14:27] Starting WinForms application.
+[23:14:28] Selecting target cabinet through search.
+[23:14:30] Opening Documentation and Software tab.
+[23:14:33] Adding a scheme link.
+[23:15:39] Smoke test failed: Exception calling "Invoke" with "0" argument(s): "Operation timed out. (Exception from HRESULT: 0x80131505)"
+--- UI dump start ---
+[23:16:50] Smoke log written to C:\Users\Olga\AKB5\ui-smoke-docs-software.log

@@ -3,7 +3,7 @@ using AsutpKnowledgeBase.Models;
 
 namespace AsutpKnowledgeBase.Services
 {
-    public class JsonStorageService
+    public class JsonStorageService : IKnowledgeBaseStorageService
     {
         private static readonly JsonSerializerOptions SerializerOptions = new()
         {
@@ -12,13 +12,18 @@ namespace AsutpKnowledgeBase.Services
         };
 
         private readonly IAppLogger _logger;
+        private readonly KnowledgeBaseSnapshotService _snapshotService;
 
         public string SavePath { get; set; }
 
-        public JsonStorageService(string savePath, IAppLogger? logger = null)
+        public JsonStorageService(
+            string savePath,
+            IAppLogger? logger = null,
+            KnowledgeBaseSnapshotService? snapshotService = null)
         {
             SavePath = savePath;
             _logger = logger ?? NullAppLogger.Instance;
+            _snapshotService = snapshotService ?? new KnowledgeBaseSnapshotService();
         }
 
         public JsonLoadResult Load()
@@ -140,6 +145,8 @@ namespace AsutpKnowledgeBase.Services
             };
         }
 
+        KnowledgeBaseStorageLoadResult IKnowledgeBaseStorageService.Load() => Load();
+
         public bool Save(SavedData data, out string? errorMessage)
         {
             errorMessage = null;
@@ -167,7 +174,17 @@ namespace AsutpKnowledgeBase.Services
                 File.WriteAllText(tempPath, json);
 
                 if (File.Exists(SavePath))
+                {
+                    var snapshotResult = _snapshotService.CreateAutomaticSnapshot(SavePath, "before-save");
+                    LogSnapshotResult(snapshotResult);
+                    if (!snapshotResult.IsSuccess && !snapshotResult.IsSkipped)
+                    {
+                        throw new InvalidOperationException(
+                            snapshotResult.ErrorMessage ?? "Не удалось создать защитный снимок JSON-файла.");
+                    }
+
                     File.Copy(SavePath, backupPath, true);
+                }
 
                 File.Move(tempPath, SavePath, true);
 
@@ -210,7 +227,194 @@ namespace AsutpKnowledgeBase.Services
             }
         }
 
+        public KnowledgeBaseSnapshotCreateResult CreateManualSnapshot(
+            SavedData data,
+            string note)
+        {
+            try
+            {
+                var normalizedData = KnowledgeBaseDataService.NormalizeSavedData(data);
+                string json = JsonSerializer.Serialize(normalizedData, SerializerOptions);
+                var result = _snapshotService.CreateManualSnapshot(SavePath, json, note);
+                LogManualSnapshotResult(result);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                var result = new KnowledgeBaseSnapshotCreateResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = ex.Message
+                };
+                LogManualSnapshotResult(result);
+                return result;
+            }
+        }
+
+        public KnowledgeBaseSnapshotListResult ListSnapshots()
+        {
+            var result = _snapshotService.ListSnapshots(SavePath);
+            LogSnapshotListResult(result);
+            return result;
+        }
+
+        public KnowledgeBaseSnapshotDataResult ReadSnapshotData(KnowledgeBaseSnapshotEntry snapshot)
+        {
+            string snapshotPath = snapshot?.SnapshotPath?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(snapshotPath))
+                return SnapshotDataFailure(snapshotPath, "Не указан путь к снимку базы.");
+
+            if (!File.Exists(snapshotPath))
+                return SnapshotDataFailure(snapshotPath, $"Файл снимка не найден: {snapshotPath}");
+
+            if (!TryReadData(snapshotPath, out SavedData? data, out string? errorMessage, out _))
+                return SnapshotDataFailure(snapshotPath, errorMessage ?? "Не удалось прочитать снимок базы.");
+
+            return new KnowledgeBaseSnapshotDataResult
+            {
+                IsSuccess = true,
+                SnapshotPath = snapshotPath,
+                Data = data
+            };
+        }
+
+        public KnowledgeBaseSnapshotRestoreResult RestoreSnapshot(KnowledgeBaseSnapshotEntry snapshot)
+        {
+            KnowledgeBaseSnapshotDataResult dataResult = ReadSnapshotData(snapshot);
+            if (!dataResult.IsSuccess || dataResult.Data == null)
+            {
+                return SnapshotRestoreFailure(
+                    dataResult.SnapshotPath,
+                    string.Empty,
+                    dataResult.ErrorMessage ?? "Не удалось прочитать снимок базы.");
+            }
+
+            var protectiveSnapshot = _snapshotService.CreateAutomaticSnapshot(SavePath, "before-restore");
+            LogSnapshotResult(protectiveSnapshot);
+            if (!protectiveSnapshot.IsSuccess && !protectiveSnapshot.IsSkipped)
+            {
+                return SnapshotRestoreFailure(
+                    dataResult.SnapshotPath,
+                    protectiveSnapshot.SnapshotPath,
+                    protectiveSnapshot.ErrorMessage ?? "Не удалось создать защитный снимок перед восстановлением.");
+            }
+
+            if (!Save(dataResult.Data, out string? errorMessage))
+            {
+                return SnapshotRestoreFailure(
+                    dataResult.SnapshotPath,
+                    protectiveSnapshot.SnapshotPath,
+                    errorMessage ?? "Не удалось сохранить восстановленные данные.");
+            }
+
+            return new KnowledgeBaseSnapshotRestoreResult
+            {
+                IsSuccess = true,
+                SnapshotPath = dataResult.SnapshotPath,
+                ProtectiveSnapshotPath = protectiveSnapshot.SnapshotPath,
+                RestoredData = dataResult.Data
+            };
+        }
+
+        public KnowledgeBaseChangeLogAppendResult AppendChangeLog(
+            string actionKind,
+            string summary,
+            string details = "") =>
+            new()
+            {
+                IsSuccess = true,
+                IsSupported = false
+            };
+
+        public KnowledgeBaseChangeLogListResult ListChangeLog() =>
+            new()
+            {
+                IsSuccess = true,
+                IsSupported = false
+            };
+
         private static string GetBackupPath(string savePath) => $"{savePath}.bak";
+
+        private static KnowledgeBaseSnapshotDataResult SnapshotDataFailure(
+            string snapshotPath,
+            string errorMessage) =>
+            new()
+            {
+                IsSuccess = false,
+                SnapshotPath = snapshotPath,
+                ErrorMessage = errorMessage
+            };
+
+        private static KnowledgeBaseSnapshotRestoreResult SnapshotRestoreFailure(
+            string snapshotPath,
+            string protectiveSnapshotPath,
+            string errorMessage) =>
+            new()
+            {
+                IsSuccess = false,
+                SnapshotPath = snapshotPath,
+                ProtectiveSnapshotPath = protectiveSnapshotPath,
+                ErrorMessage = errorMessage
+            };
+
+        private void LogSnapshotListResult(KnowledgeBaseSnapshotListResult result)
+        {
+            _logger.Log(
+                result.IsSuccess ? "JsonSnapshotListSucceeded" : "JsonSnapshotListFailed",
+                result.IsSuccess ? AppLogLevel.Information : AppLogLevel.Error,
+                result.IsSuccess
+                    ? "JSON snapshot list was read."
+                    : "JSON snapshot list read failed.",
+                properties: CreateProperties(
+                    ("path", SavePath),
+                    ("snapshotDirectoryPath", result.SnapshotDirectoryPath),
+                    ("snapshotCount", result.Snapshots.Count),
+                    ("errorMessage", result.ErrorMessage)));
+        }
+
+        private void LogManualSnapshotResult(KnowledgeBaseSnapshotCreateResult result)
+        {
+            _logger.Log(
+                result.IsSuccess ? "JsonManualSnapshotCreated" : "JsonManualSnapshotFailed",
+                result.IsSuccess ? AppLogLevel.Information : AppLogLevel.Error,
+                result.IsSuccess
+                    ? "Manual JSON snapshot was created."
+                    : "Manual JSON snapshot creation failed.",
+                properties: CreateProperties(
+                    ("path", SavePath),
+                    ("snapshotPath", result.SnapshotPath),
+                    ("metadataPath", result.MetadataPath),
+                    ("snapshotSizeBytes", result.SizeBytes),
+                    ("snapshotCreatedAt", result.CreatedAt),
+                    ("errorMessage", result.ErrorMessage)));
+        }
+
+        private void LogSnapshotResult(KnowledgeBaseSnapshotCreateResult result)
+        {
+            if (result.IsSuccess)
+            {
+                _logger.Log(
+                    "JsonSnapshotCreated",
+                    AppLogLevel.Information,
+                    "JSON snapshot was created before overwrite.",
+                    properties: CreateProperties(
+                        ("path", SavePath),
+                        ("snapshotPath", result.SnapshotPath),
+                        ("snapshotSizeBytes", result.SizeBytes),
+                        ("snapshotCreatedAt", result.CreatedAt)));
+                return;
+            }
+
+            _logger.Log(
+                result.IsSkipped ? "JsonSnapshotSkipped" : "JsonSnapshotFailed",
+                result.IsSkipped ? AppLogLevel.Information : AppLogLevel.Error,
+                result.IsSkipped
+                    ? "JSON snapshot was skipped."
+                    : "JSON snapshot creation failed.",
+                properties: CreateProperties(
+                    ("path", SavePath),
+                    ("errorMessage", result.ErrorMessage)));
+        }
 
         private static bool TryReadData(
             string path,

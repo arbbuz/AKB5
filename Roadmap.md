@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-05-06
+Last updated: 2026-05-07
 Branch baseline: `to`
-Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to, Phase 7F production-calendar configuration complete on to, Phase 7F.1 PDF calendar import complete on to, Phase 11A accepted, production-calendar Russian date format accepted, Phase 11B equipment catalog UI complete on to, Phase 11C object template model accepted, Phase 11D create from template accepted, Phase 11E save existing object as template accepted, Phase 11F apply template with preview accepted, Phase 11G template import/export accepted locally, Phase 12 backup/snapshots/change history active`
+Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to, Phase 7F production-calendar configuration complete on to, Phase 7F.1 PDF calendar import complete on to, Phase 11A accepted, production-calendar Russian date format accepted, Phase 11B equipment catalog UI complete on to, Phase 11C object template model accepted, Phase 11D create from template accepted, Phase 11E save existing object as template accepted, Phase 11F apply template with preview accepted, Phase 11G template import/export accepted locally, Phase 12S0 SQLite storage plan approved, Phase 12S1-S8 storage redesign implemented locally, Phase 12S8 change history waiting review`
 
 ## Goal
 
@@ -27,6 +27,7 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
    - a large preview inside the form
    - an `Open original` action
 10. User-facing program UI should use Russian only.
+11. The approved target storage direction is SQLite single-file storage with JSON import/export compatibility and first-launch migration from the existing legacy JSON database.
 ## Non-negotiable architecture rules
 
 1. `NodeType` must become more important than `LevelIndex`.
@@ -39,8 +40,8 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 
 ## Current technical reality
 
-- JSON is still the source of truth.
-- Current JSON schema version is `3`.
+- Current builds default to SQLite single-file `.akb` storage at `%LocalAppData%\AKB5\knowledge-base.akb`.
+- Current JSON schema version is `3`; it remains the compatibility format for first-launch migration, full JSON import/export, and legacy JSON file routing.
 - The domain node now has `NodeId` and `NodeType`; legacy data is normalized/migrated on load.
 - Hidden workshop wrappers are now identified through explicit `NodeType.WorkshopRoot` in projection/session workflows.
 - `Phase 2` is complete on `to`: the right panel now routes by `NodeType` into a clean `Info` screen or an engineering tab host.
@@ -60,7 +61,7 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - On 2026-04-28, the current `Phase 6` worktree passed verification build, passed `dotnet test` (`177/177`), and `asutpKB.exe` startup was rechecked after the final `Network` UX fixes.
 - Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition, but further workbook modernization is no longer the preferred next phase.
 - Current CI workflow also verifies `dotnet format --verify-no-changes` for the app project, core project, and tests before `build` / `test`.
-- The maintenance-schedule generation roadmap through `Phase 7F.1` is complete on `to`; `Phase 11B` equipment catalog UI is complete on `to`; `Phase 11C` through `Phase 11F` object-template slices are accepted and committed/pushed; `Phase 11G` is accepted and committed locally; `Phase 12` is active next.
+- The maintenance-schedule generation roadmap through `Phase 7F.1` is complete on `to`; `Phase 11B` equipment catalog UI is complete on `to`; `Phase 11C` through `Phase 11F` object-template slices are accepted and committed/pushed; `Phase 11G` is accepted and committed locally; `Phase 12S0` SQLite storage plan is approved, local `Phase 12S1` through `Phase 12S8` are implemented/verified, and local `Phase 12S8` change history is waiting for manual review.
 - `Phase 7A` is complete on `to`: `Lvl2` inventory number support now follows visible hierarchy level, typed `MaintenanceScheduleProfiles` are persisted in JSON/session state, and engineering nodes expose a `График ТО` tab with per-node `ТО1` / `ТО2` / `ТО3` hour norms.
 - `Phase 7B` is complete on `to`: Russian production-calendar calculation for `5/2` workdays is available as a reusable service.
 - `Phase 7F` is complete on `to`: production-calendar years are persisted in JSON config, editable from the Russian UI, importable from JSON, and consumed by maintenance schedule generation.
@@ -619,34 +620,147 @@ Acceptance:
 - templates/catalog data can be exported and imported as JSON
 - tests cover normalization, object creation from templates, and saving existing object subtrees as templates
 
-### Phase 12. Backup, snapshots, and change history
+### Phase 12. SQLite storage, backups, snapshots, and change history
 
-Complexity: `Medium-High`
+Complexity: `High`
 
-Status: approved after Phase 11.
+Status: SQLite single-file direction and implementation plan approved; local `Phase 12S8. Change history` is implemented and waiting for manual review.
+
+Current local status:
+
+- `Phase 12A. Automatic JSON snapshots before save`
+  - status: verified local prototype, paused before commit while storage moves to SQLite
+  - on 2026-05-06, targeted `JsonStorageServiceTests|KnowledgeBaseSnapshotServiceTests` passed (`12/12`)
+  - on 2026-05-06, `phase12a-automatic-json-snapshots` passed verification build and `dotnet test` (`306/306`) using isolated output paths
+- `Phase 12B. Manual JSON snapshots with note`
+  - status: verified local prototype, paused before commit while storage moves to SQLite
+  - on 2026-05-07, targeted `JsonStorageServiceTests|KnowledgeBaseSnapshotServiceTests|KnowledgeBaseFileWorkflowServiceTests` passed (`22/22`)
+  - on 2026-05-07, `phase12b-manual-json-snapshots` passed verification build and `dotnet test` (`309/309`) using isolated output paths
+- `Phase 12C. Snapshot browser`
+  - status: verified local prototype, paused before commit while storage moves to SQLite
+  - on 2026-05-07, targeted `JsonStorageServiceTests|KnowledgeBaseSnapshotServiceTests|KnowledgeBaseFileWorkflowServiceTests` passed (`25/25`)
+  - on 2026-05-07, `phase12c-snapshot-browser` passed verification build and `dotnet test` (`312/312`) using isolated output paths
+- `Phase 12S0. SQLite single-file storage redesign plan`
+  - status: approved on 2026-05-07 with choices `1A, 2B, 3A, 4A`
+  - plan document: `docs/sqlite-storage-plan.md`
+- `Phase 12S1. Storage abstraction`
+  - status: implemented locally and verified; later local work advanced through `Phase 12S8`
+  - added `IKnowledgeBaseStorageService`, `KnowledgeBaseStorageLoadResult`, and `KnowledgeBaseStorageServiceFactory`
+  - `JsonStorageService` implements the storage interface while preserving the existing JSON load/save behavior
+  - `KnowledgeBaseFileWorkflowService` now depends on the storage interface instead of the concrete JSON service
+  - `Forms` no longer creates `JsonStorageService` directly
+  - on 2026-05-07, targeted storage/file-workflow/snapshot tests passed (`27/27`)
+  - on 2026-05-07, `phase12s1-storage-abstraction` passed verification build and `dotnet test` (`314/314`)
+- `Phase 12S2. SQLite schema and repository`
+  - status: implemented locally and verified
+  - added `Microsoft.Data.Sqlite` `8.0.13` to the core project
+  - added `KnowledgeBaseSqliteConnectionFactory` with foreign keys enabled, rollback journal mode, and pooling disabled for predictable single-file handling
+  - added `SqliteKnowledgeBaseStorageService` as an alternative `IKnowledgeBaseStorageService` implementation
+  - schema version `1` creates normalized tables for metadata, config, production calendars, workshops, tree nodes, typed records, maintenance profiles/year entries, catalog items/properties, object templates, and template nodes
+  - SQLite save/load round-trips a normalized `SavedData`; UI switching happens in `Phase 12S4`
+  - on 2026-05-07, targeted SQLite storage tests passed (`3/3`)
+  - on 2026-05-07, targeted storage/file-workflow/snapshot tests passed (`30/30`)
+  - on 2026-05-07, `phase12s2-sqlite-schema-repository` passed verification build and `dotnet test` (`317/317`)
+- `Phase 12S3. First-launch JSON migration`
+  - status: implemented locally and verified
+  - offers migration from `Мои документы\ASUTP_KnowledgeBase.json` to `%LocalAppData%\AKB5\knowledge-base.akb` only when no `.akb` exists and legacy JSON is present
+  - requires user confirmation, leaves the JSON source untouched, records migration metadata, and writes a post-migration JSON safety export next to the `.akb`
+  - on 2026-05-07, `phase12s3-first-launch-json-migration` passed verification build and `dotnet test` (`322/322`)
+- `Phase 12S4. Database file UX`
+  - status: implemented locally and verified
+  - switches the default live path to `.akb`, routes `.json` paths to legacy JSON storage and `.akb` paths to SQLite storage, updates database dialogs to `.akb`, and adds full database JSON import/export
+  - on 2026-05-07, `phase12s4-database-file-ux-json-compatibility` passed verification build and `dotnet test` (`325/325`)
+- `Phase 12S5. SQLite backups and snapshots`
+  - status: implemented locally and verified
+  - stores SQLite-backed snapshots inside the `.akb` database with metadata and normalized `SavedData` payloads; legacy JSON still uses `.akb-snapshots`
+  - on 2026-05-07, `phase12s5-sqlite-snapshots` passed verification build and `dotnet test` (`328/328`)
+- `Phase 12S6. Restore selected snapshot`
+  - status: implemented locally and verified
+  - restores selected SQLite snapshots only after confirmation, creates a protective `before-restore` snapshot, reloads restored data into the UI, and preserves current data on failed restore
+  - on 2026-05-07, `phase12s6-snapshot-restore` passed verification build and `dotnet test` (`330/330`)
+- `Phase 12S7. Snapshot comparison`
+  - status: implemented locally and verified
+  - compares two snapshots at summary level across high-value data areas before restore/audit decisions
+  - on 2026-05-07, `phase12s7-snapshot-comparison` passed verification build and `dotnet test` (`332/332`)
+- `Phase 12S8. Change history`
+  - status: implemented locally, verified, waiting for manual review
+  - writes SQLite change-history entries for save, migration, manual snapshot, restore, and catalog/template import, and exposes a read-only `Файл -> История изменений...` view for `.akb` databases
+  - on 2026-05-07, `phase12s8-change-history` passed verification build and `dotnet test` (`333/333`)
+
+Storage decision:
+
+- use one SQLite database file as the live application source of truth
+- proposed default path: `%LocalAppData%\AKB5\knowledge-base.akb`
+- use `.akb` as the visible database extension
+- show a confirmation dialog before first-launch migration
+- create an automatic post-migration JSON safety export next to the new `.akb`
+- do not support simultaneous multi-user editing in the first SQLite version
+- do not use `Мои документы` as the default live database location
+- keep the legacy `Мои документы\ASUTP_KnowledgeBase.json` file unchanged during migration
+- keep JSON as a full database import/export and first-launch migration compatibility format
+- keep catalog/template JSON exchange separate from full database JSON import/export
+- keep Excel workbook `v3` as a legacy exchange layer, not as the main storage direction
 
 Goals:
 
-- protect the JSON source of truth from accidental loss or destructive edits
-- make important changes reviewable through snapshots and history
+- replace whole-file JSON persistence with transactional SQLite writes
+- preserve existing user data through first-launch migration from JSON
+- keep a convenient single-file database for copy/backup/support workflows
+- make important changes reviewable through SQLite-aware snapshots and history
 - provide a practical restore path before larger multi-user or role-based workflows are considered
 
-Scope:
+Planned implementation slices:
 
-- automatic timestamped JSON snapshots before destructive operations and save operations
-- manual snapshot creation with user note
-- snapshot browser with date, source file, size, and note
-- restore selected snapshot after confirmation
-- compare two snapshots at summary level: workshops, nodes, documents, software, network files, maintenance profiles, production calendars, catalog/template records
-- lightweight change history for high-value actions
+- `Phase 12S1. Storage abstraction`
+  - status: implemented locally and verified
+  - introduce an app-facing storage interface that loads and saves `SavedData`
+  - adapt current JSON storage behind that interface without behavior changes
+  - acceptance: UI/file workflow no longer depends directly on `JsonStorageService`
+- `Phase 12S2. SQLite schema and repository`
+  - status: implemented locally and verified
+  - add SQLite dependency, connection factory, schema versioning, and normalized tables
+  - implement SQLite load/save round trip through `SavedData`
+  - acceptance: full normalized `SavedData` survives save/load round trip
+- `Phase 12S3. First-launch JSON migration`
+  - status: implemented locally and verified
+  - offer migration from `Мои документы\ASUTP_KnowledgeBase.json` when no SQLite database exists
+  - show a confirmation dialog before migration
+  - leave the JSON source file untouched and report migration status
+  - create an automatic post-migration JSON safety export next to the new `.akb`
+  - acceptance: existing user data appears after first launch without manual import and migration never starts before confirmation
+- `Phase 12S4. Database file UX`
+  - status: implemented locally and verified
+  - switch default live database path to SQLite
+  - update open/save dialogs to `.akb`
+  - add explicit full JSON import/export compatibility commands
+  - acceptance: ordinary users work with `.akb`, support can still import/export full JSON
+- `Phase 12S5. SQLite backups and snapshots`
+  - status: implemented locally and verified
+  - replace `.akb-snapshots` JSON workflow with SQLite-aware snapshots
+  - store note, kind, source database path, timestamp, size, and snapshot payload
+  - acceptance: manual/protective snapshots work from SQLite
+- `Phase 12S6. Restore selected snapshot`
+  - status: implemented locally and verified
+  - restore only after explicit confirmation and a pre-restore protective snapshot
+  - acceptance: failed restore leaves the current database intact
+- `Phase 12S7. Snapshot comparison`
+  - status: implemented locally and verified
+  - compare two snapshots at summary level across high-value data areas
+  - acceptance: added/removed/changed areas are visible before restore/audit work
+- `Phase 12S8. Change history`
+  - status: implemented locally, verified, waiting for manual review
+  - log save, import, migration, manual snapshot, restore, and catalog/template import actions
+  - acceptance: high-value storage actions are visible after the fact
 
 Acceptance:
 
-- users can create and restore snapshots from the UI
-- the app creates protective snapshots before risky operations
-- snapshot restore never happens without explicit confirmation
-- snapshot comparison reports what changed at a useful summary level
-- snapshot files remain separate from the main JSON and from Excel exchange workbooks
+- the app no longer uses `Мои документы\ASUTP_KnowledgeBase.json` as the default live database
+- first launch can migrate existing JSON data into SQLite after confirmation without modifying the JSON file
+- JSON full database import/export remains available
+- SQLite save/load is transactional and covered by round-trip tests
+- users can create, browse, restore, and compare snapshots from SQLite-backed storage
+- restore never happens without explicit confirmation
+- important storage/import/restore actions are visible in change history
 
 ### Optional future phase. Interactive network topology
 
@@ -735,11 +849,20 @@ Completed on `to`:
 23. Phase 11E. Save existing object as template, accepted after manual review
 24. Phase 11F. Apply template with preview, accepted after manual review
 25. Phase 11G. Template import/export, accepted after manual review
+26. Local Phase 12S1. Storage abstraction, implemented and verified
+27. Local Phase 12S2. SQLite schema/repository, implemented and verified
+28. Local Phase 12S3. First-launch JSON migration, implemented and verified
+29. Local Phase 12S4. Database file UX, implemented and verified
+30. Local Phase 12S5. SQLite snapshots, implemented and verified
+31. Local Phase 12S6. Restore selected snapshot, implemented and verified
+32. Local Phase 12S7. Snapshot comparison, implemented and verified
+33. Local Phase 12S8. Change history, implemented and verified
 
 Approved next:
 
-1. Phase 12. Backup, snapshots, and change history
-2. Push local Phase 11G only if the user asks
+1. Manual review of local `Phase 12S8. Change history`
+2. After acceptance, commit the accepted stack and define the next roadmap task before further coding
+3. Push local Phase 11G only if the user asks
 
 Not active:
 
@@ -764,7 +887,8 @@ We are on branch to.
 Continue implementation only from the next explicitly prioritized roadmap task.
 If Roadmap.md says no next coding phase is prioritized, stop after reporting the current state.
 Do not redesign the roadmap unless you find a concrete technical contradiction in the codebase.
-Keep JSON source-of-truth compatibility and treat Excel v3 as a legacy transition layer.
+Keep JSON import/export and first-launch migration compatibility and treat Excel v3 as a legacy transition layer.
+Phase 12S8 is implemented locally and waiting for manual review; do not start a new roadmap task until it is accepted.
 ```
 
 ## Immediate next step
@@ -772,8 +896,8 @@ Keep JSON source-of-truth compatibility and treat Excel v3 as a legacy transitio
 Continue from the next explicitly prioritized task:
 
 - preserve the completed `Phase 7A` / `7B` / `7C` / `7D` / `7E` / `7F` / `7F.1` workflow as the current baseline
-- continue with `Phase 12. Backup, snapshots, and change history`; do not push local `Phase 11G` unless the user asks
+- wait for manual review of local `Phase 12S8. Change history`; do not push local `Phase 11G` unless the user asks
 - do not start a new `Phase 7G`; it is not part of this roadmap
 - treat future-month recalculation as completed `Phase 7D` orchestration/workflow built on top of the existing monthly engine, not as a replacement for it
 - keep workbook `v3` readable as legacy, but do not expand it as the main feature direction
-- keep JSON source-of-truth compatibility and preserve Russian-only UI
+- keep SQLite single-file storage, JSON import/export and first-launch migration compatibility, and Russian-only UI intact during review fixes

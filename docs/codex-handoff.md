@@ -1,6 +1,6 @@
 # Current State
 
-Last updated: `2026-05-06`
+Last updated: `2026-05-07`
 
 ## Repo state
 
@@ -9,7 +9,7 @@ Last updated: `2026-05-06`
 - Latest feature integration commit for the maintenance-planning stream: `09bf84d Add production calendar PDF import`
 - Latest docs synchronization commit: `68d51b6 Distill roadmap state after Phase 7F`
 - Latest accepted implementation: `Phase 11G template import/export`
-- Current local implementation: `Phase 12 backup, snapshots, and change history`
+- Current roadmap implementation item: local `Phase 12S8 Change history` waiting for manual review
 - Implemented on this branch:
   - `Phase 0`
   - `Phase 1`
@@ -39,12 +39,21 @@ Last updated: `2026-05-06`
   - `Phase 11E save existing object as template`
   - `Phase 11F apply template with preview`
   - `Phase 11G template import/export`
-- Current active roadmap step: `Phase 12. Backup, snapshots, and change history`
+  - local `Phase 12S1 storage abstraction`
+  - local `Phase 12S2 SQLite schema and repository`
+  - local `Phase 12S3 first-launch JSON migration`
+  - local `Phase 12S4 database file UX`
+  - local `Phase 12S5 SQLite snapshots`
+  - local `Phase 12S6 snapshot restore`
+  - local `Phase 12S7 snapshot comparison`
+  - local `Phase 12S8 change history`
+- Current active gate: manual review of local `Phase 12S8. Change history`
 - `Phase 11B. Equipment catalog UI` was committed and pushed on `to` as `f80873f Add equipment catalog UI`
 - `Phase 11C` / `Phase 11D` were committed and pushed on `to` as `3caca67 Add object template creation workflow`
 - `Phase 11E` was committed and pushed on `to` as `3c87b6e Add save object as template workflow`
 - `Phase 11F` was committed and pushed on `to` as `ca43298 Add apply object template preview workflow`
 - `Phase 11G` was accepted after manual review and committed locally; push only if the user asks
+- The chief developer approved the SQLite single-file storage plan choices `1A, 2B, 3A, 4A`; local JSON snapshot prototype work is paused before commit while implementation moves through the SQLite storage plan
 
 ## Integrated feature state
 
@@ -105,9 +114,152 @@ Last updated: `2026-05-06`
   - `Phase 11E` adds a tree context-menu command for saving the selected object subtree as a persisted template, removes real node ids, remaps typed owner references by generated template-node ids, and skips typed records outside the selected subtree
   - `Phase 11F` adds a tree context-menu command `Применить шаблон к объекту...`, shows an explicit preview of added/skipped/unchanged data, and applies only missing subtree nodes, typed records, and empty supported card fields
   - `Phase 11G` adds `Файл -> Экспорт каталога и шаблонов JSON...` and `Файл -> Импорт каталога и шаблонов JSON...`; export writes a dedicated UTF-8 JSON exchange file and import merges only catalog/templates without touching legacy Excel `v3`
+- `Phase 12` current local state:
+  - `Phase 12A` adds automatic timestamped JSON snapshots before save; snapshot failure blocks overwrite so the current JSON file stays intact
+  - `Phase 12B` adds `Файл -> Создать снимок базы...`, requires a user note, writes the current JSON state to `.akb-snapshots`, and writes `.meta.json` sidecar metadata
+  - `Phase 12C` adds `Файл -> Просмотреть снимки базы...` and a read-only browser with date, type, snapshot file, source file, size, and note
+  - `Phase 12C` reads note/source/timestamp/size from sidecar metadata for manual snapshots and falls back to filename/file info for automatic snapshots without metadata
+  - `Phase 12A` / `12B` / `12C` are now treated as verified local prototype work, paused before commit while storage moves to SQLite
+  - `Phase 12S0` is approved with choices `1A, 2B, 3A, 4A`; details are in `docs/sqlite-storage-plan.md`
+  - `Phase 12S1. Storage abstraction` is implemented locally and verified
+  - `Phase 12S1` adds `IKnowledgeBaseStorageService`, `KnowledgeBaseStorageLoadResult`, and `KnowledgeBaseStorageServiceFactory`; `JsonStorageService` implements the interface and `KnowledgeBaseFileWorkflowService` now depends on the interface
+  - `Forms` no longer creates `JsonStorageService` directly; current behavior still uses legacy JSON storage through the factory
+  - `Phase 12S2. SQLite schema and repository` is implemented locally and verified
+  - `Phase 12S2` adds `Microsoft.Data.Sqlite` `8.0.13`, `KnowledgeBaseSqliteConnectionFactory`, and `SqliteKnowledgeBaseStorageService`
+  - SQLite schema version `3` creates normalized tables for metadata, config, calendars, workshops, nodes, typed records, maintenance, catalog, object templates, template nodes, snapshots, and change history
+  - SQLite save/load round-trips normalized `SavedData`
+  - `Phase 12S3. First-launch JSON migration` is implemented locally and verified; it offers confirmed migration from legacy `Мои документы\ASUTP_KnowledgeBase.json` to `%LocalAppData%\AKB5\knowledge-base.akb`, leaves legacy JSON unchanged, and writes a post-migration JSON safety export
+  - `Phase 12S4. Database file UX` is implemented locally and verified; current builds default to `.akb`, route `.json` paths to legacy JSON storage, update database dialogs to `.akb`, and add full database JSON import/export commands
+  - `Phase 12S5. SQLite backups and snapshots` is implemented locally and verified; SQLite snapshots live inside the `.akb` database with metadata and normalized `SavedData` payloads
+  - `Phase 12S6. Restore selected snapshot` is implemented locally and verified; restore requires confirmation, creates a protective `before-restore` snapshot, reloads restored data, and leaves failed restores intact
+  - `Phase 12S7. Snapshot comparison` is implemented locally and verified; two snapshots can be compared at summary level across high-value data areas
+  - `Phase 12S8. Change history` is implemented locally, verified, and waiting for manual review; `.akb` databases record save, migration, manual snapshot, restore, and catalog/template import actions and expose `Файл -> История изменений...`
+  - target storage direction: SQLite single-file database, default `%LocalAppData%\AKB5\knowledge-base.akb`, visible `.akb` extension, JSON full database import/export, confirmation before first-launch migration from legacy `Мои документы\ASUTP_KnowledgeBase.json`, automatic post-migration JSON safety export, and no simultaneous multi-user editing in the first SQLite version
 - User-facing application UI on `to` remains Russian-only
 
 ## Validated status
+
+Actually run on the worktree for local `Phase 12S8` on `2026-05-07`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase12s3-first-launch-json-migration
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase12s4-database-file-ux-json-compatibility
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase12s5-sqlite-snapshots
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase12s6-snapshot-restore
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase12s7-snapshot-comparison
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase12s8-change-history
+```
+
+- `phase12s3-first-launch-json-migration`: verification build passed; `dotnet test` passed, `322/322`
+- `phase12s4-database-file-ux-json-compatibility`: verification build passed; `dotnet test` passed, `325/325`
+- `phase12s5-sqlite-snapshots`: verification build passed; `dotnet test` passed, `328/328`
+- `phase12s6-snapshot-restore`: verification build passed; `dotnet test` passed, `330/330`
+- `phase12s7-snapshot-comparison`: verification build passed; `dotnet test` passed, `332/332`
+- `phase12s8-change-history`: verification build passed; `dotnet test` passed, `333/333`
+- Verification artifacts: `artifacts\verify\phase12s8-change-history`
+- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase12s8-change-history\build\Release\net8.0-windows\asutpKB.exe`
+- Harness status: `STATE: WAITING_REVIEW`; stop for manual review before commit/push or any new roadmap task
+
+Actually run on the worktree for local `Phase 12S2` on `2026-05-07`:
+
+```powershell
+dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --no-restore --filter "SqliteKnowledgeBaseStorageServiceTests"
+dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --no-restore --filter "SqliteKnowledgeBaseStorageServiceTests|KnowledgeBaseFileWorkflowServiceTests|JsonStorageServiceTests|KnowledgeBaseSnapshotServiceTests"
+dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
+dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase12s2-sqlite-schema-repository
+```
+
+- Targeted SQLite storage tests: passed, `3/3`
+- Targeted storage/file-workflow/snapshot tests: passed, `30/30`
+- `dotnet format --verify-no-changes`: passed for app, core, and tests
+- Verification `dotnet build`: passed for `phase12s2-sqlite-schema-repository`
+- `dotnet test`: passed, `317/317`
+- Verification artifacts: `artifacts\verify\phase12s2-sqlite-schema-repository`
+- Historical harness status for that slice: `STATE: WAITING_REVIEW`; later local work advanced through `Phase 12S8`
+
+Actually run on the worktree for local `Phase 12S1` on `2026-05-07`:
+
+```powershell
+dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --no-restore --filter "KnowledgeBaseFileWorkflowServiceTests|JsonStorageServiceTests|KnowledgeBaseSnapshotServiceTests"
+dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
+dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase12s1-storage-abstraction
+```
+
+- Targeted storage/file-workflow/snapshot tests: passed, `27/27`
+- `dotnet format --verify-no-changes`: passed for app, core, and tests
+- Verification `dotnet build`: passed for `phase12s1-storage-abstraction`
+- `dotnet test`: passed, `314/314`
+- Verification artifacts: `artifacts\verify\phase12s1-storage-abstraction`
+- Historical harness status for that slice: `STATE: WAITING_REVIEW`; later local work advanced through `Phase 12S8`
+
+Docs-only storage plan update on `2026-05-07`:
+
+- Added `docs/sqlite-storage-plan.md`
+- Updated `README.md`, `AGENTS.md`, `Roadmap.md`, `docs/plans.md`, `docs/decision-log.md`, `docs/workbook-v3.md`, and this handoff to reflect the SQLite single-file target direction
+- Recorded approved choices `1A, 2B, 3A, 4A`; local implementation has since advanced through `Phase 12S8. Change history`
+- No code implementation was started for SQLite storage
+- Build/test/harness were not required for this docs-only planning slice
+
+Actually run on the worktree for local `Phase 12C` on `2026-05-07`:
+
+```powershell
+dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
+dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
+dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --no-restore --filter "JsonStorageServiceTests|KnowledgeBaseSnapshotServiceTests|KnowledgeBaseFileWorkflowServiceTests"
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase12c-snapshot-browser
+```
+
+- `dotnet format --verify-no-changes`: passed for app, core, and tests
+- Targeted JSON storage/snapshot/file-workflow tests: passed, `25/25`
+- Verification `dotnet build`: passed for `phase12c-snapshot-browser`
+- `dotnet test`: passed, `312/312`
+- Verification artifacts: `artifacts\verify\phase12c-snapshot-browser`
+- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase12c-snapshot-browser\build\Release\net8.0-windows\asutpKB.exe`
+- Local implementation: `Файл -> Просмотреть снимки базы...` opens a read-only snapshot browser for the current JSON database; it shows date, type, snapshot file, source file, size, and note, reads notes from `.meta.json`, and derives fallback metadata for automatic snapshots
+- Status: verified local prototype; paused before commit while storage moves to SQLite
+
+Actually run on the worktree for local `Phase 12B` on `2026-05-07`:
+
+```powershell
+dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
+dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
+dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --no-restore --filter "JsonStorageServiceTests|KnowledgeBaseSnapshotServiceTests|KnowledgeBaseFileWorkflowServiceTests"
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase12b-manual-json-snapshots
+```
+
+- `dotnet format --verify-no-changes`: passed for app, core, and tests
+- Targeted JSON storage/snapshot/file-workflow tests: passed, `22/22`
+- Verification `dotnet build`: passed for `phase12b-manual-json-snapshots`
+- `dotnet test`: passed, `309/309`
+- Verification artifacts: `artifacts\verify\phase12b-manual-json-snapshots`
+- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase12b-manual-json-snapshots\build\Release\net8.0-windows\asutpKB.exe`
+- Local implementation: `Файл -> Создать снимок базы...` writes the current JSON state to `.akb-snapshots`, requires a user note, and writes a `.meta.json` sidecar consumed by the `Phase 12C` browser and future restore work
+- Status: verified local prototype; paused before commit while storage moves to SQLite
+
+Actually run on the worktree for local `Phase 12A` on `2026-05-06`:
+
+```powershell
+dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
+dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
+dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --no-restore --filter "JsonStorageServiceTests|KnowledgeBaseSnapshotServiceTests"
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName phase12a-automatic-json-snapshots
+```
+
+- `dotnet format --verify-no-changes`: passed for app, core, and tests
+- Targeted JSON storage/snapshot tests: passed, `12/12`
+- Verification `dotnet build`: passed for `phase12a-automatic-json-snapshots`
+- `dotnet test`: passed, `306/306`
+- Verification artifacts: `artifacts\verify\phase12a-automatic-json-snapshots`
+- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase12a-automatic-json-snapshots\build\Release\net8.0-windows\asutpKB.exe`
+- Local implementation: `JsonStorageService.Save` creates a timestamped snapshot of the existing JSON file in `.akb-snapshots` before overwrite, keeps the existing `.bak` behavior, and aborts save without overwriting if the protective snapshot cannot be created
+- Status: verified local prototype; paused before commit while storage moves to SQLite
 
 Actually run on the worktree for local `Phase 11G` on `2026-05-06`:
 
@@ -288,13 +440,13 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 ## Active objective
 
 - Keep the completed `Phase 7` workflow on `to` stable as the baseline
-- Continue with `Phase 12. Backup, snapshots, and change history`; do not push local `Phase 11G` unless the user asks
+- Wait for manual review of local `Phase 12S8. Change history`; do not push local `Phase 11G` unless the user asks
 - Preserve the production-calendar follow-up behavior: manual calendar dates are shown as `дд.мм.гггг`, JSON import accepts both `дд.мм.гггг` and legacy ISO dates, saved app JSON remains backward-compatible, and additional working days can represent transferred working weekends
 - Keep `Phase 11B` as the accepted equipment-catalog UI baseline
 - Preserve deterministic month placement as fallback for profiles that do not enable manual annual placement
-- Keep JSON as the source of truth for calendar configuration; generated workbooks remain report artifacts
+- Current builds default to SQLite `.akb` storage while retaining JSON import/export and first-launch migration compatibility; generated workbooks remain report artifacts
 - Do not start `Phase 7G` unless it is first defined and accepted in the roadmap
-- Treat `Phase 12` as active now that `Phase 11G` passed manual review
+- Treat `Phase 12S8. Change history` as implemented locally and waiting for manual review; do not start a new roadmap task before acceptance
 
 ## Durable decisions already made
 
@@ -327,7 +479,18 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `Phase 11E` / `Phase 11F` were committed and pushed on `to` as `3c87b6e Add save object as template workflow` and `ca43298 Add apply object template preview workflow`
 - `Phase 11F` applies templates to existing objects only after preview; it does not overwrite existing card values or typed records and does not delete user data
 - `Phase 11G` exchanges equipment catalog records and object templates through a dedicated JSON file; import is a safe merge and does not replace current duplicates
-- `Phase 12` is the active approved step: backup, snapshots, and change history
+- Local `Phase 12A` adds automatic timestamped JSON snapshots before save; snapshot failure blocks overwrite so the current JSON file stays intact
+- Local `Phase 12B` adds manual snapshot creation with a required note and sidecar metadata for future snapshot browser/restore workflows
+- Local `Phase 12C` adds a read-only snapshot browser that lists `.akb-snapshots` entries for the current JSON database with date, type, snapshot file, source file, size, and note
+- Local `Phase 12S1` adds the storage abstraction around current JSON persistence and removes direct `JsonStorageService` dependency from UI/file workflow code
+- Local `Phase 12S2` added SQLite schema/repository support behind the storage abstraction
+- Local `Phase 12S3` added first-launch migration from legacy JSON to `%LocalAppData%\AKB5\knowledge-base.akb`, preserving the legacy JSON file and creating a safety JSON export
+- Local `Phase 12S4` switched current UI/file workflow defaults to `.akb`, kept legacy JSON routing, and added full database JSON import/export
+- Local `Phase 12S5` moved snapshots into the SQLite `.akb` database
+- Local `Phase 12S6` added confirmed snapshot restore with a protective before-restore snapshot
+- Local `Phase 12S7` added summary comparison for two selected snapshots
+- Local `Phase 12S8` added SQLite change-history recording and a read-only `Файл -> История изменений...` view for `.akb` databases
+- The target storage redesign is SQLite single-file storage with JSON import/export compatibility and first-launch migration from the legacy JSON database; see `docs/sqlite-storage-plan.md`
 - A single `ТО2` / `ТО3` occurrence above 8 hours is split into assignments of up to 8 hours; this is assignment chunking for major work, not a hard daily total cap
 - The planner may place more than one large maintenance item on the same day when needed; it only prefers to spread `ТО2` / `ТО3` apart when possible
 - The first release keeps deterministic rule-based month placement for `ТО2` / `ТО3`; a future yearly schedule source may replace that without redesigning the export pipeline
@@ -376,6 +539,29 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `Models/KbEquipmentCatalogItem.cs`
 - `Services/KnowledgeBaseEquipmentCatalogService.cs`
 - `Services/KnowledgeBaseDataService.cs`
+- `Services/IKnowledgeBaseStorageService.cs`
+- `Services/KnowledgeBaseStorageLoadResult.cs`
+- `Services/KnowledgeBaseStorageServiceFactory.cs`
+- `Services/KnowledgeBaseStoragePaths.cs`
+- `Services/KnowledgeBaseRoutedStorageService.cs`
+- `Services/KnowledgeBaseFirstLaunchMigrationService.cs`
+- `Services/KnowledgeBaseFullJsonExchangeService.cs`
+- `Services/KnowledgeBaseSqliteConnectionFactory.cs`
+- `Services/SqliteKnowledgeBaseStorageService.cs`
+- `Services/KnowledgeBaseSnapshotService.cs`
+- `Services/KnowledgeBaseSnapshotComparisonService.cs`
+- `Services/KnowledgeBaseChangeLog.cs`
+- `Services/JsonLoadResult.cs`
+- `Services/JsonStorageService.cs`
+- `Services/KnowledgeBaseFileWorkflowService.cs`
+- `Forms/KnowledgeBaseSnapshotBrowserForm.cs`
+- `Forms/KnowledgeBaseChangeHistoryForm.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseFileWorkflowServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/SqliteKnowledgeBaseStorageServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseFirstLaunchMigrationServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseFullJsonExchangeServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseSnapshotServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseSnapshotComparisonServiceTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseDataServiceTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseEquipmentCatalogServiceTests.cs`
 - `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseProductionCalendarPdfImportServiceTests.cs`
@@ -416,7 +602,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 
 ## Recommended next step
 
-- Continue with `Phase 12. Backup, snapshots, and change history`; do not push local `Phase 11G` unless the user asks
+- Wait for manual review of local `Phase 12S8. Change history`; do not push local `Phase 11G` unless the user asks
 
 ## Commands to run before finishing future implementation work
 

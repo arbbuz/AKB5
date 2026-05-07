@@ -43,9 +43,16 @@ namespace AsutpKnowledgeBase
             menuEditEquipmentCatalog = new ToolStripMenuItem("📚 Каталог оборудования...", null, EditEquipmentCatalog);
             menuExportCatalogTemplates = new ToolStripMenuItem("📤 Экспорт каталога и шаблонов JSON...", null, ExportCatalogTemplates);
             menuImportCatalogTemplates = new ToolStripMenuItem("📥 Импорт каталога и шаблонов JSON...", null, ImportCatalogTemplates);
+            menuExportDatabaseJson = new ToolStripMenuItem("📤 Экспорт базы JSON...", null, ExportDatabaseJson);
+            menuImportDatabaseJson = new ToolStripMenuItem("📥 Импорт базы JSON...", null, ImportDatabaseJson);
             var menuOpenDb = new ToolStripMenuItem("📂 Открыть базу...", null, BtnOpen_Click);
             var menuReloadDb = new ToolStripMenuItem("🔄 Обновить из файла", null, BtnLoad_Click);
             var menuSaveAs = new ToolStripMenuItem("💾 Сохранить как...", null, BtnSaveAs_Click);
+            menuCreateSnapshot = new ToolStripMenuItem("Создать снимок базы...", null, BtnCreateSnapshot_Click);
+            menuBrowseSnapshots = new ToolStripMenuItem("Просмотреть снимки базы...", null, BtnBrowseSnapshots_Click);
+            menuRestoreSnapshot = new ToolStripMenuItem("Восстановить из снимка...", null, BtnRestoreSnapshot_Click);
+            menuCompareSnapshots = new ToolStripMenuItem("Сравнить снимки...", null, BtnCompareSnapshots_Click);
+            menuBrowseChangeHistory = new ToolStripMenuItem("История изменений...", null, BtnBrowseChangeHistory_Click);
             var menuImportExcel = new ToolStripMenuItem("📥 Импорт из Excel...", null, BtnImportExcel_Click);
             var menuExportExcel = new ToolStripMenuItem("📊 Экспорт в Excel...", null, BtnExportExcel_Click);
             menuImportMaintenanceNorms = new ToolStripMenuItem("📥 Импорт норм ТО...", null, ImportMaintenanceScheduleNorms);
@@ -73,6 +80,13 @@ namespace AsutpKnowledgeBase
                 menuOpenDb,
                 menuReloadDb,
                 menuSaveAs,
+                menuExportDatabaseJson,
+                menuImportDatabaseJson,
+                menuCreateSnapshot,
+                menuBrowseSnapshots,
+                menuRestoreSnapshot,
+                menuCompareSnapshots,
+                menuBrowseChangeHistory,
                 menuImportExcel,
                 menuExportExcel,
                 new ToolStripSeparator(),

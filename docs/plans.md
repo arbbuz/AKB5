@@ -1,6 +1,6 @@
 # Plans
 
-Last updated: `2026-05-06`
+Last updated: `2026-05-07`
 
 ## Active plan
 
@@ -22,13 +22,25 @@ Last updated: `2026-05-06`
 - Treat `Phase 11F. Apply template with preview` as accepted after manual review and committed/pushed on `to`
 - Treat `Phase 11G. Template import/export` as accepted after manual review and committed locally; push only if the user asks
 - Treat the production-calendar Russian date format follow-up as accepted after manual review
-- Treat `Phase 12. Backup, snapshots, and change history` as the active approved roadmap block
-- Keep JSON as the source of truth and keep the yearly workbook as a generated/report artifact
+- Treat `Phase 12. Storage redesign, backups, snapshots, and change history` as the active roadmap block
+- Treat local `Phase 12A. Automatic JSON snapshots before save`, `Phase 12B. Manual JSON snapshots with note`, and `Phase 12C. Snapshot browser` as verified local prototype work that is paused before commit while storage moves to SQLite
+- Treat `Phase 12S0. SQLite single-file storage redesign plan` in `docs/sqlite-storage-plan.md` as approved with choices `1A, 2B, 3A, 4A`
+- Treat local `Phase 12S1. Storage abstraction` as implemented and verified
+- Treat local `Phase 12S2. SQLite schema and repository` as implemented and verified
+- Treat local `Phase 12S3. First-launch JSON migration` as implemented and verified
+- Treat local `Phase 12S4. Database file UX` as implemented and verified
+- Treat local `Phase 12S5. SQLite backups and snapshots` as implemented and verified
+- Treat local `Phase 12S6. Restore selected snapshot` as implemented and verified
+- Treat local `Phase 12S7. Snapshot comparison` as implemented and verified
+- Treat local `Phase 12S8. Change history` as implemented and verified; wait for manual review before commit/push or any new roadmap task
+- Treat SQLite single-file `.akb` storage as the target live source of truth; keep JSON as import/export and first-launch migration compatibility
+- Keep the yearly workbook as a generated/report artifact
 - Keep all new user-facing UI strings Russian-only
 
 ## Near-term follow-up
 
-- Continue with `Phase 12. Backup, snapshots, and change history`
+- Manual review of local `Phase 12S8. Change history`
+- After acceptance, commit the accepted stack and define the next roadmap task before coding further
 - Do not push the local `Phase 11G` commit unless the user asks
 
 ## Update rule

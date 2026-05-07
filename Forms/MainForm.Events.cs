@@ -131,6 +131,27 @@ namespace AsutpKnowledgeBase
         private void BtnSaveAs_Click(object? sender, EventArgs e)
             => _fileUiWorkflowService.SaveDatabaseAs(CreateFileUiWorkflowContext());
 
+        private void ExportDatabaseJson(object? sender, EventArgs e)
+            => _fileUiWorkflowService.ExportDatabaseJson(CreateFileUiWorkflowContext());
+
+        private void ImportDatabaseJson(object? sender, EventArgs e)
+            => _fileUiWorkflowService.ImportDatabaseJson(CreateFileUiWorkflowContext());
+
+        private void BtnCreateSnapshot_Click(object? sender, EventArgs e)
+            => _fileUiWorkflowService.CreateManualSnapshot(CreateFileUiWorkflowContext());
+
+        private void BtnBrowseSnapshots_Click(object? sender, EventArgs e)
+            => _fileUiWorkflowService.BrowseSnapshots(CreateFileUiWorkflowContext());
+
+        private void BtnRestoreSnapshot_Click(object? sender, EventArgs e)
+            => _fileUiWorkflowService.RestoreSnapshot(CreateFileUiWorkflowContext());
+
+        private void BtnCompareSnapshots_Click(object? sender, EventArgs e)
+            => _fileUiWorkflowService.CompareSnapshots(CreateFileUiWorkflowContext());
+
+        private void BtnBrowseChangeHistory_Click(object? sender, EventArgs e)
+            => _fileUiWorkflowService.BrowseChangeHistory(CreateFileUiWorkflowContext());
+
         private void BtnImportExcel_Click(object? sender, EventArgs e)
         {
             var fileContext = CreateFileUiWorkflowContext();
