@@ -15,6 +15,9 @@
 - CI now enforces `dotnet format --verify-no-changes` for the WinForms app, core library, and tests before `build`/`test`.
 - The active task context is always kept in `docs/codex-handoff.md`. Read it before planning changes; it is the source of truth for current completed phase, validation status, and next step.
 - Chat progress must stay semantic and short. Do not add separate narrative after transcript/tool items such as `Ran`, `Running`, or `Edited`; without an explicit request, only send brief progress statements and the final result.
+- Current-task authorization is mandatory: never carry an older user approval for `git commit`, `git push`, destructive file operations, or broad database edits into a new request. Those actions require direct approval in the latest user request.
+- Before editing a real `.akb`/JSON data file, state the exact file path, target object count, and fields/records that will be changed. If a visible tree object is not found, check console encoding, the active data file, process state, and alternate storage before concluding that the object is absent.
+- Before final response, verify and report only the essential facts: changed files/data, validation result, whether git was touched, and whether the latest user request authorized it.
 - The session knowledge harness is split by role:
   - `docs/codex-handoff.md` for current state
   - `docs/plans.md` for active plans

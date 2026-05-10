@@ -21,6 +21,10 @@ namespace AsutpKnowledgeBase.UiServices
 
         public Action<KnowledgeBaseSessionViewState, bool, KbNode?, ISet<KbNode>?> ApplySessionView { get; init; } = null!;
 
+        public Func<KbNode, KnowledgeBaseTreeDeleteImpact> GetDeleteImpact { get; init; } = null!;
+
+        public Func<string, string, bool> OfferProtectiveSnapshotBeforeDangerousOperation { get; init; } = null!;
+
         public Action RefreshSearchAfterMutation { get; init; } = null!;
 
         public Action UpdateDirtyState { get; init; } = null!;
@@ -28,6 +32,29 @@ namespace AsutpKnowledgeBase.UiServices
         public Action UpdateUi { get; init; } = null!;
 
         public Action<string> SetStatusText { get; init; } = null!;
+    }
+
+    public class KnowledgeBaseTreeDeleteImpact
+    {
+        public int ChildNodeCount { get; init; }
+
+        public int CompositionEntryCount { get; init; }
+
+        public int DocumentLinkCount { get; init; }
+
+        public int SoftwareRecordCount { get; init; }
+
+        public int NetworkFileReferenceCount { get; init; }
+
+        public int MaintenanceProfileCount { get; init; }
+
+        public bool HasImpact =>
+            ChildNodeCount > 0 ||
+            CompositionEntryCount > 0 ||
+            DocumentLinkCount > 0 ||
+            SoftwareRecordCount > 0 ||
+            NetworkFileReferenceCount > 0 ||
+            MaintenanceProfileCount > 0;
     }
 
     /// <summary>
@@ -207,6 +234,18 @@ namespace AsutpKnowledgeBase.UiServices
             if (dialog.ShowDialog(context.Owner) != DialogResult.OK)
                 return;
 
+            KnowledgeBaseObjectTemplateApplicationPlan plan =
+                _treeMutationWorkflowService.PreviewApplyObjectTemplateToExistingObject(
+                    selectedNode,
+                    dialog.SelectedTemplateId);
+            if (RequiresProtectiveSnapshotBeforeApplyTemplate(plan) &&
+                !context.OfferProtectiveSnapshotBeforeDangerousOperation(
+                    "массовым применением шаблона к объекту",
+                    $"Перед применением шаблона \"{plan.TemplateDisplayName}\" к объекту \"{selectedNode.Name}\""))
+            {
+                return;
+            }
+
             var expandedNodes = context.CaptureExpandedNodes();
             var result = _treeMutationWorkflowService.ApplyObjectTemplateToExistingObject(
                 context.CurrentWorkshop,
@@ -235,12 +274,14 @@ namespace AsutpKnowledgeBase.UiServices
                 return;
             }
 
+            KnowledgeBaseTreeDeleteImpact impact = context.GetDeleteImpact(node);
             if (MessageBox.Show(
                     context.Owner,
-                    $"Удалить '{node.Name}' и все вложенные элементы?",
-                    "Подтверждение",
+                    BuildDeleteConfirmationText(node, impact),
+                    impact.HasImpact ? "Подтверждение опасного удаления" : "Подтверждение",
                     MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Warning) != DialogResult.Yes)
+                    MessageBoxIcon.Warning,
+                    MessageBoxDefaultButton.Button2) != DialogResult.Yes)
             {
                 return;
             }
@@ -259,6 +300,40 @@ namespace AsutpKnowledgeBase.UiServices
             }
 
             ApplySuccessfulMutation(context, result, nextSelectedNode, expandedNodes);
+        }
+
+        private static string BuildDeleteConfirmationText(KbNode node, KnowledgeBaseTreeDeleteImpact impact)
+        {
+            var lines = new List<string>
+            {
+                $"Удалить \"{node.Name}\"?"
+            };
+
+            if (impact.HasImpact)
+            {
+                lines.Add(string.Empty);
+                lines.Add("Будут удалены связанные данные:");
+                if (impact.ChildNodeCount > 0)
+                    lines.Add($"- дочерних объектов: {impact.ChildNodeCount}");
+                if (impact.CompositionEntryCount > 0)
+                    lines.Add($"- записей состава: {impact.CompositionEntryCount}");
+                if (impact.DocumentLinkCount > 0)
+                    lines.Add($"- документов: {impact.DocumentLinkCount}");
+                if (impact.SoftwareRecordCount > 0)
+                    lines.Add($"- записей ПО: {impact.SoftwareRecordCount}");
+                if (impact.NetworkFileReferenceCount > 0)
+                    lines.Add($"- сетевых файлов: {impact.NetworkFileReferenceCount}");
+                if (impact.MaintenanceProfileCount > 0)
+                    lines.Add($"- профилей ТО: {impact.MaintenanceProfileCount}");
+            }
+            else
+            {
+                lines.Add("Связанные данные не найдены.");
+            }
+
+            lines.Add(string.Empty);
+            lines.Add("Продолжить?");
+            return string.Join(Environment.NewLine, lines);
         }
 
         public void CopyNode(KnowledgeBaseTreeMutationUiWorkflowContext context)
@@ -326,7 +401,13 @@ namespace AsutpKnowledgeBase.UiServices
 
             DialogResult confirmation = MessageBox.Show(
                 context.Owner,
-                $"Переместить объект \"{draggedData.Name}\" в \"{targetData.Name}\"?\n\nИерархия объектов будет изменена.",
+                BuildMoveConfirmationText(
+                    context,
+                    draggedData,
+                    draggedNode.Parent?.Tag as KbNode,
+                    targetData,
+                    draggedNode.Level + 1,
+                    targetNode.Level + 2),
                 "Подтверждение перемещения",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning,
@@ -503,6 +584,72 @@ namespace AsutpKnowledgeBase.UiServices
             return string.IsNullOrWhiteSpace(name)
                 ? "Выбранный объект"
                 : name;
+        }
+
+        private static bool RequiresProtectiveSnapshotBeforeApplyTemplate(
+            KnowledgeBaseObjectTemplateApplicationPlan plan) =>
+            plan.IsSuccess &&
+            (plan.NodeAdditions.Count > 1 ||
+             plan.CompositionEntries.Count > 0 ||
+             plan.DocumentLinks.Count > 0 ||
+             plan.SoftwareRecords.Count > 0 ||
+             plan.NetworkFileReferences.Count > 0 ||
+             plan.MaintenanceScheduleProfiles.Count > 0);
+
+        private static string BuildMoveConfirmationText(
+            KnowledgeBaseTreeMutationUiWorkflowContext context,
+            KbNode draggedData,
+            KbNode? visibleOldParentNode,
+            KbNode targetData,
+            int oldVisibleLevel,
+            int newVisibleLevel)
+        {
+            KbNode? actualOldParent = context.ResolveActualParentNode(draggedData, visibleOldParentNode);
+            var lines = new List<string>
+            {
+                $"Переместить объект \"{draggedData.Name}\"?",
+                string.Empty,
+                "Было:",
+                $"Родитель: {BuildMoveParentText(actualOldParent, context.CurrentWorkshop)}",
+                $"Уровень: Lvl{oldVisibleLevel}",
+                string.Empty,
+                "Станет:",
+                $"Родитель: {BuildMoveParentText(targetData, context.CurrentWorkshop)}",
+                $"Уровень: Lvl{newVisibleLevel}"
+            };
+
+            if (oldVisibleLevel != newVisibleLevel)
+            {
+                lines.Add(string.Empty);
+                lines.Add($"Уровень изменится: Lvl{oldVisibleLevel} -> Lvl{newVisibleLevel}.");
+                lines.Add("При смене уровня объект примет свойства нового уровня.");
+            }
+
+            lines.Add(string.Empty);
+            lines.Add("Продолжить?");
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string BuildMoveParentText(KbNode? parentNode, string currentWorkshop)
+        {
+            if (parentNode == null)
+                return BuildWorkshopRootText(currentWorkshop);
+
+            if (parentNode.NodeType == KbNodeType.WorkshopRoot)
+                return BuildWorkshopRootText(parentNode.Name);
+
+            string name = parentNode.Name?.Trim() ?? string.Empty;
+            return string.IsNullOrWhiteSpace(name)
+                ? "Выбранный объект"
+                : name;
+        }
+
+        private static string BuildWorkshopRootText(string workshopName)
+        {
+            string name = workshopName?.Trim() ?? string.Empty;
+            return string.IsNullOrWhiteSpace(name)
+                ? "Корень цеха"
+                : $"Корень цеха: {name}";
         }
     }
 }

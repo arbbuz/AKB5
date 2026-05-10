@@ -169,6 +169,13 @@ namespace AsutpKnowledgeBase
                 return;
             }
 
+            if (!OfferProtectiveSnapshotBeforeDangerousOperation(
+                    "импортом норм ТО",
+                    $"Перед импортом норм ТО: {Path.GetFileName(dialog.FileName)}"))
+            {
+                return;
+            }
+
             _session.ReplaceMaintenanceScheduleProfiles(importResult.MaintenanceScheduleProfiles);
             UpdateDirtyState();
             UpdateUI();

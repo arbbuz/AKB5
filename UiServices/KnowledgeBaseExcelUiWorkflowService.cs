@@ -11,6 +11,8 @@ namespace AsutpKnowledgeBase.UiServices
 
         public Func<string, bool> ConfirmContinueBeforeImport { get; init; } = null!;
 
+        public Func<string, string, bool> OfferSnapshotBeforeDangerousImport { get; init; } = null!;
+
         public Func<SavedData, KnowledgeBaseFileSaveResult> ReplaceAllData { get; init; } = null!;
 
         public Action<string> SetStatusText { get; init; } = null!;
@@ -103,6 +105,13 @@ namespace AsutpKnowledgeBase.UiServices
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
                 context.SetStatusText($"❌ Ошибка импорта из Excel: {importResult.ErrorMessage}");
+                return;
+            }
+
+            if (!context.OfferSnapshotBeforeDangerousImport(
+                    "заменой текущей базы из Excel",
+                    $"Перед заменой текущей базы из Excel: {Path.GetFileName(dialog.FileName)}"))
+            {
                 return;
             }
 

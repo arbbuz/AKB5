@@ -5,6 +5,8 @@ Last updated: `2026-05-08`
 ## 2026-05-08
 
 - Durable communication rule for AKB5 work: user-visible progress must stay brief (`current step`, `result`, `next step`). Codex must not paste raw diagnostic commands, command transcripts, internal ids, owner mappings, large diffs, or code excerpts into chat unless explicitly requested; verbose diagnostics belong in `artifacts` with only key counts/status summarized.
+- Durable safety rule for AKB5 work: irreversible or external actions require current-task authorization. Codex must not reuse older approval for `git commit`, `git push`, destructive file operations, branch rewrites, or broad database edits. Before changing a real `.akb`/JSON data file, Codex must identify the exact file, target object count, and fields/records to be changed; if visible data is not found, verify encoding, active storage, process state, and alternate files before drawing conclusions.
+- Menu rework first-iteration decision: use a top-level `Сервис` menu instead of `Администрирование`; keep workshop commands in `Файл` for now; keep `ТО` immediately after `Файл`; add `Справочники` for `Каталог оборудования...`; move service JSON/catalog exchange and reload commands to `Сервис`; hide full database Excel exchange and production-calendar JSON import from menus while keeping code under the hood; combine snapshots/history into one entry; group tree template commands under `Шаблоны`; show `Добавить отдел` only on empty tree space; include old/new level in move confirmation. Passwords and roles are deferred.
 
 ## 2026-05-06
 

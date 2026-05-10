@@ -11,6 +11,8 @@ namespace AsutpKnowledgeBase.UiServices
 
         public Action<KnowledgeBaseSessionViewState> ApplySessionView { get; init; } = null!;
 
+        public Func<string, string, bool> OfferProtectiveSnapshotBeforeDangerousOperation { get; init; } = null!;
+
         public Action RefreshSearchAfterMutation { get; init; } = null!;
 
         public Action UpdateDirtyState { get; init; } = null!;
@@ -143,17 +145,25 @@ namespace AsutpKnowledgeBase.UiServices
                 return;
             }
 
+            var currentRoots = context.GetPersistedTreeData();
             if (MessageBox.Show(
                     context.Owner,
-                    $"Удалить цех '{currentWorkshop}' и все его объекты?",
-                    "Подтверждение",
+                    BuildDeleteWorkshopConfirmationText(currentWorkshop, currentRoots),
+                    "Подтверждение опасного удаления",
                     MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Warning) != DialogResult.Yes)
+                    MessageBoxIcon.Warning,
+                    MessageBoxDefaultButton.Button2) != DialogResult.Yes)
             {
                 return;
             }
 
-            var currentRoots = context.GetPersistedTreeData();
+            if (!context.OfferProtectiveSnapshotBeforeDangerousOperation(
+                    "удалением цеха",
+                    $"Перед удалением цеха \"{currentWorkshop}\""))
+            {
+                return;
+            }
+
             string historySnapshot = _session.SerializeSnapshot(currentRoots, includeCurrentWorkshop: true);
             var deleteResult = _sessionWorkflowService.DeleteCurrentWorkshop(currentRoots);
             if (!deleteResult.IsSuccess)
@@ -168,6 +178,42 @@ namespace AsutpKnowledgeBase.UiServices
             context.UpdateDirtyState();
             context.UpdateUi();
             context.SetStatusText($"🗑 Удален цех: {currentWorkshop}");
+        }
+
+        private string BuildDeleteWorkshopConfirmationText(string workshopName, IReadOnlyList<KbNode> currentRoots)
+        {
+            var nodeIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (KbNode root in currentRoots)
+                CollectNodeIds(root, nodeIds);
+
+            var lines = new List<string>
+            {
+                $"Удалить цех \"{workshopName}\"?",
+                string.Empty,
+                "Будут удалены данные текущего цеха:",
+                $"- объектов дерева: {nodeIds.Count}",
+                $"- записей состава: {_session.CompositionEntries.Count(entry => nodeIds.Contains(entry.ParentNodeId))}",
+                $"- документов: {_session.DocumentLinks.Count(link => nodeIds.Contains(link.OwnerNodeId))}",
+                $"- записей ПО: {_session.SoftwareRecords.Count(record => nodeIds.Contains(record.OwnerNodeId))}",
+                $"- сетевых файлов: {_session.NetworkFileReferences.Count(reference => nodeIds.Contains(reference.OwnerNodeId))}",
+                $"- профилей ТО: {_session.MaintenanceScheduleProfiles.Count(profile => nodeIds.Contains(profile.OwnerNodeId))}",
+                string.Empty,
+                "После подтверждения будет предложено создать снимок базы.",
+                string.Empty,
+                "Продолжить?"
+            };
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static void CollectNodeIds(KbNode node, ISet<string> nodeIds)
+        {
+            string nodeId = node.NodeId?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(nodeId))
+                nodeIds.Add(nodeId);
+
+            foreach (KbNode child in node.Children)
+                CollectNodeIds(child, nodeIds);
         }
 
         private static void ShowWorkshopFailure(

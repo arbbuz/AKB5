@@ -1,6 +1,6 @@
 # Current State
 
-Last updated: `2026-05-07`
+Last updated: `2026-05-10`
 
 ## Repo state
 
@@ -59,6 +59,8 @@ Last updated: `2026-05-07`
 - `phase7e-annual-norm-import` passed manual review on 2026-05-07
 - Local `phase7g-annual-norm-hidden-rows` is implemented and verified; it skips hidden annual-plan rows during norm import because hidden rows represent retired equipment in `456.xlsx`
 - The chief developer approved the SQLite single-file storage plan choices `1A, 2B, 3A, 4A`; local JSON snapshot prototype work is paused before commit while implementation moves through the SQLite storage plan
+- Local menu rework first iteration is implemented through step 6 and is waiting for manual review; no commit or push has been performed for this local menu stack.
+- Menu rework steps 5-6 add expanded drag/drop move confirmation and protective snapshot prompts before dangerous operations: JSON/Excel full database replacement, maintenance norm import, workshop deletion, and mass template application.
 
 ## Integrated feature state
 
@@ -144,6 +146,24 @@ Last updated: `2026-05-07`
 - User-facing application UI on `to` remains Russian-only
 
 ## Validated status
+
+Actually run on the worktree for local `menu-rework-stage6` on `2026-05-10`:
+
+```powershell
+dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
+dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName menu-rework-stage6
+git diff --check
+```
+
+- `dotnet format --verify-no-changes`: passed for app, core, and tests
+- Verification `dotnet build`: passed for `menu-rework-stage6`
+- `dotnet test`: passed, `340/340`
+- `git diff --check`: passed with standard CRLF warnings only
+- Verification artifacts: `artifacts\verify\menu-rework-stage6`
+- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\menu-rework-stage6\build\Release\net8.0-windows\asutpKB.exe`
+- Harness status: `STATE: WAITING_REVIEW`
 
 Actually run on the worktree for local `Phase 12S8` on `2026-05-07`:
 
@@ -479,6 +499,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - Full Excel round-trip validation (`generate -> open -> edit/save -> import back`) was not run
 ## Active objective
 
+- Complete manual review of the local menu rework first iteration through step 6; if accepted, commit/push only after direct current approval.
 - Keep the completed `Phase 7` workflow on `to` stable as the baseline
 - Complete manual review of local `phase7g-annual-norm-hidden-rows`
 - Preserve the production-calendar follow-up behavior: manual calendar dates are shown as `дд.мм.гггг`, JSON import accepts both `дд.мм.гггг` and legacy ISO dates, saved app JSON remains backward-compatible, and additional working days can represent transferred working weekends
@@ -627,6 +648,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 
 ## Known limits / open follow-up
 
+- Menu rework steps 1-6 are implemented locally and verified, but still need manual UI review: top menu structure, combined snapshots/history window, grouped `ТО`, tree context menu, move confirmation text, and protective snapshot prompts.
 - `Phase 7E.2` source exchange is implemented on `to`: it exports/imports the yearly placement source as `.xlsx`
 - `Phase 7E` in-app mass-editing grid is implemented on `to`
 - `Phase 7E` source editing does not create missing maintenance profiles and does not import labor-hour norms
@@ -645,12 +667,14 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 
 ## Recommended next step
 
-- Manual review of `phase7g-annual-norm-hidden-rows`; if accepted, commit and push before starting another roadmap task
+- Manual review of `C:\Users\Olga\AKB5\artifacts\verify\menu-rework-stage6\build\Release\net8.0-windows\asutpKB.exe`; if accepted, commit/push only after direct current approval.
+- Keep manual review of `phase7g-annual-norm-hidden-rows` separate from the local menu rework stack.
 
 ## Commands to run before finishing future implementation work
 
 ```powershell
 git status --short
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName menu-rework-stage6
 powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName <active-step-name>
 # The script stops at BUILD: PASS / TESTS: PASS and leaves artifacts in artifacts\verify\<step>.
 ```

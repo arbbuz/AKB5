@@ -1,6 +1,6 @@
 # Plans
 
-Last updated: `2026-05-07`
+Last updated: `2026-05-08`
 
 ## Active plan
 
@@ -42,6 +42,8 @@ Last updated: `2026-05-07`
 ## Near-term follow-up
 
 - Manual review of `phase7g-annual-norm-hidden-rows`; if accepted, commit and push before selecting another roadmap task
+- Treat local menu rework first iteration steps 1-6 as implemented and verified through `menu-rework-stage6`; wait for manual review before commit/push.
+- Use `docs/menu-rework-implementation-plan.md` as the approved first-iteration menu rework specification. The first iteration keeps workshop commands in `Файл`, uses `Сервис` for service operations, keeps `ТО` immediately after `Файл`, and defers passwords/roles.
 
 ## Update rule
 

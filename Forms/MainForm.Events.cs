@@ -140,6 +140,9 @@ namespace AsutpKnowledgeBase
         private void BtnCreateSnapshot_Click(object? sender, EventArgs e)
             => _fileUiWorkflowService.CreateManualSnapshot(CreateFileUiWorkflowContext());
 
+        private void BtnBrowseSnapshotsAndHistory_Click(object? sender, EventArgs e)
+            => _fileUiWorkflowService.BrowseSnapshotsAndHistory(CreateFileUiWorkflowContext());
+
         private void BtnBrowseSnapshots_Click(object? sender, EventArgs e)
             => _fileUiWorkflowService.BrowseSnapshots(CreateFileUiWorkflowContext());
 
@@ -161,6 +164,11 @@ namespace AsutpKnowledgeBase
                 CurrentDataPath = CurrentDataPath,
                 ConfirmContinueBeforeImport = actionDescription =>
                     _fileUiWorkflowService.ConfirmContinueBeforeReplace(fileContext, actionDescription),
+                OfferSnapshotBeforeDangerousImport = (operationDescription, snapshotNote) =>
+                    _fileUiWorkflowService.OfferProtectiveSnapshotBeforeDangerousOperation(
+                        fileContext,
+                        operationDescription,
+                        snapshotNote),
                 ReplaceAllData = data => _fileUiWorkflowService.ReplaceAllData(fileContext, data),
                 SetStatusText = SetLastActionText
             });

@@ -53,6 +53,9 @@ namespace AsutpKnowledgeBase
         private ToolStripButton btnCollapseTree = null!;
         private ToolStripMenuItem menuFile = null!;
         private ToolStripMenuItem menuMaintenance = null!;
+        private ToolStripMenuItem menuReferences = null!;
+        private ToolStripMenuItem menuService = null!;
+        private ToolStripMenuItem menuSave = null!;
         private ToolStripMenuItem menuNewWorkshop = null!;
         private ToolStripMenuItem menuRenameWorkshop = null!;
         private ToolStripMenuItem menuDeleteWorkshop = null!;
@@ -61,6 +64,7 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem menuImportCatalogTemplates = null!;
         private ToolStripMenuItem menuExportDatabaseJson = null!;
         private ToolStripMenuItem menuImportDatabaseJson = null!;
+        private ToolStripMenuItem menuSnapshotsAndHistory = null!;
         private ToolStripMenuItem menuCreateSnapshot = null!;
         private ToolStripMenuItem menuBrowseSnapshots = null!;
         private ToolStripMenuItem menuRestoreSnapshot = null!;
@@ -92,7 +96,9 @@ namespace AsutpKnowledgeBase
         private ToolTip toolTip = null!;
         private ToolStripMenuItem ctxAdd = null!;
         private ToolStripMenuItem ctxAddChild = null!;
+        private ToolStripMenuItem ctxTemplates = null!;
         private ToolStripMenuItem ctxAddFromTemplate = null!;
+        private ToolStripMenuItem ctxCreateObjectFromTemplateAtRoot = null!;
         private ToolStripMenuItem ctxCreateObjectFromTemplate = null!;
         private ToolStripMenuItem ctxSaveObjectAsTemplate = null!;
         private ToolStripMenuItem ctxApplyObjectTemplate = null!;
@@ -100,6 +106,8 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem ctxPaste = null!;
         private ToolStripMenuItem ctxRename = null!;
         private ToolStripMenuItem ctxDelete = null!;
+        private ToolStripSeparator ctxEditSeparator = null!;
+        private ToolStripSeparator ctxDeleteSeparator = null!;
         private Label lblSelectedNodeEmptyState = null!;
         private Panel pnlSelectedNodeInfoScreen = null!;
         private TabControl tabSelectedNodeWorkspace = null!;
@@ -317,14 +325,21 @@ namespace AsutpKnowledgeBase
             ctxRename.Enabled = hasSelection;
             ctxDelete.Enabled = hasSelection;
             ctxAdd.Enabled = _treeMutationWorkflowService.CanAddNode(GetEffectiveParentForRootOperations());
+            ctxCreateObjectFromTemplateAtRoot.Enabled =
+                _treeMutationWorkflowService.CanCreateObjectFromTemplate(GetEffectiveParentForRootOperations());
             ctxAddChild.Enabled = hasSelection && _treeMutationWorkflowService.CanAddNode(selectedNode!);
             ctxAddFromTemplate.Enabled = hasSelection && _treeMutationWorkflowService.CanAddNodeFromTemplate(selectedNode!);
             ctxCreateObjectFromTemplate.Enabled = _treeMutationWorkflowService.CanCreateObjectFromTemplate(
-                hasSelection ? selectedNode : GetEffectiveParentForRootOperations());
+                hasSelection ? selectedNode : null);
             ctxSaveObjectAsTemplate.Enabled = hasSelection &&
                 KnowledgeBaseTreeMutationWorkflowService.CanSaveObjectAsTemplate(selectedNode);
             ctxApplyObjectTemplate.Enabled = hasSelection &&
                 _treeMutationWorkflowService.CanApplyObjectTemplate(selectedNode);
+            ctxTemplates.Enabled =
+                ctxAddFromTemplate.Enabled ||
+                ctxCreateObjectFromTemplate.Enabled ||
+                ctxSaveObjectAsTemplate.Enabled ||
+                ctxApplyObjectTemplate.Enabled;
             ctxPaste.Enabled = hasSelection && _treeMutationWorkflowService.CanPasteNode(selectedNode!);
             bool hasCurrentWorkshop = !string.IsNullOrWhiteSpace(_currentWorkshop);
             menuRenameWorkshop.Enabled = hasCurrentWorkshop;
@@ -334,6 +349,7 @@ namespace AsutpKnowledgeBase
             menuImportCatalogTemplates.Enabled = true;
             menuExportDatabaseJson.Enabled = true;
             menuImportDatabaseJson.Enabled = true;
+            menuSnapshotsAndHistory.Enabled = !string.IsNullOrWhiteSpace(CurrentDataPath);
             menuCreateSnapshot.Enabled = !string.IsNullOrWhiteSpace(CurrentDataPath);
             menuBrowseSnapshots.Enabled = !string.IsNullOrWhiteSpace(CurrentDataPath);
             menuRestoreSnapshot.Enabled = !string.IsNullOrWhiteSpace(CurrentDataPath);
@@ -350,7 +366,9 @@ namespace AsutpKnowledgeBase
             menuExportMaintenanceYearWorkbook.Enabled = hasCurrentWorkshop;
             menuRecalculateMaintenanceYearWorkbook.Enabled = hasCurrentWorkshop;
 
+            menuSave.Enabled = formState.CanSave;
             btnSave.ToolTipText = formState.SaveToolTip;
+            menuSave.ToolTipText = formState.SaveToolTip;
             Text = formState.WindowTitle;
             SetSessionStatusText(formState.SessionStatusText);
 
@@ -547,7 +565,7 @@ namespace AsutpKnowledgeBase
 
         private void InitializeTemplateContextMenuItem()
         {
-            if (tvTree.ContextMenuStrip == null)
+            if (tvTree.ContextMenuStrip == null || ctxTemplates == null)
                 return;
 
             ctxAddFromTemplate = new ToolStripMenuItem(
@@ -568,11 +586,32 @@ namespace AsutpKnowledgeBase
                 "Применить шаблон к объекту...",
                 null,
                 (s, e) => ApplyObjectTemplateToExistingObject());
-            tvTree.ContextMenuStrip.Items.Insert(2, ctxAddFromTemplate);
-            tvTree.ContextMenuStrip.Items.Insert(3, ctxCreateObjectFromTemplate);
-            tvTree.ContextMenuStrip.Items.Insert(4, ctxSaveObjectAsTemplate);
-            tvTree.ContextMenuStrip.Items.Insert(5, ctxApplyObjectTemplate);
+            ctxTemplates.DropDownItems.AddRange(new ToolStripItem[]
+            {
+                ctxAddFromTemplate,
+                ctxCreateObjectFromTemplate,
+                ctxSaveObjectAsTemplate,
+                ctxApplyObjectTemplate
+            });
+            ApplyTreeContextMenuVisibility();
         }
+
+        private void ApplyTreeContextMenuVisibility()
+        {
+            bool hasSelection = tvTree.SelectedNode?.Tag is KbNode;
+
+            ctxAdd.Visible = !hasSelection;
+            ctxCreateObjectFromTemplateAtRoot.Visible = !hasSelection;
+            ctxAddChild.Visible = hasSelection;
+            ctxTemplates.Visible = hasSelection;
+            ctxEditSeparator.Visible = hasSelection;
+            ctxCopy.Visible = hasSelection;
+            ctxPaste.Visible = hasSelection;
+            ctxRename.Visible = hasSelection;
+            ctxDeleteSeparator.Visible = hasSelection;
+            ctxDelete.Visible = hasSelection;
+        }
+
         private sealed record SearchScopeOption(KnowledgeBaseSearchScope Scope, string DisplayText)
         {
             public override string ToString() => DisplayText;

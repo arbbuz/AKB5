@@ -41,6 +41,13 @@ namespace AsutpKnowledgeBase.UiServices
     /// </summary>
     public class KnowledgeBaseFileUiWorkflowService
     {
+        private enum ProtectiveSnapshotPromptChoice
+        {
+            CreateSnapshotAndContinue,
+            ContinueWithoutSnapshot,
+            Cancel
+        }
+
         private readonly KnowledgeBaseFileWorkflowService _fileWorkflowService;
         private readonly KnowledgeBaseFormStateService _formStateService;
         private readonly KnowledgeBaseFullJsonExchangeService _fullJsonExchangeService = new();
@@ -187,6 +194,42 @@ namespace AsutpKnowledgeBase.UiServices
             string actionDescription) =>
             ConfirmContinueWithUnsavedChanges(context, actionDescription);
 
+        public bool OfferProtectiveSnapshotBeforeDangerousOperation(
+            KnowledgeBaseFileUiWorkflowContext context,
+            string operationDescription,
+            string snapshotNote)
+        {
+            context.SaveCurrentWorkshopState();
+            ProtectiveSnapshotPromptChoice choice = ShowProtectiveSnapshotPrompt(
+                context.Owner,
+                operationDescription);
+            if (choice == ProtectiveSnapshotPromptChoice.Cancel)
+                return false;
+
+            if (choice == ProtectiveSnapshotPromptChoice.ContinueWithoutSnapshot)
+                return true;
+
+            var result = _fileWorkflowService.CreateManualSnapshot(
+                context.GetPersistedTreeData(),
+                string.IsNullOrWhiteSpace(snapshotNote)
+                    ? $"Перед операцией: {operationDescription}"
+                    : snapshotNote.Trim());
+            if (result.IsSuccess)
+            {
+                context.SetStatusText($"Снимок базы создан: {Path.GetFileName(result.SnapshotPath)}");
+                return true;
+            }
+
+            context.SetStatusText($"Ошибка создания снимка базы: {result.ErrorMessage}");
+            MessageBox.Show(
+                context.Owner,
+                $"Не удалось создать снимок базы. Операция отменена.\n\n{result.ErrorMessage}",
+                "Защитный снимок",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+            return false;
+        }
+
         public void SaveDatabaseAs(KnowledgeBaseFileUiWorkflowContext context)
         {
             using var dialog = new SaveFileDialog
@@ -312,6 +355,14 @@ namespace AsutpKnowledgeBase.UiServices
                 return;
             }
 
+            if (!OfferProtectiveSnapshotBeforeDangerousOperation(
+                    context,
+                    "заменой текущей базы из JSON",
+                    $"Перед заменой текущей базы из JSON: {Path.GetFileName(dialog.FileName)}"))
+            {
+                return;
+            }
+
             KnowledgeBaseFileSaveResult replaceResult = ReplaceAllData(context, importResult.Data);
             if (replaceResult.IsSuccess)
             {
@@ -400,6 +451,60 @@ namespace AsutpKnowledgeBase.UiServices
             context.SetStatusText(result.Snapshots.Count == 0
                 ? "Снимков базы нет"
                 : $"Снимков базы: {result.Snapshots.Count}");
+        }
+
+        public void BrowseSnapshotsAndHistory(KnowledgeBaseFileUiWorkflowContext context)
+        {
+            var snapshotResult = _fileWorkflowService.ListSnapshots();
+            if (!snapshotResult.IsSuccess)
+            {
+                context.SetStatusText($"Ошибка просмотра снимков базы: {snapshotResult.ErrorMessage}");
+                MessageBox.Show(
+                    context.Owner,
+                    $"Не удалось прочитать снимки базы: {snapshotResult.ErrorMessage}",
+                    "Снимки и история базы",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return;
+            }
+
+            KnowledgeBaseChangeLogListResult historyResult = _fileWorkflowService.ListChangeLog();
+            bool isHistorySupported = historyResult.IsSuccess && historyResult.IsSupported;
+            string historyErrorMessage = historyResult.IsSuccess
+                ? string.Empty
+                : historyResult.ErrorMessage ?? string.Empty;
+
+            using var dialog = new AsutpKnowledgeBase.KnowledgeBaseSnapshotsAndHistoryForm(
+                snapshotResult.Snapshots,
+                snapshotResult.SnapshotDirectoryPath,
+                isHistorySupported ? historyResult.Entries : Array.Empty<KnowledgeBaseChangeLogEntry>(),
+                isHistorySupported,
+                historyResult.IsSupported ? historyErrorMessage : "История изменений доступна для базы .akb.");
+            dialog.ShowDialog(context.Owner);
+
+            if (dialog.SelectedAction == AsutpKnowledgeBase.KnowledgeBaseSnapshotsAndHistoryAction.CreateSnapshot)
+            {
+                CreateManualSnapshot(context);
+                return;
+            }
+
+            if (dialog.SelectedAction == AsutpKnowledgeBase.KnowledgeBaseSnapshotsAndHistoryAction.Restore &&
+                dialog.SelectedSnapshots.Count == 1)
+            {
+                RestoreSelectedSnapshot(context, dialog.SelectedSnapshots[0], confirmUnsavedChanges: true);
+                return;
+            }
+
+            if (dialog.SelectedAction == AsutpKnowledgeBase.KnowledgeBaseSnapshotsAndHistoryAction.Compare &&
+                dialog.SelectedSnapshots.Count == 2)
+            {
+                CompareSelectedSnapshots(context, dialog.SelectedSnapshots[0], dialog.SelectedSnapshots[1]);
+                return;
+            }
+
+            context.SetStatusText(snapshotResult.Snapshots.Count == 0
+                ? "Снимков базы нет"
+                : $"Снимков базы: {snapshotResult.Snapshots.Count}");
         }
 
         public void CompareSnapshots(KnowledgeBaseFileUiWorkflowContext context)
@@ -797,6 +902,103 @@ namespace AsutpKnowledgeBase.UiServices
             return form.ShowDialog(owner) == DialogResult.OK
                 ? txtNote.Text.Trim()
                 : null;
+        }
+
+        private static ProtectiveSnapshotPromptChoice ShowProtectiveSnapshotPrompt(
+            IWin32Window owner,
+            string operationDescription)
+        {
+            using var form = new Form
+            {
+                Text = "Защитный снимок",
+                StartPosition = FormStartPosition.CenterParent,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MinimizeBox = false,
+                MaximizeBox = false,
+                ShowInTaskbar = false,
+                ClientSize = new Size(560, 190)
+            };
+            AsutpKnowledgeBase.AppIconProvider.Apply(form);
+
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(12),
+                ColumnCount = 1,
+                RowCount = 2
+            };
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            string operationText = string.IsNullOrWhiteSpace(operationDescription)
+                ? "этой операцией"
+                : operationDescription.Trim();
+            var label = new Label
+            {
+                Text =
+                    $"Перед {operationText} рекомендуется создать снимок базы.\n\n" +
+                    "Снимок позволит вернуться к текущему состоянию, если результат операции окажется неверным.",
+                Dock = DockStyle.Fill,
+                AutoSize = false
+            };
+
+            var buttonsPanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.RightToLeft,
+                WrapContents = false,
+                AutoSize = true,
+                Margin = new Padding(0, 10, 0, 0)
+            };
+            var btnCancel = new Button
+            {
+                Text = "Отмена",
+                DialogResult = DialogResult.Cancel,
+                AutoSize = true
+            };
+            var btnContinue = new Button
+            {
+                Text = "Продолжить без снимка",
+                AutoSize = true
+            };
+            var btnCreate = new Button
+            {
+                Text = "Создать снимок и продолжить",
+                AutoSize = true
+            };
+
+            ProtectiveSnapshotPromptChoice choice = ProtectiveSnapshotPromptChoice.Cancel;
+            btnCreate.Click += (_, _) =>
+            {
+                choice = ProtectiveSnapshotPromptChoice.CreateSnapshotAndContinue;
+                form.DialogResult = DialogResult.OK;
+                form.Close();
+            };
+            btnContinue.Click += (_, _) =>
+            {
+                choice = ProtectiveSnapshotPromptChoice.ContinueWithoutSnapshot;
+                form.DialogResult = DialogResult.Ignore;
+                form.Close();
+            };
+            btnCancel.Click += (_, _) =>
+            {
+                choice = ProtectiveSnapshotPromptChoice.Cancel;
+                form.DialogResult = DialogResult.Cancel;
+                form.Close();
+            };
+
+            buttonsPanel.Controls.Add(btnCancel);
+            buttonsPanel.Controls.Add(btnContinue);
+            buttonsPanel.Controls.Add(btnCreate);
+            layout.Controls.Add(label, 0, 0);
+            layout.Controls.Add(buttonsPanel, 0, 1);
+            form.Controls.Add(layout);
+            form.AcceptButton = btnCreate;
+            form.CancelButton = btnCancel;
+
+            return form.ShowDialog(owner) == DialogResult.Cancel
+                ? ProtectiveSnapshotPromptChoice.Cancel
+                : choice;
         }
 
         private bool ConfirmContinueWithUnsavedChanges(

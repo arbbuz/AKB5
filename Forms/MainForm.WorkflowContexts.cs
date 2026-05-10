@@ -32,6 +32,7 @@ namespace AsutpKnowledgeBase
                 Owner = this,
                 GetPersistedTreeData = GetPersistedTreeData,
                 ApplySessionView = viewState => ApplySessionView(viewState, clearSearch: false),
+                OfferProtectiveSnapshotBeforeDangerousOperation = OfferProtectiveSnapshotBeforeDangerousOperation,
                 RefreshSearchAfterMutation = RefreshSearchAfterMutation,
                 UpdateDirtyState = UpdateDirtyState,
                 UpdateUi = () => UpdateUI(),
@@ -48,12 +49,22 @@ namespace AsutpKnowledgeBase
                 GetEffectiveParentForRootOperations = GetEffectiveParentForRootOperations,
                 ResolveActualParentNode = ResolveActualParentNode,
                 CaptureExpandedNodes = CaptureExpandedNodes,
+                GetDeleteImpact = BuildDeleteImpact,
+                OfferProtectiveSnapshotBeforeDangerousOperation = OfferProtectiveSnapshotBeforeDangerousOperation,
                 ApplySessionView = ApplySessionView,
                 RefreshSearchAfterMutation = RefreshSearchAfterMutation,
                 UpdateDirtyState = UpdateDirtyState,
                 UpdateUi = () => UpdateUI(),
                 SetStatusText = SetLastActionText
             };
+
+        private bool OfferProtectiveSnapshotBeforeDangerousOperation(
+            string operationDescription,
+            string snapshotNote) =>
+            _fileUiWorkflowService.OfferProtectiveSnapshotBeforeDangerousOperation(
+                CreateFileUiWorkflowContext(),
+                operationDescription,
+                snapshotNote);
 
         private void BindWorkshops(IReadOnlyList<string> workshopNames, string selectedWorkshop)
         {
@@ -125,5 +136,30 @@ namespace AsutpKnowledgeBase
 
         private HashSet<KbNode> CaptureExpandedNodes() =>
             _treeViewService.CaptureExpandedNodes(tvTree);
+
+        private KnowledgeBaseTreeDeleteImpact BuildDeleteImpact(KbNode node)
+        {
+            var nodeIds = new HashSet<string>(StringComparer.Ordinal);
+            CollectNodeIds(node, nodeIds);
+
+            return new KnowledgeBaseTreeDeleteImpact
+            {
+                ChildNodeCount = Math.Max(0, nodeIds.Count - 1),
+                CompositionEntryCount = _session.CompositionEntries.Count(entry => nodeIds.Contains(entry.ParentNodeId)),
+                DocumentLinkCount = _session.DocumentLinks.Count(link => nodeIds.Contains(link.OwnerNodeId)),
+                SoftwareRecordCount = _session.SoftwareRecords.Count(record => nodeIds.Contains(record.OwnerNodeId)),
+                NetworkFileReferenceCount = _session.NetworkFileReferences.Count(reference => nodeIds.Contains(reference.OwnerNodeId)),
+                MaintenanceProfileCount = _session.MaintenanceScheduleProfiles.Count(profile => nodeIds.Contains(profile.OwnerNodeId))
+            };
+        }
+
+        private static void CollectNodeIds(KbNode node, ISet<string> nodeIds)
+        {
+            if (!string.IsNullOrWhiteSpace(node.NodeId))
+                nodeIds.Add(node.NodeId);
+
+            foreach (KbNode child in node.Children)
+                CollectNodeIds(child, nodeIds);
+        }
     }
 }
