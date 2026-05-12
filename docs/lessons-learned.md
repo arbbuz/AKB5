@@ -1,6 +1,6 @@
 # Lessons Learned
 
-Last updated: `2026-05-06`
+Last updated: `2026-05-12`
 
 ## UI and tree behavior
 
@@ -10,6 +10,8 @@ Last updated: `2026-05-06`
 - When adding a new row to a WinForms summary card, avoid relying on a fixed container height; use auto-sizing where possible and do not report the change complete until the built `exe` shows the field visibly
 - If a WinForms dialog starts carrying derived planning data, show the calculated demand before asking the user to choose a budget; otherwise the budget field reads like an unexplained magic number
 - If a command operates on the whole workshop rather than on the selected node, place it in a top-level menu or workshop-level workflow entry point, not inside every node card
+- For menu cleanup, group commands by user workflow instead of storage format: `.akb` open/save in `Файл`, maintenance planning in `ТО`, reference data in `Справочники`, and support/import/export/reload operations in `Сервис`.
+- For risky operations such as full database replacement, maintenance norm import, workshop deletion, and mass template application, offer or create a protective snapshot before mutating data.
 
 ## Planner and workbook logic
 
