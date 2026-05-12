@@ -4,6 +4,9 @@ Last updated: `2026-05-12`
 
 ## 2026-05-12
 
+- Codex operational rules for avoiding silent turn stalls and rapid context growth are mandatory for future AKB5 work; see `docs/codex-operational-rules.md`. Key rules: interrupt/resume after 2-3 minutes with no progress after a completed tool result, aggregate broad diagnostics before output, avoid full `git diff` unless explicitly requested or narrowed, and use fresh sessions after large investigations or handoff checkpoints.
+- Equipment catalog workflow follow-ups were committed/pushed on `to` as `3eadf7f Refine equipment catalog workflows`; they include miniSAP Siemens catalog import, four-column catalog UI/search, catalog selection from composition dialogs, sortable catalog columns, and saved layout/column widths for both the catalog browser and catalog picker.
+- The obsolete `Состав -> Применить шаблон...` button and tree menu command `Применить шаблон к объекту...` are retired from the current UI. Keep object-template creation/saving and catalog/template exchange available, but do not reintroduce direct template application without a new explicit requirement.
 - Approved storage follow-up: keep `.akb` as the main format, make the app portable-first without a marker file, store `akb5.settings.json` next to `asutpKB.exe`, default to `database\knowledge-base.akb` next to the program, let the first launch choose another database folder, remember later open/save-as database paths, and create external timestamped `.akb` backups under `backups\yyyy-MM-dd\` before overwriting/restoring an existing SQLite database.
 - Durable reporting rule: after every code or data change that produces or verifies a local build, the response must include the full Windows path to the local `asutpKB.exe` copy for manual review, preferably as the first line of the final response; do not rely only on a shortened or markdown-only link.
 

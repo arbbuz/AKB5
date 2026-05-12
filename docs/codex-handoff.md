@@ -2,14 +2,36 @@
 
 Last updated: `2026-05-12`
 
+## Next session checkpoint
+
+Changed in the current uncommitted worktree:
+
+- Removed obsolete UI for direct template application: `Состав -> Применить шаблон...`, tree menu command `Применить шаблон к объекту...`, the unused apply-preview dialog, and related UI event wiring.
+- Updated current handoff/plans/decision docs to mark direct template application as retired from the UI; object-template creation/saving and catalog/template exchange remain available.
+- Added `docs/codex-operational-rules.md` and linked mandatory Codex operating rules into handoff/plans/lessons/decision docs.
+- Edited live local database `C:\Users\Olga\AKB5\bin\Release\net8.0-windows\database\knowledge-base.akb`: the three visible Lvl2 objects `АСУ сушильной установкой "SIEBTECHNIK"`, `АСУТП ВВК "чистого цикла"`, and `АСУТП ВВК 3-я стадия` now have `node_type = System` instead of `Cabinet`; Lvl3 fields `location/photo/ip/schema` are empty, inventory numbers are preserved, and the existing Lvl2 maintenance profile on `SIEBTECHNIK` was preserved.
+
+Verified:
+
+- `dotnet build C:\Users\Olga\AKB5\asutpKB.csproj -c Release --no-restore -v minimal` passed with existing analyzer warnings only.
+- `dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-restore -v minimal` passed: `348/348`.
+- Targeted SQLite readback confirmed the three corrected nodes are `level_index=2`, `node_type=System`.
+- Database backup before the Lvl2 node-type fix: `C:\Users\Olga\AKB5\artifacts\verify\lvl2-node-type-fix\knowledge-base.before-lvl2-node-type-fix.20260512-232150.akb`.
+
+Remaining for the next session:
+
+- Manual review in `C:\Users\Olga\AKB5\bin\Release\net8.0-windows\asutpKB.exe`: confirm the three Lvl2 objects no longer show Lvl3-only tabs/fields and that template-application UI is gone.
+- Decide whether to commit the current code/doc changes and whether to treat the local `.akb` data edit as final accepted data.
+- Optional later work only if requested: build a managed template editor/delete workflow; do not reintroduce direct template application without a new explicit requirement.
+
 ## Repo state
 
 - Repository root: `C:\Users\Olga\AKB5`
 - Active integration branch: `to`
-- Latest pushed implementation commit: `8dfffbd Rework menu structure and safety prompts`
+- Latest pushed implementation commit: `3eadf7f Refine equipment catalog workflows`
 - Latest maintenance follow-up commit: `7a4895d Fix annual maintenance norm import totals`
-- Latest accepted implementation: menu rework first iteration steps 1-6
-- Current roadmap implementation item: portable-first storage and external `.akb` backups, locally verified and awaiting review
+- Latest accepted implementation: equipment catalog and composition catalog-picker follow-ups
+- Current roadmap implementation item: no active coding item selected after equipment catalog workflow commit
 - Implemented on this branch:
   - `Phase 0`
   - `Phase 1`
@@ -50,7 +72,7 @@ Last updated: `2026-05-12`
   - `Phase 12S7 snapshot comparison`
   - `Phase 12S8 change history`
   - menu rework first iteration steps 1-6
-- Current active gate: review and accept portable-first storage follow-up
+- Current active gate: choose the next priority; likely candidates are optional template management or portable-first storage review
 - `Phase 11B. Equipment catalog UI` was committed and pushed on `to` as `f80873f Add equipment catalog UI`
 - `Phase 11C` / `Phase 11D` were committed and pushed on `to` as `3caca67 Add object template creation workflow`
 - `Phase 11E` was committed and pushed on `to` as `3c87b6e Add save object as template workflow`
@@ -62,12 +84,14 @@ Last updated: `2026-05-12`
 - The chief developer approved the SQLite single-file storage plan choices `1A, 2B, 3A, 4A`; local JSON snapshot prototype work is paused before commit while implementation moves through the SQLite storage plan
 - Menu rework first iteration steps 1-6 are accepted and committed/pushed on `to` as `8dfffbd`.
 - Menu rework adds top-level `Справочники` and `Сервис`, keeps `ТО` immediately after `Файл`, combines snapshots/history into one entry, groups tree templates under `Шаблоны`, expands drag/drop move confirmation, and prompts for protective snapshots before dangerous operations: JSON/Excel full database replacement, maintenance norm import, workshop deletion, and mass template application.
+- Equipment catalog and composition catalog-picker follow-ups were committed/pushed on `to` as `3eadf7f Refine equipment catalog workflows`.
 - Portable-first storage follow-up is locally implemented and verified: first launch writes/reads `akb5.settings.json` next to `asutpKB.exe`, defaults to `database\knowledge-base.akb` next to the program, lets the user choose another database folder, remembers later `Открыть базу...` / `Сохранить как...` paths, offers to copy the old AppData `.akb`, and creates external timestamped backups in `backups\yyyy-MM-dd\` before overwriting/restoring an existing `.akb`.
-- Local `miniSAP` catalog follow-up is implemented, verified, and approved for commit/push: `Справочники -> Каталог оборудования...` now shows only `Наименование`, `Производитель`, `Заказной №`, and `Примечание`, the add/edit dialog uses the same four visible fields, local catalog search uses only visible catalog fields, and `C:\Users\Olga\AppData\Local\AKB5\knowledge-base.akb` contains 131 unique Siemens items imported from `C:\Users\Olga\Downloads\miniSAP.xlsx`.
+- `miniSAP` catalog follow-up is implemented, verified, committed, and pushed: `Справочники -> Каталог оборудования...` now shows only `Наименование`, `Производитель`, `Заказной №`, and `Примечание`, the add/edit dialog uses the same four visible fields, local catalog search uses only visible catalog fields, and `C:\Users\Olga\AppData\Local\AKB5\knowledge-base.akb` contains 131 unique Siemens items imported from `C:\Users\Olga\Downloads\miniSAP.xlsx`.
 - Before the `miniSAP` catalog data edit, an external backup was created at `C:\Users\Olga\AppData\Local\AKB5\backups\2026-05-12\knowledge-base-20260512-123022.akb`.
-- Local `composition-catalog-picker` follow-up is implemented, verified, and approved for commit/push: `Состав -> Добавить слот...` and `Состав -> Добавить оборудование...` now open a catalog picker through `Выбрать из каталога...`; the picker searches only visible catalog fields and fills the composition entry from the selected catalog item.
-- Local `equipment-catalog-layout-sort` follow-up is implemented, verified, and approved for commit/push: the equipment catalog opens maximized on first launch, then remembers user window placement and visible column widths through `window-layout-state.json`; visible catalog columns (`Наименование`, `Производитель`, `Заказной №`, `Примечание`) are clickable and toggle ascending/descending sort.
-- Local `catalog-selection-layout` follow-up is implemented, verified, and approved for commit/push: the `Выбрать из каталога...` dialog now uses the same first-launch maximized and saved placement/visible-column-width behavior as the equipment catalog, with separate persisted state so it does not overwrite the main catalog window layout.
+- `composition-catalog-picker` follow-up is implemented, verified, committed, and pushed: `Состав -> Добавить слот...` and `Состав -> Добавить оборудование...` now open a catalog picker through `Выбрать из каталога...`; the picker searches only visible catalog fields and fills the composition entry from the selected catalog item.
+- `equipment-catalog-layout-sort` follow-up is implemented, verified, committed, and pushed: the equipment catalog opens maximized on first launch, then remembers user window placement and visible column widths through `window-layout-state.json`; visible catalog columns (`Наименование`, `Производитель`, `Заказной №`, `Примечание`) are clickable and toggle ascending/descending sort.
+- `catalog-selection-layout` follow-up is implemented, verified, committed, and pushed: the `Выбрать из каталога...` dialog now uses the same first-launch maximized and saved placement/visible-column-width behavior as the equipment catalog, with separate persisted state so it does not overwrite the main catalog window layout.
+- The obsolete `Состав -> Применить шаблон...` button is removed from the composition screen. The tree menu command `Применить шаблон к объекту...` is also removed from the current UI; object-template creation/saving and catalog/template exchange remain available.
 
 ## Integrated feature state
 
@@ -127,7 +151,7 @@ Last updated: `2026-05-12`
   - `Phase 11D` adds a tree context-menu command `Создать объект из шаблона...` and a Russian selection dialog for persisted object templates
   - creating from a template inserts the whole template subtree, applies normal tree reindexing/depth checks, and appends remapped composition, document/software, network-file, and maintenance-profile defaults
   - `Phase 11E` adds a tree context-menu command for saving the selected object subtree as a persisted template, removes real node ids, remaps typed owner references by generated template-node ids, and skips typed records outside the selected subtree
-  - `Phase 11F` adds a tree context-menu command `Применить шаблон к объекту...`, shows an explicit preview of added/skipped/unchanged data, and applies only missing subtree nodes, typed records, and empty supported card fields
+  - `Phase 11F` added object-template application internals and preview, but the current UI no longer exposes the obsolete tree context-menu command `Применить шаблон к объекту...`
   - `Phase 11G` adds catalog/template JSON exchange; after menu rework, the commands are exposed as `Сервис -> Экспорт справочников и шаблонов...` and `Сервис -> Импорт справочников и шаблонов...`; export writes a dedicated UTF-8 JSON exchange file and import merges only catalog/templates without touching legacy Excel `v3`
 - `Phase 12` accepted storage state:
   - `Phase 12A` adds automatic timestamped JSON snapshots before save; snapshot failure blocks overwrite so the current JSON file stays intact
@@ -173,7 +197,7 @@ git diff --check
 - Verification `minisap-equipment-catalog`: build passed; `dotnet test` passed, `344/344`, with existing analyzer warnings.
 - `git diff --check`: passed with standard CRLF warnings only.
 - Verification artifacts: `artifacts\verify\minisap-equipment-catalog`.
-- Final state: local implementation and data import verified; code changes were approved for commit/push; live AppData `.akb` was modified with backup `C:\Users\Olga\AppData\Local\AKB5\backups\2026-05-12\knowledge-base-20260512-123022.akb`.
+- Final state: implementation was later committed/pushed as part of `3eadf7f`; live AppData `.akb` was modified with backup `C:\Users\Olga\AppData\Local\AKB5\backups\2026-05-12\knowledge-base-20260512-123022.akb`.
 
 Actually run on the worktree for local `composition-catalog-picker` on `2026-05-12`:
 
@@ -188,7 +212,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - Verification `composition-catalog-picker`: build passed; `dotnet test` passed, `344/344`, with existing analyzer warnings.
 - Verification artifacts: `artifacts\verify\composition-catalog-picker`.
 - Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\composition-catalog-picker\build\Release\net8.0-windows\asutpKB.exe`.
-- Final state: local implementation verified and approved for commit/push.
+- Final state: implementation was later committed/pushed as part of `3eadf7f`.
 
 Actually run on the worktree for local `equipment-catalog-layout-sort` on `2026-05-12`:
 
@@ -207,7 +231,7 @@ git diff --check
 - `git diff --check`: passed with standard CRLF warnings only.
 - Verification artifacts: `artifacts\verify\equipment-catalog-layout-sort`.
 - Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\equipment-catalog-layout-sort\build\Release\net8.0-windows\asutpKB.exe`.
-- Final state: local implementation verified and approved for commit/push.
+- Final state: implementation was later committed/pushed as part of `3eadf7f`.
 
 Actually run on the worktree for local `catalog-selection-layout` on `2026-05-12`:
 
@@ -224,7 +248,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - Verification `catalog-selection-layout`: build passed; `dotnet test` passed, `348/348`, with existing analyzer warnings.
 - Verification artifacts: `artifacts\verify\catalog-selection-layout`.
 - Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\catalog-selection-layout\build\Release\net8.0-windows\asutpKB.exe`.
-- Final state: local implementation verified and approved for commit/push.
+- Final state: implementation was later committed/pushed as part of `3eadf7f`.
 
 Actually run on the worktree for local `portable-first-storage` on `2026-05-12`:
 
@@ -599,10 +623,12 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - Keep the completed `Phase 7` workflow on `to` stable as the baseline
 - Preserve the production-calendar follow-up behavior: manual calendar dates are shown as `дд.мм.гггг`, JSON import accepts both `дд.мм.гггг` and legacy ISO dates, saved app JSON remains backward-compatible, and additional working days can represent transferred working weekends
 - Keep `Phase 11B` as the accepted equipment-catalog UI baseline
+- Treat `3eadf7f Refine equipment catalog workflows` as the latest pushed catalog/composition follow-up baseline
 - Preserve deterministic month placement as fallback for profiles that do not enable manual annual placement
 - Current local builds use portable-first SQLite `.akb` storage while retaining JSON import/export and first-launch migration compatibility; generated workbooks remain report artifacts
 - Treat `Phase 12S8. Change history` as accepted and committed/pushed; treat `phase7e-annual-norm-import` as accepted after manual review; treat `phase7g-annual-norm-hidden-rows` and menu rework first iteration as committed/pushed on `to`
-- Review and accept the approved portable-first storage follow-up before starting Phase 8-10 or another roadmap slice.
+- Follow `docs/codex-operational-rules.md` for every future Codex turn: compact diagnostics, context-budget discipline, 2-3 minute stall recovery, and fresh sessions after large investigations or handoff checkpoints are mandatory.
+- Before coding further, confirm whether the next priority is optional template management, portable-first storage review, or another roadmap slice.
 
 ## Durable decisions already made
 
@@ -670,6 +696,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
   - treat past months as frozen during ordinary replanning
 - `Сформировать график ТО за месяц...`, `Сформировать годовой график ТО...`, `Пересчитать график ТО до конца года...`, and `Импорт норм ТО...` are workshop-level commands and belong in the top-level `Файл` menu, not inside the per-node `График ТО` tab
 - `docs/codex-handoff.md` remains the single current-state file for future sessions
+- `docs/codex-operational-rules.md` records mandatory Codex operating rules for stall recovery and context-budget discipline.
 
 ## Relevant files for the next task area
 
@@ -681,6 +708,10 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `Forms/MainForm.EquipmentCatalog.cs`
 - `Forms/KnowledgeBaseEquipmentCatalogForm.cs`
 - `Forms/KnowledgeBaseEquipmentCatalogItemDialog.cs`
+- `Forms/KnowledgeBaseEquipmentCatalogSelectionDialog.cs`
+- `Forms/KnowledgeBaseCompositionTemplateDialog.cs`
+- `Forms/KnowledgeBaseObjectTemplateCreateDialog.cs`
+- `Forms/KnowledgeBaseObjectTemplateSaveDialog.cs`
 - `Forms/KnowledgeBaseProductionCalendarForm.cs`
 - `Forms/KnowledgeBaseProductionCalendarPdfImportPreviewForm.cs`
 - `Controls/KnowledgeBaseMaintenanceScheduleScreenControl.cs`
@@ -695,6 +726,12 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `Services/KnowledgeBaseProductionCalendarPdfImportService.cs`
 - `Models/KbEquipmentCatalogItem.cs`
 - `Services/KnowledgeBaseEquipmentCatalogService.cs`
+- `Models/KbCompositionTemplate.cs`
+- `Models/KbObjectTemplate.cs`
+- `Services/KnowledgeBaseCompositionTemplateService.cs`
+- `Services/KnowledgeBaseObjectTemplateService.cs`
+- `Services/KnowledgeBaseTreeMutationWorkflowService.cs`
+- `UiServices/KnowledgeBaseTreeMutationUiWorkflowService.cs`
 - `Services/KnowledgeBaseDataService.cs`
 - `Services/IKnowledgeBaseStorageService.cs`
 - `Services/KnowledgeBaseStorageLoadResult.cs`
@@ -744,6 +781,8 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 
 ## Known limits / open follow-up
 
+- `Состав -> Применить шаблон...` no longer exposes hardcoded composition templates. The remaining template gap is lack of a dedicated management window to create/edit/delete user-managed composition or object templates.
+- Persisted object templates can still be saved, created from, and exchanged through JSON, but direct application to an existing object is no longer exposed in the current UI.
 - Menu rework steps 1-6 are accepted and committed/pushed on `to`; deferred follow-ups are password/role access to `Сервис`, ordinary-user edit restrictions, and broader rights separation.
 - `Phase 7E.2` source exchange is implemented on `to`: it exports/imports the yearly placement source as `.xlsx`
 - `Phase 7E` in-app mass-editing grid is implemented on `to`
@@ -763,8 +802,9 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 
 ## Recommended next step
 
-- Current catalog/composition follow-ups were approved for commit/push in the current request.
-- After these local follow-ups are pushed, wait for the user to choose the next roadmap priority before coding.
+- Catalog/composition follow-ups are pushed as `3eadf7f`.
+- Next optional product follow-up is template management: add user-managed composition or object template editing/deletion if the user requests it.
+- Otherwise wait for the user to choose the next roadmap priority before coding.
 
 ## Commands to run before finishing future implementation work
 

@@ -10,7 +10,6 @@ namespace AsutpKnowledgeBase
         private Label _lblSummary = null!;
         private Button _btnAddSlotted = null!;
         private Button _btnAddAuxiliary = null!;
-        private Button _btnApplyTemplate = null!;
         private Button _btnCopyFromExisting = null!;
         private Button _btnEditSelected = null!;
         private Button _btnDeleteSelected = null!;
@@ -69,8 +68,6 @@ namespace AsutpKnowledgeBase
             _btnAddSlotted.Click += (_, _) => AddSlottedRequested?.Invoke(this, EventArgs.Empty);
             _btnAddAuxiliary = CreateActionButton("Добавить оборудование...");
             _btnAddAuxiliary.Click += (_, _) => AddAuxiliaryRequested?.Invoke(this, EventArgs.Empty);
-            _btnApplyTemplate = CreateActionButton("Применить шаблон...");
-            _btnApplyTemplate.Click += (_, _) => ApplyTemplateRequested?.Invoke(this, EventArgs.Empty);
             _btnCopyFromExisting = CreateActionButton("Копировать из объекта...");
             _btnCopyFromExisting.Click += (_, _) => CopyFromExistingRequested?.Invoke(this, EventArgs.Empty);
             _btnEditSelected = CreateActionButton("Изменить...");
@@ -80,7 +77,6 @@ namespace AsutpKnowledgeBase
 
             actionsPanel.Controls.Add(_btnAddSlotted);
             actionsPanel.Controls.Add(_btnAddAuxiliary);
-            actionsPanel.Controls.Add(_btnApplyTemplate);
             actionsPanel.Controls.Add(_btnCopyFromExisting);
             actionsPanel.Controls.Add(_btnEditSelected);
             actionsPanel.Controls.Add(_btnDeleteSelected);
@@ -118,8 +114,6 @@ namespace AsutpKnowledgeBase
         public event EventHandler? AddSlottedRequested;
 
         public event EventHandler? AddAuxiliaryRequested;
-
-        public event EventHandler? ApplyTemplateRequested;
 
         public event EventHandler? CopyFromExistingRequested;
 
@@ -241,7 +235,6 @@ namespace AsutpKnowledgeBase
 
             _btnAddSlotted.Enabled = canAdd;
             _btnAddAuxiliary.Enabled = canAdd;
-            _btnApplyTemplate.Enabled = canAdd && _currentState.CanApplyTemplates;
             _btnCopyFromExisting.Enabled = canAdd;
             _btnEditSelected.Enabled = hasEditableSelection;
             _btnDeleteSelected.Enabled = hasEditableSelection;

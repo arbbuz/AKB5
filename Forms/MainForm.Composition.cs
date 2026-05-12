@@ -39,39 +39,6 @@ namespace AsutpKnowledgeBase
                 "Оборудование добавлено в состав.");
         }
 
-        private void ApplyCompositionTemplate(object? sender, EventArgs e)
-        {
-            if (!TryGetCompositionParentNode(out var parentNode))
-                return;
-
-            var templates = _compositionTemplateService.GetTemplates(parentNode.NodeType);
-            if (templates.Count == 0)
-            {
-                MessageBox.Show(
-                    this,
-                    "Для выбранного типа узла нет доступных шаблонов состава.",
-                    "Состав",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-                return;
-            }
-
-            using var dialog = new KnowledgeBaseCompositionTemplateDialog(
-                "Применить шаблон состава",
-                "Выберите шаблон для текущего объекта:",
-                templates,
-                collectNodeName: false);
-            if (dialog.ShowDialog(this) != DialogResult.OK)
-                return;
-
-            if (!ConfirmReplaceCompositionEntries(parentNode))
-                return;
-
-            ApplyCompositionTransfer(
-                _compositionTemplateService.ApplyTemplate(parentNode, _session.CompositionEntries, dialog.SelectedTemplateId),
-                "Состав заполнен по шаблону.");
-        }
-
         private void CopyCompositionFromExistingObject(object? sender, EventArgs e)
         {
             if (!TryGetCompositionParentNode(out var parentNode))

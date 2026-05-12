@@ -36,15 +36,19 @@ Last updated: `2026-05-12`
 - Treat `Phase 12S7. Snapshot comparison` as accepted and committed/pushed on `to`
 - Treat `Phase 12S8. Change history` as accepted after manual review and committed/pushed on `to`
 - Treat menu rework first iteration steps 1-6 as accepted and committed/pushed on `to` as `8dfffbd Rework menu structure and safety prompts`
+- Treat the equipment catalog miniSAP import, catalog visible-field cleanup, composition catalog picker, catalog window layout/sort, and catalog picker layout follow-ups as committed/pushed on `to` as `3eadf7f Refine equipment catalog workflows`
 - Treat portable-first storage and external `.akb` backups as locally verified and awaiting review
 - Treat SQLite single-file `.akb` storage as the target live source of truth; keep JSON as import/export and first-launch migration compatibility
 - Keep the yearly workbook as a generated/report artifact
 - Keep all new user-facing UI strings Russian-only
+- Follow `docs/codex-operational-rules.md` for every future Codex turn to control silent stalls and context growth.
 
 ## Near-term follow-up
 
+- Template cleanup: the obsolete `Состав -> Применить шаблон...` button and tree menu command `Применить шаблон к объекту...` are removed from the current UI.
+- Remaining optional template task: add a user-managed workflow to create/edit/delete composition or object templates, preferably backed by real catalog-selected equipment.
 - Review and accept portable-first storage: `akb5.settings.json` beside `asutpKB.exe`, default `database\knowledge-base.akb`, first-launch folder choice, remembered open/save-as path, old AppData `.akb` copy prompt, and external backups in `backups\yyyy-MM-dd\`.
-- Do not start Phase 8-10 or any new roadmap slice until this follow-up is accepted.
+- Do not start Phase 8-10 or a broad roadmap slice until portable-first storage is accepted; a narrow template-management correction may be done first if the user explicitly requests it.
 - Deferred menu follow-ups remain future work, not part of the accepted first iteration: password/role access to `Сервис`, ordinary-user edit restrictions, and broader rights separation.
 
 ## Update rule

@@ -76,9 +76,6 @@ namespace AsutpKnowledgeBase.Services
         public static bool CanSaveObjectAsTemplate(KbNode? sourceNode) =>
             sourceNode != null && sourceNode.NodeType != KbNodeType.WorkshopRoot;
 
-        public bool CanApplyObjectTemplate(KbNode? targetNode) =>
-            GetApplicableObjectTemplates(targetNode).Count > 0;
-
         public bool CanPasteNode(KbNode? parentNode) => _treeController.CanPasteNode(parentNode);
 
         public void ClearClipboard() => _treeController.ClearClipboard();
@@ -89,16 +86,6 @@ namespace AsutpKnowledgeBase.Services
             _session.ObjectTemplates
                 .Where(template => CanAttachObjectTemplate(parentNode, template))
                 .ToList();
-
-        public IReadOnlyList<KbObjectTemplate> GetApplicableObjectTemplates(KbNode? targetNode)
-        {
-            if (targetNode == null || targetNode.NodeType == KbNodeType.WorkshopRoot)
-                return Array.Empty<KbObjectTemplate>();
-
-            return _session.ObjectTemplates
-                .Where(template => template.RootNode != null && template.RootNode.NodeType == targetNode.NodeType)
-                .ToList();
-        }
 
         public KnowledgeBaseTreeMutationResult AddNode(
             string workshopName,

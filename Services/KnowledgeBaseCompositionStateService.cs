@@ -30,8 +30,6 @@ namespace AsutpKnowledgeBase.Services
     {
         public bool SupportsEditing { get; init; }
 
-        public bool CanApplyTemplates { get; init; }
-
         public string SourceText { get; init; } = string.Empty;
 
         public string EmptyStateText { get; init; } = string.Empty;
@@ -78,7 +76,6 @@ namespace AsutpKnowledgeBase.Services
 
             return new KnowledgeBaseCompositionState
             {
-                CanApplyTemplates = SupportsTemplates(selectedNode.NodeType),
                 SupportsEditing = true,
                 SourceText = "Записи состава еще не заполнены.",
                 EmptyStateText = "Для этого узла еще нет записей состава."
@@ -87,13 +84,6 @@ namespace AsutpKnowledgeBase.Services
 
         public static bool SupportsComposition(KbNodeType nodeType, int visibleLevel = 0) =>
             KnowledgeBaseEngineeringNodeSupportService.SupportsEngineeringWorkspace(nodeType, visibleLevel);
-
-        public static bool SupportsTemplates(KbNodeType nodeType) => nodeType switch
-        {
-            KbNodeType.Cabinet => true,
-            KbNodeType.Controller => true,
-            _ => false
-        };
 
         private static List<KbCompositionEntry> GetOrderedTypedEntries(
             string parentNodeId,
@@ -150,7 +140,6 @@ namespace AsutpKnowledgeBase.Services
 
             return new KnowledgeBaseCompositionState
             {
-                CanApplyTemplates = SupportsTemplates(nodeType),
                 SupportsEditing = true,
                 SourceText = "Показаны сохранённые записи состава.",
                 TotalEntries = states.Count,
@@ -191,7 +180,6 @@ namespace AsutpKnowledgeBase.Services
 
             return new KnowledgeBaseCompositionState
             {
-                CanApplyTemplates = SupportsTemplates(selectedNode.NodeType),
                 SupportsEditing = true,
                 SourceText = "Записи состава еще не заполнены. Пока показаны дочерние узлы дерева.",
                 TotalEntries = states.Count,

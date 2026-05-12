@@ -198,69 +198,6 @@ namespace AsutpKnowledgeBase.UiServices
             ApplySuccessfulMutation(context, result, selectedNode, expandedNodes);
         }
 
-        public void ApplyObjectTemplateToExistingObject(KnowledgeBaseTreeMutationUiWorkflowContext context)
-        {
-            if (context.TreeView.SelectedNode?.Tag is not KbNode selectedNode)
-            {
-                MessageBox.Show(
-                    context.Owner,
-                    "Выберите объект, к которому нужно применить шаблон.",
-                    "Шаблоны объектов",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-                return;
-            }
-
-            var templates = _treeMutationWorkflowService.GetApplicableObjectTemplates(selectedNode);
-            if (templates.Count == 0)
-            {
-                MessageBox.Show(
-                    context.Owner,
-                    _treeMutationWorkflowService.HasObjectTemplates
-                        ? "Для типа выбранного объекта нет подходящих шаблонов."
-                        : "В базе нет сохранённых шаблонов объектов.",
-                    "Шаблоны объектов",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-                return;
-            }
-
-            using var dialog = new KnowledgeBaseObjectTemplateApplyPreviewDialog(
-                selectedNode,
-                templates,
-                templateId => _treeMutationWorkflowService.PreviewApplyObjectTemplateToExistingObject(
-                    selectedNode,
-                    templateId));
-            if (dialog.ShowDialog(context.Owner) != DialogResult.OK)
-                return;
-
-            KnowledgeBaseObjectTemplateApplicationPlan plan =
-                _treeMutationWorkflowService.PreviewApplyObjectTemplateToExistingObject(
-                    selectedNode,
-                    dialog.SelectedTemplateId);
-            if (RequiresProtectiveSnapshotBeforeApplyTemplate(plan) &&
-                !context.OfferProtectiveSnapshotBeforeDangerousOperation(
-                    "массовым применением шаблона к объекту",
-                    $"Перед применением шаблона \"{plan.TemplateDisplayName}\" к объекту \"{selectedNode.Name}\""))
-            {
-                return;
-            }
-
-            var expandedNodes = context.CaptureExpandedNodes();
-            var result = _treeMutationWorkflowService.ApplyObjectTemplateToExistingObject(
-                context.CurrentWorkshop,
-                selectedNode,
-                dialog.SelectedTemplateId,
-                context.GetPersistedTreeData());
-            if (!result.IsSuccess)
-            {
-                ShowMutationFailure(context.Owner, result, "Применение шаблона объекта");
-                return;
-            }
-
-            ApplySuccessfulMutation(context, result, selectedNode, expandedNodes);
-        }
-
         public void DeleteNode(KnowledgeBaseTreeMutationUiWorkflowContext context)
         {
             if (context.TreeView.SelectedNode?.Tag is not KbNode node)
@@ -585,16 +522,6 @@ namespace AsutpKnowledgeBase.UiServices
                 ? "Выбранный объект"
                 : name;
         }
-
-        private static bool RequiresProtectiveSnapshotBeforeApplyTemplate(
-            KnowledgeBaseObjectTemplateApplicationPlan plan) =>
-            plan.IsSuccess &&
-            (plan.NodeAdditions.Count > 1 ||
-             plan.CompositionEntries.Count > 0 ||
-             plan.DocumentLinks.Count > 0 ||
-             plan.SoftwareRecords.Count > 0 ||
-             plan.NetworkFileReferences.Count > 0 ||
-             plan.MaintenanceScheduleProfiles.Count > 0);
 
         private static string BuildMoveConfirmationText(
             KnowledgeBaseTreeMutationUiWorkflowContext context,

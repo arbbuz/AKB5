@@ -12,6 +12,10 @@ Last updated: `2026-05-12`
 - If a command operates on the whole workshop rather than on the selected node, place it in a top-level menu or workshop-level workflow entry point, not inside every node card
 - For menu cleanup, group commands by user workflow instead of storage format: `.akb` open/save in `Файл`, maintenance planning in `ТО`, reference data in `Справочники`, and support/import/export/reload operations in `Сервис`.
 - For risky operations such as full database replacement, maintenance norm import, workshop deletion, and mass template application, offer or create a protective snapshot before mutating data.
+- If two dialogs expose the same table concept, persist their window placement and column widths separately unless the user explicitly wants shared geometry; otherwise one workflow can overwrite another workflow's saved layout.
+- When catalog data is used inside composition editing, keep the picker behavior aligned with the catalog browser: same visible columns, same local search scope, same sorting expectations, and same remembered layout behavior.
+- Avoid leaving demo-like hardcoded templates under user-facing production commands. If users need real operational templates, make them persisted and manageable from the UI instead of requiring code edits.
+- Distinguish clearly between `composition templates` and `object templates`: composition templates currently fill only `SavedData.CompositionEntries`, while object templates can carry tree substructure plus typed records. Similar menu labels can otherwise lead users to expect one system to manage the other.
 
 ## Planner and workbook logic
 
@@ -53,6 +57,9 @@ Last updated: `2026-05-12`
 - If the user keeps the app open during verification, use an isolated `BaseOutputPath` for build validation instead of spending time on false compile investigations caused by file locks
 - If a session has a natural green boundary, stop there after build/test and wait for review instead of continuing into docs, handoff, or the next roadmap slice in the same pass
 - A source diff is not enough for WinForms changes; confirm the control still fits and remains reachable in the built application
+- Codex turns can stall after completed tool results without an active shell command; if there is no new tool output, token-count movement, or visible progress for about 2-3 minutes, interrupt/resume or start a fresh session and verify disk state compactly.
+- Treat context as a hard budget: avoid broad log/session scans, full `Get-Content -Raw`, and full `git diff` unless explicitly requested or narrowed first; prefer aggregates, top-N summaries, `git diff --stat`, and `git status --short`.
+- For documentation-only distillation and handoff updates, follow `docs/codex-operational-rules.md`: read relevant sections only, patch docs, verify compactly, and finalize instead of expanding into broad diagnostics.
 
 ## Documentation discipline
 

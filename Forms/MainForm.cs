@@ -102,7 +102,6 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem ctxCreateObjectFromTemplateAtRoot = null!;
         private ToolStripMenuItem ctxCreateObjectFromTemplate = null!;
         private ToolStripMenuItem ctxSaveObjectAsTemplate = null!;
-        private ToolStripMenuItem ctxApplyObjectTemplate = null!;
         private ToolStripMenuItem ctxCopy = null!;
         private ToolStripMenuItem ctxPaste = null!;
         private ToolStripMenuItem ctxRename = null!;
@@ -475,13 +474,10 @@ namespace AsutpKnowledgeBase
                 hasSelection ? selectedNode : null);
             ctxSaveObjectAsTemplate.Enabled = hasSelection &&
                 KnowledgeBaseTreeMutationWorkflowService.CanSaveObjectAsTemplate(selectedNode);
-            ctxApplyObjectTemplate.Enabled = hasSelection &&
-                _treeMutationWorkflowService.CanApplyObjectTemplate(selectedNode);
             ctxTemplates.Enabled =
                 ctxAddFromTemplate.Enabled ||
                 ctxCreateObjectFromTemplate.Enabled ||
-                ctxSaveObjectAsTemplate.Enabled ||
-                ctxApplyObjectTemplate.Enabled;
+                ctxSaveObjectAsTemplate.Enabled;
             ctxPaste.Enabled = hasSelection && _treeMutationWorkflowService.CanPasteNode(selectedNode!);
             bool hasCurrentWorkshop = !string.IsNullOrWhiteSpace(_currentWorkshop);
             menuRenameWorkshop.Enabled = hasCurrentWorkshop;
@@ -724,16 +720,11 @@ namespace AsutpKnowledgeBase
                 "Сохранить как шаблон объекта...",
                 null,
                 (s, e) => SaveObjectAsTemplate());
-            ctxApplyObjectTemplate = new ToolStripMenuItem(
-                "Применить шаблон к объекту...",
-                null,
-                (s, e) => ApplyObjectTemplateToExistingObject());
             ctxTemplates.DropDownItems.AddRange(new ToolStripItem[]
             {
                 ctxAddFromTemplate,
                 ctxCreateObjectFromTemplate,
-                ctxSaveObjectAsTemplate,
-                ctxApplyObjectTemplate
+                ctxSaveObjectAsTemplate
             });
             ApplyTreeContextMenuVisibility();
         }

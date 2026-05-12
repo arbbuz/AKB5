@@ -24,7 +24,6 @@ namespace AsutpKnowledgeBase
             selectedNodeInfoScreen.OpenPhotoRequested += BtnOpenPhoto_Click;
             selectedNodeCompositionScreen.AddSlottedRequested += AddSlottedCompositionEntry;
             selectedNodeCompositionScreen.AddAuxiliaryRequested += AddAuxiliaryCompositionEntry;
-            selectedNodeCompositionScreen.ApplyTemplateRequested += ApplyCompositionTemplate;
             selectedNodeCompositionScreen.CopyFromExistingRequested += CopyCompositionFromExistingObject;
             selectedNodeCompositionScreen.EditSelectedRequested += EditSelectedCompositionEntry;
             selectedNodeCompositionScreen.DeleteSelectedRequested += DeleteSelectedCompositionEntry;
@@ -231,9 +230,6 @@ namespace AsutpKnowledgeBase
 
         private void SaveObjectAsTemplate()
             => _treeMutationUiWorkflowService.SaveObjectAsTemplate(CreateTreeMutationUiWorkflowContext());
-
-        private void ApplyObjectTemplateToExistingObject()
-            => _treeMutationUiWorkflowService.ApplyObjectTemplateToExistingObject(CreateTreeMutationUiWorkflowContext());
 
         private void DeleteNode()
             => _treeMutationUiWorkflowService.DeleteNode(CreateTreeMutationUiWorkflowContext());
