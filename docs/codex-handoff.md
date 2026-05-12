@@ -1,15 +1,15 @@
 # Current State
 
-Last updated: `2026-05-10`
+Last updated: `2026-05-12`
 
 ## Repo state
 
 - Repository root: `C:\Users\Olga\AKB5`
 - Active integration branch: `to`
-- Latest feature integration commit for the maintenance-planning stream: `09bf84d Add production calendar PDF import`
-- Latest docs synchronization commit: `68d51b6 Distill roadmap state after Phase 7F`
-- Latest accepted implementation: `phase7e-annual-norm-import`
-- Current roadmap implementation item: local `phase7g-annual-norm-hidden-rows`; waiting for manual review before commit/push
+- Latest pushed implementation commit: `8dfffbd Rework menu structure and safety prompts`
+- Latest maintenance follow-up commit: `7a4895d Fix annual maintenance norm import totals`
+- Latest accepted implementation: menu rework first iteration steps 1-6
+- Current roadmap implementation item: portable-first storage and external `.akb` backups, locally verified and awaiting review
 - Implemented on this branch:
   - `Phase 0`
   - `Phase 1`
@@ -31,7 +31,7 @@ Last updated: `2026-05-10`
   - major `ТО2` / `ТО3` split across working days
   - maintenance-norm import coverage and mismatch reporting
   - `phase7e-annual-norm-import`
-  - local `phase7g-annual-norm-hidden-rows`
+  - `phase7g-annual-norm-hidden-rows`
   - `Phase 7F production-calendar configuration`
   - `Phase 7F.1 production-calendar PDF import`
   - `Phase 11A equipment catalog model`
@@ -41,15 +41,16 @@ Last updated: `2026-05-10`
   - `Phase 11E save existing object as template`
   - `Phase 11F apply template with preview`
   - `Phase 11G template import/export`
-  - local `Phase 12S1 storage abstraction`
-  - local `Phase 12S2 SQLite schema and repository`
-  - local `Phase 12S3 first-launch JSON migration`
-  - local `Phase 12S4 database file UX`
-  - local `Phase 12S5 SQLite snapshots`
-  - local `Phase 12S6 snapshot restore`
-  - local `Phase 12S7 snapshot comparison`
-  - local `Phase 12S8 change history`
-- Current active gate: manual review of local `phase7g-annual-norm-hidden-rows`
+  - `Phase 12S1 storage abstraction`
+  - `Phase 12S2 SQLite schema and repository`
+  - `Phase 12S3 first-launch JSON migration`
+  - `Phase 12S4 database file UX`
+  - `Phase 12S5 SQLite snapshots`
+  - `Phase 12S6 snapshot restore`
+  - `Phase 12S7 snapshot comparison`
+  - `Phase 12S8 change history`
+  - menu rework first iteration steps 1-6
+- Current active gate: review and accept portable-first storage follow-up
 - `Phase 11B. Equipment catalog UI` was committed and pushed on `to` as `f80873f Add equipment catalog UI`
 - `Phase 11C` / `Phase 11D` were committed and pushed on `to` as `3caca67 Add object template creation workflow`
 - `Phase 11E` was committed and pushed on `to` as `3c87b6e Add save object as template workflow`
@@ -57,10 +58,11 @@ Last updated: `2026-05-10`
 - `Phase 11G` was accepted after manual review and committed/pushed on `to` as `268b550`
 - `Phase 12S8` was accepted after manual review and committed/pushed on `to` as `27a2aba`
 - `phase7e-annual-norm-import` passed manual review on 2026-05-07
-- Local `phase7g-annual-norm-hidden-rows` is implemented and verified; it skips hidden annual-plan rows during norm import because hidden rows represent retired equipment in `456.xlsx`
+- `phase7g-annual-norm-hidden-rows` skips hidden annual-plan rows during norm import because hidden rows represent retired equipment in `456.xlsx`; committed/pushed on `to` as `7a4895d`
 - The chief developer approved the SQLite single-file storage plan choices `1A, 2B, 3A, 4A`; local JSON snapshot prototype work is paused before commit while implementation moves through the SQLite storage plan
-- Local menu rework first iteration is implemented through step 6 and is waiting for manual review; no commit or push has been performed for this local menu stack.
-- Menu rework steps 5-6 add expanded drag/drop move confirmation and protective snapshot prompts before dangerous operations: JSON/Excel full database replacement, maintenance norm import, workshop deletion, and mass template application.
+- Menu rework first iteration steps 1-6 are accepted and committed/pushed on `to` as `8dfffbd`.
+- Menu rework adds top-level `Справочники` and `Сервис`, keeps `ТО` immediately after `Файл`, combines snapshots/history into one entry, groups tree templates under `Шаблоны`, expands drag/drop move confirmation, and prompts for protective snapshots before dangerous operations: JSON/Excel full database replacement, maintenance norm import, workshop deletion, and mass template application.
+- Portable-first storage follow-up is locally implemented and verified: first launch writes/reads `akb5.settings.json` next to `asutpKB.exe`, defaults to `database\knowledge-base.akb` next to the program, lets the user choose another database folder, remembers later `Открыть базу...` / `Сохранить как...` paths, offers to copy the old AppData `.akb`, and creates external timestamped backups in `backups\yyyy-MM-dd\` before overwriting/restoring an existing `.akb`.
 
 ## Integrated feature state
 
@@ -92,9 +94,9 @@ Last updated: `2026-05-10`
   - `KnowledgeBaseMaintenanceMonthWorkResolverService` resolves monthly work demand from stored norms and deterministic cycle offsets
   - `KnowledgeBaseMaintenanceMonthlyPlannerService` plans against a monthly hour budget, distributes work across working days, splits one large `ТО2` / `ТО3` occurrence into assignments of up to 8 hours, and does not enforce a hard daily `<= 8` cap
   - the export workflow is template-driven and writes one selected month into a yearly accumulating workbook while preserving the rest of the workbook
-  - `Файл` contains workshop-level `Импорт норм ТО...`, `Сформировать график ТО за месяц...`, `Сформировать годовой график ТО...`, and `Пересчитать график ТО до конца года...` commands; import/export commands are no longer shown inside each per-node `График ТО` tab
-  - `Phase 7E.2` adds `Файл -> Экспорт источника годового графика ТО...` and `Файл -> Импорт источника годового графика ТО...`
-  - `Phase 7E` mass-editing grid adds `Файл -> Редактировать источник годового графика ТО...` for current-workshop profile rows
+  - `ТО` contains workshop-level `Импорт норм ТО...`, `План ТО по месяцам...`, `Экспорт плана ТО по месяцам...`, `Импорт плана ТО по месяцам...`, `Производственный календарь...`, `Импорт производственного календаря PDF...`, `Сформировать график ТО за месяц...`, `Сформировать годовой график ТО...`, and `Пересчитать график ТО до конца года...`; import/export commands are no longer shown inside each per-node `График ТО` tab
+  - `Phase 7E.2` adds `ТО -> Экспорт плана ТО по месяцам...` and `ТО -> Импорт плана ТО по месяцам...`
+  - `Phase 7E` mass-editing grid adds `ТО -> План ТО по месяцам...` for current-workshop profile rows
   - the `Сформировать график ТО` dialog shows resolved monthly demand before the user confirms the available workshop budget
   - the yearly generation command shows 12-month demand and generates all months by orchestrating the existing monthly engine
   - the future-month recalculation command opens an existing yearly workbook, preserves earlier month sheets, and rewrites only the selected start month through December
@@ -105,47 +107,65 @@ Last updated: `2026-05-10`
   - `Phase 7E.2` adds workshop-level `.xlsx` export/import of the yearly schedule source through `YearScheduleSource` rows keyed by `OwnerNodeId`
   - `Phase 7E.2` import updates only `YearScheduleEntries`; it does not change `ТО1` / `ТО2` / `ТО3` hour norms and does not create missing maintenance profiles
   - `Phase 7E` mass-editing grid updates only `YearScheduleEntries`; it does not change hour norms, inclusion flags, production calendars, or create missing profiles
-  - `Phase 7F` adds `Config.ProductionCalendarYears`, a Russian `Файл -> Производственный календарь...` editor, `Файл -> Импорт производственного календаря JSON...`, JSON import validation, and guided missing-year errors
-  - `Phase 7F.1` adds `Файл -> Импорт производственного календаря PDF...`, text-layer PDF parsing through `PdfPig`, a preview dialog before applying imported dates, and `AdditionalWorkingDays` support for transferred working Saturdays/Sundays
+  - `Phase 7F` adds `Config.ProductionCalendarYears`, a Russian `ТО -> Производственный календарь...` editor, JSON import validation, and guided missing-year errors; production-calendar JSON import is hidden from the menu after the menu rework
+  - `Phase 7F.1` adds `ТО -> Импорт производственного календаря PDF...`, text-layer PDF parsing through `PdfPig`, a preview dialog before applying imported dates, and `AdditionalWorkingDays` support for transferred working Saturdays/Sundays
   - `phase7e-major-work-split-days` splits one `ТО2` / `ТО3` occurrence into up-to-8-hour assignments across working days when possible
   - `phase7e-norm-import-coverage` improves norm import matching for leading-zero inventory numbers, `ё/е`, and parenthetical equipment names; unresolved rows include source sheet/row context
   - maintenance norms can be imported from monthly `C:\Users\Olga\Downloads\123.xlsx`; `phase7e-annual-norm-import` also supports annual workbooks with the same structure as `C:\Users\Olga\Downloads\456.xlsx`
   - import matching uses inventory number first, then normalized equipment/system names, and can read the workbook even when it is open in Excel
-  - local `phase7g-annual-norm-hidden-rows` skips hidden rows in annual workbooks before parsing system headers or equipment rows, so hidden retired equipment does not affect imported monthly demand
+  - `phase7g-annual-norm-hidden-rows` skips hidden rows in annual workbooks before parsing system headers or equipment rows, so hidden retired equipment does not affect imported monthly demand
 - `Phase 11` current state on `to`:
   - `Phase 11A` adds the top-level JSON equipment catalog model and normalization
-  - `Phase 11B` adds `Файл -> Каталог оборудования...` for listing, adding, editing, deleting, and searching equipment catalog items
+  - `Phase 11B` adds `Справочники -> Каталог оборудования...` for listing, adding, editing, deleting, and searching equipment catalog items
   - catalog editing remains separate from tree editing and object-template creation
   - `Phase 11C` adds top-level JSON/session object templates, template nodes keyed by `TemplateNodeId`, normalization, and an instantiation service that generates fresh real `NodeId` values and remaps linked defaults
   - `Phase 11D` adds a tree context-menu command `Создать объект из шаблона...` and a Russian selection dialog for persisted object templates
   - creating from a template inserts the whole template subtree, applies normal tree reindexing/depth checks, and appends remapped composition, document/software, network-file, and maintenance-profile defaults
   - `Phase 11E` adds a tree context-menu command for saving the selected object subtree as a persisted template, removes real node ids, remaps typed owner references by generated template-node ids, and skips typed records outside the selected subtree
   - `Phase 11F` adds a tree context-menu command `Применить шаблон к объекту...`, shows an explicit preview of added/skipped/unchanged data, and applies only missing subtree nodes, typed records, and empty supported card fields
-  - `Phase 11G` adds `Файл -> Экспорт каталога и шаблонов JSON...` and `Файл -> Импорт каталога и шаблонов JSON...`; export writes a dedicated UTF-8 JSON exchange file and import merges only catalog/templates without touching legacy Excel `v3`
-- `Phase 12` current local state:
+  - `Phase 11G` adds catalog/template JSON exchange; after menu rework, the commands are exposed as `Сервис -> Экспорт справочников и шаблонов...` and `Сервис -> Импорт справочников и шаблонов...`; export writes a dedicated UTF-8 JSON exchange file and import merges only catalog/templates without touching legacy Excel `v3`
+- `Phase 12` accepted storage state:
   - `Phase 12A` adds automatic timestamped JSON snapshots before save; snapshot failure blocks overwrite so the current JSON file stays intact
-  - `Phase 12B` adds `Файл -> Создать снимок базы...`, requires a user note, writes the current JSON state to `.akb-snapshots`, and writes `.meta.json` sidecar metadata
-  - `Phase 12C` adds `Файл -> Просмотреть снимки базы...` and a read-only browser with date, type, snapshot file, source file, size, and note
+  - `Phase 12B` adds manual snapshot creation with a required user note, writes the current JSON state to `.akb-snapshots`, and writes `.meta.json` sidecar metadata
+  - `Phase 12C` adds a read-only snapshot browser with date, type, snapshot file, source file, size, and note
   - `Phase 12C` reads note/source/timestamp/size from sidecar metadata for manual snapshots and falls back to filename/file info for automatic snapshots without metadata
   - `Phase 12A` / `12B` / `12C` are now treated as verified local prototype work, paused before commit while storage moves to SQLite
   - `Phase 12S0` is approved with choices `1A, 2B, 3A, 4A`; details are in `docs/sqlite-storage-plan.md`
-  - `Phase 12S1. Storage abstraction` is implemented locally and verified
+  - `Phase 12S1. Storage abstraction` is accepted and committed/pushed on `to` as part of `27a2aba`
   - `Phase 12S1` adds `IKnowledgeBaseStorageService`, `KnowledgeBaseStorageLoadResult`, and `KnowledgeBaseStorageServiceFactory`; `JsonStorageService` implements the interface and `KnowledgeBaseFileWorkflowService` now depends on the interface
   - `Forms` no longer creates `JsonStorageService` directly; current behavior still uses legacy JSON storage through the factory
-  - `Phase 12S2. SQLite schema and repository` is implemented locally and verified
+  - `Phase 12S2. SQLite schema and repository` is accepted and committed/pushed on `to` as part of `27a2aba`
   - `Phase 12S2` adds `Microsoft.Data.Sqlite` `8.0.13`, `KnowledgeBaseSqliteConnectionFactory`, and `SqliteKnowledgeBaseStorageService`
-  - SQLite schema version `3` creates normalized tables for metadata, config, calendars, workshops, nodes, typed records, maintenance, catalog, object templates, template nodes, snapshots, and change history
+  - Current SQLite database schema version is `4`; normalized tables cover metadata, config, calendars, workshops, nodes, typed records, maintenance, catalog, object templates, template nodes, snapshots, and change history
   - SQLite save/load round-trips normalized `SavedData`
-  - `Phase 12S3. First-launch JSON migration` is implemented locally and verified; it offers confirmed migration from legacy `Мои документы\ASUTP_KnowledgeBase.json` to `%LocalAppData%\AKB5\knowledge-base.akb`, leaves legacy JSON unchanged, and writes a post-migration JSON safety export
-  - `Phase 12S4. Database file UX` is implemented locally and verified; current builds default to `.akb`, route `.json` paths to legacy JSON storage, update database dialogs to `.akb`, and add full database JSON import/export commands
-  - `Phase 12S5. SQLite backups and snapshots` is implemented locally and verified; SQLite snapshots live inside the `.akb` database with metadata and normalized `SavedData` payloads
-  - `Phase 12S6. Restore selected snapshot` is implemented locally and verified; restore requires confirmation, creates a protective `before-restore` snapshot, reloads restored data, and leaves failed restores intact
-  - `Phase 12S7. Snapshot comparison` is implemented locally and verified; two snapshots can be compared at summary level across high-value data areas
-  - `Phase 12S8. Change history` is accepted after manual review and committed/pushed on `to`; `.akb` databases record save, migration, manual snapshot, restore, and catalog/template import actions and expose `Файл -> История изменений...`
-  - target storage direction: SQLite single-file database, default `%LocalAppData%\AKB5\knowledge-base.akb`, visible `.akb` extension, JSON full database import/export, confirmation before first-launch migration from legacy `Мои документы\ASUTP_KnowledgeBase.json`, automatic post-migration JSON safety export, and no simultaneous multi-user editing in the first SQLite version
+  - `Phase 12S3. First-launch JSON migration` is accepted and committed/pushed on `to` as part of `27a2aba`; it offers confirmed migration from legacy `Мои документы\ASUTP_KnowledgeBase.json` to `%LocalAppData%\AKB5\knowledge-base.akb`, leaves legacy JSON unchanged, and writes a post-migration JSON safety export
+  - `Phase 12S4. Database file UX` is accepted and committed/pushed on `to` as part of `27a2aba`; current builds default to `.akb`, route `.json` paths to legacy JSON storage, update database dialogs to `.akb`, and add full database JSON import/export commands
+  - `Phase 12S5. SQLite backups and snapshots` is accepted and committed/pushed on `to` as part of `27a2aba`; SQLite snapshots live inside the `.akb` database with metadata and normalized `SavedData` payloads
+  - `Phase 12S6. Restore selected snapshot` is accepted and committed/pushed on `to` as part of `27a2aba`; restore requires confirmation, creates a protective `before-restore` snapshot, reloads restored data, and leaves failed restores intact
+  - `Phase 12S7. Snapshot comparison` is accepted and committed/pushed on `to` as part of `27a2aba`; two snapshots can be compared at summary level across high-value data areas
+  - `Phase 12S8. Change history` is accepted after manual review and committed/pushed on `to`; `.akb` databases record save, migration, manual snapshot, restore, and catalog/template import actions and expose history through `Файл -> Снимки и история базы...`
+  - target storage direction: SQLite single-file database with portable-first default storage beside the program package, visible `.akb` extension, JSON full database import/export, confirmation before first-launch migration from legacy `Мои документы\ASUTP_KnowledgeBase.json`, automatic post-migration JSON safety export, and no simultaneous multi-user editing in the first SQLite version
 - User-facing application UI on `to` remains Russian-only
 
 ## Validated status
+
+Actually run on the worktree for local `portable-first-storage` on `2026-05-12`:
+
+```powershell
+dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
+dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
+dotnet build asutpKB.csproj --configuration Release --no-restore
+dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore
+git diff --check
+```
+
+- `dotnet format --verify-no-changes`: passed for app, core, and tests
+- `dotnet build asutpKB.csproj --configuration Release --no-restore`: passed with existing analyzer warnings
+- `dotnet test`: passed, `344/344`, with existing analyzer warnings
+- `git diff --check`: passed with standard CRLF warnings only
+- Manual exe path for review: `C:\Users\Olga\AKB5\bin\Release\net8.0-windows\asutpKB.exe`
+- Final state: local implementation verified; not committed/pushed; waiting for manual review/acceptance
 
 Actually run on the worktree for local `menu-rework-stage6` on `2026-05-10`:
 
@@ -163,7 +183,7 @@ git diff --check
 - `git diff --check`: passed with standard CRLF warnings only
 - Verification artifacts: `artifacts\verify\menu-rework-stage6`
 - Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\menu-rework-stage6\build\Release\net8.0-windows\asutpKB.exe`
-- Harness status: `STATE: WAITING_REVIEW`
+- Final state: accepted and committed/pushed on `to` as `8dfffbd Rework menu structure and safety prompts`
 
 Actually run on the worktree for local `Phase 12S8` on `2026-05-07`:
 
@@ -202,7 +222,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `dotnet test`: passed, `335/335`
 - Verification artifacts: `artifacts\verify\phase7g-annual-norm-hidden-rows`
 - Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\phase7g-annual-norm-hidden-rows\build\Release\net8.0-windows\asutpKB.exe`
-- Harness status: `STATE: WAITING_REVIEW`
+- Final state: committed/pushed on `to` as `7a4895d Fix annual maintenance norm import totals`
 
 Actually run on the worktree for local `phase7e-annual-norm-import` on `2026-05-07`:
 
@@ -499,14 +519,13 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - Full Excel round-trip validation (`generate -> open -> edit/save -> import back`) was not run
 ## Active objective
 
-- Complete manual review of the local menu rework first iteration through step 6; if accepted, commit/push only after direct current approval.
 - Keep the completed `Phase 7` workflow on `to` stable as the baseline
-- Complete manual review of local `phase7g-annual-norm-hidden-rows`
 - Preserve the production-calendar follow-up behavior: manual calendar dates are shown as `дд.мм.гггг`, JSON import accepts both `дд.мм.гггг` and legacy ISO dates, saved app JSON remains backward-compatible, and additional working days can represent transferred working weekends
 - Keep `Phase 11B` as the accepted equipment-catalog UI baseline
 - Preserve deterministic month placement as fallback for profiles that do not enable manual annual placement
-- Current builds default to SQLite `.akb` storage while retaining JSON import/export and first-launch migration compatibility; generated workbooks remain report artifacts
-- Treat `Phase 12S8. Change history` as accepted and committed/pushed; treat `phase7e-annual-norm-import` as accepted after manual review
+- Current local builds use portable-first SQLite `.akb` storage while retaining JSON import/export and first-launch migration compatibility; generated workbooks remain report artifacts
+- Treat `Phase 12S8. Change history` as accepted and committed/pushed; treat `phase7e-annual-norm-import` as accepted after manual review; treat `phase7g-annual-norm-hidden-rows` and menu rework first iteration as committed/pushed on `to`
+- Review and accept the approved portable-first storage follow-up before starting Phase 8-10 or another roadmap slice.
 
 ## Durable decisions already made
 
@@ -543,14 +562,14 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - Local `Phase 12A` adds automatic timestamped JSON snapshots before save; snapshot failure blocks overwrite so the current JSON file stays intact
 - Local `Phase 12B` adds manual snapshot creation with a required note and sidecar metadata for future snapshot browser/restore workflows
 - Local `Phase 12C` adds a read-only snapshot browser that lists `.akb-snapshots` entries for the current JSON database with date, type, snapshot file, source file, size, and note
-- Local `Phase 12S1` adds the storage abstraction around current JSON persistence and removes direct `JsonStorageService` dependency from UI/file workflow code
-- Local `Phase 12S2` added SQLite schema/repository support behind the storage abstraction
-- Local `Phase 12S3` added first-launch migration from legacy JSON to `%LocalAppData%\AKB5\knowledge-base.akb`, preserving the legacy JSON file and creating a safety JSON export
-- Local `Phase 12S4` switched current UI/file workflow defaults to `.akb`, kept legacy JSON routing, and added full database JSON import/export
-- Local `Phase 12S5` moved snapshots into the SQLite `.akb` database
-- Local `Phase 12S6` added confirmed snapshot restore with a protective before-restore snapshot
-- Local `Phase 12S7` added summary comparison for two selected snapshots
-- Local `Phase 12S8` added SQLite change-history recording and a read-only `Файл -> История изменений...` view for `.akb` databases
+- `Phase 12S1` adds the storage abstraction around current JSON persistence and removes direct `JsonStorageService` dependency from UI/file workflow code
+- `Phase 12S2` added SQLite schema/repository support behind the storage abstraction
+- `Phase 12S3` added first-launch migration from legacy JSON to `%LocalAppData%\AKB5\knowledge-base.akb`, preserving the legacy JSON file and creating a safety JSON export
+- `Phase 12S4` switched current UI/file workflow defaults to `.akb`, kept legacy JSON routing, and added full database JSON import/export
+- `Phase 12S5` moved snapshots into the SQLite `.akb` database
+- `Phase 12S6` added confirmed snapshot restore with a protective before-restore snapshot
+- `Phase 12S7` added summary comparison for two selected snapshots
+- `Phase 12S8` added SQLite change-history recording; after menu rework, it is reached through `Файл -> Снимки и история базы...`
 - The target storage redesign is SQLite single-file storage with JSON import/export compatibility and first-launch migration from the legacy JSON database; see `docs/sqlite-storage-plan.md`
 - A single `ТО2` / `ТО3` occurrence above 8 hours is split into assignments of up to 8 hours; this is assignment chunking for major work, not a hard daily total cap
 - The planner may place more than one large maintenance item on the same day when needed; it only prefers to spread `ТО2` / `ТО3` apart when possible
@@ -648,13 +667,13 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 
 ## Known limits / open follow-up
 
-- Menu rework steps 1-6 are implemented locally and verified, but still need manual UI review: top menu structure, combined snapshots/history window, grouped `ТО`, tree context menu, move confirmation text, and protective snapshot prompts.
+- Menu rework steps 1-6 are accepted and committed/pushed on `to`; deferred follow-ups are password/role access to `Сервис`, ordinary-user edit restrictions, and broader rights separation.
 - `Phase 7E.2` source exchange is implemented on `to`: it exports/imports the yearly placement source as `.xlsx`
 - `Phase 7E` in-app mass-editing grid is implemented on `to`
 - `Phase 7E` source editing does not create missing maintenance profiles and does not import labor-hour norms
 - Manual-review error `Memory stream is not expandable` during May 2026 график ТО generation was fixed locally by opening the workbook package on an expandable memory stream before OpenXML rewriting
 - Manual-review screenshot errors from `C:\Users\Olga\Downloads\archive-2026-04-30_13-50-15` were caused by direct visible `Lvl2` assignments being rejected during workbook model building; the local fix is implemented and verified
-- 2027 and later production calendars are not built in; configure the needed year through `Файл -> Производственный календарь...`, JSON import, or local PDF import before generating that year
+- 2027 and later production calendars are not built in; configure the needed year through `ТО -> Производственный календарь...`, `ТО -> Импорт производственного календаря PDF...`, or service JSON import before generating that year
 - OCR is not implemented in `Phase 7F.1`; the real `calendar_2027.pdf` source has a usable text layer, so OCR is deferred until a source PDF requires it
 - Manual UI validation of the local PDF import preview/apply workflow passed by user
 - `phase7e-major-work-split-days` implements and verifies splitting one `ТО2` / `ТО3` occurrence across multiple working days
@@ -662,19 +681,18 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - Maintenance profiles have no explicit active-from / active-to dates yet, so the agreed replanning strategy is to freeze past months and recalculate only future months
 - `phase7e-norm-import-coverage` improves norm import matching and mismatch reporting; some rows may still remain unmatched when names diverge too much from the KB tree
 - `phase7e-annual-norm-import` supports annual workbooks with the same structure as `456.xlsx` for `Импорт норм ТО...`, applies `YearScheduleEntries`, and keeps monthly `123.xlsx` compatibility
-- Local `phase7g-annual-norm-hidden-rows` skips hidden annual workbook rows before parsing; in `456.xlsx`, rows `29`, `30`, and `31` are hidden and should not count toward the May total
+- `phase7g-annual-norm-hidden-rows` skips hidden annual workbook rows before parsing; in `456.xlsx`, rows `29`, `30`, and `31` are hidden and should not count toward the May total
 - Full Excel round-trip import of generated yearly workbooks has not been validated
 
 ## Recommended next step
 
-- Manual review of `C:\Users\Olga\AKB5\artifacts\verify\menu-rework-stage6\build\Release\net8.0-windows\asutpKB.exe`; if accepted, commit/push only after direct current approval.
-- Keep manual review of `phase7g-annual-norm-hidden-rows` separate from the local menu rework stack.
+- Review portable-first storage verification and accept or request fixes.
+- After this follow-up is accepted, wait for the user to choose the next roadmap priority before coding.
 
 ## Commands to run before finishing future implementation work
 
 ```powershell
 git status --short
-powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName menu-rework-stage6
 powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName <active-step-name>
 # The script stops at BUILD: PASS / TESTS: PASS and leaves artifacts in artifacts\verify\<step>.
 ```

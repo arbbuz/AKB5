@@ -64,6 +64,8 @@ Publish job при этом:
 ## Как запускать на пользовательском ПК
 
 1. Получить `artifacts/publish/win-x64/asutpKB.exe` локально или скачать CI artifact.
-2. Перенести `asutpKB.exe` на 64-битный Windows ПК.
+2. Перенести `asutpKB.exe` на 64-битный Windows ПК в папку, доступную для записи, например `D:\AKB5` или `C:\AKB5`.
 3. Запустить `asutpKB.exe`.
 4. Для запуска не нужен отдельный установленный .NET runtime, потому что publish self-contained.
+
+При первом запуске программа создаёт/читает `akb5.settings.json` рядом с `asutpKB.exe` и предлагает хранить базу рядом с программой (`database\knowledge-base.akb`) или выбрать другую папку. При переносе готовой portable-папки копируйте вместе `asutpKB.exe`, `akb5.settings.json`, `database\knowledge-base.akb`, `backups\` и внешние файлы, на которые ссылается база.

@@ -38,6 +38,7 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseNodePresentationService _nodePresentationService = new();
         private readonly KnowledgeBaseTreeViewService _treeViewService = new();
         private readonly UndoRedoService _history = new(50);
+        private readonly KnowledgeBasePortableStorageSettingsService _storageSettingsService;
         private readonly KnowledgeBaseWindowLayoutStateService _windowLayoutStateService;
         private int? _savedSplitterDistance;
         private string? _lastSelectedWorkspaceNodeId;
@@ -137,6 +138,7 @@ namespace AsutpKnowledgeBase
         public MainForm(IAppLogger appLogger)
         {
             _appLogger = appLogger ?? NullAppLogger.Instance;
+            _storageSettingsService = new KnowledgeBasePortableStorageSettingsService(AppContext.BaseDirectory);
             _treeController = new KnowledgeBaseTreeController(_session);
             _windowLayoutStateService = new KnowledgeBaseWindowLayoutStateService(logger: _appLogger);
             InitializeComponent();
@@ -178,21 +180,22 @@ namespace AsutpKnowledgeBase
 
         private StartupStorageServiceSelection CreateStartupStorageService()
         {
-            string defaultSqlitePath = KnowledgeBaseStoragePaths.GetDefaultSqlitePath();
+            string startupPath = ResolveStartupDatabasePath();
             string legacyJsonPath = GetDefaultJsonPath();
-            string startupPath = defaultSqlitePath;
             string statusText = string.Empty;
+
+            TryCopyPreviousDefaultDatabase(startupPath, ref statusText);
 
             var migrationService = new KnowledgeBaseFirstLaunchMigrationService(_appLogger);
             KnowledgeBaseFirstLaunchMigrationPlan migrationPlan =
-                migrationService.CreatePlan(defaultSqlitePath, legacyJsonPath);
+                migrationService.CreatePlan(startupPath, legacyJsonPath);
 
             if (migrationPlan.ShouldOfferMigration)
             {
                 DialogResult confirmation = MessageBox.Show(
                     this,
                     $"Найдена старая JSON-база:\n{legacyJsonPath}\n\n" +
-                    $"Перенести данные в новую базу SQLite?\n{defaultSqlitePath}\n\n" +
+                    $"Перенести данные в новую базу SQLite?\n{startupPath}\n\n" +
                     "Старый JSON-файл останется без изменений.",
                     "Переход на базу .akb",
                     MessageBoxButtons.YesNo,
@@ -204,8 +207,9 @@ namespace AsutpKnowledgeBase
                         migrationService.Migrate(migrationPlan);
                     if (migrationResult.IsSuccess)
                     {
-                        startupPath = defaultSqlitePath;
-                        statusText = $"База перенесена в .akb: {Path.GetFileName(defaultSqlitePath)}";
+                        startupPath = migrationResult.TargetSqlitePath;
+                        RememberDatabasePath(startupPath, showErrorMessage: true);
+                        statusText = $"База перенесена в .akb: {Path.GetFileName(startupPath)}";
                         MessageBox.Show(
                             this,
                             $"Миграция завершена.\n\nНовая база:\n{migrationResult.TargetSqlitePath}\n\n" +
@@ -238,6 +242,144 @@ namespace AsutpKnowledgeBase
                 KnowledgeBaseStorageServiceFactory.CreateFileStorage(startupPath, _appLogger),
                 statusText);
         }
+
+        private string ResolveStartupDatabasePath()
+        {
+            KnowledgeBasePortableStorageSettingsLoadResult settingsLoadResult =
+                _storageSettingsService.Load();
+
+            if (settingsLoadResult.IsSuccess && settingsLoadResult.Settings != null)
+                return _storageSettingsService.ResolveDatabasePath(settingsLoadResult.Settings);
+
+            if (!settingsLoadResult.FileMissing && !string.IsNullOrWhiteSpace(settingsLoadResult.ErrorMessage))
+            {
+                MessageBox.Show(
+                    this,
+                    $"Не удалось прочитать файл настроек хранения:\n{_storageSettingsService.SettingsPath}\n\n" +
+                    $"{settingsLoadResult.ErrorMessage}\n\nБудет предложен новый путь базы.",
+                    "Настройки хранения",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+
+            string selectedPath = PromptInitialDatabasePath();
+            RememberDatabasePath(selectedPath, showErrorMessage: true);
+            return selectedPath;
+        }
+
+        private string PromptInitialDatabasePath()
+        {
+            string defaultPath = _storageSettingsService.DefaultDatabasePath;
+            DialogResult result = MessageBox.Show(
+                this,
+                "Выберите место хранения базы AKB5.\n\n" +
+                $"Да - хранить рядом с программой:\n{defaultPath}\n\n" +
+                "Нет - выбрать другую папку для базы.",
+                "Первый запуск AKB5",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question,
+                MessageBoxDefaultButton.Button1);
+
+            if (result == DialogResult.No)
+            {
+                using var dialog = new FolderBrowserDialog
+                {
+                    Description = "Выберите папку для хранения базы AKB5",
+                    UseDescriptionForTitle = true,
+                    ShowNewFolderButton = true
+                };
+
+                if (dialog.ShowDialog(this) == DialogResult.OK &&
+                    !string.IsNullOrWhiteSpace(dialog.SelectedPath))
+                {
+                    return Path.Combine(
+                        dialog.SelectedPath,
+                        KnowledgeBaseStoragePaths.DefaultSqliteFileName);
+                }
+            }
+
+            return defaultPath;
+        }
+
+        private void TryCopyPreviousDefaultDatabase(string startupPath, ref string statusText)
+        {
+            string previousPath = KnowledgeBaseStoragePaths.GetDefaultSqlitePath();
+            if (PathsEqual(previousPath, startupPath) ||
+                File.Exists(startupPath) ||
+                !File.Exists(previousPath))
+            {
+                return;
+            }
+
+            DialogResult copyConfirmation = MessageBox.Show(
+                this,
+                $"Найдена прежняя база AKB5:\n{previousPath}\n\n" +
+                $"Скопировать её в выбранное место?\n{startupPath}",
+                "Перенос базы",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question,
+                MessageBoxDefaultButton.Button1);
+
+            if (copyConfirmation != DialogResult.Yes)
+                return;
+
+            try
+            {
+                string? directory = Path.GetDirectoryName(startupPath);
+                if (!string.IsNullOrWhiteSpace(directory))
+                    Directory.CreateDirectory(directory);
+
+                File.Copy(previousPath, startupPath, overwrite: false);
+                statusText = $"База скопирована в новое место: {Path.GetFileName(startupPath)}";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    this,
+                    $"Не удалось скопировать прежнюю базу:\n{ex.Message}",
+                    "Перенос базы",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private void RememberDatabasePath(string databasePath, bool showErrorMessage)
+        {
+            if (_storageSettingsService.SaveDatabasePath(databasePath, out string? errorMessage))
+                return;
+
+            string message =
+                $"Не удалось сохранить путь базы в файл настроек:\n{_storageSettingsService.SettingsPath}\n\n" +
+                $"{errorMessage}\n\n" +
+                "Проверьте, что папка программы доступна для записи.";
+
+            _appLogger.Log(
+                "PortableStorageSettingsSaveFailed",
+                AppLogLevel.Warning,
+                message,
+                properties: new Dictionary<string, object?>
+                {
+                    ["settingsPath"] = _storageSettingsService.SettingsPath,
+                    ["databasePath"] = databasePath,
+                    ["errorMessage"] = errorMessage ?? string.Empty
+                });
+
+            if (showErrorMessage)
+            {
+                MessageBox.Show(
+                    this,
+                    message,
+                    "Настройки хранения",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+        }
+
+        private static bool PathsEqual(string firstPath, string secondPath) =>
+            string.Equals(
+                Path.GetFullPath(firstPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                Path.GetFullPath(secondPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase);
 
         private string CurrentDataPath => _fileUiWorkflowService.CurrentDataPath;
 

@@ -1,6 +1,6 @@
 # Plans
 
-Last updated: `2026-05-08`
+Last updated: `2026-05-12`
 
 ## Active plan
 
@@ -12,10 +12,10 @@ Last updated: `2026-05-08`
 - Treat the major `ТО2` / `ТО3` split across working days as completed on `to`
 - Treat the norm-import coverage and mismatch-reporting follow-up as completed on `to`
 - Treat `phase7e-annual-norm-import` as accepted after manual review
-- Treat local `phase7g-annual-norm-hidden-rows` as implemented and verified; it is waiting for manual review before commit/push
+- Treat `phase7g-annual-norm-hidden-rows` as committed/pushed on `to` as `7a4895d Fix annual maintenance norm import totals`
 - Treat `Phase 7F` production-calendar configuration as completed on `to`
 - Treat `Phase 7F.1. Production calendar PDF import` as accepted after manual review and committed/pushed on `to`
-- Treat `Phase 11. Object templates and equipment catalog` as the active approved roadmap block
+- Treat `Phase 11. Object templates and equipment catalog` as an accepted roadmap block
 - Treat `Phase 11A. Equipment catalog model` as accepted after manual review
 - Treat `Phase 11B. Equipment catalog UI` as accepted, committed, and pushed on `to`
 - Treat `Phase 11C. Object template model` as accepted after manual review and committed/pushed on `to`
@@ -24,26 +24,28 @@ Last updated: `2026-05-08`
 - Treat `Phase 11F. Apply template with preview` as accepted after manual review and committed/pushed on `to`
 - Treat `Phase 11G. Template import/export` as accepted after manual review and committed/pushed on `to`
 - Treat the production-calendar Russian date format follow-up as accepted after manual review
-- Treat `Phase 12. Storage redesign, backups, snapshots, and change history` as the active roadmap block
+- Treat `Phase 12. Storage redesign, backups, snapshots, and change history` as an accepted roadmap block
 - Treat local `Phase 12A. Automatic JSON snapshots before save`, `Phase 12B. Manual JSON snapshots with note`, and `Phase 12C. Snapshot browser` as verified local prototype work that is paused before commit while storage moves to SQLite
 - Treat `Phase 12S0. SQLite single-file storage redesign plan` in `docs/sqlite-storage-plan.md` as approved with choices `1A, 2B, 3A, 4A`
-- Treat local `Phase 12S1. Storage abstraction` as implemented and verified
-- Treat local `Phase 12S2. SQLite schema and repository` as implemented and verified
-- Treat local `Phase 12S3. First-launch JSON migration` as implemented and verified
-- Treat local `Phase 12S4. Database file UX` as implemented and verified
-- Treat local `Phase 12S5. SQLite backups and snapshots` as implemented and verified
-- Treat local `Phase 12S6. Restore selected snapshot` as implemented and verified
-- Treat local `Phase 12S7. Snapshot comparison` as implemented and verified
+- Treat `Phase 12S1. Storage abstraction` as accepted and committed/pushed on `to`
+- Treat `Phase 12S2. SQLite schema and repository` as accepted and committed/pushed on `to`
+- Treat `Phase 12S3. First-launch JSON migration` as accepted and committed/pushed on `to`
+- Treat `Phase 12S4. Database file UX` as accepted and committed/pushed on `to`
+- Treat `Phase 12S5. SQLite backups and snapshots` as accepted and committed/pushed on `to`
+- Treat `Phase 12S6. Restore selected snapshot` as accepted and committed/pushed on `to`
+- Treat `Phase 12S7. Snapshot comparison` as accepted and committed/pushed on `to`
 - Treat `Phase 12S8. Change history` as accepted after manual review and committed/pushed on `to`
+- Treat menu rework first iteration steps 1-6 as accepted and committed/pushed on `to` as `8dfffbd Rework menu structure and safety prompts`
+- Treat portable-first storage and external `.akb` backups as locally verified and awaiting review
 - Treat SQLite single-file `.akb` storage as the target live source of truth; keep JSON as import/export and first-launch migration compatibility
 - Keep the yearly workbook as a generated/report artifact
 - Keep all new user-facing UI strings Russian-only
 
 ## Near-term follow-up
 
-- Manual review of `phase7g-annual-norm-hidden-rows`; if accepted, commit and push before selecting another roadmap task
-- Treat local menu rework first iteration steps 1-6 as implemented and verified through `menu-rework-stage6`; wait for manual review before commit/push.
-- Use `docs/menu-rework-implementation-plan.md` as the approved first-iteration menu rework specification. The first iteration keeps workshop commands in `Файл`, uses `Сервис` for service operations, keeps `ТО` immediately after `Файл`, and defers passwords/roles.
+- Review and accept portable-first storage: `akb5.settings.json` beside `asutpKB.exe`, default `database\knowledge-base.akb`, first-launch folder choice, remembered open/save-as path, old AppData `.akb` copy prompt, and external backups in `backups\yyyy-MM-dd\`.
+- Do not start Phase 8-10 or any new roadmap slice until this follow-up is accepted.
+- Deferred menu follow-ups remain future work, not part of the accepted first iteration: password/role access to `Сервис`, ordinary-user edit restrictions, and broader rights separation.
 
 ## Update rule
 

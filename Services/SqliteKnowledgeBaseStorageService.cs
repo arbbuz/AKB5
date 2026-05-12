@@ -24,6 +24,7 @@ namespace AsutpKnowledgeBase.Services
         };
 
         private readonly KnowledgeBaseSqliteConnectionFactory _connectionFactory;
+        private readonly KnowledgeBaseExternalBackupService _externalBackupService;
         private readonly IAppLogger _logger;
         private readonly Func<DateTimeOffset> _clock;
 
@@ -31,12 +32,14 @@ namespace AsutpKnowledgeBase.Services
             string savePath,
             IAppLogger? logger = null,
             KnowledgeBaseSqliteConnectionFactory? connectionFactory = null,
+            KnowledgeBaseExternalBackupService? externalBackupService = null,
             Func<DateTimeOffset>? clock = null)
         {
             SavePath = savePath;
             _logger = logger ?? NullAppLogger.Instance;
             _connectionFactory = connectionFactory ?? new KnowledgeBaseSqliteConnectionFactory();
             _clock = clock ?? (() => DateTimeOffset.Now);
+            _externalBackupService = externalBackupService ?? new KnowledgeBaseExternalBackupService(_clock);
         }
 
         public string SavePath { get; set; }
@@ -93,6 +96,14 @@ namespace AsutpKnowledgeBase.Services
                 if (!string.IsNullOrWhiteSpace(directory))
                     Directory.CreateDirectory(directory);
 
+                KnowledgeBaseExternalBackupResult externalBackupResult =
+                    _externalBackupService.CreateSqliteBackup(SavePath);
+                if (!externalBackupResult.IsSuccess)
+                {
+                    errorMessage = $"Не удалось создать резервную копию базы .akb: {externalBackupResult.ErrorMessage}";
+                    return false;
+                }
+
                 using var connection = _connectionFactory.OpenConnection(SavePath);
                 EnsureSchema(connection);
                 SavedData? previousData = HasExistingSavedData(connection)
@@ -118,7 +129,9 @@ namespace AsutpKnowledgeBase.Services
                     transaction,
                     "save",
                     "База сохранена.",
-                    $"Файл: {Path.GetFullPath(SavePath)}");
+                    externalBackupResult.BackupCreated
+                        ? $"Файл: {Path.GetFullPath(SavePath)}; резервная копия: {externalBackupResult.BackupPath}"
+                        : $"Файл: {Path.GetFullPath(SavePath)}");
 
                 transaction.Commit();
                 return true;
@@ -347,6 +360,18 @@ namespace AsutpKnowledgeBase.Services
                 if (!string.IsNullOrWhiteSpace(directory))
                     Directory.CreateDirectory(directory);
 
+                KnowledgeBaseExternalBackupResult externalBackupResult =
+                    _externalBackupService.CreateSqliteBackup(SavePath);
+                if (!externalBackupResult.IsSuccess)
+                {
+                    return new KnowledgeBaseSnapshotRestoreResult
+                    {
+                        IsSuccess = false,
+                        SnapshotPath = snapshotDataResult.SnapshotPath,
+                        ErrorMessage = $"Не удалось создать резервную копию базы .akb: {externalBackupResult.ErrorMessage}"
+                    };
+                }
+
                 SavedData restoredData = KnowledgeBaseDataService.NormalizeSavedData(snapshotDataResult.Data);
                 using var connection = _connectionFactory.OpenConnection(SavePath);
                 EnsureSchema(connection);
@@ -371,7 +396,9 @@ namespace AsutpKnowledgeBase.Services
                     transaction,
                     "restore",
                     "База восстановлена из снимка.",
-                    $"Снимок: {snapshotId}");
+                    externalBackupResult.BackupCreated
+                        ? $"Снимок: {snapshotId}; резервная копия: {externalBackupResult.BackupPath}"
+                        : $"Снимок: {snapshotId}");
 
                 transaction.Commit();
                 return new KnowledgeBaseSnapshotRestoreResult

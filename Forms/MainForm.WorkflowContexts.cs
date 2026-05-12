@@ -23,7 +23,8 @@ namespace AsutpKnowledgeBase
                 ResetTransientUiStateAfterLoad = ResetTransientUiStateAfterLoad,
                 ApplyLoadedSessionView = viewState => ApplySessionView(viewState, clearSearch: true),
                 UpdateUi = () => UpdateUI(),
-                SetStatusText = SetLastActionText
+                SetStatusText = SetLastActionText,
+                RememberDatabasePath = path => RememberDatabasePath(path, showErrorMessage: false)
             };
 
         private KnowledgeBaseWorkshopUiWorkflowContext CreateWorkshopUiWorkflowContext() =>

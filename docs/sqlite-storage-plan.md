@@ -1,6 +1,6 @@
 # SQLite Storage Plan
 
-Last updated: `2026-05-07`
+Last updated: `2026-05-12`
 
 ## Decision
 
@@ -22,13 +22,15 @@ Approved implementation choices:
 - post-migration safety export: automatic JSON export next to the new `.akb`
 - multi-user policy: simultaneous multi-user editing is unsupported in the first SQLite version
 
-The default user database should move out of `Мои документы`. The proposed default path is:
+The original default user database moved out of `Мои документы` to:
 
 ```text
 %LocalAppData%\AKB5\knowledge-base.akb
 ```
 
 The user must still be able to open another database file explicitly.
+
+Current local follow-up implementation: AKB5 is portable-first. The application stores `akb5.settings.json` next to `asutpKB.exe`, defaults to `database\knowledge-base.akb` next to the program, lets the user choose another database folder on first launch, remembers later opened/saved `.akb` paths, and creates external timestamped `.akb` backups in `backups\yyyy-MM-dd\` before overwriting/restoring an existing SQLite database.
 
 ## Why This Direction
 
@@ -48,6 +50,7 @@ The user must still be able to open another database file explicitly.
 - Prefer rollback-journal mode initially to keep the live storage effectively single-file at rest; revisit WAL only if performance or concurrency requires it.
 - Use SQLite backup APIs or a closed-connection copy for database backups, not ad hoc copying of an open database.
 - Keep JSON export deterministic and readable for support.
+- For portable-first storage, keep `akb5.settings.json` beside the executable and store relative database paths when the chosen `.akb` remains under the program folder.
 
 ## Proposed Schema Areas
 
@@ -80,7 +83,7 @@ Status: approved on `2026-05-07`.
 
 ### Phase 12S1. Storage Abstraction
 
-Status: implemented locally on `2026-05-07`; waiting for manual review.
+Status: accepted and committed/pushed on `to` as part of `27a2aba Add SQLite storage history workflow`.
 
 - introduce an app-facing storage interface that loads and saves `SavedData`
 - adapt the current JSON storage behind that interface without behavior changes
@@ -94,7 +97,7 @@ Acceptance:
 
 ### Phase 12S2. SQLite Schema and Repository
 
-Status: implemented locally on `2026-05-07`; waiting for manual review.
+Status: accepted and committed/pushed on `to` as part of `27a2aba Add SQLite storage history workflow`.
 
 - add SQLite dependency and connection factory
 - create schema version `1` for the normalized tables
@@ -107,6 +110,8 @@ Acceptance:
 - all core domain collections survive the round trip
 
 ### Phase 12S3. First-Launch JSON Migration
+
+Status: accepted and committed/pushed on `to` as part of `27a2aba Add SQLite storage history workflow`.
 
 - on startup, if `%LocalAppData%\AKB5\knowledge-base.akb` is missing and `Мои документы\ASUTP_KnowledgeBase.json` exists, offer migration from the legacy JSON file
 - show a confirmation dialog before migration
@@ -124,6 +129,8 @@ Acceptance:
 
 ### Phase 12S4. Database File UX
 
+Status: accepted and committed/pushed on `to` as part of `27a2aba Add SQLite storage history workflow`.
+
 - change default live database path to SQLite
 - update `Открыть базу...` / `Сохранить как...` filters for `.akb`
 - add explicit JSON import/export commands for full database compatibility
@@ -135,6 +142,8 @@ Acceptance:
 - support users can still export/import full JSON when needed
 
 ### Phase 12S5. SQLite Backups and Snapshots
+
+Status: accepted and committed/pushed on `to` as part of `27a2aba Add SQLite storage history workflow`.
 
 - replace JSON `.akb-snapshots` live workflow with SQLite-aware snapshots
 - store manual snapshot note, created time, kind, source database path, size, and payload
@@ -149,6 +158,8 @@ Acceptance:
 
 ### Phase 12S6. Restore Selected Snapshot
 
+Status: accepted and committed/pushed on `to` as part of `27a2aba Add SQLite storage history workflow`.
+
 - restore only after explicit confirmation
 - create a pre-restore protective snapshot
 - validate restored data before applying it
@@ -161,6 +172,8 @@ Acceptance:
 
 ### Phase 12S7. Snapshot Comparison
 
+Status: accepted and committed/pushed on `to` as part of `27a2aba Add SQLite storage history workflow`.
+
 - compare two snapshots at summary level
 - cover workshops, nodes, document links, software records, network files, maintenance profiles, production calendars, catalog records, and object templates
 
@@ -169,6 +182,8 @@ Acceptance:
 - the user sees a useful summary of added/removed/changed areas before restore or audit work
 
 ### Phase 12S8. Change History
+
+Status: accepted and committed/pushed on `to` as part of `27a2aba Add SQLite storage history workflow`.
 
 - write a lightweight `change_log` record for high-value actions:
   - save

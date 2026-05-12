@@ -1,12 +1,23 @@
 # Decision Log
 
-Last updated: `2026-05-08`
+Last updated: `2026-05-12`
+
+## 2026-05-12
+
+- Approved storage follow-up: keep `.akb` as the main format, make the app portable-first without a marker file, store `akb5.settings.json` next to `asutpKB.exe`, default to `database\knowledge-base.akb` next to the program, let the first launch choose another database folder, remember later open/save-as database paths, and create external timestamped `.akb` backups under `backups\yyyy-MM-dd\` before overwriting/restoring an existing SQLite database.
+
+## 2026-05-10
+
+- Menu rework first iteration steps 1-6 were accepted and committed/pushed on `to` as `8dfffbd Rework menu structure and safety prompts`; final pre-commit verification passed format checks, `menu-rework-stage6` build/test (`340/340`), and `git diff --check`.
+- No next coding phase is currently prioritized after the accepted menu rework; future Phase 8-10 or roadmap-slice work requires an explicit user request.
 
 ## 2026-05-08
 
 - Durable communication rule for AKB5 work: user-visible progress must stay brief (`current step`, `result`, `next step`). Codex must not paste raw diagnostic commands, command transcripts, internal ids, owner mappings, large diffs, or code excerpts into chat unless explicitly requested; verbose diagnostics belong in `artifacts` with only key counts/status summarized.
 - Durable safety rule for AKB5 work: irreversible or external actions require current-task authorization. Codex must not reuse older approval for `git commit`, `git push`, destructive file operations, branch rewrites, or broad database edits. Before changing a real `.akb`/JSON data file, Codex must identify the exact file, target object count, and fields/records to be changed; if visible data is not found, verify encoding, active storage, process state, and alternate files before drawing conclusions.
 - Menu rework first-iteration decision: use a top-level `Сервис` menu instead of `Администрирование`; keep workshop commands in `Файл` for now; keep `ТО` immediately after `Файл`; add `Справочники` for `Каталог оборудования...`; move service JSON/catalog exchange and reload commands to `Сервис`; hide full database Excel exchange and production-calendar JSON import from menus while keeping code under the hood; combine snapshots/history into one entry; group tree template commands under `Шаблоны`; show `Добавить отдел` only on empty tree space; include old/new level in move confirmation. Passwords and roles are deferred.
+- `phase7g-annual-norm-hidden-rows` was committed/pushed on `to` as `7a4895d Fix annual maintenance norm import totals`.
+- Tree move level metadata handling was corrected and committed/pushed on `to` as `4d334a7 Fix tree move level metadata handling`.
 
 ## 2026-05-06
 
@@ -15,7 +26,7 @@ Last updated: `2026-05-08`
 - `C:\Users\Olga\Downloads\calendar_2027.pdf` has a usable text layer and imports as 2027 with additional non-working days `22.02.2027`, `03.05.2027`, `10.05.2027`, `14.06.2027`, `05.11.2027`, `31.12.2027`, plus additional working day `20.02.2027`
 - On 2026-05-06, `phase7f1-production-calendar-pdf-import` passed verification build and `dotnet test` (`281/281`) using isolated output paths; the user manually confirmed that production-calendar PDF import works
 - `Phase 7F.1` was committed and pushed on `to` as `09bf84d Add production calendar PDF import`
-- `Phase 11B` adds an in-app Russian equipment-catalog editor under `Файл -> Каталог оборудования...`; catalog editing remains separate from tree editing and object-template creation
+- `Phase 11B` adds an in-app Russian equipment-catalog editor, now exposed as `Справочники -> Каталог оборудования...`; catalog editing remains separate from tree editing and object-template creation
 - On 2026-05-06, `phase11b-equipment-catalog-ui` passed verification build and `dotnet test` (`287/287`) using isolated output paths
 - `Phase 11B` was committed and pushed on `to` as `f80873f Add equipment catalog UI`
 - `Phase 11C` adds top-level JSON/session object-template persistence and normalization without adding the create-from-template UI yet
@@ -50,36 +61,37 @@ Last updated: `2026-05-08`
 - On 2026-05-07, app/core/tests format verification passed, targeted JSON storage/snapshot/file-workflow tests passed (`25/25`), and `phase12c-snapshot-browser` passed verification build and `dotnet test` (`312/312`) using isolated output paths; local `Phase 12C` is now treated as verified prototype work paused before commit while storage moves to SQLite
 - The chief developer rejected using a live JSON database in `Мои документы`; the approved target direction is SQLite single-file storage with JSON import/export compatibility and first-launch migration from the existing legacy JSON database
 - JSON-specific `Phase 12A` / `12B` / `12C` snapshot work is treated as verified local prototype work and is paused before commit; the SQLite storage implementation plan is approved in `docs/sqlite-storage-plan.md`
-- The proposed default live database path is `%LocalAppData%\AKB5\knowledge-base.akb`; the legacy `Мои документы\ASUTP_KnowledgeBase.json` file must remain untouched during first-launch migration
+- The previously proposed live database path was `%LocalAppData%\AKB5\knowledge-base.akb`; this was later superseded by the portable-first 2026-05-12 follow-up, while the legacy `Мои документы\ASUTP_KnowledgeBase.json` file still must remain untouched during first-launch migration
 - The chief developer approved the SQLite storage plan choices as `1A, 2B, 3A, 4A`: visible `.akb` extension, confirmation dialog before first-launch migration, automatic post-migration JSON safety export next to the new `.akb`, and no simultaneous multi-user editing support in the first SQLite version
 - With `Phase 12S0` approved, the next implementation step is `Phase 12S1. Storage abstraction`; SQLite code should not be added before direct `JsonStorageService` dependencies are moved behind an app-facing storage interface
 - Local `Phase 12S1` introduces `IKnowledgeBaseStorageService`, `KnowledgeBaseStorageLoadResult`, and `KnowledgeBaseStorageServiceFactory`; current JSON persistence remains the implementation behind the abstraction and no SQLite dependency is added in this slice
 - `KnowledgeBaseFileWorkflowService` now depends on `IKnowledgeBaseStorageService`, and `Forms` no longer creates `JsonStorageService` directly
-- On 2026-05-07, targeted storage/file-workflow/snapshot tests passed (`27/27`), app/core/tests format verification passed, and `phase12s1-storage-abstraction` passed verification build and `dotnet test` (`314/314`); harness state is `WAITING_REVIEW`
+- On 2026-05-07, targeted storage/file-workflow/snapshot tests passed (`27/27`), app/core/tests format verification passed, and `phase12s1-storage-abstraction` passed verification build and `dotnet test` (`314/314`); pre-acceptance harness state was `WAITING_REVIEW`
 - The user requested starting `Phase 12S2` after local `Phase 12S1` verification
 - Local `Phase 12S2` adds `Microsoft.Data.Sqlite` `8.0.13`, `KnowledgeBaseSqliteConnectionFactory`, and `SqliteKnowledgeBaseStorageService`; it creates SQLite schema version `1` and round-trips normalized `SavedData` through the storage abstraction without switching the UI default away from JSON
 - SQLite schema version `1` stores metadata, config, production calendars, workshops, nodes, typed records, maintenance profiles/year entries, catalog records/properties, object templates, and template nodes in dedicated tables
-- On 2026-05-07, targeted SQLite storage tests passed (`3/3`), targeted storage/file-workflow/snapshot tests passed (`30/30`), app/core/tests format verification passed, and `phase12s2-sqlite-schema-repository` passed verification build and `dotnet test` (`317/317`); harness state is `WAITING_REVIEW`
+- On 2026-05-07, targeted SQLite storage tests passed (`3/3`), targeted storage/file-workflow/snapshot tests passed (`30/30`), app/core/tests format verification passed, and `phase12s2-sqlite-schema-repository` passed verification build and `dotnet test` (`317/317`); pre-acceptance harness state was `WAITING_REVIEW`
 - Local `Phase 12S3` adds first-launch migration from legacy `Мои документы\ASUTP_KnowledgeBase.json` to `%LocalAppData%\AKB5\knowledge-base.akb`; migration is offered only when the `.akb` file is missing and legacy JSON exists, requires user confirmation in the UI, leaves the JSON source unchanged, and writes a post-migration JSON safety export next to the `.akb`
-- On 2026-05-07, `phase12s3-first-launch-json-migration` passed verification build and `dotnet test` (`322/322`); harness state is `WAITING_REVIEW`
+- On 2026-05-07, `phase12s3-first-launch-json-migration` passed verification build and `dotnet test` (`322/322`); pre-acceptance harness state was `WAITING_REVIEW`
 - Local `Phase 12S4` switches the default live path to `.akb` through `KnowledgeBaseRoutedStorageService`, keeps legacy JSON readable by extension, updates open/save dialogs for `.akb`, and adds full database JSON import/export commands separate from catalog/template JSON exchange
-- On 2026-05-07, `phase12s4-database-file-ux-json-compatibility` passed verification build and `dotnet test` (`325/325`); harness state is `WAITING_REVIEW`
+- On 2026-05-07, `phase12s4-database-file-ux-json-compatibility` passed verification build and `dotnet test` (`325/325`); pre-acceptance harness state was `WAITING_REVIEW`
 - Local `Phase 12S5` stores SQLite snapshots inside the `.akb` database instead of `.akb-snapshots` sidecars for SQLite-backed storage; manual snapshots and automatic before-save snapshots write metadata and a normalized `SavedData` payload
-- On 2026-05-07, `phase12s5-sqlite-snapshots` passed verification build and `dotnet test` (`328/328`); harness state is `WAITING_REVIEW`
+- On 2026-05-07, `phase12s5-sqlite-snapshots` passed verification build and `dotnet test` (`328/328`); pre-acceptance harness state was `WAITING_REVIEW`
 - Local `Phase 12S6` restores a selected SQLite snapshot only after explicit confirmation, creates a protective `before-restore` snapshot first, reloads the UI from restored data, and leaves failed restores without replacing current data
-- On 2026-05-07, `phase12s6-snapshot-restore` passed verification build and `dotnet test` (`330/330`); harness state is `WAITING_REVIEW`
+- On 2026-05-07, `phase12s6-snapshot-restore` passed verification build and `dotnet test` (`330/330`); pre-acceptance harness state was `WAITING_REVIEW`
 - Local `Phase 12S7` adds snapshot comparison at summary level across high-value data areas and exposes it from the snapshot browser / `Файл -> Сравнить снимки...`
-- On 2026-05-07, `phase12s7-snapshot-comparison` passed verification build and `dotnet test` (`332/332`); harness state is `WAITING_REVIEW`
+- On 2026-05-07, `phase12s7-snapshot-comparison` passed verification build and `dotnet test` (`332/332`); pre-acceptance harness state was `WAITING_REVIEW`
 - Local `Phase 12S8` adds SQLite change history records for save, migration, manual snapshot, restore, and catalog/template import, plus a read-only `Файл -> История изменений...` view for `.akb` databases; legacy JSON reports that history is unavailable
-- On 2026-05-07, `phase12s8-change-history` passed verification build and `dotnet test` (`333/333`); harness state is `WAITING_REVIEW`
+- On 2026-05-07, `phase12s8-change-history` passed verification build and `dotnet test` (`333/333`); pre-acceptance harness state was `WAITING_REVIEW`
 - The user requested committing and pushing all accepted changes; `Phase 11G` was pushed as `268b550 Add catalog template JSON exchange`, and the SQLite storage/change-history stack through `Phase 12S8` was committed/pushed as `27a2aba Add SQLite storage history workflow`
+- The accepted SQLite storage/change-history stack uses database schema version `4`; JSON `SavedData.SchemaVersion` remains separate from the SQLite `PRAGMA user_version`.
 - After the user requested the next stage, the current transition step is to define the next roadmap task before coding further; no next implementation phase is explicitly prioritized yet
 - Local `phase7e-annual-norm-import` adds support for importing maintenance norms directly from annual workbooks with the same structure as `456.xlsx`; the importer detects annual files by workbook contents, still accepts monthly `123.xlsx`, and annual rows also apply `YearScheduleEntries` from the 12 plan columns
-- On 2026-05-07, targeted norm-import tests passed (`10/10`), app/core/tests format verification passed, and `phase7e-annual-norm-import` passed verification build and `dotnet test` (`334/334`); harness state is `WAITING_REVIEW`
+- On 2026-05-07, targeted norm-import tests passed (`10/10`), app/core/tests format verification passed, and `phase7e-annual-norm-import` passed verification build and `dotnet test` (`334/334`); pre-acceptance harness state was `WAITING_REVIEW`
 - On 2026-05-07, the user confirmed manual review passed for `phase7e-annual-norm-import`; the accepted follow-up is the latest completed slice before selecting the next roadmap task
 - The user clarified that hidden rows in annual plan `456.xlsx` represent retired equipment and must not be included in norm import totals; rows `29`, `30`, and `31` are hidden in that workbook
 - Local `phase7g-annual-norm-hidden-rows` skips hidden rows before parsing annual workbook system headers or equipment rows, so hidden retired equipment cannot create or update maintenance profiles
-- On 2026-05-07, targeted norm-import tests passed (`11/11`), app/core/tests format verification passed, and `phase7g-annual-norm-hidden-rows` passed verification build and `dotnet test` (`335/335`); harness state is `WAITING_REVIEW`
+- On 2026-05-07, targeted norm-import tests passed (`11/11`), app/core/tests format verification passed, and `phase7g-annual-norm-hidden-rows` passed verification build and `dotnet test` (`335/335`); pre-acceptance harness state was `WAITING_REVIEW`
 
 ## 2026-05-05
 
@@ -110,7 +122,7 @@ Last updated: `2026-05-08`
 - `Phase 7F` production-calendar configuration was explicitly prioritized by the user and is completed on `to`
 - Production-calendar years are persisted in `KbConfig.ProductionCalendarYears`; built-in `2025`/`2026` defaults are preserved and future years are added through UI or PDF/JSON import
 - Production-calendar import is separate from the legacy Excel `v3` database exchange and from the yearly ТО source workbook
-- Missing production-calendar years should guide the user to `Файл -> Производственный календарь...` or PDF/JSON import instead of requiring a code change
+- Missing production-calendar years should guide the user to `ТО -> Производственный календарь...`, PDF import, or service JSON import instead of requiring a code change
 - `Phase 7G` is now used for the narrow annual norm import hidden-row fix; broader new work after that still must be explicitly defined and accepted before implementation
 - Documentation distillation must update the full handoff harness and public-facing project docs when branch/phase state changes, not only `docs/codex-handoff.md`
 

@@ -33,6 +33,8 @@ namespace AsutpKnowledgeBase.UiServices
         public Action UpdateUi { get; init; } = null!;
 
         public Action<string> SetStatusText { get; init; } = null!;
+
+        public Action<string> RememberDatabasePath { get; init; } = _ => { };
     }
 
     /// <summary>
@@ -172,7 +174,11 @@ namespace AsutpKnowledgeBase.UiServices
             {
                 _fileWorkflowService.SavePath = previousPath;
                 context.UpdateUi();
+                context.RememberDatabasePath(previousPath);
+                return;
             }
+
+            context.RememberDatabasePath(CurrentDataPath);
         }
 
         public void ReloadDatabase(KnowledgeBaseFileUiWorkflowContext context)
@@ -249,9 +255,11 @@ namespace AsutpKnowledgeBase.UiServices
             {
                 _fileWorkflowService.SavePath = previousPath;
                 context.UpdateUi();
+                context.RememberDatabasePath(previousPath);
                 return;
             }
 
+            context.RememberDatabasePath(CurrentDataPath);
             context.SetStatusText($"✅ База сохранена как: {CurrentDataFileName}");
         }
 

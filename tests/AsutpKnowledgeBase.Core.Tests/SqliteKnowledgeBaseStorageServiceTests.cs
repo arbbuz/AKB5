@@ -185,6 +185,42 @@ public class SqliteKnowledgeBaseStorageServiceTests
     }
 
     [Fact]
+    public void Save_WhenDatabaseAlreadyExists_CreatesExternalAkbBackup()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "knowledge-base.akb");
+            var service = new SqliteKnowledgeBaseStorageService(
+                path,
+                clock: () => new DateTimeOffset(2026, 5, 12, 14, 30, 15, TimeSpan.Zero));
+            SavedData first = CreateFullSampleData();
+            Assert.True(service.Save(first, out string? firstError), firstError);
+
+            SavedData second = CreateFullSampleData();
+            second.LastWorkshop = "Цех Б";
+            Assert.True(service.Save(second, out string? secondError), secondError);
+
+            string backupPath = Path.Combine(
+                tempDirectory,
+                KnowledgeBaseExternalBackupService.BackupDirectoryName,
+                "2026-05-12",
+                "knowledge-base-20260512-143015.akb");
+            Assert.True(File.Exists(backupPath));
+
+            var backupStorage = new SqliteKnowledgeBaseStorageService(backupPath);
+            KnowledgeBaseStorageLoadResult backupLoadResult = backupStorage.Load();
+            Assert.True(backupLoadResult.IsSuccess, backupLoadResult.ErrorMessage);
+            Assert.Equal("Цех А", backupLoadResult.Data!.LastWorkshop);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ListSnapshots_WhenDatabaseMissing_ReturnsEmptyListWithoutCreatingDatabase()
     {
         string tempDirectory = CreateTempDirectory();

@@ -8,7 +8,7 @@ Current direction of the project:
 
 - the left side is a physical object tree
 - the right side is a type-driven workspace resolved by `NodeType`
-- current builds default to SQLite single-file `.akb` storage
+- current builds use portable-first SQLite single-file `.akb` storage
 - JSON remains an import/export and first-launch migration compatibility format
 - Excel workbook `v3` remains a legacy transition exchange format
 - user-facing program UI is Russian-only
@@ -45,20 +45,22 @@ Implemented on `to`:
 - `Phase 11G` - template/catalog JSON import/export, accepted after manual review and committed/pushed on `to`
 - local `Phase 12A` / `12B` / `12C` JSON snapshot prototype - verified locally, paused before commit while storage moves to SQLite
 - `Phase 12S0` - SQLite single-file storage redesign plan, approved with choices `1A, 2B, 3A, 4A`
-- local `Phase 12S1` - storage abstraction implemented and verified
-- local `Phase 12S2` - SQLite schema/repository implemented and verified
-- local `Phase 12S3` - first-launch JSON migration implemented and verified
-- local `Phase 12S4` - `.akb` database file UX and full JSON import/export implemented and verified
-- local `Phase 12S5` - SQLite-backed snapshots implemented and verified
-- local `Phase 12S6` - restore selected snapshot implemented and verified
-- local `Phase 12S7` - snapshot comparison implemented and verified
+- `Phase 12S1` - storage abstraction accepted and committed/pushed on `to`
+- `Phase 12S2` - SQLite schema/repository accepted and committed/pushed on `to`
+- `Phase 12S3` - first-launch JSON migration accepted and committed/pushed on `to`
+- `Phase 12S4` - `.akb` database file UX and full JSON import/export accepted and committed/pushed on `to`
+- `Phase 12S5` - SQLite-backed snapshots accepted and committed/pushed on `to`
+- `Phase 12S6` - restore selected snapshot accepted and committed/pushed on `to`
+- `Phase 12S7` - snapshot comparison accepted and committed/pushed on `to`
 - `Phase 12S8` - change history accepted after manual review and committed/pushed on `to`
 - `phase7e-annual-norm-import` - annual maintenance norm import by workbook structure, using `456.xlsx` as the reference example, accepted after manual review
-- local `phase7g-annual-norm-hidden-rows` - annual norm import skips hidden rows for retired equipment; verified and waiting for manual review
+- `phase7g-annual-norm-hidden-rows` - annual norm import skips hidden rows for retired equipment; committed/pushed on `to` as `7a4895d`
+- menu rework first iteration - top menus, unified snapshots/history entry, grouped `ТО`, shorter tree context menu, improved move confirmation, and protective snapshot prompts; committed/pushed on `to` as `8dfffbd`
 
 Next approved work:
 
-- current gate: manual review of `phase7g-annual-norm-hidden-rows`; if accepted, commit/push before further coding
+- review and accept portable-first storage and external `.akb` backups
+- `Phase 8` through `Phase 10` remain discussed candidate directions, not active implementation phases
 
 ## Data and persistence
 
@@ -82,6 +84,10 @@ Core persisted structures:
 Important persistence rules:
 
 - SQLite single-file `.akb` is the current target live storage format
+- portable-first startup stores `akb5.settings.json` next to `asutpKB.exe`
+- without existing settings, the first launch offers either `database\knowledge-base.akb` next to the program or a user-selected database folder
+- opening or saving another `.akb` path updates `akb5.settings.json`
+- before overwriting an existing `.akb`, an external copy is created under `backups\yyyy-MM-dd\knowledge-base-yyyyMMdd-HHmmss.akb`
 - JSON is the legacy persistence and full database import/export compatibility format
 - typed cross-links must use stable IDs, never node names or paths
 - Excel `v3` must stay readable during the transition
@@ -121,8 +127,8 @@ Current behavior:
 - large `ТО2` / `ТО3` occurrences can be split into assignments up to 8 hours across working days
 - manual annual placement is stored as per-profile `YearScheduleEntries`; empty entries keep deterministic fallback placement
 - yearly source exchange edits only `YearScheduleEntries` and does not change norms, inclusion flags, or calendar settings
-- generated maintenance workbooks are report artifacts; current builds default to `.akb` storage and keep JSON for import/export and migration compatibility
-- production-calendar years are configured in `Config.ProductionCalendarYears` through `Файл -> Производственный календарь...`, JSON import, or local PDF import
+- generated maintenance workbooks are report artifacts; current builds default to portable-first `.akb` storage and keep JSON for import/export and migration compatibility
+- production-calendar years are configured in `Config.ProductionCalendarYears` through `ТО -> Производственный календарь...`, PDF import, or service JSON import
 - production-calendar JSON import accepts either `{ "ProductionCalendarYears": [...] }` or an array of year objects; each date must belong to its configured year
 - production-calendar PDF import uses the PDF text layer first and previews found working/non-working date changes before applying them
 

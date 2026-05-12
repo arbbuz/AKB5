@@ -7,10 +7,10 @@
 - Entry point: `Program.cs`, which boots `MainForm`.
 - Current engineering mode: pragmatic refactoring and stabilization, not rewrite.
 - The active roadmap implementation branch is currently `to`; `main` remains the stable branch.
-- Roadmap phases `0` through `7F.1` are implemented on `to`; local `Phase 7G` is the narrow `phase7g-annual-norm-hidden-rows` fix and is waiting for manual review.
+- Roadmap phases `0` through `7F.1` are implemented on `to`; the narrow `phase7g-annual-norm-hidden-rows` fix is committed/pushed on `to` as `7a4895d Fix annual maintenance norm import totals`.
 - `Phase 11. Object templates and equipment catalog` is accepted through `Phase 11G`; `Phase 11A. Equipment catalog model` passed manual review, `Phase 11B. Equipment catalog UI` is committed/pushed on `to`, `Phase 11C` / `Phase 11D` are accepted and committed/pushed on `to`, `Phase 11E` / `Phase 11F` are accepted and committed/pushed on `to`, and `Phase 11G. Template import/export` is accepted and committed/pushed on `to`. `Phase 12. Storage redesign, backups, snapshots, and change history` is accepted through `Phase 12S8. Change history` and committed/pushed on `to`.
-- Latest accepted follow-up: `phase7e-annual-norm-import` supports importing maintenance norms from annual workbooks with the same structure as `456.xlsx`; local `phase7g-annual-norm-hidden-rows` additionally skips hidden annual rows for retired equipment and passed verification, but still needs manual review.
-- Current builds default to SQLite single-file `.akb` storage with JSON import/export compatibility and first-launch migration from the legacy JSON database. Excel exchange is a separate import/export layer.
+- Latest accepted follow-ups: `phase7e-annual-norm-import` supports importing maintenance norms from annual workbooks with the same structure as `456.xlsx`; `phase7g-annual-norm-hidden-rows` skips hidden annual rows for retired equipment; the first menu-rework iteration is committed/pushed on `to` as `8dfffbd Rework menu structure and safety prompts`.
+- Current builds use portable-first SQLite single-file `.akb` storage: `akb5.settings.json` is stored next to `asutpKB.exe`, the default database is `database\knowledge-base.akb` next to the program, and JSON remains import/export plus first-launch migration compatibility. Excel exchange is a separate import/export layer.
 - Current Excel implementation uses `DocumentFormat.OpenXml` and `WorkbookFormatVersion = 3`. Legacy `v1/v2` import is no longer supported.
 - CI now enforces `dotnet format --verify-no-changes` for the WinForms app, core library, and tests before `build`/`test`.
 - The active task context is always kept in `docs/codex-handoff.md`. Read it before planning changes; it is the source of truth for current completed phase, validation status, and next step.
@@ -41,8 +41,8 @@
 ## Architecture boundaries
 
 - Do not rewrite WinForms into MVP/MVVM unless the task explicitly requires it.
-- Do not start another implementation phase until local `phase7g-annual-norm-hidden-rows` is manually reviewed and either accepted or redirected.
-- The SQLite plan is approved with choices `1A, 2B, 3A, 4A`: use `.akb`, confirm first-launch migration, create a post-migration JSON safety export, and do not support simultaneous multi-user editing in the first SQLite version.
+- Portable-first storage and external `.akb` backups are locally verified and awaiting review; do not start an unrelated coding phase until this follow-up is accepted.
+- The SQLite plan is approved with choices `1A, 2B, 3A, 4A`: use `.akb`, confirm first-launch migration, create a post-migration JSON safety export, and do not support simultaneous multi-user editing in the first SQLite version. The later approved storage follow-up makes the app portable-first and creates external timestamped backups under `backups\yyyy-MM-dd\` before overwriting an existing `.akb`.
 - Replace direct `JsonStorageService` dependencies through a storage abstraction before adding SQLite code; do not move Excel logic into storage services.
 - Keep WinForms-specific behavior in `Forms/` and `UiServices/`.
 - Keep testable non-UI logic in `Models/` and `Services/` / core-linked code.
