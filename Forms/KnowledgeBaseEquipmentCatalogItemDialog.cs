@@ -1,4 +1,3 @@
-using System.Globalization;
 using AsutpKnowledgeBase.Models;
 using AsutpKnowledgeBase.Services;
 
@@ -7,26 +6,37 @@ namespace AsutpKnowledgeBase
     public sealed class KnowledgeBaseEquipmentCatalogItemDialog : Form
     {
         private readonly string _catalogItemId;
+        private readonly string _series;
+        private readonly KbNodeType _defaultNodeType;
+        private readonly List<KbEquipmentCatalogProperty> _properties;
         private TextBox _txtEquipmentKind = null!;
         private TextBox _txtManufacturer = null!;
-        private TextBox _txtSeries = null!;
         private TextBox _txtModel = null!;
-        private ComboBox _cmbDefaultNodeType = null!;
         private TextBox _txtDescription = null!;
-        private DataGridView _gridProperties = null!;
 
         public KnowledgeBaseEquipmentCatalogItemDialog(
             string title,
             KbEquipmentCatalogItem? existingItem = null)
         {
             _catalogItemId = existingItem?.CatalogItemId?.Trim() ?? string.Empty;
+            _series = existingItem?.Series?.Trim() ?? string.Empty;
+            _defaultNodeType = Enum.IsDefined(typeof(KbNodeType), existingItem?.DefaultNodeType ?? KbNodeType.Device)
+                ? existingItem?.DefaultNodeType ?? KbNodeType.Device
+                : KbNodeType.Device;
+            _properties = (existingItem?.Properties ?? new List<KbEquipmentCatalogProperty>())
+                .Select(static property => new KbEquipmentCatalogProperty
+                {
+                    Name = property.Name?.Trim() ?? string.Empty,
+                    Value = property.Value?.Trim() ?? string.Empty
+                })
+                .ToList();
 
             Text = title;
             StartPosition = FormStartPosition.CenterParent;
             MinimizeBox = false;
             ShowInTaskbar = false;
-            Size = new Size(760, 620);
-            MinimumSize = new Size(680, 540);
+            Size = new Size(760, 420);
+            MinimumSize = new Size(680, 360);
             AppIconProvider.Apply(this);
 
             Controls.Add(CreateLayout(existingItem));
@@ -50,52 +60,32 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Padding = new Padding(12),
                 ColumnCount = 2,
-                RowCount = 8
+                RowCount = 5
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            for (int rowIndex = 0; rowIndex < 6; rowIndex++)
+            for (int rowIndex = 0; rowIndex < 3; rowIndex++)
                 layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             _txtEquipmentKind = CreateTextBox(existingItem?.EquipmentKind);
-            AddFieldRow(layout, 0, "Вид оборудования", _txtEquipmentKind);
+            AddFieldRow(layout, 0, "Наименование", _txtEquipmentKind);
 
             _txtManufacturer = CreateTextBox(existingItem?.Manufacturer);
             AddFieldRow(layout, 1, "Производитель", _txtManufacturer);
 
-            _txtSeries = CreateTextBox(existingItem?.Series);
-            AddFieldRow(layout, 2, "Серия", _txtSeries);
-
             _txtModel = CreateTextBox(existingItem?.Model);
-            AddFieldRow(layout, 3, "Модель", _txtModel);
-
-            _cmbDefaultNodeType = CreateNodeTypeComboBox(existingItem?.DefaultNodeType ?? KbNodeType.Device);
-            AddFieldRow(layout, 4, "Тип узла", _cmbDefaultNodeType);
+            AddFieldRow(layout, 2, "Заказной №", _txtModel);
 
             _txtDescription = new TextBox
             {
                 Dock = DockStyle.Fill,
                 Multiline = true,
                 ScrollBars = ScrollBars.Vertical,
-                Height = 72,
                 Text = existingItem?.Description ?? string.Empty
             };
-            AddFieldRow(layout, 5, "Описание", _txtDescription);
-
-            var propertiesGroup = new GroupBox
-            {
-                Text = "Свойства",
-                Dock = DockStyle.Fill,
-                Padding = new Padding(10),
-                Margin = new Padding(0, 6, 0, 0)
-            };
-            _gridProperties = CreatePropertiesGrid();
-            BindProperties(existingItem?.Properties);
-            propertiesGroup.Controls.Add(_gridProperties);
-            layout.Controls.Add(propertiesGroup, 0, 6);
-            layout.SetColumnSpan(propertiesGroup, 2);
+            AddFieldRow(layout, 3, "Примечание", _txtDescription);
 
             var buttonsPanel = new FlowLayoutPanel
             {
@@ -123,7 +113,7 @@ namespace AsutpKnowledgeBase
 
             buttonsPanel.Controls.Add(btnOk);
             buttonsPanel.Controls.Add(btnCancel);
-            layout.Controls.Add(buttonsPanel, 0, 7);
+            layout.Controls.Add(buttonsPanel, 0, 4);
             layout.SetColumnSpan(buttonsPanel, 2);
 
             return layout;
@@ -131,20 +121,16 @@ namespace AsutpKnowledgeBase
 
         private void Submit()
         {
-            _gridProperties.EndEdit();
-
             string equipmentKind = _txtEquipmentKind.Text.Trim();
             string manufacturer = _txtManufacturer.Text.Trim();
-            string series = _txtSeries.Text.Trim();
             string model = _txtModel.Text.Trim();
             if (string.IsNullOrWhiteSpace(equipmentKind) &&
                 string.IsNullOrWhiteSpace(manufacturer) &&
-                string.IsNullOrWhiteSpace(series) &&
                 string.IsNullOrWhiteSpace(model))
             {
                 MessageBox.Show(
                     this,
-                    "Укажите вид оборудования, производителя, серию или модель.",
+                    "Укажите наименование, производителя или заказной номер.",
                     "Каталог оборудования",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
@@ -156,48 +142,15 @@ namespace AsutpKnowledgeBase
                 CatalogItemId = _catalogItemId,
                 EquipmentKind = equipmentKind,
                 Manufacturer = manufacturer,
-                Series = series,
+                Series = _series,
                 Model = model,
-                DefaultNodeType = (_cmbDefaultNodeType.SelectedItem as NodeTypeOption)?.NodeType ?? KbNodeType.Device,
+                DefaultNodeType = _defaultNodeType,
                 Description = _txtDescription.Text.Trim(),
-                Properties = ReadProperties()
+                Properties = _properties
             };
 
             DialogResult = DialogResult.OK;
             Close();
-        }
-
-        private List<KbEquipmentCatalogProperty> ReadProperties()
-        {
-            var properties = new List<KbEquipmentCatalogProperty>();
-            foreach (DataGridViewRow row in _gridProperties.Rows)
-            {
-                if (row.IsNewRow)
-                    continue;
-
-                string name = Convert.ToString(row.Cells["Name"].Value, CultureInfo.InvariantCulture)?.Trim() ?? string.Empty;
-                string value = Convert.ToString(row.Cells["Value"].Value, CultureInfo.InvariantCulture)?.Trim() ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(name))
-                    continue;
-
-                properties.Add(new KbEquipmentCatalogProperty
-                {
-                    Name = name,
-                    Value = value
-                });
-            }
-
-            return properties;
-        }
-
-        private void BindProperties(IReadOnlyList<KbEquipmentCatalogProperty>? properties)
-        {
-            foreach (KbEquipmentCatalogProperty property in properties ?? Array.Empty<KbEquipmentCatalogProperty>())
-            {
-                int rowIndex = _gridProperties.Rows.Add();
-                _gridProperties.Rows[rowIndex].Cells["Name"].Value = property.Name;
-                _gridProperties.Rows[rowIndex].Cells["Value"].Value = property.Value;
-            }
         }
 
         private static TextBox CreateTextBox(string? text) =>
@@ -206,63 +159,6 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Text = text ?? string.Empty
             };
-
-        private static DataGridView CreatePropertiesGrid()
-        {
-            var grid = new DataGridView
-            {
-                Dock = DockStyle.Fill,
-                AllowUserToAddRows = true,
-                AllowUserToDeleteRows = true,
-                AllowUserToResizeRows = false,
-                AutoGenerateColumns = false,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                BackgroundColor = SystemColors.Window,
-                BorderStyle = BorderStyle.Fixed3D,
-                RowHeadersVisible = false,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect
-            };
-            grid.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                Name = "Name",
-                HeaderText = "Параметр",
-                FillWeight = 42,
-                SortMode = DataGridViewColumnSortMode.NotSortable
-            });
-            grid.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                Name = "Value",
-                HeaderText = "Значение",
-                FillWeight = 58,
-                SortMode = DataGridViewColumnSortMode.NotSortable
-            });
-            grid.DataError += (_, e) => e.ThrowException = false;
-            return grid;
-        }
-
-        private static ComboBox CreateNodeTypeComboBox(KbNodeType selectedNodeType)
-        {
-            var comboBox = new ComboBox
-            {
-                Dock = DockStyle.Left,
-                Width = 220,
-                DropDownStyle = ComboBoxStyle.DropDownList
-            };
-
-            comboBox.Items.Add(new NodeTypeOption(KbNodeType.System, "Система"));
-            comboBox.Items.Add(new NodeTypeOption(KbNodeType.Cabinet, "Шкаф"));
-            comboBox.Items.Add(new NodeTypeOption(KbNodeType.Device, "Устройство"));
-            comboBox.Items.Add(new NodeTypeOption(KbNodeType.Controller, "Контроллер"));
-            comboBox.Items.Add(new NodeTypeOption(KbNodeType.Module, "Модуль"));
-            comboBox.Items.Add(new NodeTypeOption(KbNodeType.DocumentNode, "Документ/папка"));
-
-            NodeTypeOption selectedOption = comboBox.Items
-                .OfType<NodeTypeOption>()
-                .FirstOrDefault(option => option.NodeType == selectedNodeType) ??
-                comboBox.Items.OfType<NodeTypeOption>().First(option => option.NodeType == KbNodeType.Device);
-            comboBox.SelectedItem = selectedOption;
-            return comboBox;
-        }
 
         private static void AddFieldRow(
             TableLayoutPanel layout,
@@ -281,19 +177,5 @@ namespace AsutpKnowledgeBase
             layout.Controls.Add(editor, 1, rowIndex);
         }
 
-        private sealed class NodeTypeOption
-        {
-            public NodeTypeOption(KbNodeType nodeType, string text)
-            {
-                NodeType = nodeType;
-                Text = text;
-            }
-
-            public KbNodeType NodeType { get; }
-
-            private string Text { get; }
-
-            public override string ToString() => Text;
-        }
     }
 }

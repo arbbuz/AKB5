@@ -5,6 +5,7 @@ namespace AsutpKnowledgeBase
     public sealed class KnowledgeBaseCompositionEntryDialog : Form
     {
         private readonly string _entryId;
+        private readonly IReadOnlyList<KbEquipmentCatalogItem> _catalogItems;
 
         private ComboBox _cmbEntryKind = null!;
         private Label _lblSlotNumber = null!;
@@ -17,9 +18,13 @@ namespace AsutpKnowledgeBase
         private DateTimePicker _dtpNextCalibration = null!;
         private TextBox _txtNotes = null!;
 
-        public KnowledgeBaseCompositionEntryDialog(string title, KbCompositionEntry? existingEntry = null)
+        public KnowledgeBaseCompositionEntryDialog(
+            string title,
+            KbCompositionEntry? existingEntry = null,
+            IReadOnlyList<KbEquipmentCatalogItem>? catalogItems = null)
         {
             _entryId = existingEntry?.EntryId?.Trim() ?? string.Empty;
+            _catalogItems = catalogItems ?? Array.Empty<KbEquipmentCatalogItem>();
 
             Text = title;
             StartPosition = FormStartPosition.CenterParent;
@@ -27,7 +32,7 @@ namespace AsutpKnowledgeBase
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(620, 430);
+            ClientSize = new Size(620, 470);
             AppIconProvider.Apply(this);
 
             var layout = new TableLayoutPanel
@@ -35,11 +40,11 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Padding = new Padding(12),
                 ColumnCount = 2,
-                RowCount = 9
+                RowCount = 10
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            for (int rowIndex = 0; rowIndex < 8; rowIndex++)
+            for (int rowIndex = 0; rowIndex < 9; rowIndex++)
                 layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
@@ -53,52 +58,63 @@ namespace AsutpKnowledgeBase
             layout.Controls.Add(CreateLabel("Тип позиции"), 0, 0);
             layout.Controls.Add(_cmbEntryKind, 1, 0);
 
+            var btnSelectFromCatalog = new Button
+            {
+                Text = "Выбрать из каталога...",
+                AutoSize = true,
+                Enabled = _catalogItems.Count > 0,
+                Margin = new Padding(0, 0, 0, 8)
+            };
+            btnSelectFromCatalog.Click += (_, _) => SelectFromCatalog();
+            layout.Controls.Add(new Label(), 0, 1);
+            layout.Controls.Add(btnSelectFromCatalog, 1, 1);
+
             _lblSlotNumber = CreateLabel("Номер слота");
             _numSlotNumber = CreateNumericInput(
                 minimum: 1,
                 maximum: 512,
                 value: existingEntry?.SlotNumber ?? 1);
-            layout.Controls.Add(_lblSlotNumber, 0, 1);
-            layout.Controls.Add(_numSlotNumber, 1, 1);
+            layout.Controls.Add(_lblSlotNumber, 0, 2);
+            layout.Controls.Add(_numSlotNumber, 1, 2);
 
             _numPositionOrder = CreateNumericInput(
                 minimum: 1,
                 maximum: 512,
                 value: (existingEntry?.PositionOrder ?? 0) + 1);
-            layout.Controls.Add(CreateLabel("Порядок"), 0, 2);
-            layout.Controls.Add(_numPositionOrder, 1, 2);
+            layout.Controls.Add(CreateLabel("Порядок"), 0, 3);
+            layout.Controls.Add(_numPositionOrder, 1, 3);
 
             _txtComponentType = new TextBox
             {
                 Dock = DockStyle.Fill,
                 Text = existingEntry?.ComponentType ?? string.Empty
             };
-            layout.Controls.Add(CreateLabel("Тип компонента"), 0, 3);
-            layout.Controls.Add(_txtComponentType, 1, 3);
+            layout.Controls.Add(CreateLabel("Тип компонента"), 0, 4);
+            layout.Controls.Add(_txtComponentType, 1, 4);
 
             _txtModel = new TextBox
             {
                 Dock = DockStyle.Fill,
                 Text = existingEntry?.Model ?? string.Empty
             };
-            layout.Controls.Add(CreateLabel("Модель"), 0, 4);
-            layout.Controls.Add(_txtModel, 1, 4);
+            layout.Controls.Add(CreateLabel("Модель"), 0, 5);
+            layout.Controls.Add(_txtModel, 1, 5);
 
             _txtIpAddress = new TextBox
             {
                 Dock = DockStyle.Fill,
                 Text = existingEntry?.IpAddress ?? string.Empty
             };
-            layout.Controls.Add(CreateLabel("IP-адрес"), 0, 5);
-            layout.Controls.Add(_txtIpAddress, 1, 5);
+            layout.Controls.Add(CreateLabel("IP-адрес"), 0, 6);
+            layout.Controls.Add(_txtIpAddress, 1, 6);
 
             _dtpLastCalibration = CreateDatePicker(existingEntry?.LastCalibrationAt);
-            layout.Controls.Add(CreateLabel("Последняя калибровка"), 0, 6);
-            layout.Controls.Add(_dtpLastCalibration, 1, 6);
+            layout.Controls.Add(CreateLabel("Последняя калибровка"), 0, 7);
+            layout.Controls.Add(_dtpLastCalibration, 1, 7);
 
             _dtpNextCalibration = CreateDatePicker(existingEntry?.NextCalibrationAt);
-            layout.Controls.Add(CreateLabel("Следующая калибровка"), 0, 7);
-            layout.Controls.Add(_dtpNextCalibration, 1, 7);
+            layout.Controls.Add(CreateLabel("Следующая калибровка"), 0, 8);
+            layout.Controls.Add(_dtpNextCalibration, 1, 8);
 
             _txtNotes = new TextBox
             {
@@ -108,8 +124,8 @@ namespace AsutpKnowledgeBase
                 Height = 120,
                 Text = existingEntry?.Notes ?? string.Empty
             };
-            layout.Controls.Add(CreateLabel("Примечание"), 0, 8);
-            layout.Controls.Add(_txtNotes, 1, 8);
+            layout.Controls.Add(CreateLabel("Примечание"), 0, 9);
+            layout.Controls.Add(_txtNotes, 1, 9);
 
             var buttonsPanel = new FlowLayoutPanel
             {
@@ -151,6 +167,21 @@ namespace AsutpKnowledgeBase
 
         private bool IsSlotted => _cmbEntryKind.SelectedIndex == 0;
 
+        private void SelectFromCatalog()
+        {
+            using var dialog = new KnowledgeBaseEquipmentCatalogSelectionDialog(_catalogItems);
+            if (dialog.ShowDialog(this) != DialogResult.OK || dialog.SelectedItem == null)
+                return;
+
+            KbEquipmentCatalogItem item = dialog.SelectedItem;
+            _txtComponentType.Text = item.EquipmentKind;
+            _txtModel.Text = FormatCatalogModel(item);
+
+            string note = item.Description?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(note))
+                _txtNotes.Text = note;
+        }
+
         private void BtnOk_Click(object? sender, EventArgs e)
         {
             string componentType = _txtComponentType.Text.Trim();
@@ -187,6 +218,19 @@ namespace AsutpKnowledgeBase
         {
             _lblSlotNumber.Enabled = IsSlotted;
             _numSlotNumber.Enabled = IsSlotted;
+        }
+
+        private static string FormatCatalogModel(KbEquipmentCatalogItem item)
+        {
+            string manufacturer = item.Manufacturer?.Trim() ?? string.Empty;
+            string orderNumber = item.Model?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(manufacturer))
+                return orderNumber;
+
+            if (string.IsNullOrWhiteSpace(orderNumber))
+                return manufacturer;
+
+            return $"{manufacturer} {orderNumber}";
         }
 
         private static Label CreateLabel(string text) =>

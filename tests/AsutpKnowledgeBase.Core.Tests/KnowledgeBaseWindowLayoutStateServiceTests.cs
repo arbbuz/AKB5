@@ -138,6 +138,200 @@ public class KnowledgeBaseWindowLayoutStateServiceTests
     }
 
     [Fact]
+    public void SaveAndLoad_RoundTripsEquipmentCatalogLayout()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "window-layout-state.json");
+            var service = new KnowledgeBaseWindowLayoutStateService(path);
+
+            service.SaveEquipmentCatalogLayout(
+                new KnowledgeBaseWindowPlacement
+                {
+                    Left = 140,
+                    Top = 90,
+                    Width = 1500,
+                    Height = 820,
+                    IsMaximized = true
+                },
+                new Dictionary<string, int>
+                {
+                    ["EquipmentKind"] = 520,
+                    ["Manufacturer"] = 180,
+                    ["Model"] = 220,
+                    ["Description"] = 340
+                });
+
+            var placement = service.LoadEquipmentCatalogWindowPlacement();
+            Dictionary<string, int> widths = service.LoadEquipmentCatalogColumnWidths();
+
+            Assert.NotNull(placement);
+            Assert.Equal(140, placement!.Left);
+            Assert.Equal(90, placement.Top);
+            Assert.Equal(1500, placement.Width);
+            Assert.Equal(820, placement.Height);
+            Assert.True(placement.IsMaximized);
+            Assert.Equal(520, widths["EquipmentKind"]);
+            Assert.Equal(180, widths["Manufacturer"]);
+            Assert.Equal(220, widths["Model"]);
+            Assert.Equal(340, widths["Description"]);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void SaveMainWindowPlacement_PreservesEquipmentCatalogLayout()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "window-layout-state.json");
+            var service = new KnowledgeBaseWindowLayoutStateService(path);
+
+            service.SaveEquipmentCatalogLayout(
+                new KnowledgeBaseWindowPlacement
+                {
+                    Left = 20,
+                    Top = 30,
+                    Width = 1200,
+                    Height = 760
+                },
+                new Dictionary<string, int>
+                {
+                    ["EquipmentKind"] = 480
+                });
+
+            service.SaveWindowPlacement(
+                new KnowledgeBaseWindowPlacement
+                {
+                    Left = 60,
+                    Top = 70,
+                    Width = 1280,
+                    Height = 720
+                });
+
+            var catalogPlacement = service.LoadEquipmentCatalogWindowPlacement();
+            Dictionary<string, int> widths = service.LoadEquipmentCatalogColumnWidths();
+
+            Assert.NotNull(catalogPlacement);
+            Assert.Equal(20, catalogPlacement!.Left);
+            Assert.Equal(30, catalogPlacement.Top);
+            Assert.Equal(1200, catalogPlacement.Width);
+            Assert.Equal(760, catalogPlacement.Height);
+            Assert.Equal(480, widths["EquipmentKind"]);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void SaveAndLoad_RoundTripsEquipmentCatalogSelectionLayout()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "window-layout-state.json");
+            var service = new KnowledgeBaseWindowLayoutStateService(path);
+
+            service.SaveEquipmentCatalogSelectionLayout(
+                new KnowledgeBaseWindowPlacement
+                {
+                    Left = 180,
+                    Top = 110,
+                    Width = 1320,
+                    Height = 780,
+                    IsMaximized = true
+                },
+                new Dictionary<string, int>
+                {
+                    ["EquipmentKind"] = 500,
+                    ["Manufacturer"] = 170,
+                    ["Model"] = 230,
+                    ["Description"] = 360
+                });
+
+            var placement = service.LoadEquipmentCatalogSelectionWindowPlacement();
+            Dictionary<string, int> widths = service.LoadEquipmentCatalogSelectionColumnWidths();
+
+            Assert.NotNull(placement);
+            Assert.Equal(180, placement!.Left);
+            Assert.Equal(110, placement.Top);
+            Assert.Equal(1320, placement.Width);
+            Assert.Equal(780, placement.Height);
+            Assert.True(placement.IsMaximized);
+            Assert.Equal(500, widths["EquipmentKind"]);
+            Assert.Equal(170, widths["Manufacturer"]);
+            Assert.Equal(230, widths["Model"]);
+            Assert.Equal(360, widths["Description"]);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void SaveEquipmentCatalogLayout_PreservesSelectionCatalogLayout()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "window-layout-state.json");
+            var service = new KnowledgeBaseWindowLayoutStateService(path);
+
+            service.SaveEquipmentCatalogSelectionLayout(
+                new KnowledgeBaseWindowPlacement
+                {
+                    Left = 50,
+                    Top = 60,
+                    Width = 1100,
+                    Height = 700
+                },
+                new Dictionary<string, int>
+                {
+                    ["Description"] = 320
+                });
+
+            service.SaveEquipmentCatalogLayout(
+                new KnowledgeBaseWindowPlacement
+                {
+                    Left = 20,
+                    Top = 30,
+                    Width = 1200,
+                    Height = 760
+                },
+                new Dictionary<string, int>
+                {
+                    ["EquipmentKind"] = 480
+                });
+
+            var selectionPlacement = service.LoadEquipmentCatalogSelectionWindowPlacement();
+            Dictionary<string, int> selectionWidths = service.LoadEquipmentCatalogSelectionColumnWidths();
+
+            Assert.NotNull(selectionPlacement);
+            Assert.Equal(50, selectionPlacement!.Left);
+            Assert.Equal(60, selectionPlacement.Top);
+            Assert.Equal(1100, selectionPlacement.Width);
+            Assert.Equal(700, selectionPlacement.Height);
+            Assert.Equal(320, selectionWidths["Description"]);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Load_WhenLegacyWorkshopMapExists_UsesFirstValidLegacyValue()
     {
         string tempDirectory = CreateTempDirectory();

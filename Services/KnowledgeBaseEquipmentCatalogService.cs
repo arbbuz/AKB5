@@ -153,18 +153,9 @@ namespace AsutpKnowledgeBase.Services
             {
                 item.EquipmentKind,
                 item.Manufacturer,
-                item.Series,
                 item.Model,
-                item.DefaultNodeType.ToString(),
-                FormatNodeTypeForSearch(item.DefaultNodeType),
                 item.Description
             };
-
-            foreach (KbEquipmentCatalogProperty property in item.Properties)
-            {
-                parts.Add(property.Name);
-                parts.Add(property.Value);
-            }
 
             return NormalizeSearchText(string.Join(" ", parts));
         }
@@ -184,20 +175,6 @@ namespace AsutpKnowledgeBase.Services
                         .Trim()
                         .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 .ToUpperInvariant();
-
-        private static string FormatNodeTypeForSearch(KbNodeType nodeType) =>
-            nodeType switch
-            {
-                KbNodeType.System => "Система",
-                KbNodeType.Cabinet => "Шкаф",
-                KbNodeType.Device => "Устройство",
-                KbNodeType.Controller => "Контроллер",
-                KbNodeType.Module => "Модуль",
-                KbNodeType.DocumentNode => "Документ папка",
-                KbNodeType.Department => "Подразделение",
-                KbNodeType.WorkshopRoot => "Цех",
-                _ => string.Empty
-            };
 
         private static KnowledgeBaseEquipmentCatalogMutationResult Success(
             List<KbEquipmentCatalogItem> equipmentCatalogItems) =>

@@ -122,7 +122,7 @@ public class KnowledgeBaseEquipmentCatalogServiceTests
     }
 
     [Fact]
-    public void Search_FindsByPropertyValue()
+    public void Search_FindsByVisibleCatalogFields()
     {
         var currentItems = new[]
         {
@@ -131,11 +131,8 @@ public class KnowledgeBaseEquipmentCatalogServiceTests
                 CatalogItemId = "catalog-plc",
                 EquipmentKind = "ПЛК",
                 Manufacturer = "Siemens",
-                Model = "CPU 1214C",
-                Properties =
-                {
-                    new KbEquipmentCatalogProperty { Name = "Интерфейс", Value = "Profinet" }
-                }
+                Model = "6ES7214-1AG40-0XB0",
+                Description = "Запасная позиция"
             },
             new KbEquipmentCatalogItem
             {
@@ -146,14 +143,14 @@ public class KnowledgeBaseEquipmentCatalogServiceTests
             }
         };
 
-        List<KbEquipmentCatalogItem> result = _service.Search(currentItems, "profinet");
+        List<KbEquipmentCatalogItem> result = _service.Search(currentItems, "6ES7214");
 
         KbEquipmentCatalogItem item = Assert.Single(result);
         Assert.Equal("catalog-plc", item.CatalogItemId);
     }
 
     [Fact]
-    public void Search_FindsByRussianNodeTypeLabel()
+    public void Search_DoesNotUseHiddenPropertiesOrNodeType()
     {
         var currentItems = new[]
         {
@@ -162,7 +159,11 @@ public class KnowledgeBaseEquipmentCatalogServiceTests
                 CatalogItemId = "catalog-plc",
                 EquipmentKind = "ПЛК",
                 Model = "CPU 1214C",
-                DefaultNodeType = KbNodeType.Controller
+                DefaultNodeType = KbNodeType.Controller,
+                Properties =
+                {
+                    new KbEquipmentCatalogProperty { Name = "Интерфейс", Value = "Profinet" }
+                }
             },
             new KbEquipmentCatalogItem
             {
@@ -173,9 +174,8 @@ public class KnowledgeBaseEquipmentCatalogServiceTests
             }
         };
 
-        List<KbEquipmentCatalogItem> result = _service.Search(currentItems, "контроллер");
+        List<KbEquipmentCatalogItem> result = _service.Search(currentItems, "profinet");
 
-        KbEquipmentCatalogItem item = Assert.Single(result);
-        Assert.Equal("catalog-plc", item.CatalogItemId);
+        Assert.Empty(result);
     }
 }

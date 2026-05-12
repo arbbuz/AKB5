@@ -5,6 +5,7 @@ Last updated: `2026-05-12`
 ## 2026-05-12
 
 - Approved storage follow-up: keep `.akb` as the main format, make the app portable-first without a marker file, store `akb5.settings.json` next to `asutpKB.exe`, default to `database\knowledge-base.akb` next to the program, let the first launch choose another database folder, remember later open/save-as database paths, and create external timestamped `.akb` backups under `backups\yyyy-MM-dd\` before overwriting/restoring an existing SQLite database.
+- Durable reporting rule: after every code or data change that produces or verifies a local build, the response must include the full Windows path to the local `asutpKB.exe` copy for manual review, preferably as the first line of the final response; do not rely only on a shortened or markdown-only link.
 
 ## 2026-05-10
 

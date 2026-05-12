@@ -63,6 +63,11 @@ Last updated: `2026-05-12`
 - Menu rework first iteration steps 1-6 are accepted and committed/pushed on `to` as `8dfffbd`.
 - Menu rework adds top-level `Справочники` and `Сервис`, keeps `ТО` immediately after `Файл`, combines snapshots/history into one entry, groups tree templates under `Шаблоны`, expands drag/drop move confirmation, and prompts for protective snapshots before dangerous operations: JSON/Excel full database replacement, maintenance norm import, workshop deletion, and mass template application.
 - Portable-first storage follow-up is locally implemented and verified: first launch writes/reads `akb5.settings.json` next to `asutpKB.exe`, defaults to `database\knowledge-base.akb` next to the program, lets the user choose another database folder, remembers later `Открыть базу...` / `Сохранить как...` paths, offers to copy the old AppData `.akb`, and creates external timestamped backups in `backups\yyyy-MM-dd\` before overwriting/restoring an existing `.akb`.
+- Local `miniSAP` catalog follow-up is implemented, verified, and approved for commit/push: `Справочники -> Каталог оборудования...` now shows only `Наименование`, `Производитель`, `Заказной №`, and `Примечание`, the add/edit dialog uses the same four visible fields, local catalog search uses only visible catalog fields, and `C:\Users\Olga\AppData\Local\AKB5\knowledge-base.akb` contains 131 unique Siemens items imported from `C:\Users\Olga\Downloads\miniSAP.xlsx`.
+- Before the `miniSAP` catalog data edit, an external backup was created at `C:\Users\Olga\AppData\Local\AKB5\backups\2026-05-12\knowledge-base-20260512-123022.akb`.
+- Local `composition-catalog-picker` follow-up is implemented, verified, and approved for commit/push: `Состав -> Добавить слот...` and `Состав -> Добавить оборудование...` now open a catalog picker through `Выбрать из каталога...`; the picker searches only visible catalog fields and fills the composition entry from the selected catalog item.
+- Local `equipment-catalog-layout-sort` follow-up is implemented, verified, and approved for commit/push: the equipment catalog opens maximized on first launch, then remembers user window placement and visible column widths through `window-layout-state.json`; visible catalog columns (`Наименование`, `Производитель`, `Заказной №`, `Примечание`) are clickable and toggle ascending/descending sort.
+- Local `catalog-selection-layout` follow-up is implemented, verified, and approved for commit/push: the `Выбрать из каталога...` dialog now uses the same first-launch maximized and saved placement/visible-column-width behavior as the equipment catalog, with separate persisted state so it does not overwrite the main catalog window layout.
 
 ## Integrated feature state
 
@@ -148,6 +153,78 @@ Last updated: `2026-05-12`
 - User-facing application UI on `to` remains Russian-only
 
 ## Validated status
+
+Actually run on the worktree and live AppData `.akb` for local `minisap-equipment-catalog` on `2026-05-12`:
+
+```powershell
+dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
+dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
+dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore --filter KnowledgeBaseEquipmentCatalogServiceTests
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName minisap-equipment-catalog
+git diff --check
+```
+
+- `miniSAP.xlsx` parsing found `353` Siemens rows and `131` unique Siemens catalog positions; all `131` were inserted into `C:\Users\Olga\AppData\Local\AKB5\knowledge-base.akb`.
+- Inserted catalog fields: `EquipmentKind` = miniSAP name, `Manufacturer` = `Siemens`, `Model` = order number, `Description` = empty note; the shifted row `BPZ:QBM81-10` was normalized to name `Реле перепада давления воздуха Диапазон измерений: 100...1000 Пa`.
+- SQLite `PRAGMA quick_check`: `ok`; catalog count is `132`, Siemens count is `131`, imported-id count is `131`, and one `catalog-import` change-log row was added.
+- `dotnet format --verify-no-changes`: passed for app, core, and tests.
+- Targeted catalog tests passed, `6/6`, with existing analyzer warnings.
+- Verification `minisap-equipment-catalog`: build passed; `dotnet test` passed, `344/344`, with existing analyzer warnings.
+- `git diff --check`: passed with standard CRLF warnings only.
+- Verification artifacts: `artifacts\verify\minisap-equipment-catalog`.
+- Final state: local implementation and data import verified; code changes were approved for commit/push; live AppData `.akb` was modified with backup `C:\Users\Olga\AppData\Local\AKB5\backups\2026-05-12\knowledge-base-20260512-123022.akb`.
+
+Actually run on the worktree for local `composition-catalog-picker` on `2026-05-12`:
+
+```powershell
+dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
+dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName composition-catalog-picker
+```
+
+- `dotnet format --verify-no-changes`: passed for app, core, and tests.
+- Verification `composition-catalog-picker`: build passed; `dotnet test` passed, `344/344`, with existing analyzer warnings.
+- Verification artifacts: `artifacts\verify\composition-catalog-picker`.
+- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\composition-catalog-picker\build\Release\net8.0-windows\asutpKB.exe`.
+- Final state: local implementation verified and approved for commit/push.
+
+Actually run on the worktree for local `equipment-catalog-layout-sort` on `2026-05-12`:
+
+```powershell
+dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
+dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
+dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore --filter KnowledgeBaseWindowLayoutStateServiceTests
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName equipment-catalog-layout-sort
+git diff --check
+```
+
+- `dotnet format --verify-no-changes`: passed for app, core, and tests.
+- Targeted window layout state tests passed.
+- Verification `equipment-catalog-layout-sort`: build passed; `dotnet test` passed, `346/346`, with existing analyzer warnings.
+- `git diff --check`: passed with standard CRLF warnings only.
+- Verification artifacts: `artifacts\verify\equipment-catalog-layout-sort`.
+- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\equipment-catalog-layout-sort\build\Release\net8.0-windows\asutpKB.exe`.
+- Final state: local implementation verified and approved for commit/push.
+
+Actually run on the worktree for local `catalog-selection-layout` on `2026-05-12`:
+
+```powershell
+dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore
+dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore
+dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore
+dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore --filter KnowledgeBaseWindowLayoutStateServiceTests
+powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.ps1 -StepName catalog-selection-layout
+```
+
+- `dotnet format --verify-no-changes`: passed for app, core, and tests.
+- Targeted window layout state tests passed, `14/14`.
+- Verification `catalog-selection-layout`: build passed; `dotnet test` passed, `348/348`, with existing analyzer warnings.
+- Verification artifacts: `artifacts\verify\catalog-selection-layout`.
+- Manual exe path for review: `C:\Users\Olga\AKB5\artifacts\verify\catalog-selection-layout\build\Release\net8.0-windows\asutpKB.exe`.
+- Final state: local implementation verified and approved for commit/push.
 
 Actually run on the worktree for local `portable-first-storage` on `2026-05-12`:
 
@@ -686,8 +763,8 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 
 ## Recommended next step
 
-- Review portable-first storage verification and accept or request fixes.
-- After this follow-up is accepted, wait for the user to choose the next roadmap priority before coding.
+- Current catalog/composition follow-ups were approved for commit/push in the current request.
+- After these local follow-ups are pushed, wait for the user to choose the next roadmap priority before coding.
 
 ## Commands to run before finishing future implementation work
 

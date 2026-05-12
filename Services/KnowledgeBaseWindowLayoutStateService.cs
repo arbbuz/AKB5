@@ -60,6 +60,60 @@ namespace AsutpKnowledgeBase.Services
             }
         }
 
+        public KnowledgeBaseWindowPlacement? LoadEquipmentCatalogWindowPlacement()
+        {
+            try
+            {
+                return NormalizeWindowPlacement(LoadStateCore()?.EquipmentCatalogWindowPlacement);
+            }
+            catch (Exception ex)
+            {
+                LogLoadFailure(ex);
+                return null;
+            }
+        }
+
+        public Dictionary<string, int> LoadEquipmentCatalogColumnWidths()
+        {
+            try
+            {
+                return NormalizeColumnWidths(LoadStateCore()?.EquipmentCatalogColumnWidths) ??
+                    new Dictionary<string, int>(StringComparer.Ordinal);
+            }
+            catch (Exception ex)
+            {
+                LogLoadFailure(ex);
+                return new Dictionary<string, int>(StringComparer.Ordinal);
+            }
+        }
+
+        public KnowledgeBaseWindowPlacement? LoadEquipmentCatalogSelectionWindowPlacement()
+        {
+            try
+            {
+                return NormalizeWindowPlacement(LoadStateCore()?.EquipmentCatalogSelectionWindowPlacement);
+            }
+            catch (Exception ex)
+            {
+                LogLoadFailure(ex);
+                return null;
+            }
+        }
+
+        public Dictionary<string, int> LoadEquipmentCatalogSelectionColumnWidths()
+        {
+            try
+            {
+                return NormalizeColumnWidths(LoadStateCore()?.EquipmentCatalogSelectionColumnWidths) ??
+                    new Dictionary<string, int>(StringComparer.Ordinal);
+            }
+            catch (Exception ex)
+            {
+                LogLoadFailure(ex);
+                return new Dictionary<string, int>(StringComparer.Ordinal);
+            }
+        }
+
         public void SaveSplitterDistance(int splitterDistance)
         {
             try
@@ -70,7 +124,15 @@ namespace AsutpKnowledgeBase.Services
                     {
                         SplitterDistance = NormalizeSplitterDistance(splitterDistance),
                         SplitterDistancesByWorkshop = existingState?.SplitterDistancesByWorkshop,
-                        MainWindowPlacement = NormalizeWindowPlacement(existingState?.MainWindowPlacement)
+                        MainWindowPlacement = NormalizeWindowPlacement(existingState?.MainWindowPlacement),
+                        EquipmentCatalogWindowPlacement =
+                            NormalizeWindowPlacement(existingState?.EquipmentCatalogWindowPlacement),
+                        EquipmentCatalogColumnWidths =
+                            NormalizeColumnWidths(existingState?.EquipmentCatalogColumnWidths),
+                        EquipmentCatalogSelectionWindowPlacement =
+                            NormalizeWindowPlacement(existingState?.EquipmentCatalogSelectionWindowPlacement),
+                        EquipmentCatalogSelectionColumnWidths =
+                            NormalizeColumnWidths(existingState?.EquipmentCatalogSelectionColumnWidths)
                     });
             }
             catch (Exception ex)
@@ -93,7 +155,77 @@ namespace AsutpKnowledgeBase.Services
                     {
                         SplitterDistance = NormalizeSplitterDistance(existingState),
                         SplitterDistancesByWorkshop = existingState?.SplitterDistancesByWorkshop,
-                        MainWindowPlacement = normalizedPlacement
+                        MainWindowPlacement = normalizedPlacement,
+                        EquipmentCatalogWindowPlacement =
+                            NormalizeWindowPlacement(existingState?.EquipmentCatalogWindowPlacement),
+                        EquipmentCatalogColumnWidths =
+                            NormalizeColumnWidths(existingState?.EquipmentCatalogColumnWidths),
+                        EquipmentCatalogSelectionWindowPlacement =
+                            NormalizeWindowPlacement(existingState?.EquipmentCatalogSelectionWindowPlacement),
+                        EquipmentCatalogSelectionColumnWidths =
+                            NormalizeColumnWidths(existingState?.EquipmentCatalogSelectionColumnWidths)
+                    });
+            }
+            catch (Exception ex)
+            {
+                LogSaveFailure(ex);
+            }
+        }
+
+        public void SaveEquipmentCatalogLayout(
+            KnowledgeBaseWindowPlacement placement,
+            IReadOnlyDictionary<string, int> columnWidths)
+        {
+            try
+            {
+                var normalizedPlacement = NormalizeWindowPlacement(placement);
+                if (normalizedPlacement == null)
+                    return;
+
+                var existingState = LoadStateForWrite();
+                SaveStateCore(
+                    new KnowledgeBaseWindowLayoutState
+                    {
+                        SplitterDistance = NormalizeSplitterDistance(existingState),
+                        SplitterDistancesByWorkshop = existingState?.SplitterDistancesByWorkshop,
+                        MainWindowPlacement = NormalizeWindowPlacement(existingState?.MainWindowPlacement),
+                        EquipmentCatalogWindowPlacement = normalizedPlacement,
+                        EquipmentCatalogColumnWidths = NormalizeColumnWidths(columnWidths),
+                        EquipmentCatalogSelectionWindowPlacement =
+                            NormalizeWindowPlacement(existingState?.EquipmentCatalogSelectionWindowPlacement),
+                        EquipmentCatalogSelectionColumnWidths =
+                            NormalizeColumnWidths(existingState?.EquipmentCatalogSelectionColumnWidths)
+                    });
+            }
+            catch (Exception ex)
+            {
+                LogSaveFailure(ex);
+            }
+        }
+
+        public void SaveEquipmentCatalogSelectionLayout(
+            KnowledgeBaseWindowPlacement placement,
+            IReadOnlyDictionary<string, int> columnWidths)
+        {
+            try
+            {
+                var normalizedPlacement = NormalizeWindowPlacement(placement);
+                if (normalizedPlacement == null)
+                    return;
+
+                var existingState = LoadStateForWrite();
+                SaveStateCore(
+                    new KnowledgeBaseWindowLayoutState
+                    {
+                        SplitterDistance = NormalizeSplitterDistance(existingState),
+                        SplitterDistancesByWorkshop = existingState?.SplitterDistancesByWorkshop,
+                        MainWindowPlacement = NormalizeWindowPlacement(existingState?.MainWindowPlacement),
+                        EquipmentCatalogWindowPlacement =
+                            NormalizeWindowPlacement(existingState?.EquipmentCatalogWindowPlacement),
+                        EquipmentCatalogColumnWidths =
+                            NormalizeColumnWidths(existingState?.EquipmentCatalogColumnWidths),
+                        EquipmentCatalogSelectionWindowPlacement = normalizedPlacement,
+                        EquipmentCatalogSelectionColumnWidths = NormalizeColumnWidths(columnWidths)
                     });
             }
             catch (Exception ex)
@@ -204,6 +336,25 @@ namespace AsutpKnowledgeBase.Services
             };
         }
 
+        private static Dictionary<string, int>? NormalizeColumnWidths(
+            IReadOnlyDictionary<string, int>? columnWidths)
+        {
+            if (columnWidths == null || columnWidths.Count == 0)
+                return null;
+
+            var normalized = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var pair in columnWidths)
+            {
+                string columnName = pair.Key?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(columnName) || pair.Value <= 0)
+                    continue;
+
+                normalized[columnName] = pair.Value;
+            }
+
+            return normalized.Count == 0 ? null : normalized;
+        }
+
         private static string ResolveStatePath(string? overridePath)
         {
             if (!string.IsNullOrWhiteSpace(overridePath))
@@ -258,5 +409,13 @@ namespace AsutpKnowledgeBase.Services
         public Dictionary<string, int>? SplitterDistancesByWorkshop { get; init; }
 
         public KnowledgeBaseWindowPlacement? MainWindowPlacement { get; init; }
+
+        public KnowledgeBaseWindowPlacement? EquipmentCatalogWindowPlacement { get; init; }
+
+        public Dictionary<string, int>? EquipmentCatalogColumnWidths { get; init; }
+
+        public KnowledgeBaseWindowPlacement? EquipmentCatalogSelectionWindowPlacement { get; init; }
+
+        public Dictionary<string, int>? EquipmentCatalogSelectionColumnWidths { get; init; }
     }
 }

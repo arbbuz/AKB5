@@ -3,7 +3,7 @@ using AsutpKnowledgeBase.Services;
 
 namespace AsutpKnowledgeBase
 {
-    public sealed class KnowledgeBaseEquipmentCatalogForm : Form
+    public sealed class KnowledgeBaseEquipmentCatalogSelectionDialog : Form
     {
         private const string EquipmentKindColumnName = "EquipmentKind";
         private const string ManufacturerColumnName = "Manufacturer";
@@ -12,25 +12,25 @@ namespace AsutpKnowledgeBase
 
         private readonly KnowledgeBaseEquipmentCatalogService _catalogService = new();
         private readonly KnowledgeBaseWindowLayoutStateService _layoutStateService = new();
-        private List<KbEquipmentCatalogItem> _items;
+        private readonly List<KbEquipmentCatalogItem> _items;
         private TextBox _txtSearch = null!;
         private DataGridView _grid = null!;
         private Label _lblSummary = null!;
         private string _sortColumnName = EquipmentKindColumnName;
         private bool _sortAscending = true;
 
-        public KnowledgeBaseEquipmentCatalogForm(IReadOnlyList<KbEquipmentCatalogItem>? catalogItems)
+        public KnowledgeBaseEquipmentCatalogSelectionDialog(IReadOnlyList<KbEquipmentCatalogItem>? catalogItems)
         {
             _items = KnowledgeBaseDataService.NormalizeEquipmentCatalogItems(catalogItems)
                 .Select(KnowledgeBaseEquipmentCatalogService.CloneCatalogItem)
                 .ToList();
 
-            Text = "Каталог оборудования";
+            Text = "Выбор оборудования из каталога";
             StartPosition = FormStartPosition.CenterParent;
             MinimizeBox = false;
             ShowInTaskbar = false;
             Size = new Size(980, 640);
-            MinimumSize = new Size(900, 560);
+            MinimumSize = new Size(760, 460);
             AppIconProvider.Apply(this);
 
             Controls.Add(CreateLayout());
@@ -48,7 +48,7 @@ namespace AsutpKnowledgeBase
                 .FirstOrDefault();
         }
 
-        public List<KbEquipmentCatalogItem> ResultItems { get; private set; } = new();
+        public KbEquipmentCatalogItem? SelectedItem { get; private set; }
 
         private TableLayoutPanel CreateLayout()
         {
@@ -75,7 +75,6 @@ namespace AsutpKnowledgeBase
 
             _grid = CreateGrid();
             layout.Controls.Add(_grid, 0, 2);
-
             layout.Controls.Add(CreateBottomPanel(), 0, 3);
 
             return layout;
@@ -87,14 +86,11 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Top,
                 AutoSize = true,
-                ColumnCount = 6,
+                ColumnCount = 3,
                 Margin = new Padding(0, 0, 0, 8)
             };
             panel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            panel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            panel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            panel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             panel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
             panel.Controls.Add(new Label
@@ -112,45 +108,19 @@ namespace AsutpKnowledgeBase
             _txtSearch.TextChanged += (_, _) => RefreshGrid();
             panel.Controls.Add(_txtSearch, 1, 0);
 
-            panel.Controls.Add(CreateActionButton("Добавить", AddItem), 2, 0);
-            panel.Controls.Add(CreateActionButton("Изменить", EditSelectedItem), 3, 0);
-            panel.Controls.Add(CreateActionButton("Удалить", DeleteSelectedItem), 4, 0);
-
-            var btnClear = CreateActionButton("Очистить", ClearSearch);
-            panel.Controls.Add(btnClear, 5, 0);
-
-            return panel;
-        }
-
-        private FlowLayoutPanel CreateBottomPanel()
-        {
-            var buttonsPanel = new FlowLayoutPanel
+            var btnClear = new Button
             {
-                Dock = DockStyle.Fill,
-                AutoSize = true,
-                FlowDirection = FlowDirection.RightToLeft,
-                Margin = new Padding(0, 12, 0, 0)
-            };
-
-            var btnOk = new Button
-            {
-                Name = "btnOk",
-                Text = "Сохранить",
+                Text = "Очистить",
                 AutoSize = true
             };
-            btnOk.Click += (_, _) => Submit();
-
-            var btnCancel = new Button
+            btnClear.Click += (_, _) =>
             {
-                Name = "btnCancel",
-                Text = "Отмена",
-                AutoSize = true,
-                DialogResult = DialogResult.Cancel
+                _txtSearch.Clear();
+                _txtSearch.Focus();
             };
+            panel.Controls.Add(btnClear, 2, 0);
 
-            buttonsPanel.Controls.Add(btnOk);
-            buttonsPanel.Controls.Add(btnCancel);
-            return buttonsPanel;
+            return panel;
         }
 
         private DataGridView CreateGrid()
@@ -176,21 +146,50 @@ namespace AsutpKnowledgeBase
             grid.Columns.Add(CreateTextColumn(ManufacturerColumnName, "Производитель", 140));
             grid.Columns.Add(CreateTextColumn(ModelColumnName, "Заказной №", 180));
             grid.Columns.Add(CreateTextColumn(DescriptionColumnName, "Примечание", 240));
-
             grid.ColumnHeaderMouseClick += (_, e) => SortByColumn(e.ColumnIndex);
             grid.CellDoubleClick += (_, e) =>
             {
                 if (e.RowIndex >= 0)
-                    EditSelectedItem();
+                    Submit();
             };
             grid.DataError += (_, e) => e.ThrowException = false;
-
             return grid;
         }
 
-        private void RefreshGrid(string? preferredCatalogItemId = null)
+        private FlowLayoutPanel CreateBottomPanel()
         {
-            string? selectedId = preferredCatalogItemId ?? GetSelectedItem()?.CatalogItemId;
+            var buttonsPanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                AutoSize = true,
+                FlowDirection = FlowDirection.RightToLeft,
+                Margin = new Padding(0, 12, 0, 0)
+            };
+
+            var btnOk = new Button
+            {
+                Name = "btnOk",
+                Text = "Выбрать",
+                AutoSize = true
+            };
+            btnOk.Click += (_, _) => Submit();
+
+            var btnCancel = new Button
+            {
+                Name = "btnCancel",
+                Text = "Отмена",
+                AutoSize = true,
+                DialogResult = DialogResult.Cancel
+            };
+
+            buttonsPanel.Controls.Add(btnOk);
+            buttonsPanel.Controls.Add(btnCancel);
+            return buttonsPanel;
+        }
+
+        private void RefreshGrid()
+        {
+            string? selectedId = GetSelectedItem()?.CatalogItemId;
             List<KbEquipmentCatalogItem> visibleItems = SortItems(
                 _catalogService.Search(_items, _txtSearch?.Text));
 
@@ -233,95 +232,21 @@ namespace AsutpKnowledgeBase
             }
         }
 
-        private void AddItem()
-        {
-            using var dialog = new KnowledgeBaseEquipmentCatalogItemDialog("Добавить запись каталога");
-            if (dialog.ShowDialog(this) != DialogResult.OK)
-                return;
-
-            ApplyMutation(_catalogService.UpsertItem(_items, dialog.Result));
-        }
-
-        private void EditSelectedItem()
-        {
-            KbEquipmentCatalogItem? selectedItem = GetSelectedItem();
-            if (selectedItem == null)
-            {
-                MessageBox.Show(
-                    this,
-                    "Выберите запись каталога для изменения.",
-                    "Каталог оборудования",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-                return;
-            }
-
-            using var dialog = new KnowledgeBaseEquipmentCatalogItemDialog(
-                "Изменить запись каталога",
-                KnowledgeBaseEquipmentCatalogService.CloneCatalogItem(selectedItem));
-            if (dialog.ShowDialog(this) != DialogResult.OK)
-                return;
-
-            ApplyMutation(_catalogService.UpsertItem(_items, dialog.Result), selectedItem.CatalogItemId);
-        }
-
-        private void DeleteSelectedItem()
-        {
-            KbEquipmentCatalogItem? selectedItem = GetSelectedItem();
-            if (selectedItem == null)
-            {
-                MessageBox.Show(
-                    this,
-                    "Выберите запись каталога для удаления.",
-                    "Каталог оборудования",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-                return;
-            }
-
-            DialogResult confirmResult = MessageBox.Show(
-                this,
-                $"Удалить запись каталога \"{GetDisplayName(selectedItem)}\"?",
-                "Каталог оборудования",
-                MessageBoxButtons.OKCancel,
-                MessageBoxIcon.Warning);
-            if (confirmResult != DialogResult.OK)
-                return;
-
-            ApplyMutation(_catalogService.DeleteItem(_items, selectedItem.CatalogItemId));
-        }
-
-        private void ApplyMutation(
-            KnowledgeBaseEquipmentCatalogMutationResult result,
-            string? preferredCatalogItemId = null)
-        {
-            if (!result.IsSuccess)
-            {
-                MessageBox.Show(
-                    this,
-                    result.ErrorMessage,
-                    "Каталог оборудования",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
-            }
-
-            _items = result.EquipmentCatalogItems
-                .Select(KnowledgeBaseEquipmentCatalogService.CloneCatalogItem)
-                .ToList();
-            RefreshGrid(preferredCatalogItemId);
-        }
-
-        private void ClearSearch()
-        {
-            _txtSearch.Clear();
-            RefreshGrid();
-            _txtSearch.Focus();
-        }
-
         private void Submit()
         {
-            ResultItems = KnowledgeBaseDataService.NormalizeEquipmentCatalogItems(_items);
+            KbEquipmentCatalogItem? selectedItem = GetSelectedItem();
+            if (selectedItem == null)
+            {
+                MessageBox.Show(
+                    this,
+                    "Выберите оборудование из каталога.",
+                    "Каталог оборудования",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            SelectedItem = KnowledgeBaseEquipmentCatalogService.CloneCatalogItem(selectedItem);
             DialogResult = DialogResult.OK;
             Close();
         }
@@ -335,18 +260,6 @@ namespace AsutpKnowledgeBase
             }
 
             return _grid.CurrentRow?.Tag as KbEquipmentCatalogItem;
-        }
-
-        private static Button CreateActionButton(string text, Action action)
-        {
-            var button = new Button
-            {
-                Text = text,
-                AutoSize = true,
-                Margin = new Padding(0, 0, 6, 0)
-            };
-            button.Click += (_, _) => action();
-            return button;
         }
 
         private static DataGridViewTextBoxColumn CreateTextColumn(
@@ -371,7 +284,7 @@ namespace AsutpKnowledgeBase
             RestoreSavedColumnWidths();
 
             KnowledgeBaseWindowPlacement? placement =
-                _layoutStateService.LoadEquipmentCatalogWindowPlacement();
+                _layoutStateService.LoadEquipmentCatalogSelectionWindowPlacement();
             if (placement == null)
             {
                 WindowState = FormWindowState.Maximized;
@@ -394,7 +307,7 @@ namespace AsutpKnowledgeBase
         private void RestoreSavedColumnWidths()
         {
             Dictionary<string, int> columnWidths =
-                _layoutStateService.LoadEquipmentCatalogColumnWidths();
+                _layoutStateService.LoadEquipmentCatalogSelectionColumnWidths();
             if (columnWidths.Count == 0)
                 return;
 
@@ -416,7 +329,7 @@ namespace AsutpKnowledgeBase
             if (bounds.Width <= 0 || bounds.Height <= 0)
                 bounds = Bounds;
 
-            _layoutStateService.SaveEquipmentCatalogLayout(
+            _layoutStateService.SaveEquipmentCatalogSelectionLayout(
                 new KnowledgeBaseWindowPlacement
                 {
                     Left = bounds.Left,
@@ -502,17 +415,5 @@ namespace AsutpKnowledgeBase
             string.Equals(columnName, ManufacturerColumnName, StringComparison.Ordinal) ||
             string.Equals(columnName, ModelColumnName, StringComparison.Ordinal) ||
             string.Equals(columnName, DescriptionColumnName, StringComparison.Ordinal);
-
-        private static string GetDisplayName(KbEquipmentCatalogItem item)
-        {
-            string[] parts =
-            {
-                item.EquipmentKind?.Trim() ?? string.Empty,
-                item.Manufacturer?.Trim() ?? string.Empty,
-                item.Model?.Trim() ?? string.Empty
-            };
-            string displayName = string.Join(" ", parts.Where(static part => !string.IsNullOrWhiteSpace(part)));
-            return string.IsNullOrWhiteSpace(displayName) ? "без названия" : displayName;
-        }
     }
 }

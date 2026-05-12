@@ -169,7 +169,10 @@ namespace AsutpKnowledgeBase
             string dialogTitle,
             string successStatusText)
         {
-            using var dialog = new KnowledgeBaseCompositionEntryDialog(dialogTitle, draftEntry);
+            using var dialog = new KnowledgeBaseCompositionEntryDialog(
+                dialogTitle,
+                draftEntry,
+                _session.EquipmentCatalogItems);
             if (dialog.ShowDialog(this) != DialogResult.OK)
                 return;
 
