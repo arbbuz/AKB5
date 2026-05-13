@@ -143,17 +143,22 @@ namespace AsutpKnowledgeBase.Services
                     bool hasYearScheduleChanges =
                         importedEntry.YearScheduleEntries.Count > 0 &&
                         !YearScheduleEquals(existingProfile.YearScheduleEntries, importedEntry.YearScheduleEntries);
+                    bool hasInclusionChanges = isAnnualSource && !existingProfile.IsIncludedInSchedule;
                     bool hasChanges =
                         existingProfile.To1Hours != importedEntry.To1Hours ||
                         existingProfile.To2Hours != importedEntry.To2Hours ||
                         existingProfile.To3Hours != importedEntry.To3Hours ||
-                        hasYearScheduleChanges;
+                        hasYearScheduleChanges ||
+                        hasInclusionChanges;
 
                     if (!hasChanges)
                     {
                         unchangedProfileCount++;
                         continue;
                     }
+
+                    if (hasInclusionChanges)
+                        existingProfile.IsIncludedInSchedule = true;
 
                     existingProfile.To1Hours = importedEntry.To1Hours;
                     existingProfile.To2Hours = importedEntry.To2Hours;
@@ -1318,18 +1323,42 @@ namespace AsutpKnowledgeBase.Services
         {
             foreach (string baseVariant in ExpandStructuralNameVariants(value))
             {
-                yield return baseVariant;
+                foreach (string variant in ExpandContextualNameVariants(baseVariant, systemContext))
+                    yield return variant;
+            }
+        }
 
-                foreach (string trimmedBySuffix in TrimTrailingSystemContext(baseVariant, systemContext))
-                    yield return trimmedBySuffix;
+        private static IEnumerable<string> ExpandContextualNameVariants(string value, string? systemContext)
+        {
+            yield return value;
 
-                foreach (string trimmedByDots in TrimDotSeparatedSuffixes(baseVariant))
+            foreach (string trimmedByModelCode in TrimTrailingLatinModelCodes(value))
+                yield return trimmedByModelCode;
+
+            foreach (string trimmedBySuffix in TrimTrailingSystemContext(value, systemContext))
+            {
+                yield return trimmedBySuffix;
+
+                foreach (string trimmedByModelCode in TrimTrailingLatinModelCodes(trimmedBySuffix))
+                    yield return trimmedByModelCode;
+            }
+
+            foreach (string trimmedByDots in TrimDotSeparatedSuffixes(value))
+            {
+                yield return trimmedByDots;
+
+                foreach (string trimmedByModelCode in TrimTrailingLatinModelCodes(trimmedByDots))
+                    yield return trimmedByModelCode;
+            }
+
+            foreach (string trimmedBySuffix in TrimTrailingSystemContext(value, systemContext))
+            {
+                foreach (string trimmedByDots in TrimDotSeparatedSuffixes(trimmedBySuffix))
+                {
                     yield return trimmedByDots;
 
-                foreach (string trimmedBySuffix in TrimTrailingSystemContext(baseVariant, systemContext))
-                {
-                    foreach (string trimmedByDots in TrimDotSeparatedSuffixes(trimmedBySuffix))
-                        yield return trimmedByDots;
+                    foreach (string trimmedByModelCode in TrimTrailingLatinModelCodes(trimmedByDots))
+                        yield return trimmedByModelCode;
                 }
             }
         }
@@ -1543,6 +1572,20 @@ namespace AsutpKnowledgeBase.Services
 
         private static IEnumerable<string> ExpandSystemContextSuffixes(string systemContext)
         {
+            foreach (string candidate in ExpandSystemContextBaseSuffixes(systemContext))
+            {
+                yield return candidate;
+
+                if (candidate.StartsWith("ЛИНИИ ", StringComparison.OrdinalIgnoreCase))
+                    yield return "ЛИНИЯ " + candidate["ЛИНИИ ".Length..];
+
+                if (candidate.StartsWith("СИСТЕМЫ ", StringComparison.OrdinalIgnoreCase))
+                    yield return "СИСТЕМА " + candidate["СИСТЕМЫ ".Length..];
+            }
+        }
+
+        private static IEnumerable<string> ExpandSystemContextBaseSuffixes(string systemContext)
+        {
             yield return systemContext;
 
             if (systemContext.StartsWith("АСУТП ", StringComparison.OrdinalIgnoreCase))
@@ -1553,9 +1596,49 @@ namespace AsutpKnowledgeBase.Services
 
             if (systemContext.StartsWith("СУ ", StringComparison.OrdinalIgnoreCase))
                 yield return systemContext["СУ ".Length..];
+        }
 
-            if (systemContext.StartsWith("ЛИНИИ ", StringComparison.OrdinalIgnoreCase))
-                yield return "ЛИНИЯ " + systemContext["ЛИНИИ ".Length..];
+        private static IEnumerable<string> TrimTrailingLatinModelCodes(string value)
+        {
+            string normalized = value.Trim().Trim('.', ' ', '-', '–', '—', ',', ';', ':');
+            int lastSpaceIndex = normalized.LastIndexOf(' ');
+            if (lastSpaceIndex <= 0 || lastSpaceIndex == normalized.Length - 1)
+                yield break;
+
+            string tail = normalized[(lastSpaceIndex + 1)..];
+            if (!IsLatinModelCode(tail))
+                yield break;
+
+            string trimmed = normalized[..lastSpaceIndex].Trim().Trim('.', ' ', '-', '–', '—', ',', ';', ':');
+            if (trimmed.Length > 0)
+                yield return trimmed;
+        }
+
+        private static bool IsLatinModelCode(string value)
+        {
+            bool hasLatinLetter = false;
+            bool hasDigit = false;
+            foreach (char character in value)
+            {
+                if (character is >= 'A' and <= 'Z' or >= 'a' and <= 'z')
+                {
+                    hasLatinLetter = true;
+                    continue;
+                }
+
+                if (char.IsDigit(character))
+                {
+                    hasDigit = true;
+                    continue;
+                }
+
+                if (character is '-' or '_')
+                    continue;
+
+                return false;
+            }
+
+            return hasLatinLetter && hasDigit;
         }
 
         private static bool TryTrimTrailingContext(string value, string suffix, out string trimmed)

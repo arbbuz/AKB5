@@ -1,6 +1,6 @@
 # Plans
 
-Last updated: `2026-05-12`
+Last updated: `2026-05-13`
 
 ## Active plan
 
@@ -13,6 +13,7 @@ Last updated: `2026-05-12`
 - Treat the norm-import coverage and mismatch-reporting follow-up as completed on `to`
 - Treat `phase7e-annual-norm-import` as accepted after manual review
 - Treat `phase7g-annual-norm-hidden-rows` as committed/pushed on `to` as `7a4895d Fix annual maintenance norm import totals`
+- Treat the annual norm import HAVER matching and resolved-profile re-enable follow-up as verified locally; annual workbooks should reconcile monthly demand directly when all rows are matched.
 - Treat `Phase 7F` production-calendar configuration as completed on `to`
 - Treat `Phase 7F.1. Production calendar PDF import` as accepted after manual review and committed/pushed on `to`
 - Treat `Phase 11. Object templates and equipment catalog` as an accepted roadmap block
@@ -45,7 +46,7 @@ Last updated: `2026-05-12`
 
 ## Near-term follow-up
 
-- Template cleanup: the obsolete `Состав -> Применить шаблон...` button and tree menu command `Применить шаблон к объекту...` are removed from the current UI.
+- Template cleanup: the obsolete `Состав -> Применить шаблон...` button and tree menu commands `Применить шаблон к объекту...` / `Шаблоны -> Добавить из шаблона состава...` are removed from the current UI.
 - Remaining optional template task: add a user-managed workflow to create/edit/delete composition or object templates, preferably backed by real catalog-selected equipment.
 - Review and accept portable-first storage: `akb5.settings.json` beside `asutpKB.exe`, default `database\knowledge-base.akb`, first-launch folder choice, remembered open/save-as path, old AppData `.akb` copy prompt, and external backups in `backups\yyyy-MM-dd\`.
 - Do not start Phase 8-10 or a broad roadmap slice until portable-first storage is accepted; a narrow template-management correction may be done first if the user explicitly requests it.

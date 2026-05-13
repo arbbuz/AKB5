@@ -1,36 +1,40 @@
 # Current State
 
-Last updated: `2026-05-12`
+Last updated: `2026-05-13`
 
 ## Next session checkpoint
 
-Changed in the current uncommitted worktree:
+Changed in the current handoff stack:
 
-- Removed obsolete UI for direct template application: `Состав -> Применить шаблон...`, tree menu command `Применить шаблон к объекту...`, the unused apply-preview dialog, and related UI event wiring.
-- Updated current handoff/plans/decision docs to mark direct template application as retired from the UI; object-template creation/saving and catalog/template exchange remain available.
-- Added `docs/codex-operational-rules.md` and linked mandatory Codex operating rules into handoff/plans/lessons/decision docs.
-- Edited live local database `C:\Users\Olga\AKB5\bin\Release\net8.0-windows\database\knowledge-base.akb`: the three visible Lvl2 objects `АСУ сушильной установкой "SIEBTECHNIK"`, `АСУТП ВВК "чистого цикла"`, and `АСУТП ВВК 3-я стадия` now have `node_type = System` instead of `Cabinet`; Lvl3 fields `location/photo/ip/schema` are empty, inventory numbers are preserved, and the existing Lvl2 maintenance profile on `SIEBTECHNIK` was preserved.
+- Removed the remaining obsolete tree UI entry `Шаблоны -> Добавить из шаблона состава...`.
+- Removed the WinForms call chain for that entry: `ctxAddFromTemplate`, `AddChildNodeFromTemplate`, and the UI workflow that opened `KnowledgeBaseCompositionTemplateDialog`.
+- Updated current handoff/plans/decision and menu-audit docs to record that hardcoded composition-template add workflows are hidden from UI.
+- Fixed annual maintenance norm import for HAVER rows where the workbook writes the system as `АСУ линии фасовки HAVER` and appends `Линия фасовки HAVER` / `FFS600` to equipment names while the KB tree stores `АСУ линии фасовки HAVER FFS600`.
+- Annual norm import now re-enables a resolved existing profile when that object is present in the annual workbook, so previously disabled but valid annual rows participate in monthly planning again.
 
 Verified:
 
-- `dotnet build C:\Users\Olga\AKB5\asutpKB.csproj -c Release --no-restore -v minimal` passed with existing analyzer warnings only.
-- `dotnet test C:\Users\Olga\AKB5\tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj -c Release --no-restore -v minimal` passed: `348/348`.
-- Targeted SQLite readback confirmed the three corrected nodes are `level_index=2`, `node_type=System`.
-- Database backup before the Lvl2 node-type fix: `C:\Users\Olga\AKB5\artifacts\verify\lvl2-node-type-fix\knowledge-base.before-lvl2-node-type-fix.20260512-232150.akb`.
+- `dotnet format` passed for app, core, and tests.
+- `scripts\verify-step.ps1 -StepName hide-composition-template-add-menu` passed.
+- `scripts\verify-step.ps1 -StepName norm-import-haver-annual` passed after the annual norm import fix.
+- Diagnostic import against a copy of `C:\Users\Olga\Desktop\asutpKB\proj\database\knowledge-base.akb`: `C:\Users\Olga\Desktop\asutpKB\Годовой_график _ТО_АСУТП_КЦ_2026г.xlsx` imports with `unresolved=0`; May 2026 demand becomes `297` hours.
+- Verification artifact / manual exe: `C:\Users\Olga\AKB5\artifacts\verify\hide-composition-template-add-menu\build\Release\net8.0-windows\asutpKB.exe`.
+- Latest verification artifact / manual exe: `C:\Users\Olga\AKB5\artifacts\verify\norm-import-haver-annual\build\Release\net8.0-windows\asutpKB.exe`.
+- Search confirmed no remaining `Forms`/`UiServices` caller for `AddChildNodeFromTemplate` or `ctxAddFromTemplate`; remaining `AddNodeFromTemplate` references are core service/test coverage only.
 
 Remaining for the next session:
 
-- Manual review in `C:\Users\Olga\AKB5\bin\Release\net8.0-windows\asutpKB.exe`: confirm the three Lvl2 objects no longer show Lvl3-only tabs/fields and that template-application UI is gone.
-- Decide whether to commit the current code/doc changes and whether to treat the local `.akb` data edit as final accepted data.
+- Manual review in `C:\Users\Olga\AKB5\artifacts\verify\hide-composition-template-add-menu\build\Release\net8.0-windows\asutpKB.exe`: confirm tree context menu `Шаблоны` no longer contains `Добавить из шаблона состава...`.
+- Manual review in `C:\Users\Olga\AKB5\artifacts\verify\norm-import-haver-annual\build\Release\net8.0-windows\asutpKB.exe`: import `C:\Users\Olga\Desktop\asutpKB\Годовой_график _ТО_АСУТП_КЦ_2026г.xlsx`; expected `Не сопоставлено: 0` and May 2026 demand `297` hours.
 - Optional later work only if requested: build a managed template editor/delete workflow; do not reintroduce direct template application without a new explicit requirement.
 
 ## Repo state
 
 - Repository root: `C:\Users\Olga\AKB5`
 - Active integration branch: `to`
-- Latest pushed implementation commit: `3eadf7f Refine equipment catalog workflows`
+- Latest pushed implementation commit: `9668df5 Retire direct template application`
 - Latest maintenance follow-up commit: `7a4895d Fix annual maintenance norm import totals`
-- Latest accepted implementation: equipment catalog and composition catalog-picker follow-ups
+- Latest accepted implementation: direct template application retirement plus the local Lvl2 node-type data fix
 - Current roadmap implementation item: no active coding item selected after equipment catalog workflow commit
 - Implemented on this branch:
   - `Phase 0`
@@ -81,6 +85,7 @@ Remaining for the next session:
 - `Phase 12S8` was accepted after manual review and committed/pushed on `to` as `27a2aba`
 - `phase7e-annual-norm-import` passed manual review on 2026-05-07
 - `phase7g-annual-norm-hidden-rows` skips hidden annual-plan rows during norm import because hidden rows represent retired equipment in `456.xlsx`; committed/pushed on `to` as `7a4895d`
+- The annual norm import HAVER follow-up is verified locally: year source matching handles `Линия/линии` context tails and final Latin model codes such as `FFS600`, and resolved annual rows re-enable previously disabled existing profiles.
 - The chief developer approved the SQLite single-file storage plan choices `1A, 2B, 3A, 4A`; local JSON snapshot prototype work is paused before commit while implementation moves through the SQLite storage plan
 - Menu rework first iteration steps 1-6 are accepted and committed/pushed on `to` as `8dfffbd`.
 - Menu rework adds top-level `Справочники` and `Сервис`, keeps `ТО` immediately after `Файл`, combines snapshots/history into one entry, groups tree templates under `Шаблоны`, expands drag/drop move confirmation, and prompts for protective snapshots before dangerous operations: JSON/Excel full database replacement, maintenance norm import, workshop deletion, and mass template application.
@@ -91,7 +96,7 @@ Remaining for the next session:
 - `composition-catalog-picker` follow-up is implemented, verified, committed, and pushed: `Состав -> Добавить слот...` and `Состав -> Добавить оборудование...` now open a catalog picker through `Выбрать из каталога...`; the picker searches only visible catalog fields and fills the composition entry from the selected catalog item.
 - `equipment-catalog-layout-sort` follow-up is implemented, verified, committed, and pushed: the equipment catalog opens maximized on first launch, then remembers user window placement and visible column widths through `window-layout-state.json`; visible catalog columns (`Наименование`, `Производитель`, `Заказной №`, `Примечание`) are clickable and toggle ascending/descending sort.
 - `catalog-selection-layout` follow-up is implemented, verified, committed, and pushed: the `Выбрать из каталога...` dialog now uses the same first-launch maximized and saved placement/visible-column-width behavior as the equipment catalog, with separate persisted state so it does not overwrite the main catalog window layout.
-- The obsolete `Состав -> Применить шаблон...` button is removed from the composition screen. The tree menu command `Применить шаблон к объекту...` is also removed from the current UI; object-template creation/saving and catalog/template exchange remain available.
+- The obsolete `Состав -> Применить шаблон...` button is removed from the composition screen. The tree menu commands `Применить шаблон к объекту...` and `Шаблоны -> Добавить из шаблона состава...` are also removed from the current UI; object-template creation/saving and catalog/template exchange remain available.
 
 ## Integrated feature state
 
@@ -151,7 +156,7 @@ Remaining for the next session:
   - `Phase 11D` adds a tree context-menu command `Создать объект из шаблона...` and a Russian selection dialog for persisted object templates
   - creating from a template inserts the whole template subtree, applies normal tree reindexing/depth checks, and appends remapped composition, document/software, network-file, and maintenance-profile defaults
   - `Phase 11E` adds a tree context-menu command for saving the selected object subtree as a persisted template, removes real node ids, remaps typed owner references by generated template-node ids, and skips typed records outside the selected subtree
-  - `Phase 11F` added object-template application internals and preview, but the current UI no longer exposes the obsolete tree context-menu command `Применить шаблон к объекту...`
+  - `Phase 11F` added object-template application internals and preview, but the current UI no longer exposes the obsolete tree context-menu commands `Применить шаблон к объекту...` or `Добавить из шаблона состава...`
   - `Phase 11G` adds catalog/template JSON exchange; after menu rework, the commands are exposed as `Сервис -> Экспорт справочников и шаблонов...` and `Сервис -> Импорт справочников и шаблонов...`; export writes a dedicated UTF-8 JSON exchange file and import merges only catalog/templates without touching legacy Excel `v3`
 - `Phase 12` accepted storage state:
   - `Phase 12A` adds automatic timestamped JSON snapshots before save; snapshot failure blocks overwrite so the current JSON file stays intact
@@ -709,7 +714,6 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 - `Forms/KnowledgeBaseEquipmentCatalogForm.cs`
 - `Forms/KnowledgeBaseEquipmentCatalogItemDialog.cs`
 - `Forms/KnowledgeBaseEquipmentCatalogSelectionDialog.cs`
-- `Forms/KnowledgeBaseCompositionTemplateDialog.cs`
 - `Forms/KnowledgeBaseObjectTemplateCreateDialog.cs`
 - `Forms/KnowledgeBaseObjectTemplateSaveDialog.cs`
 - `Forms/KnowledgeBaseProductionCalendarForm.cs`
@@ -781,7 +785,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\Olga\AKB5\scripts\verify-step.
 
 ## Known limits / open follow-up
 
-- `Состав -> Применить шаблон...` no longer exposes hardcoded composition templates. The remaining template gap is lack of a dedicated management window to create/edit/delete user-managed composition or object templates.
+- `Состав -> Применить шаблон...` and `Шаблоны -> Добавить из шаблона состава...` no longer expose hardcoded composition templates. The remaining template gap is lack of a dedicated management window to create/edit/delete user-managed composition or object templates.
 - Persisted object templates can still be saved, created from, and exchanged through JSON, but direct application to an existing object is no longer exposed in the current UI.
 - Menu rework steps 1-6 are accepted and committed/pushed on `to`; deferred follow-ups are password/role access to `Сервис`, ordinary-user edit restrictions, and broader rights separation.
 - `Phase 7E.2` source exchange is implemented on `to`: it exports/imports the yearly placement source as `.xlsx`

@@ -182,6 +182,42 @@ public class KnowledgeBaseMaintenanceScheduleNormImportServiceTests
     }
 
     [Fact]
+    public void ImportWorkbook_AnnualSourceReenablesResolvedExistingProfile()
+    {
+        var roots = CreateWorkshopRoots(
+            systemInventoryNumber: "SYS-01",
+            equipmentName: "ШУ 1");
+        byte[] workbookBytes = BuildWorkbook(
+            ("КЦ (2)", CreateAnnualRows(
+                "Система 1",
+                "SYS-01",
+                "ШУ 1",
+                monthWorkCells: new[] { (5, "ТО1/2") })));
+
+        KnowledgeBaseMaintenanceScheduleNormImportResult result = _service.ImportWorkbook(
+            workbookBytes,
+            roots,
+            new[]
+            {
+                new KbMaintenanceScheduleProfile
+                {
+                    MaintenanceProfileId = "maintenance-cabinet-1",
+                    OwnerNodeId = "cabinet-1",
+                    IsIncludedInSchedule = false,
+                    To1Hours = 2
+                }
+            });
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.UnresolvedEntries);
+        Assert.Equal(1, result.UpdatedProfileCount);
+
+        KbMaintenanceScheduleProfile profile = Assert.Single(result.MaintenanceScheduleProfiles);
+        Assert.True(profile.IsIncludedInSchedule);
+        Assert.Equal(2, profile.To1Hours);
+    }
+
+    [Fact]
     public void ImportWorkbook_SkipsHiddenAnnualRows()
     {
         IReadOnlyList<KbNode> roots =
@@ -418,6 +454,75 @@ public class KnowledgeBaseMaintenanceScheduleNormImportServiceTests
         KbMaintenanceScheduleProfile profile = Assert.Single(result.MaintenanceScheduleProfiles);
         Assert.Equal("cabinet-1", profile.OwnerNodeId);
         Assert.Equal(8, profile.To3Hours);
+    }
+
+    [Fact]
+    public void ImportWorkbook_MatchesHaverAnnualRowsWithLineContextAndModelSuffix()
+    {
+        IReadOnlyList<KbNode> roots =
+        [
+            new KbNode
+            {
+                NodeId = "department-1",
+                Name = "Участок упаковки и отгрузки готовой продукции",
+                NodeType = KbNodeType.Department,
+                Children =
+                {
+                    new KbNode
+                    {
+                        NodeId = "system-1",
+                        Name = "АСУ линии фасовки HAVER FFS600",
+                        NodeType = KbNodeType.System,
+                        Details = new KbNodeDetails { InventoryNumber = "69439" },
+                        Children =
+                        {
+                            new KbNode
+                            {
+                                NodeId = "shu1",
+                                Name = "ШУ1 FFS600",
+                                NodeType = KbNodeType.Cabinet
+                            },
+                            new KbNode
+                            {
+                                NodeId = "shu2",
+                                Name = "ШУ2 FFS600",
+                                NodeType = KbNodeType.Cabinet
+                            },
+                            new KbNode
+                            {
+                                NodeId = "roll-change",
+                                Name = "ШУ устройства смены рулонов",
+                                NodeType = KbNodeType.Cabinet
+                            }
+                        }
+                    }
+                }
+            }
+        ];
+
+        var rows = CreateAnnualRows(
+                "АСУ линии фасовки HAVER.",
+                "69439",
+                "ШУ1 FFS600 Линия фасовки HAVER",
+                monthWorkCells: new[] { (5, "ТО1/2") })
+            .ToList();
+        rows.Add(CreateRow(18, (2, "ШУ2 FFS600 Линия фасовки HAVER"), (GetAnnualPlanColumnIndex(5), "ТО1/3")));
+        rows.Add(CreateRow(19, (2, "ШУ устройства смены рулонов FFS600 Линия фасовки HAVER"), (GetAnnualPlanColumnIndex(5), "ТО2/5")));
+
+        byte[] workbookBytes = BuildWorkbook(("КЦ (2)", rows));
+
+        KnowledgeBaseMaintenanceScheduleNormImportResult result = _service.ImportWorkbook(
+            workbookBytes,
+            roots,
+            Array.Empty<KbMaintenanceScheduleProfile>());
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.UnresolvedEntries);
+        Assert.Equal(3, result.CreatedProfileCount);
+
+        Assert.Equal(2, Assert.Single(result.MaintenanceScheduleProfiles, profile => profile.OwnerNodeId == "shu1").To1Hours);
+        Assert.Equal(3, Assert.Single(result.MaintenanceScheduleProfiles, profile => profile.OwnerNodeId == "shu2").To1Hours);
+        Assert.Equal(5, Assert.Single(result.MaintenanceScheduleProfiles, profile => profile.OwnerNodeId == "roll-change").To2Hours);
     }
 
     [Fact]

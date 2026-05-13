@@ -64,8 +64,6 @@ namespace AsutpKnowledgeBase.UiServices
     public class KnowledgeBaseTreeMutationUiWorkflowService
     {
         private readonly KnowledgeBaseTreeMutationWorkflowService _treeMutationWorkflowService;
-        private readonly KnowledgeBaseCompositionTemplateService _compositionTemplateService = new();
-
         public KnowledgeBaseTreeMutationUiWorkflowService(
             KnowledgeBaseTreeMutationWorkflowService treeMutationWorkflowService)
         {
@@ -95,22 +93,6 @@ namespace AsutpKnowledgeBase.UiServices
                 context,
                 selectedNode,
                 "Введите название нового дочернего объекта:");
-        }
-
-        public void AddChildNodeFromTemplate(KnowledgeBaseTreeMutationUiWorkflowContext context)
-        {
-            if (context.TreeView.SelectedNode?.Tag is not KbNode selectedNode)
-            {
-                MessageBox.Show(
-                    context.Owner,
-                    "Выберите родительский узел, в который нужно добавить узел по шаблону.",
-                    "Внимание",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
-            }
-
-            AddNodeFromTemplateWithParent(context, selectedNode);
         }
 
         public void CreateObjectFromTemplate(KnowledgeBaseTreeMutationUiWorkflowContext context)
@@ -422,47 +404,6 @@ namespace AsutpKnowledgeBase.UiServices
             if (!result.IsSuccess)
             {
                 ShowMutationFailure(context.Owner, result, "Невозможно добавить");
-                return;
-            }
-
-            ApplySuccessfulMutation(context, result, result.AffectedNode, expandedNodes);
-        }
-
-        private void AddNodeFromTemplateWithParent(
-            KnowledgeBaseTreeMutationUiWorkflowContext context,
-            KbNode parentNode)
-        {
-            if (!_treeMutationWorkflowService.CanAddNodeFromTemplate(parentNode))
-            {
-                MessageBox.Show(
-                    context.Owner,
-                    "Для выбранного узла нет доступных шаблонов дочерних объектов.",
-                    "Шаблон состава",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-                return;
-            }
-
-            var templates = _compositionTemplateService.GetChildTemplates(parentNode);
-            using var dialog = new KnowledgeBaseCompositionTemplateDialog(
-                "Добавить из шаблона",
-                "Выберите шаблон и имя нового узла:",
-                templates,
-                collectNodeName: true,
-                inheritedLocation: KnowledgeBaseCompositionTemplateService.BuildInheritedLocation(parentNode));
-            if (dialog.ShowDialog(context.Owner) != DialogResult.OK)
-                return;
-
-            var expandedNodes = context.CaptureExpandedNodes();
-            var result = _treeMutationWorkflowService.AddNodeFromTemplate(
-                context.CurrentWorkshop,
-                parentNode,
-                dialog.NodeName,
-                dialog.SelectedTemplateId,
-                context.GetPersistedTreeData());
-            if (!result.IsSuccess)
-            {
-                ShowMutationFailure(context.Owner, result, "Невозможно добавить из шаблона");
                 return;
             }
 

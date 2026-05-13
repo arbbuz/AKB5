@@ -98,7 +98,6 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem ctxAdd = null!;
         private ToolStripMenuItem ctxAddChild = null!;
         private ToolStripMenuItem ctxTemplates = null!;
-        private ToolStripMenuItem ctxAddFromTemplate = null!;
         private ToolStripMenuItem ctxCreateObjectFromTemplateAtRoot = null!;
         private ToolStripMenuItem ctxCreateObjectFromTemplate = null!;
         private ToolStripMenuItem ctxSaveObjectAsTemplate = null!;
@@ -469,13 +468,11 @@ namespace AsutpKnowledgeBase
             ctxCreateObjectFromTemplateAtRoot.Enabled =
                 _treeMutationWorkflowService.CanCreateObjectFromTemplate(GetEffectiveParentForRootOperations());
             ctxAddChild.Enabled = hasSelection && _treeMutationWorkflowService.CanAddNode(selectedNode!);
-            ctxAddFromTemplate.Enabled = hasSelection && _treeMutationWorkflowService.CanAddNodeFromTemplate(selectedNode!);
             ctxCreateObjectFromTemplate.Enabled = _treeMutationWorkflowService.CanCreateObjectFromTemplate(
                 hasSelection ? selectedNode : null);
             ctxSaveObjectAsTemplate.Enabled = hasSelection &&
                 KnowledgeBaseTreeMutationWorkflowService.CanSaveObjectAsTemplate(selectedNode);
             ctxTemplates.Enabled =
-                ctxAddFromTemplate.Enabled ||
                 ctxCreateObjectFromTemplate.Enabled ||
                 ctxSaveObjectAsTemplate.Enabled;
             ctxPaste.Enabled = hasSelection && _treeMutationWorkflowService.CanPasteNode(selectedNode!);
@@ -706,12 +703,6 @@ namespace AsutpKnowledgeBase
             if (tvTree.ContextMenuStrip == null || ctxTemplates == null)
                 return;
 
-            ctxAddFromTemplate = new ToolStripMenuItem(
-                "Добавить из шаблона состава...",
-                null,
-                (s, e) => AddChildNodeFromTemplate());
-
-            ctxAddFromTemplate.Text = "Добавить из шаблона состава...";
             ctxCreateObjectFromTemplate = new ToolStripMenuItem(
                 "Создать объект из шаблона...",
                 null,
@@ -722,7 +713,6 @@ namespace AsutpKnowledgeBase
                 (s, e) => SaveObjectAsTemplate());
             ctxTemplates.DropDownItems.AddRange(new ToolStripItem[]
             {
-                ctxAddFromTemplate,
                 ctxCreateObjectFromTemplate,
                 ctxSaveObjectAsTemplate
             });
