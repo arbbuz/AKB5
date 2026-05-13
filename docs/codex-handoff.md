@@ -11,12 +11,18 @@ Changed in the current handoff stack:
 - Updated current handoff/plans/decision and menu-audit docs to record that hardcoded composition-template add workflows are hidden from UI.
 - Fixed annual maintenance norm import for HAVER rows where the workbook writes the system as `АСУ линии фасовки HAVER` and appends `Линия фасовки HAVER` / `FFS600` to equipment names while the KB tree stores `АСУ линии фасовки HAVER FFS600`.
 - Annual norm import now re-enables a resolved existing profile when that object is present in the annual workbook, so previously disabled but valid annual rows participate in monthly planning again.
+- Reworked `Настроить профиль ТО`: removed the ambiguous manual-placement checkbox, split profile saving from annual-plan applying, added `Авто` per month, added per-month hour editors, and added `Применить годовой план` / `Очистить годовой план` buttons under the annual grid.
+- Fixed the annual-placement grid layout after manual review: the dialog is wider/taller, month rows have fixed height, `Сентябрь` no longer wraps, the two month columns are symmetric, the annual-placement buttons stay visible, and the bottom `Отмена` / `Сохранить профиль` buttons have a fixed-height row so they are not clipped.
+- `Сохранить профиль` now preserves the applied `YearScheduleEntries`; annual plan edits are applied inside the open dialog through `Применить годовой план`, while `Очистить годовой план` clears the month grid without closing the dialog. Imported annual hours remain visible and are preserved unless the user changes those month-hour fields.
+- The annual-plan hour grid now displays effective profile norms instead of `0` when a month uses profile-norm hours (`YearScheduleEntries.Hours=0`); manually changing a month-hour value makes that month explicit.
+- Added a shared selected-object header above the right workspace so the selected object name and path stay visible when switching from `Карточка` to `Состав`, `Документация и ПО`, `Сеть`, or `График ТО`.
 
 Verified:
 
 - `dotnet format` passed for app, core, and tests.
 - `scripts\verify-step.ps1 -StepName hide-composition-template-add-menu` passed.
 - `scripts\verify-step.ps1 -StepName norm-import-haver-annual` passed after the annual norm import fix.
+- Targeted tests passed for profile mutation, schedule state, and month work resolving after the profile-dialog behavior change.
 - Diagnostic import against a copy of `C:\Users\Olga\Desktop\asutpKB\proj\database\knowledge-base.akb`: `C:\Users\Olga\Desktop\asutpKB\Годовой_график _ТО_АСУТП_КЦ_2026г.xlsx` imports with `unresolved=0`; May 2026 demand becomes `297` hours.
 - Verification artifact / manual exe: `C:\Users\Olga\AKB5\artifacts\verify\hide-composition-template-add-menu\build\Release\net8.0-windows\asutpKB.exe`.
 - Latest verification artifact / manual exe: `C:\Users\Olga\AKB5\artifacts\verify\norm-import-haver-annual\build\Release\net8.0-windows\asutpKB.exe`.
@@ -26,6 +32,8 @@ Remaining for the next session:
 
 - Manual review in `C:\Users\Olga\AKB5\artifacts\verify\hide-composition-template-add-menu\build\Release\net8.0-windows\asutpKB.exe`: confirm tree context menu `Шаблоны` no longer contains `Добавить из шаблона состава...`.
 - Manual review in `C:\Users\Olga\AKB5\artifacts\verify\norm-import-haver-annual\build\Release\net8.0-windows\asutpKB.exe`: import `C:\Users\Olga\Desktop\asutpKB\Годовой_график _ТО_АСУТП_КЦ_2026г.xlsx`; expected `Не сопоставлено: 0` and May 2026 demand `297` hours.
+- Manual review after the profile dialog build: open `Настроить профиль ТО`; expect no `Использовать ручное годовое размещение ТО` checkbox, `Авто/ТО1/ТО2/ТО3` per month, per-month hours showing effective norms instead of `0` for norm-based months, visible `Применить годовой план`, visible `Очистить годовой план`, symmetric month columns, unclipped bottom `Отмена` / `Сохранить профиль` buttons, and no dialog close when the two annual-plan buttons are clicked.
+- Manual review after the selected-object header build: select an engineering object and switch between right-side tabs; the same selected object name and path should remain visible above every tab.
 - Optional later work only if requested: build a managed template editor/delete workflow; do not reintroduce direct template application without a new explicit requirement.
 
 ## Repo state

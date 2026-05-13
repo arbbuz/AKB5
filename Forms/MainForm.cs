@@ -108,6 +108,10 @@ namespace AsutpKnowledgeBase
         private ToolStripSeparator ctxEditSeparator = null!;
         private ToolStripSeparator ctxDeleteSeparator = null!;
         private Label lblSelectedNodeEmptyState = null!;
+        private Panel pnlSelectedNodeContextHeader = null!;
+        private Label lblSelectedNodeContextName = null!;
+        private TextBox txtSelectedNodeContextPath = null!;
+        private Panel pnlSelectedNodeWorkspaceHost = null!;
         private Panel pnlSelectedNodeInfoScreen = null!;
         private TabControl tabSelectedNodeWorkspace = null!;
         private TabPage tabSelectedNodeInfo = null!;
@@ -394,17 +398,25 @@ namespace AsutpKnowledgeBase
             {
                 bool hasSelection = selectedNodeState.HasSelection;
                 lblSelectedNodeEmptyState.Visible = !hasSelection;
+                pnlSelectedNodeContextHeader.Visible = hasSelection;
                 selectedNodeInfoScreen.Visible = hasSelection;
                 ApplyWorkspaceState(selectedNodeState);
 
                 lblSelectedNodeEmptyState.Text = selectedNodeState.EmptyStateText;
                 if (hasSelection)
                 {
+                    lblSelectedNodeContextName.Text = selectedNodeState.Name;
+                    txtSelectedNodeContextPath.Text = selectedNodeState.FullPath;
                     selectedNodeInfoScreen.ApplyState(selectedNodeState);
                     selectedNodeCompositionScreen.ApplyState(selectedNodeState.Composition);
                     selectedNodeDocsAndSoftwareScreen.ApplyState(selectedNodeState.DocsAndSoftware);
                     selectedNodeNetworkScreen.ApplyState(selectedNodeState.Network);
                     selectedNodeMaintenanceScreen.ApplyState(selectedNodeState.MaintenanceSchedule);
+                }
+                else
+                {
+                    lblSelectedNodeContextName.Text = string.Empty;
+                    txtSelectedNodeContextPath.Text = string.Empty;
                 }
 
                 ScheduleDeferredLayout();

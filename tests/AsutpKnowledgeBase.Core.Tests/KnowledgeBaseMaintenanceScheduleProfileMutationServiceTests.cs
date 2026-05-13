@@ -28,8 +28,8 @@ public class KnowledgeBaseMaintenanceScheduleProfileMutationServiceTests
                 To3Hours = 8,
                 YearScheduleEntries = new List<KbMaintenanceYearScheduleEntry>
                 {
-                    new() { Month = 2, WorkKind = KbMaintenanceWorkKind.To2 },
-                    new() { Month = 11, WorkKind = KbMaintenanceWorkKind.To3 }
+                    new() { Month = 2, WorkKind = KbMaintenanceWorkKind.To2, Hours = 4 },
+                    new() { Month = 11, WorkKind = KbMaintenanceWorkKind.To3, Hours = 8 }
                 }
             });
 
@@ -41,6 +41,7 @@ public class KnowledgeBaseMaintenanceScheduleProfileMutationServiceTests
         Assert.Equal(4, profile.To2Hours);
         Assert.Equal(8, profile.To3Hours);
         Assert.Equal(new[] { 2, 11 }, profile.YearScheduleEntries.Select(static entry => entry.Month));
+        Assert.Equal(new[] { 4, 8 }, profile.YearScheduleEntries.Select(static entry => entry.Hours));
     }
 
     [Fact]

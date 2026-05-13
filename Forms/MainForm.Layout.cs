@@ -287,6 +287,71 @@ namespace AsutpKnowledgeBase
                 BackColor = Color.White
             };
 
+            var rightLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2,
+                Padding = new Padding(0)
+            };
+            rightLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            rightLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            rightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            pnlSelectedNodeContextHeader = new Panel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                BackColor = Color.FromArgb(250, 250, 250),
+                Padding = new Padding(14, 8, 14, 8),
+                Visible = false
+            };
+
+            var contextHeaderLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 1,
+                RowCount = 2
+            };
+            contextHeaderLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            contextHeaderLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            contextHeaderLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            lblSelectedNodeContextName = new Label
+            {
+                Dock = DockStyle.Top,
+                AutoSize = false,
+                Height = 22,
+                AutoEllipsis = true,
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(30, 30, 30),
+                Margin = new Padding(0, 0, 0, 2),
+                Text = string.Empty
+            };
+
+            txtSelectedNodeContextPath = new TextBox
+            {
+                Dock = DockStyle.Top,
+                BorderStyle = BorderStyle.None,
+                BackColor = Color.FromArgb(250, 250, 250),
+                ReadOnly = true,
+                TabStop = false,
+                ForeColor = Color.DimGray,
+                Text = string.Empty
+            };
+
+            contextHeaderLayout.Controls.Add(lblSelectedNodeContextName, 0, 0);
+            contextHeaderLayout.Controls.Add(txtSelectedNodeContextPath, 0, 1);
+            pnlSelectedNodeContextHeader.Controls.Add(contextHeaderLayout);
+
+            pnlSelectedNodeWorkspaceHost = new Panel
+            {
+                Dock = DockStyle.Fill
+            };
+
             lblSelectedNodeEmptyState = new Label
             {
                 Dock = DockStyle.Fill,
@@ -369,9 +434,12 @@ namespace AsutpKnowledgeBase
             tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeNetwork);
             tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeMaintenance);
 
-            pnlRight.Controls.Add(pnlSelectedNodeInfoScreen);
-            pnlRight.Controls.Add(tabSelectedNodeWorkspace);
-            pnlRight.Controls.Add(lblSelectedNodeEmptyState);
+            pnlSelectedNodeWorkspaceHost.Controls.Add(pnlSelectedNodeInfoScreen);
+            pnlSelectedNodeWorkspaceHost.Controls.Add(tabSelectedNodeWorkspace);
+            pnlSelectedNodeWorkspaceHost.Controls.Add(lblSelectedNodeEmptyState);
+            rightLayout.Controls.Add(pnlSelectedNodeContextHeader, 0, 0);
+            rightLayout.Controls.Add(pnlSelectedNodeWorkspaceHost, 0, 1);
+            pnlRight.Controls.Add(rightLayout);
             splitMain.Panel2.Controls.Add(pnlRight);
         }
 

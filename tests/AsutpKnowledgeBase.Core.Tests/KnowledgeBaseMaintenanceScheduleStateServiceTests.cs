@@ -42,6 +42,37 @@ public class KnowledgeBaseMaintenanceScheduleStateServiceTests
     }
 
     [Fact]
+    public void Build_ForProfileWithYearSchedule_ReturnsManualScheduleSummaryWithHours()
+    {
+        var selectedNode = new KbNode
+        {
+            NodeId = "device-1",
+            Name = "Device 1",
+            NodeType = KbNodeType.Device
+        };
+
+        var state = _service.Build(
+            selectedNode,
+            new[]
+            {
+                new KbMaintenanceScheduleProfile
+                {
+                    MaintenanceProfileId = "maintenance-1",
+                    OwnerNodeId = "device-1",
+                    IsIncludedInSchedule = true,
+                    YearScheduleEntries = new List<KbMaintenanceYearScheduleEntry>
+                    {
+                        new() { Month = 1, WorkKind = KbMaintenanceWorkKind.To1, Hours = 2 },
+                        new() { Month = 4, WorkKind = KbMaintenanceWorkKind.To2 },
+                        new() { Month = 7, WorkKind = KbMaintenanceWorkKind.To3, Hours = 8 }
+                    }
+                }
+            });
+
+        Assert.Equal("Годовой план вручную: 3 мес.; ТО1 - 1, ТО2 - 1, ТО3 - 1, часы заданы: 2", state.YearScheduleText);
+    }
+
+    [Fact]
     public void Build_ForSupportedNodeWithoutProfile_ReturnsEditableEmptyState()
     {
         var selectedNode = new KbNode

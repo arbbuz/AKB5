@@ -7,6 +7,10 @@ Last updated: `2026-05-13`
 - Annual maintenance norm import remains the recommended source for ТО norms and yearly placement when a generated annual plan is available; the monthly workbook is not a complete norm source for yearly demand reconciliation.
 - HAVER annual-plan rows from `Годовой_график _ТО_АСУТП_КЦ_2026г.xlsx` are matched by conservative name variants that trim `Линия фасовки HAVER` from equipment names when the KB system is named `АСУ линии фасовки HAVER FFS600`, and can also trim a final Latin model code such as `FFS600`.
 - A resolved annual-plan row must set `IsIncludedInSchedule=true` on the existing maintenance profile. Otherwise a row present in the annual plan can update hours/year placement but still be omitted from monthly demand.
+- The profile dialog must not infer a user action from a checkbox tied to `YearScheduleEntries.Count`; profile saving and annual-plan applying are separate actions. `Сохранить профиль` preserves the currently applied annual plan, while `Применить годовой план` updates `YearScheduleEntries` inside the open dialog and `Очистить годовой план` clears them without closing the dialog.
+- Annual plan editing uses `Авто` for months not explicitly stored in `YearScheduleEntries`; this prevents opening and saving the dialog from turning missing months into manual `ТО1` months. Per-month `Hours` values are shown and preserved so annual-import hours are not silently replaced by generic profile norms.
+- Annual plan months that use profile-norm hours (`Hours=0`) display the effective profile norm in the UI instead of literal `0`; the stored fallback remains `0` until the user manually edits the month-hour field.
+- The right workspace shows selected-object context in one shared header above the tab host instead of duplicating labels inside each tab; this keeps the object name visible across all right-side tabs and avoids divergent per-tab state.
 
 ## 2026-05-12
 

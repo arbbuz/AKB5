@@ -102,13 +102,27 @@ namespace AsutpKnowledgeBase.Services
         private static string FormatYearSchedule(IReadOnlyList<KbMaintenanceYearScheduleEntry>? entries)
         {
             if (entries == null || entries.Count == 0)
-                return "Автоматическое размещение";
+                return "Автоматический годовой план";
 
-            int to1Count = entries.Count(static entry => entry.WorkKind == KbMaintenanceWorkKind.To1);
-            int to2Count = entries.Count(static entry => entry.WorkKind == KbMaintenanceWorkKind.To2);
-            int to3Count = entries.Count(static entry => entry.WorkKind == KbMaintenanceWorkKind.To3);
+            KbMaintenanceYearScheduleEntry[] validEntries = entries
+                .Where(static entry => entry != null &&
+                                       entry.Month is >= 1 and <= 12 &&
+                                       Enum.IsDefined(typeof(KbMaintenanceWorkKind), entry.WorkKind))
+                .GroupBy(static entry => entry.Month)
+                .Select(static group => group.Last())
+                .ToArray();
+            if (validEntries.Length == 0)
+                return "Автоматический годовой план";
 
-            return $"Ручное: ТО1 - {to1Count}, ТО2 - {to2Count}, ТО3 - {to3Count}";
+            int to1Count = validEntries.Count(static entry => entry.WorkKind == KbMaintenanceWorkKind.To1);
+            int to2Count = validEntries.Count(static entry => entry.WorkKind == KbMaintenanceWorkKind.To2);
+            int to3Count = validEntries.Count(static entry => entry.WorkKind == KbMaintenanceWorkKind.To3);
+            int hoursCount = validEntries.Count(static entry => entry.Hours > 0);
+            string hoursText = hoursCount > 0
+                ? $", часы заданы: {hoursCount}"
+                : ", часы из норм профиля";
+
+            return $"Годовой план вручную: {validEntries.Length} мес.; ТО1 - {to1Count}, ТО2 - {to2Count}, ТО3 - {to3Count}{hoursText}";
         }
     }
 }
