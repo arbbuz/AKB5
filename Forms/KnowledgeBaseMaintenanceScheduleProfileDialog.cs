@@ -217,8 +217,8 @@ namespace AsutpKnowledgeBase
 
             for (int month = 1; month <= 12; month++)
             {
-                int row = ((month - 1) / 2) + 1;
-                int columnOffset = month % 2 == 1 ? 0 : 4;
+                int row = ((month - 1) % 6) + 1;
+                int columnOffset = month <= 6 ? 0 : 4;
                 layout.Controls.Add(CreateMonthLabel(month), columnOffset, row);
 
                 ComboBox editor = CreateWorkKindEditor();

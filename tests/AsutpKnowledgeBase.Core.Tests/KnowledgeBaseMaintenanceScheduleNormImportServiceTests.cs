@@ -291,6 +291,45 @@ public class KnowledgeBaseMaintenanceScheduleNormImportServiceTests
     }
 
     [Fact]
+    public void ImportWorkbook_DoesNotMergeAnnualRowsThatDifferOnlyByPreposition()
+    {
+        IReadOnlyList<KbNode> roots = CreateWorkshopRootsWithSystemName(
+            systemInventoryNumber: "SYS-01",
+            equipmentName: "ЩУ ЦМП",
+            systemName: "АСУ ЦМП");
+        var rows = CreateAnnualRows(
+            "АСУ ЦМП",
+            "SYS-01",
+            "ЩУ ЦМП",
+            monthWorkCells: new[] { (5, "ТО3/8") })
+            .ToList();
+        rows.Add(CreateRow(18, (2, "ЩУ в ЦМП"), (GetAnnualPlanColumnIndex(5), "ТО1/2")));
+
+        byte[] workbookBytes = BuildWorkbook(("КЦ (5)", rows));
+
+        KnowledgeBaseMaintenanceScheduleNormImportResult result = _service.ImportWorkbook(
+            workbookBytes,
+            roots,
+            Array.Empty<KbMaintenanceScheduleProfile>());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, result.ImportedEquipmentCount);
+        string unresolvedEntry = Assert.Single(result.UnresolvedEntries);
+        Assert.Contains("ЩУ в ЦМП", unresolvedEntry, StringComparison.OrdinalIgnoreCase);
+
+        KbMaintenanceScheduleProfile profile = Assert.Single(result.MaintenanceScheduleProfiles);
+        Assert.Equal("cabinet-1", profile.OwnerNodeId);
+        Assert.Equal(0, profile.To1Hours);
+        Assert.Equal(0, profile.To2Hours);
+        Assert.Equal(8, profile.To3Hours);
+
+        KbMaintenanceYearScheduleEntry yearEntry = Assert.Single(profile.YearScheduleEntries);
+        Assert.Equal(5, yearEntry.Month);
+        Assert.Equal(KbMaintenanceWorkKind.To3, yearEntry.WorkKind);
+        Assert.Equal(8, yearEntry.Hours);
+    }
+
+    [Fact]
     public void ImportWorkbook_WhenNameMatchIsAmbiguous_LeavesEntryUnresolved()
     {
         var roots = new[]

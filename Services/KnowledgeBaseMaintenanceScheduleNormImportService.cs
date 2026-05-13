@@ -1222,7 +1222,6 @@ namespace AsutpKnowledgeBase.Services
                 "ФП" => "ФИЛЬТРПРЕСС",
                 "СТАДИИ" or "СТАДИЕЙ" => "СТАДИЯ",
                 "Й" or "ЕЙ" => "Я",
-                "В" => string.Empty,
                 _ => token
             };
         }
