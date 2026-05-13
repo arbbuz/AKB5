@@ -182,6 +182,93 @@ public class KnowledgeBaseMaintenanceScheduleNormImportServiceTests
     }
 
     [Fact]
+    public void ImportWorkbook_AnnualSourceReportsMissingProfilesEvenWhenWorkbookHasUnresolvedRows()
+    {
+        var roots = CreateWorkshopRootsWithTwoCabinets(
+            systemInventoryNumber: "SYS-01",
+            firstEquipmentName: "ШУ 1",
+            secondEquipmentName: "ШУ 2");
+        var rows = CreateAnnualRows(
+            "Система 1",
+            "SYS-01",
+            "ШУ 1",
+            monthWorkCells: new[] { (5, "ТО1/2") })
+            .ToList();
+        rows.Add(CreateRow(18, (2, "Неизвестный шкаф"), (GetAnnualPlanColumnIndex(5), "ТО1/3")));
+        byte[] workbookBytes = BuildWorkbook(("КЦ (2)", rows));
+
+        KnowledgeBaseMaintenanceScheduleNormImportResult result = _service.ImportWorkbook(
+            workbookBytes,
+            roots,
+            new[]
+            {
+                new KbMaintenanceScheduleProfile
+                {
+                    MaintenanceProfileId = "maintenance-cabinet-1",
+                    OwnerNodeId = "cabinet-1",
+                    IsIncludedInSchedule = true,
+                    To1Hours = 1
+                },
+                new KbMaintenanceScheduleProfile
+                {
+                    MaintenanceProfileId = "maintenance-cabinet-2",
+                    OwnerNodeId = "cabinet-2",
+                    IsIncludedInSchedule = true,
+                    To1Hours = 1
+                }
+            });
+
+        Assert.True(result.IsSuccess);
+        Assert.Single(result.UnresolvedEntries);
+        Assert.Equal(0, result.DisabledMissingProfileCount);
+
+        KnowledgeBaseMaintenanceScheduleMissingProfile missingProfile = Assert.Single(result.MissingIncludedProfiles);
+        Assert.Equal("cabinet-2", missingProfile.OwnerNodeId);
+        Assert.Contains("ШУ 2", missingProfile.DisplayText, StringComparison.OrdinalIgnoreCase);
+
+        KbMaintenanceScheduleProfile profile = Assert.Single(
+            result.MaintenanceScheduleProfiles,
+            static item => item.OwnerNodeId == "cabinet-2");
+        Assert.True(profile.IsIncludedInSchedule);
+    }
+
+    [Fact]
+    public void ImportWorkbook_AnnualSourceReportsCachedExcelTotalsThatDifferFromPlanCells()
+    {
+        var roots = CreateWorkshopRoots(
+            systemInventoryNumber: "SYS-01",
+            equipmentName: "ШУ 1");
+        var rows = CreateAnnualRows(
+            "Система 1",
+            "SYS-01",
+            "ШУ 1",
+            monthWorkCells: new[] { (5, "ТО3/8") })
+            .ToList();
+        rows[^1] = rows[^1] with
+        {
+            Cells = rows[^1].Cells.Concat(new[] { (29, "10") }).ToArray()
+        };
+        rows.Add(CreateRow(18, (2, "Итого"), (29, "10")));
+        byte[] workbookBytes = BuildWorkbook(("КЦ (2)", rows));
+
+        KnowledgeBaseMaintenanceScheduleNormImportResult result = _service.ImportWorkbook(
+            workbookBytes,
+            roots,
+            Array.Empty<KbMaintenanceScheduleProfile>());
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.UnresolvedEntries);
+        Assert.Contains(result.WorkbookWarnings, warning =>
+            warning.Contains("строка 17", StringComparison.OrdinalIgnoreCase) &&
+            warning.Contains("10", StringComparison.OrdinalIgnoreCase) &&
+            warning.Contains("8", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.WorkbookWarnings, warning =>
+            warning.Contains("строка 18", StringComparison.OrdinalIgnoreCase) &&
+            warning.Contains("10", StringComparison.OrdinalIgnoreCase) &&
+            warning.Contains("8", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void ImportWorkbook_AnnualSourceReenablesResolvedExistingProfile()
     {
         var roots = CreateWorkshopRoots(

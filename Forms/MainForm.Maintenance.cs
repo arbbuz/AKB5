@@ -169,6 +169,10 @@ namespace AsutpKnowledgeBase
                 return;
             }
 
+            int manuallyDisabledMissingProfileCount = OfferDisableMissingAnnualProfiles(importResult);
+            if (manuallyDisabledMissingProfileCount < 0)
+                return;
+
             if (!OfferProtectiveSnapshotBeforeDangerousOperation(
                     "импортом норм ТО",
                     $"Перед импортом норм ТО: {Path.GetFileName(dialog.FileName)}"))
@@ -180,7 +184,7 @@ namespace AsutpKnowledgeBase
             UpdateDirtyState();
             UpdateUI();
 
-            string summaryText = BuildMaintenanceNormImportSummary(importResult);
+            string summaryText = BuildMaintenanceNormImportSummary(importResult, manuallyDisabledMissingProfileCount);
             MessageBox.Show(
                 this,
                 summaryText,
@@ -189,6 +193,70 @@ namespace AsutpKnowledgeBase
                 MessageBoxIcon.Information);
             SetLastActionText(
                 $"Импортированы нормы ТО: {importResult.CreatedProfileCount + importResult.UpdatedProfileCount} проф.");
+        }
+
+        private int OfferDisableMissingAnnualProfiles(KnowledgeBaseMaintenanceScheduleNormImportResult importResult)
+        {
+            if (importResult.MissingIncludedProfiles.Count == 0 ||
+                importResult.DisabledMissingProfileCount > 0)
+            {
+                return 0;
+            }
+
+            var lines = new List<string>
+            {
+                "В базе есть включённые профили ТО, которых нет в годовом Excel-файле.",
+                string.Empty
+            };
+
+            if (importResult.UnresolvedEntries.Count > 0)
+            {
+                lines.Add(
+                    "Автоотключение не выполнено, потому что в файле есть несопоставленные строки. " +
+                    "Можно отключить отсутствующие профили сейчас или оставить их включёнными для ручной проверки.");
+                lines.Add(string.Empty);
+            }
+
+            lines.Add($"Отсутствующих включённых профилей: {importResult.MissingIncludedProfiles.Count}");
+            foreach (KnowledgeBaseMaintenanceScheduleMissingProfile missingProfile in importResult.MissingIncludedProfiles.Take(12))
+                lines.Add($"- {missingProfile.DisplayText}");
+
+            if (importResult.MissingIncludedProfiles.Count > 12)
+                lines.Add($"- ... ещё {importResult.MissingIncludedProfiles.Count - 12}");
+
+            lines.Add(string.Empty);
+            lines.Add("Отключить эти профили при импорте?");
+
+            DialogResult decision = MessageBox.Show(
+                this,
+                string.Join(Environment.NewLine, lines),
+                "График ТО",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button2);
+
+            if (decision == DialogResult.Cancel)
+                return -1;
+
+            if (decision != DialogResult.Yes)
+                return 0;
+
+            HashSet<string> ownerNodeIds = importResult.MissingIncludedProfiles
+                .Select(static profile => profile.OwnerNodeId)
+                .Where(static ownerNodeId => !string.IsNullOrWhiteSpace(ownerNodeId))
+                .ToHashSet(StringComparer.Ordinal);
+            int disabledCount = 0;
+            foreach (KbMaintenanceScheduleProfile profile in importResult.MaintenanceScheduleProfiles)
+            {
+                string ownerNodeId = profile.OwnerNodeId?.Trim() ?? string.Empty;
+                if (profile.IsIncludedInSchedule && ownerNodeIds.Contains(ownerNodeId))
+                {
+                    profile.IsIncludedInSchedule = false;
+                    disabledCount++;
+                }
+            }
+
+            return disabledCount;
         }
 
         private void EditMaintenanceYearScheduleSource(object? sender, EventArgs e)
@@ -505,7 +573,8 @@ namespace AsutpKnowledgeBase
             };
 
         private static string BuildMaintenanceNormImportSummary(
-            KnowledgeBaseMaintenanceScheduleNormImportResult result)
+            KnowledgeBaseMaintenanceScheduleNormImportResult result,
+            int manuallyDisabledMissingProfileCount = 0)
         {
             var lines = new List<string>
             {
@@ -521,8 +590,38 @@ namespace AsutpKnowledgeBase
             if (result.YearScheduleAppliedProfileCount > 0)
                 lines.Add($"Годовая раскладка обновлена: {result.YearScheduleAppliedProfileCount}");
 
-            if (result.DisabledMissingProfileCount > 0)
-                lines.Add($"Отключено отсутствующих в файле профилей: {result.DisabledMissingProfileCount}");
+            if (result.WorkbookWarnings.Count > 0)
+            {
+                lines.Add(string.Empty);
+                lines.Add($"Предупреждения по Excel-итогам: {result.WorkbookWarnings.Count}");
+                foreach (string warning in result.WorkbookWarnings.Take(10))
+                    lines.Add($"- {warning}");
+
+                if (result.WorkbookWarnings.Count > 10)
+                    lines.Add($"- ... ещё {result.WorkbookWarnings.Count - 10}");
+            }
+
+            int totalDisabledMissingProfileCount =
+                result.DisabledMissingProfileCount + Math.Max(0, manuallyDisabledMissingProfileCount);
+            if (result.MissingIncludedProfiles.Count > 0)
+            {
+                lines.Add(string.Empty);
+                if (totalDisabledMissingProfileCount > 0)
+                {
+                    lines.Add($"Отключено профилей, отсутствующих в годовом файле: {totalDisabledMissingProfileCount}");
+                }
+                else
+                {
+                    lines.Add(
+                        $"Включены в базе, но отсутствуют в годовом файле: {result.MissingIncludedProfiles.Count}");
+                }
+
+                foreach (KnowledgeBaseMaintenanceScheduleMissingProfile missingProfile in result.MissingIncludedProfiles.Take(10))
+                    lines.Add($"- {missingProfile.DisplayText}");
+
+                if (result.MissingIncludedProfiles.Count > 10)
+                    lines.Add($"- ... ещё {result.MissingIncludedProfiles.Count - 10}");
+            }
 
             if (result.UnresolvedEntries.Count > 0)
             {

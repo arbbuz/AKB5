@@ -32,6 +32,17 @@ namespace AsutpKnowledgeBase.Services
         public int DisabledMissingProfileCount { get; init; }
 
         public List<string> UnresolvedEntries { get; init; } = new();
+
+        public List<string> WorkbookWarnings { get; init; } = new();
+
+        public List<KnowledgeBaseMaintenanceScheduleMissingProfile> MissingIncludedProfiles { get; init; } = new();
+    }
+
+    public sealed class KnowledgeBaseMaintenanceScheduleMissingProfile
+    {
+        public string OwnerNodeId { get; init; } = string.Empty;
+
+        public string DisplayText { get; init; } = string.Empty;
     }
 
     public sealed class KnowledgeBaseMaintenanceScheduleNormImportService
@@ -42,6 +53,7 @@ namespace AsutpKnowledgeBase.Services
         private const int PlanFactColumnIndex = 5;
         private const int FirstDayColumnIndex = 6;
         private const int LastDayColumnIndex = 36;
+        private const int AnnualTotalHoursColumnIndex = 29; // AC
         private static readonly string[] AutomationNamePrefixes = { "АСУТП ", "АСУ ТП ", "АСУ ", "СУ " };
         private static readonly Regex WorkCellRegex = new(
             @"^\s*(ТО[123])\s*/\s*(\d+(?:[.,]\d+)?)\s*$",
@@ -63,7 +75,8 @@ namespace AsutpKnowledgeBase.Services
 
             try
             {
-                List<ImportedNormEntry> importedEntries = ParseWorkbook(workbookPackage);
+                WorkbookParseResult parseResult = ParseWorkbook(workbookPackage);
+                List<ImportedNormEntry> importedEntries = parseResult.ImportedEntries;
                 if (importedEntries.Count == 0)
                 {
                     return Failure(
@@ -90,6 +103,7 @@ namespace AsutpKnowledgeBase.Services
                 int yearScheduleAppliedProfileCount = 0;
                 int disabledMissingProfileCount = 0;
                 bool isAnnualSource = importedEntries.Any(static entry => entry.YearScheduleEntries.Count > 0);
+                var missingIncludedProfiles = new List<KnowledgeBaseMaintenanceScheduleMissingProfile>();
 
                 var resolvedEntriesByOwnerNodeId = new Dictionary<string, ImportedNormAccumulator>(StringComparer.Ordinal);
                 foreach (ImportedNormEntry importedEntry in importedEntries)
@@ -172,22 +186,34 @@ namespace AsutpKnowledgeBase.Services
                     updatedProfileCount++;
                 }
 
-                if (isAnnualSource && unresolvedEntries.Count == 0)
+                if (isAnnualSource)
                 {
-                    HashSet<string> currentWorkshopOwnerNodeIds = candidates
-                        .Select(static candidate => candidate.OwnerNode.NodeId)
-                        .Where(static ownerNodeId => !string.IsNullOrWhiteSpace(ownerNodeId))
-                        .ToHashSet(StringComparer.Ordinal);
+                    Dictionary<string, OwnerNodeCandidate> currentWorkshopCandidatesByOwnerNodeId = candidates
+                        .Where(static candidate => !string.IsNullOrWhiteSpace(candidate.OwnerNode.NodeId))
+                        .GroupBy(static candidate => candidate.OwnerNode.NodeId, StringComparer.Ordinal)
+                        .ToDictionary(
+                            static group => group.Key,
+                            static group => group.OrderBy(static candidate => candidate.OwnerNode.Name, StringComparer.Ordinal).First(),
+                            StringComparer.Ordinal);
 
                     foreach (KbMaintenanceScheduleProfile profile in updatedProfiles)
                     {
                         string ownerNodeId = profile.OwnerNodeId?.Trim() ?? string.Empty;
                         if (profile.IsIncludedInSchedule &&
-                            currentWorkshopOwnerNodeIds.Contains(ownerNodeId) &&
+                            currentWorkshopCandidatesByOwnerNodeId.TryGetValue(ownerNodeId, out OwnerNodeCandidate? candidate) &&
                             !resolvedEntriesByOwnerNodeId.ContainsKey(ownerNodeId))
                         {
-                            profile.IsIncludedInSchedule = false;
-                            disabledMissingProfileCount++;
+                            missingIncludedProfiles.Add(new KnowledgeBaseMaintenanceScheduleMissingProfile
+                            {
+                                OwnerNodeId = ownerNodeId,
+                                DisplayText = BuildMissingIncludedProfileText(candidate)
+                            });
+
+                            if (unresolvedEntries.Count == 0)
+                            {
+                                profile.IsIncludedInSchedule = false;
+                                disabledMissingProfileCount++;
+                            }
                         }
                     }
                 }
@@ -204,7 +230,9 @@ namespace AsutpKnowledgeBase.Services
                     MatchedByNameCount = matchedByNameCount,
                     YearScheduleAppliedProfileCount = yearScheduleAppliedProfileCount,
                     DisabledMissingProfileCount = disabledMissingProfileCount,
-                    UnresolvedEntries = unresolvedEntries
+                    UnresolvedEntries = unresolvedEntries,
+                    WorkbookWarnings = parseResult.WorkbookWarnings,
+                    MissingIncludedProfiles = missingIncludedProfiles
                 };
             }
             catch (Exception ex)
@@ -213,7 +241,7 @@ namespace AsutpKnowledgeBase.Services
             }
         }
 
-        private static List<ImportedNormEntry> ParseWorkbook(byte[] workbookPackage)
+        private static WorkbookParseResult ParseWorkbook(byte[] workbookPackage)
         {
             using var stream = new MemoryStream(workbookPackage, writable: false);
             using SpreadsheetDocument document = SpreadsheetDocument.Open(stream, false);
@@ -222,6 +250,7 @@ namespace AsutpKnowledgeBase.Services
                 ?? throw new InvalidOperationException("Файл XLSX не содержит workbook part.");
             List<string> sharedStrings = ReadSharedStrings(workbookPart.SharedStringTablePart).ToList();
             var aggregatedEntries = new Dictionary<string, ImportedNormAccumulator>(StringComparer.Ordinal);
+            var workbookWarnings = new List<string>();
 
             foreach (Sheet sheet in workbookPart.Workbook.Sheets?.Elements<Sheet>() ?? Enumerable.Empty<Sheet>())
             {
@@ -233,16 +262,18 @@ namespace AsutpKnowledgeBase.Services
                 if (workbookPart.GetPartById(relationshipId) is not WorksheetPart worksheetPart)
                     continue;
 
-                ParseAnnualWorksheet(sheetName, worksheetPart, sharedStrings, aggregatedEntries);
+                ParseAnnualWorksheet(sheetName, worksheetPart, sharedStrings, aggregatedEntries, workbookWarnings);
             }
 
             if (aggregatedEntries.Count > 0)
             {
-                return aggregatedEntries.Values
-                    .Select(static accumulator => accumulator.ToEntry())
-                    .OrderBy(static entry => entry.SystemName, StringComparer.OrdinalIgnoreCase)
-                    .ThenBy(static entry => entry.EquipmentName, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
+                return new WorkbookParseResult(
+                    aggregatedEntries.Values
+                        .Select(static accumulator => accumulator.ToEntry())
+                        .OrderBy(static entry => entry.SystemName, StringComparer.OrdinalIgnoreCase)
+                        .ThenBy(static entry => entry.EquipmentName, StringComparer.OrdinalIgnoreCase)
+                        .ToList(),
+                    workbookWarnings);
             }
 
             foreach (Sheet sheet in workbookPart.Workbook.Sheets?.Elements<Sheet>() ?? Enumerable.Empty<Sheet>())
@@ -261,18 +292,21 @@ namespace AsutpKnowledgeBase.Services
                 ParseWorksheet(sheetName, worksheetPart, sharedStrings, aggregatedEntries);
             }
 
-            return aggregatedEntries.Values
-                .Select(static accumulator => accumulator.ToEntry())
-                .OrderBy(static entry => entry.SystemName, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(static entry => entry.EquipmentName, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            return new WorkbookParseResult(
+                aggregatedEntries.Values
+                    .Select(static accumulator => accumulator.ToEntry())
+                    .OrderBy(static entry => entry.SystemName, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(static entry => entry.EquipmentName, StringComparer.OrdinalIgnoreCase)
+                    .ToList(),
+                workbookWarnings);
         }
 
         private static void ParseAnnualWorksheet(
             string sheetName,
             WorksheetPart worksheetPart,
             IReadOnlyList<string> sharedStrings,
-            IDictionary<string, ImportedNormAccumulator> aggregatedEntries)
+            IDictionary<string, ImportedNormAccumulator> aggregatedEntries,
+            ICollection<string> workbookWarnings)
         {
             SheetData sheetData = worksheetPart.Worksheet.GetFirstChild<SheetData>()
                 ?? throw new InvalidOperationException($"Лист '{sheetName}' не содержит sheetData.");
@@ -283,6 +317,7 @@ namespace AsutpKnowledgeBase.Services
 
             string currentSystemName = string.Empty;
             string currentSystemInventory = string.Empty;
+            int visiblePlanHoursTotal = 0;
 
             foreach (Row row in rows)
             {
@@ -297,6 +332,11 @@ namespace AsutpKnowledgeBase.Services
                 if (values.Count == 0)
                     continue;
 
+                string equipmentName = GetCellValue(values, EquipmentNameColumnIndex).Trim();
+                int? cachedRowTotalHours = TryReadNonNegativeInt(GetCellValue(values, AnnualTotalHoursColumnIndex), out int rowTotalHours)
+                    ? rowTotalHours
+                    : null;
+
                 if (TryParseAnnualPlanRow(
                         sheetName,
                         rowIndex,
@@ -307,6 +347,15 @@ namespace AsutpKnowledgeBase.Services
                         out ImportedNormEntry? importedEntry) &&
                     importedEntry != null)
                 {
+                    int planRowHours = importedEntry.YearScheduleEntries.Sum(static entry => Math.Max(0, entry.Hours));
+                    visiblePlanHoursTotal += planRowHours;
+                    if (cachedRowTotalHours is > 0 && cachedRowTotalHours.Value != planRowHours)
+                    {
+                        workbookWarnings.Add(
+                            $"{sheetName}, строка {rowIndex}: итог в колонке AC = {cachedRowTotalHours.Value} ч, " +
+                            $"пересчёт по ячейкам плана = {planRowHours} ч; импорт использует пересчёт по ячейкам плана.");
+                    }
+
                     string aggregateKey = BuildAggregateKey(importedEntry);
                     if (!aggregatedEntries.TryGetValue(aggregateKey, out ImportedNormAccumulator? accumulator))
                     {
@@ -318,6 +367,14 @@ namespace AsutpKnowledgeBase.Services
                         accumulator.Absorb(importedEntry);
                     }
 
+                    continue;
+                }
+
+                if (IsAnnualTotalRow(equipmentName) && cachedRowTotalHours is > 0 && cachedRowTotalHours.Value != visiblePlanHoursTotal)
+                {
+                    workbookWarnings.Add(
+                        $"{sheetName}, строка {rowIndex}: итог Excel = {cachedRowTotalHours.Value} ч, " +
+                        $"пересчёт по видимым ячейкам плана = {visiblePlanHoursTotal} ч; импорт использует пересчёт по ячейкам плана.");
                     continue;
                 }
 
@@ -645,6 +702,26 @@ namespace AsutpKnowledgeBase.Services
 
             hours = decimal.ToInt32(decimal.Round(parsedHours, MidpointRounding.AwayFromZero));
             return hours > 0;
+        }
+
+        private static bool TryReadNonNegativeInt(string? rawValue, out int value)
+        {
+            value = 0;
+            string normalizedValue = rawValue?.Trim().Replace(',', '.') ?? string.Empty;
+            if (normalizedValue.Length == 0)
+                return false;
+
+            if (!decimal.TryParse(normalizedValue, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal parsedValue))
+                return false;
+
+            value = decimal.ToInt32(decimal.Round(parsedValue, MidpointRounding.AwayFromZero));
+            return value >= 0;
+        }
+
+        private static bool IsAnnualTotalRow(string? equipmentName)
+        {
+            string normalizedName = NormalizeTextKey(equipmentName);
+            return normalizedName == "ИТОГО" || normalizedName == "ВСЕГО";
         }
 
         private static List<OwnerNodeCandidate> BuildOwnerNodeCandidates(IReadOnlyList<KbNode>? roots)
@@ -1050,6 +1127,20 @@ namespace AsutpKnowledgeBase.Services
                     : string.Empty;
             string suffix = isAmbiguous ? " - найдено несколько совпадений" : " - совпадение не найдено";
             return $"{rowText}{systemText}{entry.EquipmentName}{inventoryText}{suffix}";
+        }
+
+        private static string BuildMissingIncludedProfileText(OwnerNodeCandidate candidate)
+        {
+            string systemText = candidate.SystemName.Length > 0
+                ? $"{candidate.SystemName} / "
+                : string.Empty;
+            string inventoryText = candidate.EquipmentInventory.Length > 0
+                ? $" [инв. {candidate.EquipmentInventory}]"
+                : candidate.SystemInventory.Length > 0
+                    ? $" [система {candidate.SystemInventory}]"
+                    : string.Empty;
+
+            return $"{systemText}{candidate.EquipmentName}{inventoryText}";
         }
 
         private static List<KbMaintenanceScheduleProfile> CloneProfiles(
@@ -1696,6 +1787,10 @@ namespace AsutpKnowledgeBase.Services
 
             public string[] SystemInventoryKeys { get; } = BuildInventoryMatchKeys(SystemInventory);
         }
+
+        private sealed record WorkbookParseResult(
+            List<ImportedNormEntry> ImportedEntries,
+            List<string> WorkbookWarnings);
 
         private sealed record ImportedNormMonthWorkEntry(
             int Month,
