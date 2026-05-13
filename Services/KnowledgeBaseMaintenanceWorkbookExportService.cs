@@ -23,7 +23,11 @@ namespace AsutpKnowledgeBase.Services
         private const int NotesColumnIndex = 38; // AL
         private const int HiddenMergeColumnIndex = 40; // AN
         private const int SheetColumnSpanEndIndex = 43; // AQ
+        private const int AnnualFirstMonthPlanColumnIndex = 5; // E
+        private const int AnnualTotalHoursColumnIndex = 29; // AC
+        private const int AnnualSheetColumnSpanEndIndex = 43; // AQ
         private const string TotalsLabelText = "Итого:";
+        private const string AnnualTotalsLabelText = "Итого";
         private const string PlanText = "план";
         private const string FactText = "факт";
         private const string DefaultDashText = "-";
@@ -82,6 +86,74 @@ namespace AsutpKnowledgeBase.Services
                         templateWorksheetPart,
                         templateLayout,
                         sheetModel);
+
+                    ResetWorkbookCalculationChain(workbookPart);
+                    targetWorksheetPart.Worksheet.Save();
+                    workbookPart.Workbook.Save();
+                }
+
+                return new KnowledgeBaseMaintenanceWorkbookExportResult
+                {
+                    IsSuccess = true,
+                    WorkbookPackage = workbookStream.ToArray()
+                };
+            }
+            catch (Exception ex)
+            {
+                return Failure(ex.Message);
+            }
+        }
+
+        public KnowledgeBaseMaintenanceWorkbookExportResult ExportSingleMonth(KbMaintenanceMonthSheetModel? sheetModel)
+        {
+            if (sheetModel == null)
+                return Failure("Отсутствует модель листа графика ТО.");
+
+            KnowledgeBaseMaintenanceWorkbookExportResult exportResult = ExportMonth(null, sheetModel);
+            if (!exportResult.IsSuccess || exportResult.WorkbookPackage == null)
+                return exportResult;
+
+            try
+            {
+                return new KnowledgeBaseMaintenanceWorkbookExportResult
+                {
+                    IsSuccess = true,
+                    WorkbookPackage = PruneWorkbookToSingleMonth(exportResult.WorkbookPackage, sheetModel.Month)
+                };
+            }
+            catch (Exception ex)
+            {
+                return Failure(ex.Message);
+            }
+        }
+
+        public KnowledgeBaseMaintenanceWorkbookExportResult ExportAnnual(KbMaintenanceAnnualWorkbookModel? workbookModel)
+        {
+            if (workbookModel == null)
+                return Failure("Отсутствует модель годового графика ТО.");
+
+            if (workbookModel.Year < 1)
+                return Failure("Год годового графика ТО должен быть положительным.");
+
+            byte[] workbookBytes = _templateService.GetAnnualTemplatePackage();
+
+            try
+            {
+                using var workbookStream = CreateExpandableMemoryStream(workbookBytes);
+                using (SpreadsheetDocument workbookDocument = SpreadsheetDocument.Open(workbookStream, true))
+                {
+                    WorkbookPart workbookPart = workbookDocument.WorkbookPart
+                        ?? throw new InvalidOperationException("Книга годового графика ТО повреждена: отсутствует workbook part.");
+                    Sheet targetSheet = FindAnnualSheet(workbookPart);
+                    WorksheetPart targetWorksheetPart = GetWorksheetPart(workbookPart, targetSheet);
+                    AnnualSheetLayout layout = AnnualSheetLayout.Read(targetWorksheetPart);
+
+                    RewriteAnnualSheet(
+                        workbookPart,
+                        targetSheet,
+                        targetWorksheetPart,
+                        layout,
+                        workbookModel);
 
                     ResetWorkbookCalculationChain(workbookPart);
                     targetWorksheetPart.Worksheet.Save();
@@ -200,6 +272,118 @@ namespace AsutpKnowledgeBase.Services
             mergeCells.Count = (uint)mergeCells.ChildElements.Count;
         }
 
+        private static byte[] PruneWorkbookToSingleMonth(byte[] packageBytes, int month)
+        {
+            using var workbookStream = CreateExpandableMemoryStream(packageBytes);
+            using (SpreadsheetDocument workbookDocument = SpreadsheetDocument.Open(workbookStream, true))
+            {
+                WorkbookPart workbookPart = workbookDocument.WorkbookPart
+                    ?? throw new InvalidOperationException("Книга графика ТО повреждена: отсутствует workbook part.");
+                Sheets sheets = workbookPart.Workbook.Sheets
+                    ?? throw new InvalidOperationException("Книга графика ТО повреждена: отсутствует список листов.");
+                Sheet targetSheet = FindMonthSheet(workbookPart, month);
+                List<Sheet> orderedSheets = sheets.Elements<Sheet>().ToList();
+                int targetLocalSheetId = orderedSheets.FindIndex(sheet =>
+                    string.Equals(sheet.Id?.Value, targetSheet.Id?.Value, StringComparison.Ordinal));
+                if (targetLocalSheetId < 0)
+                    throw new InvalidOperationException("Выбранный лист графика ТО не найден в книге.");
+
+                foreach (Sheet sheet in orderedSheets)
+                {
+                    if (string.Equals(sheet.Id?.Value, targetSheet.Id?.Value, StringComparison.Ordinal))
+                        continue;
+
+                    if (!string.IsNullOrWhiteSpace(sheet.Id?.Value) &&
+                        workbookPart.GetPartById(sheet.Id!.Value!) is WorksheetPart worksheetPart)
+                    {
+                        workbookPart.DeletePart(worksheetPart);
+                    }
+
+                    sheet.Remove();
+                }
+
+                targetSheet.SheetId = 1U;
+                PruneDefinedNamesToSingleSheet(workbookPart, targetLocalSheetId);
+                ResetWorkbookViewToFirstSheet(workbookPart);
+                workbookPart.Workbook.Save();
+            }
+
+            return workbookStream.ToArray();
+        }
+
+        private static void RewriteAnnualSheet(
+            WorkbookPart workbookPart,
+            Sheet targetSheet,
+            WorksheetPart targetWorksheetPart,
+            AnnualSheetLayout layout,
+            KbMaintenanceAnnualWorkbookModel workbookModel)
+        {
+            Worksheet targetWorksheet = targetWorksheetPart.Worksheet;
+            SheetData targetSheetData = targetWorksheet.GetFirstChild<SheetData>()
+                ?? throw new InvalidOperationException("Лист годового графика ТО повреждён: отсутствует sheetData.");
+
+            Row systemTemplate = CloneRow(FindRequiredRow(targetSheetData, layout.FirstSystemRowIndex));
+            Row detailTemplate = CloneRow(FindRequiredRow(targetSheetData, layout.FirstDetailRowIndex));
+            IReadOnlyList<Row> footerTemplates = targetSheetData.Elements<Row>()
+                .Where(row => (row.RowIndex?.Value ?? 0) >= layout.FooterStartRowIndex)
+                .Select(CloneRow)
+                .ToArray();
+            IReadOnlyList<string> footerMerges = ReadMergedRanges(targetWorksheet)
+                .Where(range => RangeIntersectsRows(range, layout.FooterStartRowIndex, layout.LastUsedRowIndex))
+                .ToArray();
+
+            RemoveRows(targetSheetData, layout.DataStartRowIndex, layout.LastUsedRowIndex);
+            MergeCells mergeCells = GetOrCreateMergeCells(targetWorksheet);
+            ClearMergedRanges(mergeCells, layout.DataStartRowIndex, layout.LastUsedRowIndex);
+            ClearRowBreaks(targetWorksheet);
+
+            WriteAnnualHeader(targetWorksheet, workbookModel);
+
+            uint currentRowIndex = layout.DataStartRowIndex;
+            foreach (KbMaintenanceAnnualSystemGroup systemGroup in workbookModel.SystemGroups)
+            {
+                uint groupStartRowIndex = currentRowIndex;
+                Row systemRow = CloneRowToIndex(systemTemplate, currentRowIndex);
+                PopulateAnnualSystemRow(systemRow, systemGroup, workbookModel.WorkshopName);
+                targetSheetData.Append(systemRow);
+                currentRowIndex++;
+
+                foreach (KbMaintenanceAnnualDetailRow detailRow in systemGroup.DetailRows)
+                {
+                    Row row = CloneRowToIndex(detailTemplate, currentRowIndex);
+                    PopulateAnnualDetailRow(row, detailRow, layout.PlanColumnByMonth);
+                    targetSheetData.Append(row);
+                    currentRowIndex++;
+                }
+
+                AddMerge(mergeCells, 1, 1, groupStartRowIndex, currentRowIndex - 1);
+            }
+
+            uint footerStartRowIndex = currentRowIndex;
+            int footerRowDelta = (int)footerStartRowIndex - (int)layout.FooterStartRowIndex;
+            foreach (Row footerTemplate in footerTemplates)
+            {
+                uint oldRowIndex = footerTemplate.RowIndex?.Value ?? layout.FooterStartRowIndex;
+                Row footerRow = CloneRowToIndex(footerTemplate, (uint)((int)oldRowIndex + footerRowDelta));
+                targetSheetData.Append(footerRow);
+            }
+
+            foreach (string mergeRange in footerMerges)
+            {
+                AddShiftedMerge(mergeCells, mergeRange, footerRowDelta);
+            }
+
+            uint totalsRowIndex = footerStartRowIndex;
+            PopulateAnnualTotalsRow(targetWorksheet, totalsRowIndex, workbookModel);
+            uint finalRowIndex = footerTemplates.Count == 0
+                ? totalsRowIndex
+                : footerTemplates.Max(row => (uint)((int)(row.RowIndex?.Value ?? layout.FooterStartRowIndex) + footerRowDelta));
+
+            UpdateWorksheetDimension(targetWorksheet, finalRowIndex);
+            UpdateAnnualDefinedRanges(workbookPart, targetSheet, layout, finalRowIndex);
+            mergeCells.Count = (uint)mergeCells.ChildElements.Count;
+        }
+
         private static void WriteHeader(
             Worksheet worksheet,
             SheetLayout layout,
@@ -228,6 +412,13 @@ namespace AsutpKnowledgeBase.Services
                 : 0d;
             SetSheetCellNumber(worksheet, layout.AverageRowIndex, TotalHoursColumnIndex, averageDailyHours);
             SetSheetCellNumber(worksheet, layout.AverageRowIndex, NotesColumnIndex, sheetModel.WorkingDayCount);
+        }
+
+        private static void WriteAnnualHeader(Worksheet worksheet, KbMaintenanceAnnualWorkbookModel workbookModel)
+        {
+            SetSheetCellText(worksheet, 10, 1, $"на {workbookModel.Year} год");
+            int approvalYear = Math.Max(1, workbookModel.Year - 1);
+            SetSheetCellText(worksheet, 7, 21, $"____ ____________ {approvalYear} года");
         }
 
         private static void PopulateSystemHeaderRows(
@@ -269,6 +460,39 @@ namespace AsutpKnowledgeBase.Services
             SetCellText(factRow, 5, FactText);
         }
 
+        private static void PopulateAnnualSystemRow(
+            Row row,
+            KbMaintenanceAnnualSystemGroup systemGroup,
+            string workshopName)
+        {
+            ClearRowValues(row, 1, AnnualSheetColumnSpanEndIndex);
+            SetCellNumber(row, 1, systemGroup.SequenceNumber);
+            SetCellText(row, 2, NormalizeText(systemGroup.SystemName, string.Empty));
+            SetCellText(row, 3, NormalizeText(workshopName, string.Empty));
+            SetCellText(row, 4, NormalizeText(systemGroup.InventoryNumber, string.Empty));
+        }
+
+        private static void PopulateAnnualDetailRow(
+            Row row,
+            KbMaintenanceAnnualDetailRow detailRow,
+            IReadOnlyDictionary<int, int> planColumnByMonth)
+        {
+            ClearRowValues(row, 1, AnnualSheetColumnSpanEndIndex);
+            SetCellText(row, 2, NormalizeText(detailRow.NodeName, string.Empty));
+            SetCellText(row, 4, NormalizeText(detailRow.InventoryNumber, string.Empty));
+
+            foreach (KbMaintenanceAnnualMonthCell monthCell in detailRow.MonthCells)
+            {
+                if (!planColumnByMonth.TryGetValue(monthCell.Month, out int planColumnIndex))
+                    continue;
+
+                SetCellText(row, planColumnIndex, monthCell.PlanText);
+                SetCellNumber(row, planColumnIndex + 1, monthCell.Hours);
+            }
+
+            SetCellNumber(row, AnnualTotalHoursColumnIndex, detailRow.TotalHours);
+        }
+
         private static void PopulateFooter(
             Worksheet worksheet,
             uint footerStartRowIndex,
@@ -280,6 +504,8 @@ namespace AsutpKnowledgeBase.Services
             uint dayCountRowIndex = footerStartRowIndex + 1;
             uint groupedTotalsRowIndex = footerStartRowIndex + 2;
 
+            Row totalsRow = GetOrCreateRow(worksheet, totalsRowIndex);
+            ClearRowValues(totalsRow, FirstDayColumnIndex, TotalHoursColumnIndex - 1);
             SetSheetCellText(worksheet, totalsRowIndex, 2, TotalsLabelText);
             if (sheetModel.SystemGroups.Count == 0)
             {
@@ -317,6 +543,17 @@ namespace AsutpKnowledgeBase.Services
             SetSheetCellFormula(worksheet, groupedTotalsRowIndex, 27, $"SUM(AB{dayCountRowIndex}:AH{dayCountRowIndex})");
             SetSheetCellFormula(worksheet, groupedTotalsRowIndex, 34, $"SUM(AI{dayCountRowIndex}:AJ{dayCountRowIndex})");
             SetSheetCellFormula(worksheet, groupedTotalsRowIndex, TotalHoursColumnIndex, $"SUM(F{groupedTotalsRowIndex}:AJ{groupedTotalsRowIndex})");
+        }
+
+        private static void PopulateAnnualTotalsRow(
+            Worksheet worksheet,
+            uint totalsRowIndex,
+            KbMaintenanceAnnualWorkbookModel workbookModel)
+        {
+            Row totalsRow = GetOrCreateRow(worksheet, totalsRowIndex);
+            ClearRowValues(totalsRow, 1, AnnualSheetColumnSpanEndIndex);
+            SetCellText(totalsRow, 2, AnnualTotalsLabelText);
+            SetCellNumber(totalsRow, AnnualTotalHoursColumnIndex, workbookModel.TotalHours);
         }
 
         private static void UpdateWorksheetDimension(Worksheet worksheet, uint footerEndRowIndex)
@@ -371,6 +608,37 @@ namespace AsutpKnowledgeBase.Services
                 fallbackEndColumn: "AQ");
         }
 
+        private static void UpdateAnnualDefinedRanges(
+            WorkbookPart workbookPart,
+            Sheet targetSheet,
+            AnnualSheetLayout targetLayout,
+            uint finalRowIndex)
+        {
+            Workbook workbook = workbookPart.Workbook;
+            DefinedNames definedNames = workbook.DefinedNames ?? workbook.AppendChild(new DefinedNames());
+            List<Sheet> sheets = workbook.Sheets!.Elements<Sheet>().ToList();
+            int localSheetId = sheets.FindIndex(sheet => ReferenceEquals(sheet, targetSheet));
+            if (localSheetId < 0)
+                return;
+
+            UpdateDefinedNameRange(
+                definedNames,
+                targetSheet.Name?.Value ?? string.Empty,
+                localSheetId,
+                "_xlnm.Print_Titles",
+                startRow: targetLayout.TitleStartRowIndex,
+                endRow: targetLayout.TitleEndRowIndex,
+                fallbackEndColumn: null);
+            UpdateDefinedNameRange(
+                definedNames,
+                targetSheet.Name?.Value ?? string.Empty,
+                localSheetId,
+                "_xlnm.Print_Area",
+                startRow: 1,
+                endRow: finalRowIndex + 1,
+                fallbackEndColumn: "AQ");
+        }
+
         private static void UpdateDefinedNameRange(
             DefinedNames definedNames,
             string sheetName,
@@ -407,6 +675,43 @@ namespace AsutpKnowledgeBase.Services
             calculationProperties.CalculationMode = CalculateModeValues.Auto;
             calculationProperties.ForceFullCalculation = true;
             calculationProperties.FullCalculationOnLoad = true;
+        }
+
+        private static void PruneDefinedNamesToSingleSheet(WorkbookPart workbookPart, int originalLocalSheetId)
+        {
+            DefinedNames? definedNames = workbookPart.Workbook.DefinedNames;
+            if (definedNames == null)
+                return;
+
+            foreach (DefinedName definedName in definedNames.Elements<DefinedName>().ToList())
+            {
+                if (definedName.LocalSheetId == null)
+                    continue;
+
+                if (definedName.LocalSheetId.Value == (uint)originalLocalSheetId)
+                {
+                    definedName.LocalSheetId = 0U;
+                    continue;
+                }
+
+                definedName.Remove();
+            }
+
+            if (!definedNames.Elements<DefinedName>().Any())
+                definedNames.Remove();
+        }
+
+        private static void ResetWorkbookViewToFirstSheet(WorkbookPart workbookPart)
+        {
+            BookViews? bookViews = workbookPart.Workbook.BookViews;
+            if (bookViews == null)
+                return;
+
+            foreach (WorkbookView workbookView in bookViews.Elements<WorkbookView>())
+            {
+                workbookView.ActiveTab = 0U;
+                workbookView.FirstSheet = 0U;
+            }
         }
 
         private static void ResetWorksheetView(Worksheet worksheet, uint firstDataRowIndex)
@@ -776,6 +1081,20 @@ namespace AsutpKnowledgeBase.Services
                 ?? throw new InvalidOperationException($"Лист '{expectedName}' не найден в книге графика ТО.");
         }
 
+        private static Sheet FindAnnualSheet(WorkbookPart workbookPart)
+        {
+            Sheets sheets = workbookPart.Workbook.Sheets
+                ?? throw new InvalidOperationException("Книга годового графика ТО повреждена: отсутствует список листов.");
+            foreach (Sheet sheet in sheets.Elements<Sheet>())
+            {
+                WorksheetPart worksheetPart = GetWorksheetPart(workbookPart, sheet);
+                if (AnnualSheetLayout.TryRead(worksheetPart, out _))
+                    return sheet;
+            }
+
+            throw new InvalidOperationException("В шаблоне годового графика ТО не найден лист установленной годовой формы.");
+        }
+
         private static WorksheetPart GetWorksheetPart(WorkbookPart workbookPart, Sheet sheet)
         {
             string relationshipId = sheet.Id?.Value
@@ -910,6 +1229,185 @@ namespace AsutpKnowledgeBase.Services
                     });
 
                 return planRow?.RowIndex?.Value;
+            }
+
+            private static string ReadCellText(Row row, int columnIndex, IReadOnlyList<string> sharedStrings)
+            {
+                Cell? cell = row.Elements<Cell>()
+                    .FirstOrDefault(candidate =>
+                        string.Equals(
+                            Regex.Replace(candidate.CellReference?.Value ?? string.Empty, @"\d", string.Empty),
+                            GetColumnName(columnIndex),
+                            StringComparison.Ordinal));
+
+                return cell == null
+                    ? string.Empty
+                    : ReadCellText(cell, sharedStrings);
+            }
+
+            private static string ReadCellText(Cell cell, IReadOnlyList<string> sharedStrings)
+            {
+                if (cell.DataType?.Value == CellValues.SharedString)
+                {
+                    if (cell.CellValue == null || !int.TryParse(cell.CellValue.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int index))
+                        return string.Empty;
+
+                    return index >= 0 && index < sharedStrings.Count
+                        ? sharedStrings[index]
+                        : string.Empty;
+                }
+
+                if (cell.DataType?.Value == CellValues.InlineString)
+                {
+                    return string.Concat(cell.InlineString?.Descendants<Text>().Select(text => text.Text) ?? Enumerable.Empty<string>());
+                }
+
+                return cell.CellValue?.Text ?? string.Empty;
+            }
+
+            private static IReadOnlyList<string> ReadSharedStrings(SharedStringTablePart? part)
+            {
+                if (part?.SharedStringTable == null)
+                    return Array.Empty<string>();
+
+                return part.SharedStringTable
+                    .Elements<SharedStringItem>()
+                    .Select(item => string.Concat(item.Descendants<Text>().Select(text => text.Text)))
+                    .ToArray();
+            }
+        }
+
+        private sealed record AnnualSheetLayout(
+            uint PlanHeaderRowIndex,
+            uint TitleStartRowIndex,
+            uint TitleEndRowIndex,
+            uint DataStartRowIndex,
+            uint FirstSystemRowIndex,
+            uint FirstDetailRowIndex,
+            uint FooterStartRowIndex,
+            uint LastUsedRowIndex,
+            IReadOnlyDictionary<int, int> PlanColumnByMonth)
+        {
+            public static AnnualSheetLayout Read(WorksheetPart worksheetPart)
+            {
+                if (TryRead(worksheetPart, out AnnualSheetLayout? layout))
+                    return layout!;
+
+                throw new InvalidOperationException("Лист годового графика ТО повреждён: не найдена годовая таблица с 12 колонками 'план'.");
+            }
+
+            public static bool TryRead(WorksheetPart worksheetPart, out AnnualSheetLayout? layout)
+            {
+                layout = null;
+                SheetData? sheetData = worksheetPart.Worksheet.GetFirstChild<SheetData>();
+                if (sheetData == null)
+                    return false;
+
+                IReadOnlyList<string> sharedStrings = ReadSharedStrings(
+                    worksheetPart.GetParentParts().OfType<WorkbookPart>().FirstOrDefault()?.SharedStringTablePart);
+                List<Row> rows = sheetData.Elements<Row>().ToList();
+                if (!TryFindPlanHeaderRow(rows, sharedStrings, out uint planHeaderRowIndex, out Dictionary<int, int> planColumnByMonth))
+                    return false;
+
+                uint dataStartRowIndex = planHeaderRowIndex + 2;
+                uint firstDetailRowIndex = FindFirstDetailRowIndex(rows, sharedStrings, dataStartRowIndex, planColumnByMonth.Values);
+                uint footerStartRowIndex = FindFooterStartRowIndex(rows, sharedStrings, dataStartRowIndex);
+                uint lastUsedRowIndex = rows
+                    .Select(row => row.RowIndex?.Value ?? 0)
+                    .DefaultIfEmpty(footerStartRowIndex)
+                    .Max();
+
+                layout = new AnnualSheetLayout(
+                    PlanHeaderRowIndex: planHeaderRowIndex,
+                    TitleStartRowIndex: planHeaderRowIndex - 2,
+                    TitleEndRowIndex: planHeaderRowIndex + 1,
+                    DataStartRowIndex: dataStartRowIndex,
+                    FirstSystemRowIndex: dataStartRowIndex,
+                    FirstDetailRowIndex: firstDetailRowIndex,
+                    FooterStartRowIndex: footerStartRowIndex,
+                    LastUsedRowIndex: lastUsedRowIndex,
+                    PlanColumnByMonth: planColumnByMonth);
+                return true;
+            }
+
+            private static bool TryFindPlanHeaderRow(
+                IReadOnlyList<Row> rows,
+                IReadOnlyList<string> sharedStrings,
+                out uint planHeaderRowIndex,
+                out Dictionary<int, int> planColumnByMonth)
+            {
+                planHeaderRowIndex = 0;
+                planColumnByMonth = new Dictionary<int, int>();
+
+                foreach (Row row in rows)
+                {
+                    int[] planColumns = row.Elements<Cell>()
+                        .Where(cell => string.Equals(ReadCellText(cell, sharedStrings), PlanText, StringComparison.OrdinalIgnoreCase))
+                        .Select(cell => GetColumnIndex(cell.CellReference?.Value))
+                        .Where(static columnIndex => columnIndex > 0)
+                        .Order()
+                        .ToArray();
+                    if (planColumns.Length < 12)
+                        continue;
+
+                    int month = 1;
+                    foreach (int columnIndex in planColumns.Take(12))
+                        planColumnByMonth[month++] = columnIndex;
+
+                    planHeaderRowIndex = row.RowIndex?.Value ?? 0;
+                    return planHeaderRowIndex > 2;
+                }
+
+                return false;
+            }
+
+            private static uint FindFirstDetailRowIndex(
+                IReadOnlyList<Row> rows,
+                IReadOnlyList<string> sharedStrings,
+                uint dataStartRowIndex,
+                IEnumerable<int> planColumns)
+            {
+                HashSet<int> planColumnSet = planColumns.ToHashSet();
+                Row? detailRow = rows.FirstOrDefault(row =>
+                {
+                    uint rowIndex = row.RowIndex?.Value ?? 0;
+                    return rowIndex >= dataStartRowIndex &&
+                           row.Elements<Cell>()
+                               .Any(cell =>
+                                   planColumnSet.Contains(GetColumnIndex(cell.CellReference?.Value)) &&
+                                   IsAnnualPlanCellText(ReadCellText(cell, sharedStrings)));
+                });
+
+                if (detailRow?.RowIndex?.Value is uint detailRowIndex)
+                    return detailRowIndex;
+
+                throw new InvalidOperationException("Шаблон годового графика ТО повреждён: не найдена строка-шаблон с работой ТО.");
+            }
+
+            private static uint FindFooterStartRowIndex(
+                IReadOnlyList<Row> rows,
+                IReadOnlyList<string> sharedStrings,
+                uint dataStartRowIndex)
+            {
+                Row? footerRow = rows.FirstOrDefault(row =>
+                {
+                    uint rowIndex = row.RowIndex?.Value ?? 0;
+                    return rowIndex > dataStartRowIndex &&
+                           string.Equals(ReadCellText(row, 2, sharedStrings), AnnualTotalsLabelText, StringComparison.OrdinalIgnoreCase);
+                });
+
+                if (footerRow?.RowIndex?.Value is uint footerRowIndex)
+                    return footerRowIndex;
+
+                throw new InvalidOperationException("Шаблон годового графика ТО повреждён: не найдена строка 'Итого'.");
+            }
+
+            private static bool IsAnnualPlanCellText(string text)
+            {
+                return Regex.IsMatch(
+                    text?.Trim() ?? string.Empty,
+                    @"^ТО[123]\s*/\s*\d+",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
             }
 
             private static string ReadCellText(Row row, int columnIndex, IReadOnlyList<string> sharedStrings)

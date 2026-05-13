@@ -39,19 +39,33 @@ namespace AsutpKnowledgeBase.Services
         public byte[]? WorkbookPackage { get; init; }
     }
 
+    public sealed class KnowledgeBaseMaintenanceAnnualWorkbookGenerationResult
+    {
+        public bool IsSuccess { get; init; }
+
+        public string ErrorMessage { get; init; } = string.Empty;
+
+        public KbMaintenanceAnnualWorkbookModel? WorkbookModel { get; init; }
+
+        public byte[]? WorkbookPackage { get; init; }
+    }
+
     public sealed class KnowledgeBaseMaintenanceWorkbookGenerationService
     {
         private readonly KnowledgeBaseMaintenanceMonthlyPlannerService _plannerService;
         private readonly KnowledgeBaseMaintenanceMonthSheetModelBuilderService _sheetModelBuilderService;
+        private readonly KnowledgeBaseMaintenanceAnnualWorkbookModelBuilderService _annualWorkbookModelBuilderService;
         private readonly KnowledgeBaseMaintenanceWorkbookExportService _workbookExportService;
 
         public KnowledgeBaseMaintenanceWorkbookGenerationService(
             KnowledgeBaseMaintenanceMonthlyPlannerService? plannerService = null,
             KnowledgeBaseMaintenanceMonthSheetModelBuilderService? sheetModelBuilderService = null,
+            KnowledgeBaseMaintenanceAnnualWorkbookModelBuilderService? annualWorkbookModelBuilderService = null,
             KnowledgeBaseMaintenanceWorkbookExportService? workbookExportService = null)
         {
             _plannerService = plannerService ?? new KnowledgeBaseMaintenanceMonthlyPlannerService();
             _sheetModelBuilderService = sheetModelBuilderService ?? new KnowledgeBaseMaintenanceMonthSheetModelBuilderService();
+            _annualWorkbookModelBuilderService = annualWorkbookModelBuilderService ?? new KnowledgeBaseMaintenanceAnnualWorkbookModelBuilderService();
             _workbookExportService = workbookExportService ?? new KnowledgeBaseMaintenanceWorkbookExportService();
         }
 
@@ -62,6 +76,42 @@ namespace AsutpKnowledgeBase.Services
             int totalMonthlyHourBudget,
             IReadOnlyList<KbNode>? roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
+        {
+            return GenerateMonthWorkbookCore(
+                existingWorkbookPackage,
+                year,
+                month,
+                totalMonthlyHourBudget,
+                roots,
+                maintenanceScheduleProfiles,
+                singleMonthWorkbook: false);
+        }
+
+        public KnowledgeBaseMaintenanceWorkbookGenerationResult GenerateSingleMonthWorkbook(
+            int year,
+            int month,
+            int totalMonthlyHourBudget,
+            IReadOnlyList<KbNode>? roots,
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
+        {
+            return GenerateMonthWorkbookCore(
+                existingWorkbookPackage: null,
+                year,
+                month,
+                totalMonthlyHourBudget,
+                roots,
+                maintenanceScheduleProfiles,
+                singleMonthWorkbook: true);
+        }
+
+        private KnowledgeBaseMaintenanceWorkbookGenerationResult GenerateMonthWorkbookCore(
+            byte[]? existingWorkbookPackage,
+            int year,
+            int month,
+            int totalMonthlyHourBudget,
+            IReadOnlyList<KbNode>? roots,
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
+            bool singleMonthWorkbook)
         {
             IReadOnlyList<KbNode> normalizedRoots = roots ?? Array.Empty<KbNode>();
 
@@ -91,9 +141,11 @@ namespace AsutpKnowledgeBase.Services
                     planResult);
             }
 
-            KnowledgeBaseMaintenanceWorkbookExportResult exportResult = _workbookExportService.ExportMonth(
-                existingWorkbookPackage,
-                sheetModelBuildResult.SheetModel);
+            KnowledgeBaseMaintenanceWorkbookExportResult exportResult = singleMonthWorkbook
+                ? _workbookExportService.ExportSingleMonth(sheetModelBuildResult.SheetModel)
+                : _workbookExportService.ExportMonth(
+                    existingWorkbookPackage,
+                    sheetModelBuildResult.SheetModel);
             if (!exportResult.IsSuccess || exportResult.WorkbookPackage == null)
             {
                 return Failure(
@@ -109,6 +161,41 @@ namespace AsutpKnowledgeBase.Services
                 IsSuccess = true,
                 PlanResult = planResult,
                 SheetModel = sheetModelBuildResult.SheetModel,
+                WorkbookPackage = exportResult.WorkbookPackage
+            };
+        }
+
+        public KnowledgeBaseMaintenanceAnnualWorkbookGenerationResult GenerateAnnualWorkbook(
+            int year,
+            string workshopName,
+            IReadOnlyList<KbNode>? roots,
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
+        {
+            KnowledgeBaseMaintenanceAnnualWorkbookModelBuildResult modelBuildResult =
+                _annualWorkbookModelBuilderService.Build(year, workshopName, roots, maintenanceScheduleProfiles);
+            if (!modelBuildResult.IsSuccess || modelBuildResult.WorkbookModel == null)
+            {
+                return AnnualFailure(
+                    string.IsNullOrWhiteSpace(modelBuildResult.ErrorMessage)
+                        ? "Не удалось построить модель годового графика ТО."
+                        : modelBuildResult.ErrorMessage);
+            }
+
+            KnowledgeBaseMaintenanceWorkbookExportResult exportResult =
+                _workbookExportService.ExportAnnual(modelBuildResult.WorkbookModel);
+            if (!exportResult.IsSuccess || exportResult.WorkbookPackage == null)
+            {
+                return AnnualFailure(
+                    string.IsNullOrWhiteSpace(exportResult.ErrorMessage)
+                        ? "Не удалось подготовить книгу годового графика ТО."
+                        : exportResult.ErrorMessage,
+                    modelBuildResult.WorkbookModel);
+            }
+
+            return new KnowledgeBaseMaintenanceAnnualWorkbookGenerationResult
+            {
+                IsSuccess = true,
+                WorkbookModel = modelBuildResult.WorkbookModel,
                 WorkbookPackage = exportResult.WorkbookPackage
             };
         }
@@ -208,6 +295,16 @@ namespace AsutpKnowledgeBase.Services
                 ErrorMessage = errorMessage,
                 FailedMonth = failedMonth,
                 MonthResults = monthResults ?? Array.Empty<KnowledgeBaseMaintenanceYearWorkbookGenerationMonthResult>()
+            };
+
+        private static KnowledgeBaseMaintenanceAnnualWorkbookGenerationResult AnnualFailure(
+            string errorMessage,
+            KbMaintenanceAnnualWorkbookModel? workbookModel = null) =>
+            new()
+            {
+                IsSuccess = false,
+                ErrorMessage = errorMessage,
+                WorkbookModel = workbookModel
             };
 
         private static string GetMonthName(int month)

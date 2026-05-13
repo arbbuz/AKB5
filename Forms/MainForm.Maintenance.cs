@@ -87,6 +87,19 @@ namespace AsutpKnowledgeBase
                 SetLastActionText);
         }
 
+        private void ExportMaintenanceYearMonthlyWorkbook(object? sender, EventArgs e)
+        {
+            SaveCurrentWorkshopState();
+            _maintenanceWorkbookUiWorkflowService.ExportYearMonthly(
+                this,
+                _currentWorkshop,
+                GetVisibleTreeData(),
+                _session.MaintenanceScheduleProfiles,
+                _session.Config.ProductionCalendarYears,
+                CurrentDataPath,
+                SetLastActionText);
+        }
+
         private void RecalculateMaintenanceYearWorkbookToDecember(object? sender, EventArgs e)
         {
             SaveCurrentWorkshopState();

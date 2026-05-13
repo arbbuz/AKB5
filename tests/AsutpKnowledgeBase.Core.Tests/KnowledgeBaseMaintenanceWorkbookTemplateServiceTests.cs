@@ -42,6 +42,22 @@ public class KnowledgeBaseMaintenanceWorkbookTemplateServiceTests
     }
 
     [Fact]
+    public void GetAnnualTemplatePackage_ReturnsApprovedAnnualWorkbook()
+    {
+        byte[] packageBytes = _service.GetAnnualTemplatePackage();
+
+        using var stream = new MemoryStream(packageBytes, writable: false);
+        using SpreadsheetDocument document = SpreadsheetDocument.Open(stream, false);
+        WorkbookPart workbookPart = Assert.IsType<WorkbookPart>(document.WorkbookPart);
+        string[] sheetNames = workbookPart.Workbook.Sheets!
+            .Elements<Sheet>()
+            .Select(static sheet => sheet.Name?.Value ?? string.Empty)
+            .ToArray();
+
+        Assert.Equal(new[] { "КЦ (2)", "Лист1" }, sheetNames);
+    }
+
+    [Fact]
     public void GetMonthSheetNames_ReturnsExpectedMonthNames()
     {
         IReadOnlyList<string> sheetNames = _service.GetMonthSheetNames();

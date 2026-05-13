@@ -7,15 +7,24 @@ namespace AsutpKnowledgeBase.Services
     public sealed class KnowledgeBaseMaintenanceWorkbookTemplateService
     {
         private const string TemplateResourceName = "AsutpKnowledgeBase.Core.Resources.MaintenanceYearTemplate.xlsx";
+        private const string AnnualTemplateResourceName = "AsutpKnowledgeBase.Core.Resources.MaintenanceAnnualTemplate.xlsx";
         private static readonly string[] ExpectedMonthSheetNames = Enumerable
             .Range(1, 12)
             .Select(static month => $"КЦ ({month})")
             .ToArray();
+        private static readonly string[] ExpectedAnnualSheetNames = { "КЦ (2)", "Лист1" };
 
         public byte[] GetTemplatePackage()
         {
             byte[] templateBytes = ReadEmbeddedTemplateBytes();
             ValidateTemplate(templateBytes);
+            return templateBytes;
+        }
+
+        public byte[] GetAnnualTemplatePackage()
+        {
+            byte[] templateBytes = ReadEmbeddedTemplateBytes(AnnualTemplateResourceName);
+            ValidateAnnualTemplate(templateBytes);
             return templateBytes;
         }
 
@@ -27,12 +36,17 @@ namespace AsutpKnowledgeBase.Services
 
         private static byte[] ReadEmbeddedTemplateBytes()
         {
+            return ReadEmbeddedTemplateBytes(TemplateResourceName);
+        }
+
+        private static byte[] ReadEmbeddedTemplateBytes(string resourceName)
+        {
             Assembly assembly = typeof(KnowledgeBaseMaintenanceWorkbookTemplateService).Assembly;
-            using Stream? resourceStream = assembly.GetManifestResourceStream(TemplateResourceName);
+            using Stream? resourceStream = assembly.GetManifestResourceStream(resourceName);
             if (resourceStream == null)
             {
                 throw new InvalidOperationException(
-                    "Внутренний шаблон годового графика ТО не найден в ресурсах сборки.");
+                    "Внутренний шаблон графика ТО не найден в ресурсах сборки.");
             }
 
             using var memoryStream = new MemoryStream();
@@ -50,6 +64,19 @@ namespace AsutpKnowledgeBase.Services
                 string expectedNames = string.Join(", ", ExpectedMonthSheetNames);
                 throw new InvalidOperationException(
                     $"Внутренний шаблон годового графика ТО имеет неверную структуру листов. Ожидалось: {expectedNames}. Получено: {actualNames}.");
+            }
+        }
+
+        private static void ValidateAnnualTemplate(byte[] templateBytes)
+        {
+            IReadOnlyList<string> sheetNames = ReadSheetNames(templateBytes);
+            if (sheetNames.Count < ExpectedAnnualSheetNames.Length ||
+                !sheetNames.Take(ExpectedAnnualSheetNames.Length).SequenceEqual(ExpectedAnnualSheetNames, StringComparer.Ordinal))
+            {
+                string actualNames = string.Join(", ", sheetNames);
+                string expectedNames = string.Join(", ", ExpectedAnnualSheetNames);
+                throw new InvalidOperationException(
+                    $"Внутренний шаблон годового графика ТО имеет неверную структуру листов. Ожидалось начало: {expectedNames}. Получено: {actualNames}.");
             }
         }
 

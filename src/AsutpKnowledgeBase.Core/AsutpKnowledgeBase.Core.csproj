@@ -14,6 +14,9 @@
     <EmbeddedResource Include="../../resources/templates/maintenance-year-template.xlsx">
       <LogicalName>AsutpKnowledgeBase.Core.Resources.MaintenanceYearTemplate.xlsx</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Include="../../resources/templates/maintenance-annual-template.xlsx">
+      <LogicalName>AsutpKnowledgeBase.Core.Resources.MaintenanceAnnualTemplate.xlsx</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

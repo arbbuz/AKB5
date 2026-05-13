@@ -64,8 +64,9 @@ namespace AsutpKnowledgeBase
             menuEditProductionCalendar = new ToolStripMenuItem("🗓 Производственный календарь...", null, EditProductionCalendar);
             menuImportProductionCalendarPdf = new ToolStripMenuItem("📥 Импорт производственного календаря PDF...", null, ImportProductionCalendarPdf);
             menuImportProductionCalendar = new ToolStripMenuItem("📥 Импорт производственного календаря JSON...", null, ImportProductionCalendar);
-            menuExportMaintenanceMonthWorkbook = new ToolStripMenuItem("🗓 Сформировать график ТО за месяц...", null, ExportMaintenanceMonthWorkbook);
+            menuExportMaintenanceMonthWorkbook = new ToolStripMenuItem("🗓 Сформировать график ТО на месяц...", null, ExportMaintenanceMonthWorkbook);
             menuExportMaintenanceYearWorkbook = new ToolStripMenuItem("🗓 Сформировать годовой график ТО...", null, ExportMaintenanceYearWorkbook);
+            menuExportMaintenanceYearMonthlyWorkbook = new ToolStripMenuItem("🗓 Сформировать график ТО помесячно...", null, ExportMaintenanceYearMonthlyWorkbook);
             menuRecalculateMaintenanceYearWorkbook = new ToolStripMenuItem("🗓 Пересчитать график ТО до конца года...", null, RecalculateMaintenanceYearWorkbookToDecember);
 
             menuEditMaintenanceYearScheduleSource = new ToolStripMenuItem("✏️ План ТО по месяцам...", null, EditMaintenanceYearScheduleSource);
@@ -120,6 +121,7 @@ namespace AsutpKnowledgeBase
             {
                 menuExportMaintenanceMonthWorkbook,
                 menuExportMaintenanceYearWorkbook,
+                menuExportMaintenanceYearMonthlyWorkbook,
                 menuRecalculateMaintenanceYearWorkbook
             });
 

@@ -80,6 +80,7 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem menuImportProductionCalendarPdf = null!;
         private ToolStripMenuItem menuExportMaintenanceMonthWorkbook = null!;
         private ToolStripMenuItem menuExportMaintenanceYearWorkbook = null!;
+        private ToolStripMenuItem menuExportMaintenanceYearMonthlyWorkbook = null!;
         private ToolStripMenuItem menuRecalculateMaintenanceYearWorkbook = null!;
 
         private SplitContainer splitMain = null!;

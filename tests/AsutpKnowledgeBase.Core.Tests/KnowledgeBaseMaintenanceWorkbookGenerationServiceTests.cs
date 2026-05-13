@@ -124,6 +124,71 @@ public class KnowledgeBaseMaintenanceWorkbookGenerationServiceTests
     }
 
     [Fact]
+    public void GenerateSingleMonthWorkbook_BuildsWorkbookWithOnlySelectedMonth()
+    {
+        KbNode[] roots = BuildSingleCabinetRoots();
+
+        KnowledgeBaseMaintenanceWorkbookGenerationResult result = _service.GenerateSingleMonthWorkbook(
+            year: 2026,
+            month: 5,
+            totalMonthlyHourBudget: 20,
+            roots,
+            BuildSingleCabinetProfile());
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        Assert.Equal(new[] { "КЦ (5)" }, ReadSheetNames(packageBytes));
+        Assert.Equal("на май 2026 года", ReadCellText(packageBytes, "КЦ (5)", "A13"));
+        Assert.Equal("Система 1", ReadCellText(packageBytes, "КЦ (5)", "B17"));
+    }
+
+    [Fact]
+    public void GenerateAnnualWorkbook_BuildsEstablishedAnnualForm()
+    {
+        KbNode[] roots = BuildSingleCabinetRoots();
+
+        KnowledgeBaseMaintenanceAnnualWorkbookGenerationResult result = _service.GenerateAnnualWorkbook(
+            year: 2026,
+            workshopName: "КЦ",
+            roots,
+            new[]
+            {
+                new KbMaintenanceScheduleProfile
+                {
+                    OwnerNodeId = "cabinet-1",
+                    IsIncludedInSchedule = true,
+                    YearScheduleEntries =
+                    {
+                        new KbMaintenanceYearScheduleEntry
+                        {
+                            Month = 1,
+                            WorkKind = KbMaintenanceWorkKind.To1,
+                            Hours = 2
+                        },
+                        new KbMaintenanceYearScheduleEntry
+                        {
+                            Month = 3,
+                            WorkKind = KbMaintenanceWorkKind.To3,
+                            Hours = 8
+                        }
+                    }
+                }
+            });
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.WorkbookModel);
+        Assert.Equal(10, result.WorkbookModel!.TotalHours);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        Assert.Equal(new[] { "КЦ (2)", "Лист1" }, ReadSheetNames(packageBytes));
+        Assert.Equal("на 2026 год", ReadCellText(packageBytes, "КЦ (2)", "A10"));
+        Assert.Equal("Система 1", ReadCellText(packageBytes, "КЦ (2)", "B16"));
+        Assert.Equal("Шкаф 1", ReadCellText(packageBytes, "КЦ (2)", "B17"));
+        Assert.Equal("ТО1/2", ReadCellText(packageBytes, "КЦ (2)", "E17"));
+        Assert.Equal("ТО3/8", ReadCellText(packageBytes, "КЦ (2)", "I17"));
+        Assert.Equal("10", ReadCellText(packageBytes, "КЦ (2)", "AC17"));
+    }
+
+    [Fact]
     public void GenerateYearWorkbook_BuildsEveryMonthIntoOneWorkbook()
     {
         KbNode[] roots = BuildSingleCabinetRoots();
@@ -314,5 +379,15 @@ public class KnowledgeBaseMaintenanceWorkbookGenerationServiceTests
         }
 
         return cell.InnerText;
+    }
+
+    private static IReadOnlyList<string> ReadSheetNames(byte[] workbookPackage)
+    {
+        using var stream = new MemoryStream(workbookPackage);
+        using SpreadsheetDocument document = SpreadsheetDocument.Open(stream, false);
+        return document.WorkbookPart!.Workbook.Sheets!
+            .Elements<Sheet>()
+            .Select(static sheet => sheet.Name?.Value ?? string.Empty)
+            .ToArray();
     }
 }

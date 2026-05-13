@@ -109,6 +109,7 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         Assert.Equal("'КЦ (1)'!$A$1:$AR$28", ReadDefinedName(packageBytes, "_xlnm.Print_Area", 0));
         Assert.Equal("SUM(AK16:AK21)", ReadCellFormula(packageBytes, "КЦ (1)", "AK22"));
         Assert.False(HasCalculationChain(packageBytes));
+        Assert.False(HasSharedFormulas(packageBytes, "КЦ (1)"));
         Assert.Equal("E16", ReadSheetTopLeftCell(packageBytes, "КЦ (1)"));
         Assert.Equal("E16", ReadBottomRightSelection(packageBytes, "КЦ (1)"));
     }
@@ -165,6 +166,108 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         Assert.Empty(result.ErrorMessage);
         AssertValidWorkbook(packageBytes);
         Assert.True(packageBytes.Length > new KnowledgeBaseMaintenanceWorkbookTemplateService().GetTemplatePackage().Length);
+    }
+
+    [Fact]
+    public void ExportMonth_ForNovemberClearsSharedFormulaArtifacts()
+    {
+        KnowledgeBaseMaintenanceWorkbookExportResult result =
+            _service.ExportMonth(null, CreateModelWithDetailCount(2026, 11, "Ноябрьская система", "INV-NOV", detailCount: 80));
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        AssertValidWorkbook(packageBytes);
+        Assert.False(HasSharedFormulas(packageBytes, "КЦ (11)"));
+    }
+
+    [Fact]
+    public void ExportSingleMonth_RemovesOtherMonthSheets()
+    {
+        KnowledgeBaseMaintenanceWorkbookExportResult result =
+            _service.ExportSingleMonth(CreateModel(2027, 5, "Майская система", "INV-MAY"));
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        AssertValidWorkbook(packageBytes);
+
+        Assert.Equal(new[] { "КЦ (5)" }, ReadSheetNames(packageBytes));
+        Assert.Equal("на май 2027 года", ReadCellText(packageBytes, "КЦ (5)", "A13"));
+        Assert.Equal("Майская система", ReadCellText(packageBytes, "КЦ (5)", "B17"));
+        Assert.Equal("'КЦ (5)'!$A$16:$AQ$24", ReadDefinedName(packageBytes, "_xlnm._FilterDatabase", 0));
+        Assert.Equal("'КЦ (5)'!$A$1:$AN$27", ReadDefinedName(packageBytes, "_xlnm.Print_Area", 0));
+        Assert.False(HasSharedFormulas(packageBytes, "КЦ (5)"));
+    }
+
+    [Fact]
+    public void ExportAnnual_UsesTemplateAndWritesAnnualRows()
+    {
+        var model = new KbMaintenanceAnnualWorkbookModel
+        {
+            Year = 2027,
+            WorkshopName = "КЦ",
+            TotalHours = 14,
+            SystemGroups =
+            {
+                new KbMaintenanceAnnualSystemGroup
+                {
+                    SequenceNumber = 1,
+                    SystemName = "Система 1",
+                    InventoryNumber = "SYS-01",
+                    DetailRows =
+                    {
+                        new KbMaintenanceAnnualDetailRow
+                        {
+                            NodeName = "Шкаф 1",
+                            InventoryNumber = "CAB-01",
+                            TotalHours = 14,
+                            MonthCells =
+                            {
+                                new KbMaintenanceAnnualMonthCell
+                                {
+                                    Month = 1,
+                                    WorkKind = KbMaintenanceWorkKind.To1,
+                                    Hours = 2,
+                                    PlanText = "ТО1/2"
+                                },
+                                new KbMaintenanceAnnualMonthCell
+                                {
+                                    Month = 3,
+                                    WorkKind = KbMaintenanceWorkKind.To3,
+                                    Hours = 12,
+                                    PlanText = "ТО3/12"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        KnowledgeBaseMaintenanceWorkbookExportResult result = _service.ExportAnnual(model);
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        AssertValidWorkbook(packageBytes);
+
+        Assert.Equal(new[] { "КЦ (2)", "Лист1" }, ReadSheetNames(packageBytes));
+        Assert.Equal("на 2027 год", ReadCellText(packageBytes, "КЦ (2)", "A10"));
+        Assert.Equal("____ ____________ 2026 года", ReadCellText(packageBytes, "КЦ (2)", "U7"));
+        Assert.Equal("1", ReadCellValue(packageBytes, "КЦ (2)", "A16"));
+        Assert.Equal("Система 1", ReadCellText(packageBytes, "КЦ (2)", "B16"));
+        Assert.Equal("КЦ", ReadCellText(packageBytes, "КЦ (2)", "C16"));
+        Assert.Equal("SYS-01", ReadCellText(packageBytes, "КЦ (2)", "D16"));
+        Assert.Equal("Шкаф 1", ReadCellText(packageBytes, "КЦ (2)", "B17"));
+        Assert.Equal("CAB-01", ReadCellText(packageBytes, "КЦ (2)", "D17"));
+        Assert.Equal("ТО1/2", ReadCellText(packageBytes, "КЦ (2)", "E17"));
+        Assert.Equal("2", ReadCellValue(packageBytes, "КЦ (2)", "F17"));
+        Assert.Equal("ТО3/12", ReadCellText(packageBytes, "КЦ (2)", "I17"));
+        Assert.Equal("12", ReadCellValue(packageBytes, "КЦ (2)", "J17"));
+        Assert.Equal("14", ReadCellValue(packageBytes, "КЦ (2)", "AC17"));
+        Assert.Equal("Итого", ReadCellText(packageBytes, "КЦ (2)", "B18"));
+        Assert.Equal("14", ReadCellValue(packageBytes, "КЦ (2)", "AC18"));
+        Assert.Contains("A16:A17", ReadMergedRanges(packageBytes, "КЦ (2)"));
+        Assert.Equal("'КЦ (2)'!$12:$15", ReadDefinedName(packageBytes, "_xlnm.Print_Titles", 0));
+        Assert.Equal("'КЦ (2)'!$A$1:$AQ$29", ReadDefinedName(packageBytes, "_xlnm.Print_Area", 0));
     }
 
     private static KbMaintenanceMonthSheetModel CreateModel(int year, int month, string systemName, string inventoryNumber) =>
@@ -297,6 +400,15 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         return cell.CellValue?.Text ?? string.Empty;
     }
 
+    private static IReadOnlyList<string> ReadSheetNames(byte[] packageBytes)
+    {
+        using SpreadsheetDocument document = OpenDocument(packageBytes);
+        return document.WorkbookPart!.Workbook.Sheets!
+            .Elements<Sheet>()
+            .Select(static sheet => sheet.Name?.Value ?? string.Empty)
+            .ToArray();
+    }
+
     private static string ReadCellValue(byte[] packageBytes, string sheetName, string cellReference)
     {
         using SpreadsheetDocument document = OpenDocument(packageBytes);
@@ -343,6 +455,14 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         using SpreadsheetDocument document = OpenDocument(packageBytes);
         WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
         return worksheetPart.Worksheet.Elements<RowBreaks>().Any();
+    }
+
+    private static bool HasSharedFormulas(byte[] packageBytes, string sheetName)
+    {
+        using SpreadsheetDocument document = OpenDocument(packageBytes);
+        WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
+        return worksheetPart.Worksheet.Descendants<CellFormula>()
+            .Any(formula => formula.FormulaType?.Value == CellFormulaValues.Shared);
     }
 
     private static string ReadSheetTopLeftCell(byte[] packageBytes, string sheetName)

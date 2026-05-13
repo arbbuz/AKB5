@@ -3,49 +3,40 @@ using AsutpKnowledgeBase.Services;
 
 namespace AsutpKnowledgeBase
 {
-    public sealed class KnowledgeBaseMaintenanceYearWorkbookExportDialog : Form
+    public sealed class KnowledgeBaseMaintenanceAnnualWorkbookExportDialog : Form
     {
         private readonly Func<int, int, KnowledgeBaseMaintenanceMonthDemandSummary> _demandSummaryProvider;
         private readonly NumericUpDown _numYear;
-        private readonly NumericUpDown _numMonthlyBudget;
         private readonly DataGridView _gridDemand;
         private readonly Label _lblYearSummary;
-        private readonly Label _lblBudgetStatus;
         private readonly Button _btnContinue;
-        private bool _isUpdatingBudgetValue;
-        private bool _budgetEditedByUser;
-        private int _maxMonthDemandHours;
-        private int _totalYearDemandHours;
 
-        public KnowledgeBaseMaintenanceYearWorkbookExportDialog(
+        public KnowledgeBaseMaintenanceAnnualWorkbookExportDialog(
             string workshopName,
             int initialYear,
-            int initialMonthlyBudget,
-            Func<int, int, KnowledgeBaseMaintenanceMonthDemandSummary> demandSummaryProvider,
-            string title = "Сформировать годовой график ТО")
+            Func<int, int, KnowledgeBaseMaintenanceMonthDemandSummary> demandSummaryProvider)
         {
             _demandSummaryProvider = demandSummaryProvider
                 ?? throw new ArgumentNullException(nameof(demandSummaryProvider));
 
-            Text = title;
+            Text = "Сформировать годовой график ТО";
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = true;
             MinimizeBox = false;
             ShowInTaskbar = false;
-            MinimumSize = new Size(820, 620);
-            ClientSize = new Size(880, 660);
+            MinimumSize = new Size(780, 560);
+            ClientSize = new Size(840, 620);
 
             var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 Padding = new Padding(12),
                 ColumnCount = 2,
-                RowCount = 6
+                RowCount = 5
             };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -77,25 +68,7 @@ namespace AsutpKnowledgeBase
                 Value = Math.Min(9999, Math.Max(2020, initialYear))
             };
             _numYear.ValueChanged += (_, _) => RefreshDemandSummary();
-
-            _numMonthlyBudget = new NumericUpDown
-            {
-                Dock = DockStyle.Top,
-                Minimum = 0,
-                Maximum = 1000000,
-                DecimalPlaces = 0,
-                Value = Math.Min(1000000, Math.Max(0, initialMonthlyBudget))
-            };
-            _numMonthlyBudget.ValueChanged += (_, _) =>
-            {
-                if (!_isUpdatingBudgetValue)
-                    _budgetEditedByUser = true;
-
-                UpdateBudgetStatus();
-            };
-
             AddEditorRow(layout, 1, "Год", _numYear);
-            AddEditorRow(layout, 2, "Доступный месячный фонд цеха, ч", _numMonthlyBudget);
 
             var summaryLayout = new TableLayoutPanel
             {
@@ -104,11 +77,10 @@ namespace AsutpKnowledgeBase
                 ColumnCount = 2,
                 Margin = new Padding(0, 0, 0, 10)
             };
-            summaryLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220F));
+            summaryLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180F));
             summaryLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             AddValueRow(summaryLayout, 0, "Итого за год", out _lblYearSummary);
-            AddValueRow(summaryLayout, 1, "Статус фонда", out _lblBudgetStatus);
-            layout.Controls.Add(summaryLayout, 0, 3);
+            layout.Controls.Add(summaryLayout, 0, 2);
             layout.SetColumnSpan(summaryLayout, 2);
 
             _gridDemand = new DataGridView
@@ -139,7 +111,7 @@ namespace AsutpKnowledgeBase
                 Text = "Расчёт по месяцам"
             };
             demandGroup.Controls.Add(_gridDemand);
-            layout.Controls.Add(demandGroup, 0, 4);
+            layout.Controls.Add(demandGroup, 0, 3);
             layout.SetColumnSpan(demandGroup, 2);
 
             var buttonsPanel = new FlowLayoutPanel
@@ -165,7 +137,7 @@ namespace AsutpKnowledgeBase
 
             buttonsPanel.Controls.Add(_btnContinue);
             buttonsPanel.Controls.Add(btnCancel);
-            layout.Controls.Add(buttonsPanel, 0, 5);
+            layout.Controls.Add(buttonsPanel, 0, 4);
             layout.SetColumnSpan(buttonsPanel, 2);
 
             Controls.Add(layout);
@@ -178,12 +150,9 @@ namespace AsutpKnowledgeBase
 
         public int SelectedYear { get; private set; }
 
-        public int MonthlyBudgetHours { get; private set; }
-
         private void Submit()
         {
             SelectedYear = Decimal.ToInt32(_numYear.Value);
-            MonthlyBudgetHours = Decimal.ToInt32(_numMonthlyBudget.Value);
 
             DialogResult = DialogResult.OK;
             Close();
@@ -196,67 +165,24 @@ namespace AsutpKnowledgeBase
             for (int month = 1; month <= 12; month++)
                 monthSummaries.Add(_demandSummaryProvider(selectedYear, month));
 
-            _maxMonthDemandHours = monthSummaries.Count == 0 ? 0 : monthSummaries.Max(static summary => summary.TotalHours);
-            _totalYearDemandHours = monthSummaries.Sum(static summary => summary.TotalHours);
+            int totalYearDemandHours = monthSummaries.Sum(static summary => summary.TotalHours);
 
             _gridDemand.Rows.Clear();
             IReadOnlyList<string> monthNames = GetMonthNames();
             for (int month = 1; month <= 12; month++)
             {
                 KnowledgeBaseMaintenanceMonthDemandSummary summary = monthSummaries[month - 1];
-                int rowIndex = _gridDemand.Rows.Add(
+                _gridDemand.Rows.Add(
                     monthNames[month - 1],
                     BuildSummaryText(summary.To1ItemCount, summary.To1Hours),
                     BuildSummaryText(summary.To2ItemCount, summary.To2Hours),
                     BuildSummaryText(summary.To3ItemCount, summary.To3Hours),
                     BuildSummaryText(summary.TotalItemCount, summary.TotalHours));
-                _gridDemand.Rows[rowIndex].Tag = summary.TotalHours;
             }
 
-            _lblYearSummary.Text = $"{_totalYearDemandHours} ч, максимум месяца: {_maxMonthDemandHours} ч";
-
-            if (!_budgetEditedByUser)
-            {
-                _isUpdatingBudgetValue = true;
-                _numMonthlyBudget.Value = Math.Min(_numMonthlyBudget.Maximum, Math.Max(_numMonthlyBudget.Minimum, _maxMonthDemandHours));
-                _isUpdatingBudgetValue = false;
-            }
-
-            UpdateBudgetStatus();
-        }
-
-        private void UpdateBudgetStatus()
-        {
-            int budgetHours = Decimal.ToInt32(_numMonthlyBudget.Value);
-            int shortageHours = _maxMonthDemandHours - budgetHours;
-
-            foreach (DataGridViewRow row in _gridDemand.Rows)
-            {
-                int monthDemandHours = row.Tag is int demandHours ? demandHours : 0;
-                row.DefaultCellStyle.BackColor = monthDemandHours > budgetHours
-                    ? Color.MistyRose
-                    : SystemColors.Window;
-            }
-
-            if (_totalYearDemandHours == 0)
-            {
-                _lblBudgetStatus.Text = "За выбранный год работ по графику ТО нет.";
-                _lblBudgetStatus.ForeColor = Color.DarkGreen;
-                _btnContinue.Enabled = true;
-                return;
-            }
-
-            if (shortageHours <= 0)
-            {
-                _lblBudgetStatus.Text = $"Фонд покрывает все месяцы. Резерв для максимального месяца: {Math.Abs(shortageHours)} ч.";
-                _lblBudgetStatus.ForeColor = Color.DarkGreen;
-                _btnContinue.Enabled = true;
-                return;
-            }
-
-            _lblBudgetStatus.Text = $"Фонд меньше максимального месячного спроса. Нехватка: {shortageHours} ч.";
-            _lblBudgetStatus.ForeColor = Color.Firebrick;
-            _btnContinue.Enabled = false;
+            _lblYearSummary.Text = totalYearDemandHours == 0
+                ? "Работ по графику ТО нет."
+                : $"{totalYearDemandHours} ч";
         }
 
         private static string BuildSummaryText(int itemCount, int hours) =>
