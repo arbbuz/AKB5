@@ -146,6 +146,94 @@ public class KnowledgeBaseMaintenanceMonthSheetModelBuilderServiceTests
     }
 
     [Fact]
+    public void Build_IncludesScheduledProfileRowsWithoutCurrentMonthAssignments()
+    {
+        var januaryCabinet = new KbNode { NodeId = "cabinet-january", Name = "Шкаф январь", NodeType = KbNodeType.Cabinet };
+        var idleCabinet = new KbNode { NodeId = "cabinet-idle", Name = "Шкаф без работ", NodeType = KbNodeType.Cabinet };
+        var roots = new[]
+        {
+            new KbNode
+            {
+                NodeId = "department-1",
+                Name = "Отделение 1",
+                NodeType = KbNodeType.Department,
+                Children =
+                {
+                    new KbNode
+                    {
+                        NodeId = "system-january",
+                        Name = "Система январь",
+                        NodeType = KbNodeType.System,
+                        Children = { januaryCabinet }
+                    },
+                    new KbNode
+                    {
+                        NodeId = "system-idle",
+                        Name = "Система без работ",
+                        NodeType = KbNodeType.System,
+                        Children = { idleCabinet }
+                    }
+                }
+            }
+        };
+        var planResult = new KnowledgeBaseMaintenanceMonthPlanResult
+        {
+            IsSuccess = true,
+            PlannedDays =
+            {
+                new KbMaintenanceMonthPlanDay
+                {
+                    Date = new DateOnly(2026, 1, 12),
+                    TotalHours = 3,
+                    Assignments =
+                    {
+                        new KbMaintenanceMonthPlanAssignment
+                        {
+                            Date = new DateOnly(2026, 1, 12),
+                            OwnerNodeId = "cabinet-january",
+                            NodeName = "Шкаф январь",
+                            WorkKind = KbMaintenanceWorkKind.To1,
+                            Hours = 1
+                        }
+                    }
+                }
+            }
+        };
+
+        KnowledgeBaseMaintenanceMonthSheetModelBuildResult result = _service.Build(
+            2026,
+            1,
+            roots,
+            planResult,
+            new[]
+            {
+                new KbMaintenanceScheduleProfile
+                {
+                    OwnerNodeId = "cabinet-january",
+                    IsIncludedInSchedule = true,
+                    To1Hours = 1
+                },
+                new KbMaintenanceScheduleProfile
+                {
+                    OwnerNodeId = "cabinet-idle",
+                    IsIncludedInSchedule = true,
+                    To1Hours = 1
+                }
+            });
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(
+            new[]
+            {
+                "Система январь",
+                "Система без работ"
+            },
+            result.SheetModel!.SystemGroups.Select(static group => group.SystemName));
+        Assert.Single(result.SheetModel.SystemGroups[0].DetailRows[0].DayCells);
+        Assert.Empty(result.SheetModel.SystemGroups[1].DetailRows[0].DayCells);
+    }
+
+    [Fact]
     public void Build_AllowsAssignmentOnVisibleLevel2NodeItself()
     {
         var system = new KbNode

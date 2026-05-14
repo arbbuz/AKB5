@@ -17,7 +17,8 @@ namespace AsutpKnowledgeBase.Services
             int year,
             int month,
             IReadOnlyList<KbNode> roots,
-            KnowledgeBaseMaintenanceMonthPlanResult? planResult)
+            KnowledgeBaseMaintenanceMonthPlanResult? planResult,
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles = null)
         {
             if (planResult == null)
                 return Failure("Отсутствует результат месячного планирования.");
@@ -32,6 +33,7 @@ namespace AsutpKnowledgeBase.Services
 
             var nodeIndex = BuildNodeIndex(roots);
             var systemBuilders = new Dictionary<string, SystemGroupBuilder>(StringComparer.Ordinal);
+            AddIncludedProfileRows(systemBuilders, nodeIndex, maintenanceScheduleProfiles);
 
             foreach (KbMaintenanceMonthPlanDay plannedDay in planResult.PlannedDays)
             {
@@ -90,6 +92,40 @@ namespace AsutpKnowledgeBase.Services
                     DailyTotals = dailyTotals,
                     SystemGroups = groups
                 });
+        }
+
+        private static void AddIncludedProfileRows(
+            IDictionary<string, SystemGroupBuilder> systemBuilders,
+            IReadOnlyDictionary<string, IndexedNode> nodeIndex,
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
+        {
+            if (maintenanceScheduleProfiles == null || maintenanceScheduleProfiles.Count == 0)
+                return;
+
+            foreach (KbMaintenanceScheduleProfile profile in maintenanceScheduleProfiles)
+            {
+                if (profile == null || !profile.IsIncludedInSchedule)
+                    continue;
+
+                string ownerNodeId = profile.OwnerNodeId?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(ownerNodeId) ||
+                    !nodeIndex.TryGetValue(ownerNodeId, out IndexedNode? indexedNode) ||
+                    indexedNode.VisibleLevel < 2 ||
+                    indexedNode.Level2Ancestor == null ||
+                    !KnowledgeBaseMaintenanceScheduleStateService.SupportsProfile(indexedNode.Node.NodeType, indexedNode.VisibleLevel))
+                {
+                    continue;
+                }
+
+                string systemNodeId = indexedNode.Level2Ancestor.NodeId?.Trim() ?? string.Empty;
+                if (!systemBuilders.TryGetValue(systemNodeId, out SystemGroupBuilder? systemBuilder))
+                {
+                    systemBuilder = new SystemGroupBuilder(indexedNode.Level2Ancestor, indexedNode.Level2AncestorPreorderIndex);
+                    systemBuilders.Add(systemNodeId, systemBuilder);
+                }
+
+                systemBuilder.AddDetailNode(indexedNode);
+            }
         }
 
         private static Dictionary<string, IndexedNode> BuildNodeIndex(IReadOnlyList<KbNode> roots)
@@ -186,6 +222,17 @@ namespace AsutpKnowledgeBase.Services
             }
 
             public int SystemPreorderIndex { get; }
+
+            public string SystemName => _systemNode.Name?.Trim() ?? string.Empty;
+
+            public void AddDetailNode(IndexedNode indexedNode)
+            {
+                string ownerNodeId = indexedNode.Node.NodeId?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(ownerNodeId) || _detailBuilders.ContainsKey(ownerNodeId))
+                    return;
+
+                _detailBuilders.Add(ownerNodeId, new DetailRowBuilder(indexedNode.Node, indexedNode.PreorderIndex));
+            }
 
             public void AddAssignment(IndexedNode indexedNode, KbMaintenanceMonthPlanAssignment assignment)
             {

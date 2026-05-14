@@ -211,17 +211,21 @@ namespace AsutpKnowledgeBase.Services
             ApplyHeaderDayCalendarStyles(workbookPart, targetWorksheet, targetLayout, sheetModel);
 
             uint currentRowIndex = targetLayout.DataStartRowIndex;
-            IReadOnlyList<KbMaintenanceMonthSheetSystemGroup> orderedSystemGroups = OrderSystemGroupsByTemplate(
+            IReadOnlyList<OrderedMonthSystemGroup> orderedSystemGroups = OrderSystemGroupsByTemplate(
                 sheetModel.SystemGroups,
-                templateWorksheetPart);
-            foreach (KbMaintenanceMonthSheetSystemGroup systemGroup in orderedSystemGroups)
+                templateWorksheetPart,
+                out int nextAppendedSequenceNumber);
+            foreach (OrderedMonthSystemGroup orderedSystemGroup in orderedSystemGroups)
             {
+                KbMaintenanceMonthSheetSystemGroup systemGroup = orderedSystemGroup.Group;
                 uint groupStartRowIndex = currentRowIndex;
                 uint groupEndRowIndex = groupStartRowIndex + 1U + (uint)(systemGroup.DetailRows.Count * 2);
+                int sequenceNumber = orderedSystemGroup.TemplateEntry?.SequenceNumber ?? nextAppendedSequenceNumber++;
+                string systemName = orderedSystemGroup.TemplateEntry?.SystemName ?? systemGroup.SystemName;
 
                 Row headerTopRow = CloneRowToIndex(systemHeaderTopTemplate, currentRowIndex);
                 Row headerBottomRow = CloneRowToIndex(systemHeaderBottomTemplate, currentRowIndex + 1);
-                PopulateSystemHeaderRows(headerTopRow, headerBottomRow, systemGroup);
+                PopulateSystemHeaderRows(headerTopRow, headerBottomRow, systemGroup, sequenceNumber, systemName);
                 targetSheetData.Append(headerTopRow, headerBottomRow);
 
                 AddMerge(mergeCells, 1, 1, groupStartRowIndex, groupEndRowIndex);
@@ -336,6 +340,11 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<string> footerMerges = ReadMergedRanges(targetWorksheet)
                 .Where(range => RangeIntersectsRows(range, layout.FooterStartRowIndex, layout.LastUsedRowIndex))
                 .ToArray();
+            IReadOnlyList<OrderedAnnualSystemGroup> orderedSystemGroups = OrderAnnualSystemGroupsByTemplate(
+                workbookModel.SystemGroups,
+                targetWorksheetPart,
+                layout,
+                out int nextAppendedSequenceNumber);
 
             RemoveRows(targetSheetData, layout.DataStartRowIndex, layout.LastUsedRowIndex);
             MergeCells mergeCells = GetOrCreateMergeCells(targetWorksheet);
@@ -345,15 +354,14 @@ namespace AsutpKnowledgeBase.Services
             WriteAnnualHeader(targetWorksheet, workbookModel);
 
             uint currentRowIndex = layout.DataStartRowIndex;
-            IReadOnlyList<KbMaintenanceAnnualSystemGroup> orderedSystemGroups = OrderAnnualSystemGroupsByTemplate(
-                workbookModel.SystemGroups,
-                targetWorksheetPart,
-                layout);
-            foreach (KbMaintenanceAnnualSystemGroup systemGroup in orderedSystemGroups)
+            foreach (OrderedAnnualSystemGroup orderedSystemGroup in orderedSystemGroups)
             {
+                KbMaintenanceAnnualSystemGroup systemGroup = orderedSystemGroup.Group;
                 uint groupStartRowIndex = currentRowIndex;
+                int sequenceNumber = orderedSystemGroup.TemplateEntry?.SequenceNumber ?? nextAppendedSequenceNumber++;
+                string systemName = orderedSystemGroup.TemplateEntry?.SystemName ?? systemGroup.SystemName;
                 Row systemRow = CloneRowToIndex(systemTemplate, currentRowIndex);
-                PopulateAnnualSystemRow(systemRow, systemGroup, workbookModel.WorkshopName);
+                PopulateAnnualSystemRow(systemRow, systemGroup, workbookModel.WorkshopName, sequenceNumber, systemName);
                 targetSheetData.Append(systemRow);
                 currentRowIndex++;
 
@@ -468,63 +476,87 @@ namespace AsutpKnowledgeBase.Services
             }
         }
 
-        private static IReadOnlyList<KbMaintenanceMonthSheetSystemGroup> OrderSystemGroupsByTemplate(
+        private static IReadOnlyList<OrderedMonthSystemGroup> OrderSystemGroupsByTemplate(
             IReadOnlyList<KbMaintenanceMonthSheetSystemGroup> groups,
-            WorksheetPart templateWorksheetPart)
+            WorksheetPart templateWorksheetPart,
+            out int nextAppendedSequenceNumber)
         {
-            if (groups.Count <= 1)
-                return groups;
+            if (groups.Count == 0)
+            {
+                nextAppendedSequenceNumber = 1;
+                return Array.Empty<OrderedMonthSystemGroup>();
+            }
 
-            IReadOnlyDictionary<string, int> templateOrder = ReadMayTemplateSystemOrder(templateWorksheetPart);
+            IReadOnlyList<TemplateSystemOrderEntry> templateOrder = ReadMonthTemplateSystemOrder(templateWorksheetPart);
+            nextAppendedSequenceNumber = GetNextAppendedSequenceNumber(templateOrder);
             return groups
-                .Select((group, index) => new
+                .Select((group, index) =>
                 {
-                    Group = group,
-                    OriginalIndex = index,
-                    Rank = TryGetTemplateSystemRank(templateOrder, group.SystemName, out int rank)
-                        ? rank
-                        : int.MaxValue
+                    TemplateSystemOrderEntry? templateEntry = ResolveTemplateSystemOrderEntry(
+                        templateOrder,
+                        group.SystemName,
+                        group.InventoryNumber);
+                    return new
+                    {
+                        Group = group,
+                        OriginalIndex = index,
+                        TemplateEntry = templateEntry,
+                        Rank = templateEntry?.Rank ?? int.MaxValue
+                    };
                 })
                 .OrderBy(static item => item.Rank)
                 .ThenBy(static item => item.OriginalIndex)
-                .Select(static item => item.Group)
+                .Select(static item => new OrderedMonthSystemGroup(item.Group, item.TemplateEntry))
                 .ToList();
         }
 
-        private static IReadOnlyList<KbMaintenanceAnnualSystemGroup> OrderAnnualSystemGroupsByTemplate(
+        private static IReadOnlyList<OrderedAnnualSystemGroup> OrderAnnualSystemGroupsByTemplate(
             IReadOnlyList<KbMaintenanceAnnualSystemGroup> groups,
             WorksheetPart templateWorksheetPart,
-            AnnualSheetLayout templateLayout)
+            AnnualSheetLayout templateLayout,
+            out int nextAppendedSequenceNumber)
         {
-            if (groups.Count <= 1)
-                return groups;
+            if (groups.Count == 0)
+            {
+                nextAppendedSequenceNumber = 1;
+                return Array.Empty<OrderedAnnualSystemGroup>();
+            }
 
-            IReadOnlyDictionary<string, int> templateOrder = ReadTemplateSystemOrder(
+            IReadOnlyList<TemplateSystemOrderEntry> templateOrder = ReadTemplateSystemOrder(
                 templateWorksheetPart,
                 templateLayout.DataStartRowIndex,
                 templateLayout.FooterStartRowIndex - 1);
+            nextAppendedSequenceNumber = GetNextAppendedSequenceNumber(templateOrder);
             return groups
-                .Select((group, index) => new
+                .Select((group, index) =>
                 {
-                    Group = group,
-                    OriginalIndex = index,
-                    Rank = TryGetTemplateSystemRank(templateOrder, group.SystemName, out int rank)
-                        ? rank
-                        : int.MaxValue
+                    TemplateSystemOrderEntry? templateEntry = ResolveTemplateSystemOrderEntry(
+                        templateOrder,
+                        group.SystemName,
+                        group.InventoryNumber);
+                    return new
+                    {
+                        Group = group,
+                        OriginalIndex = index,
+                        TemplateEntry = templateEntry,
+                        Rank = templateEntry?.Rank ?? int.MaxValue
+                    };
                 })
                 .OrderBy(static item => item.Rank)
                 .ThenBy(static item => item.OriginalIndex)
-                .Select(static item => item.Group)
+                .Select(static item => new OrderedAnnualSystemGroup(item.Group, item.TemplateEntry))
                 .ToList();
         }
 
         private static void PopulateSystemHeaderRows(
             Row headerTopRow,
             Row headerBottomRow,
-            KbMaintenanceMonthSheetSystemGroup systemGroup)
+            KbMaintenanceMonthSheetSystemGroup systemGroup,
+            int sequenceNumber,
+            string systemName)
         {
-            SetCellNumber(headerTopRow, 1, systemGroup.SequenceNumber);
-            SetCellText(headerTopRow, 2, NormalizeText(systemGroup.SystemName));
+            SetCellNumber(headerTopRow, 1, sequenceNumber);
+            SetCellText(headerTopRow, 2, NormalizeText(systemName));
             SetCellText(headerTopRow, 3, DefaultDashText);
             SetCellText(headerTopRow, 4, NormalizeText(systemGroup.InventoryNumber, DefaultDashText));
             ClearRowValues(headerTopRow, startColumnIndex: 5, endColumnIndex: SheetColumnSpanEndIndex);
@@ -560,11 +592,13 @@ namespace AsutpKnowledgeBase.Services
         private static void PopulateAnnualSystemRow(
             Row row,
             KbMaintenanceAnnualSystemGroup systemGroup,
-            string workshopName)
+            string workshopName,
+            int sequenceNumber,
+            string systemName)
         {
             ClearRowValues(row, 1, AnnualSheetColumnSpanEndIndex);
-            SetCellNumber(row, 1, systemGroup.SequenceNumber);
-            SetCellText(row, 2, NormalizeText(systemGroup.SystemName, string.Empty));
+            SetCellNumber(row, 1, sequenceNumber);
+            SetCellText(row, 2, NormalizeText(systemName, string.Empty));
             SetCellText(row, 3, NormalizeText(workshopName, string.Empty));
             SetCellText(row, 4, NormalizeText(systemGroup.InventoryNumber, string.Empty));
         }
@@ -1008,7 +1042,7 @@ namespace AsutpKnowledgeBase.Services
             return ((CellFormat)cellFormats.ElementAt((int)styleIndex)).FillId?.Value;
         }
 
-        private static IReadOnlyDictionary<string, int> ReadTemplateSystemOrder(
+        private static IReadOnlyList<TemplateSystemOrderEntry> ReadTemplateSystemOrder(
             WorksheetPart worksheetPart,
             uint startRowIndex,
             uint endRowIndex)
@@ -1017,7 +1051,7 @@ namespace AsutpKnowledgeBase.Services
                 ?? throw new InvalidOperationException("Шаблон графика ТО повреждён: отсутствует sheetData.");
             IReadOnlyList<string> sharedStrings = ReadSharedStrings(
                 worksheetPart.GetParentParts().OfType<WorkbookPart>().FirstOrDefault()?.SharedStringTablePart);
-            var order = new Dictionary<string, int>(StringComparer.Ordinal);
+            var order = new List<TemplateSystemOrderEntry>();
             foreach (Row row in sheetData.Elements<Row>())
             {
                 uint rowIndex = row.RowIndex?.Value ?? 0;
@@ -1026,21 +1060,27 @@ namespace AsutpKnowledgeBase.Services
 
                 string sequenceText = ReadCellText(row, 1, sharedStrings);
                 string systemName = ReadCellText(row, 2, sharedStrings);
-                if (!int.TryParse(sequenceText, NumberStyles.Integer, CultureInfo.InvariantCulture, out _) ||
+                string inventoryNumber = ReadCellText(row, 4, sharedStrings);
+                if (!int.TryParse(sequenceText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int sequenceNumber) ||
                     string.IsNullOrWhiteSpace(systemName))
                 {
                     continue;
                 }
 
-                string key = BuildTemplateSystemOrderKey(systemName);
-                if (!order.ContainsKey(key))
-                    order.Add(key, order.Count);
+                order.Add(
+                    new TemplateSystemOrderEntry(
+                        Rank: order.Count,
+                        SequenceNumber: sequenceNumber,
+                        SystemName: systemName.Trim(),
+                        InventoryNumber: inventoryNumber.Trim(),
+                        SystemNameKey: BuildTemplateSystemOrderKey(systemName),
+                        InventoryNumberKey: BuildTemplateInventoryNumberKey(inventoryNumber)));
             }
 
             return order;
         }
 
-        private static IReadOnlyDictionary<string, int> ReadMayTemplateSystemOrder(WorksheetPart templateWorksheetPart)
+        private static IReadOnlyList<TemplateSystemOrderEntry> ReadMonthTemplateSystemOrder(WorksheetPart templateWorksheetPart)
         {
             WorkbookPart templateWorkbookPart = templateWorksheetPart.GetParentParts().OfType<WorkbookPart>().FirstOrDefault()
                 ?? throw new InvalidOperationException("Шаблон графика ТО повреждён: отсутствует workbook part.");
@@ -1053,17 +1093,71 @@ namespace AsutpKnowledgeBase.Services
                 mayLayout.FooterStartRowIndex - 1);
         }
 
-        private static bool TryGetTemplateSystemRank(
-            IReadOnlyDictionary<string, int> templateOrder,
+        private static TemplateSystemOrderEntry? ResolveTemplateSystemOrderEntry(
+            IReadOnlyList<TemplateSystemOrderEntry> templateOrder,
             string systemName,
-            out int rank) =>
-            templateOrder.TryGetValue(BuildTemplateSystemOrderKey(systemName), out rank);
+            string inventoryNumber)
+        {
+            string systemNameKey = BuildTemplateSystemOrderKey(systemName);
+            string inventoryNumberKey = BuildTemplateInventoryNumberKey(inventoryNumber);
+
+            if (!string.IsNullOrWhiteSpace(systemNameKey) && !string.IsNullOrWhiteSpace(inventoryNumberKey))
+            {
+                TemplateSystemOrderEntry? exactEntry = templateOrder.FirstOrDefault(entry =>
+                    string.Equals(entry.SystemNameKey, systemNameKey, StringComparison.Ordinal) &&
+                    string.Equals(entry.InventoryNumberKey, inventoryNumberKey, StringComparison.Ordinal));
+                if (exactEntry != null)
+                    return exactEntry;
+            }
+
+            if (!string.IsNullOrWhiteSpace(inventoryNumberKey))
+            {
+                List<TemplateSystemOrderEntry> inventoryMatches = templateOrder
+                    .Where(entry => string.Equals(entry.InventoryNumberKey, inventoryNumberKey, StringComparison.Ordinal))
+                    .Take(2)
+                    .ToList();
+                if (inventoryMatches.Count == 1)
+                    return inventoryMatches[0];
+            }
+
+            return string.IsNullOrWhiteSpace(systemNameKey)
+                ? null
+                : templateOrder.FirstOrDefault(entry =>
+                    string.Equals(entry.SystemNameKey, systemNameKey, StringComparison.Ordinal));
+        }
+
+        private static int GetNextAppendedSequenceNumber(IReadOnlyList<TemplateSystemOrderEntry> templateOrder) =>
+            templateOrder.Count == 0
+                ? 1
+                : templateOrder.Max(static entry => entry.SequenceNumber) + 1;
 
         private static string BuildTemplateSystemOrderKey(string? systemName)
         {
             string normalized = Regex.Replace(systemName?.Trim() ?? string.Empty, @"\s+", " ");
             return normalized.ToUpperInvariant();
         }
+
+        private static string BuildTemplateInventoryNumberKey(string? inventoryNumber)
+        {
+            string normalized = Regex.Replace(inventoryNumber?.Trim() ?? string.Empty, @"\s+", string.Empty);
+            return normalized.ToUpperInvariant();
+        }
+
+        private sealed record TemplateSystemOrderEntry(
+            int Rank,
+            int SequenceNumber,
+            string SystemName,
+            string InventoryNumber,
+            string SystemNameKey,
+            string InventoryNumberKey);
+
+        private sealed record OrderedMonthSystemGroup(
+            KbMaintenanceMonthSheetSystemGroup Group,
+            TemplateSystemOrderEntry? TemplateEntry);
+
+        private sealed record OrderedAnnualSystemGroup(
+            KbMaintenanceAnnualSystemGroup Group,
+            TemplateSystemOrderEntry? TemplateEntry);
 
         private static string ReadCellText(Row row, int columnIndex, IReadOnlyList<string> sharedStrings)
         {

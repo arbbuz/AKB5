@@ -131,7 +131,7 @@ namespace AsutpKnowledgeBase.Services
             }
 
             KnowledgeBaseMaintenanceMonthSheetModelBuildResult sheetModelBuildResult =
-                _sheetModelBuilderService.Build(year, month, normalizedRoots, planResult);
+                _sheetModelBuilderService.Build(year, month, normalizedRoots, planResult, maintenanceScheduleProfiles);
             if (!sheetModelBuildResult.IsSuccess || sheetModelBuildResult.SheetModel == null)
             {
                 return Failure(

@@ -93,7 +93,7 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         Assert.Equal("0.6", ReadCellValue(packageBytes, "КЦ (1)", "AK9"));
         Assert.Equal("15", ReadCellValue(packageBytes, "КЦ (1)", "AL9"));
 
-        Assert.Equal("1", ReadCellValue(packageBytes, "КЦ (1)", "A16"));
+        Assert.Equal("25", ReadCellValue(packageBytes, "КЦ (1)", "A16"));
         Assert.Equal("Система 1", ReadCellText(packageBytes, "КЦ (1)", "B16"));
         Assert.Equal("INV-01", ReadCellText(packageBytes, "КЦ (1)", "D16"));
         Assert.Equal("Шкаф 1", ReadCellText(packageBytes, "КЦ (1)", "B18"));
@@ -315,6 +315,38 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
     }
 
     [Fact]
+    public void ExportAnnual_OrdersSystemsByAnnualSourceTemplate()
+    {
+        var model = new KbMaintenanceAnnualWorkbookModel
+        {
+            Year = 2026,
+            WorkshopName = "КЦ",
+            TotalHours = 4,
+            SystemGroups =
+            {
+                CreateAnnualSystemGroup(
+                    1,
+                    "Система контроля и регулирования технологических параметров ВВК медного отделения. АСУТП ВВК 3-я стадия",
+                    "43583"),
+                CreateAnnualSystemGroup(
+                    2,
+                    "Система контроля и регулирования технологических параметров АКТ",
+                    "65526")
+            }
+        };
+
+        KnowledgeBaseMaintenanceWorkbookExportResult result = _service.ExportAnnual(model);
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        AssertValidWorkbook(packageBytes);
+        Assert.Equal("1", ReadCellValue(packageBytes, "КЦ (2)", "A16"));
+        Assert.Equal("Система контроля и регулирования технологических параметров АКТ", ReadCellText(packageBytes, "КЦ (2)", "B16"));
+        Assert.Equal("2", ReadCellValue(packageBytes, "КЦ (2)", "A18"));
+        Assert.Equal("Система контроля и регулирования технологических параметров ВВК медного отделения. АСУТП ВВК 3-я стадия", ReadCellText(packageBytes, "КЦ (2)", "B18"));
+    }
+
+    [Fact]
     public void ExportAnnual_UsesTemplateAndWritesAnnualRows()
     {
         var model = new KbMaintenanceAnnualWorkbookModel
@@ -368,7 +400,7 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         Assert.Equal(new[] { "КЦ (2)", "Лист1" }, ReadSheetNames(packageBytes));
         Assert.Equal("на 2027 год", ReadCellText(packageBytes, "КЦ (2)", "A10"));
         Assert.Equal("____ ____________ 2026 года", ReadCellText(packageBytes, "КЦ (2)", "U7"));
-        Assert.Equal("1", ReadCellValue(packageBytes, "КЦ (2)", "A16"));
+        Assert.Equal("25", ReadCellValue(packageBytes, "КЦ (2)", "A16"));
         Assert.Equal("Система 1", ReadCellText(packageBytes, "КЦ (2)", "B16"));
         Assert.Equal("КЦ", ReadCellText(packageBytes, "КЦ (2)", "C16"));
         Assert.Equal("SYS-01", ReadCellText(packageBytes, "КЦ (2)", "D16"));
@@ -453,6 +485,35 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
                             {
                                 new KbMaintenanceMonthSheetWorkEntry { PlanText = "ТО1/2" }
                             }
+                        }
+                    }
+                }
+            }
+        };
+
+    private static KbMaintenanceAnnualSystemGroup CreateAnnualSystemGroup(
+        int sequenceNumber,
+        string systemName,
+        string inventoryNumber) =>
+        new()
+        {
+            SequenceNumber = sequenceNumber,
+            SystemName = systemName,
+            InventoryNumber = inventoryNumber,
+            DetailRows =
+            {
+                new KbMaintenanceAnnualDetailRow
+                {
+                    NodeName = "Шкаф",
+                    TotalHours = 2,
+                    MonthCells =
+                    {
+                        new KbMaintenanceAnnualMonthCell
+                        {
+                            Month = 1,
+                            WorkKind = KbMaintenanceWorkKind.To1,
+                            Hours = 2,
+                            PlanText = "ТО1/2"
                         }
                     }
                 }
