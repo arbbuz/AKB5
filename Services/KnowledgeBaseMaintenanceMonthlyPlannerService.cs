@@ -18,6 +18,8 @@ namespace AsutpKnowledgeBase.Services
 
         public int AvailableCapacityHours { get; init; }
 
+        public List<int> NonWorkingDayNumbers { get; init; } = new();
+
         public List<KbMaintenanceMonthWorkItem> PlannedWorkItems { get; init; } = new();
 
         public List<KbMaintenanceMonthPlanDay> PlannedDays { get; init; } = new();
@@ -71,6 +73,7 @@ namespace AsutpKnowledgeBase.Services
             }
 
             IReadOnlyList<DateOnly> workingDays = _calendarService.GetWorkingDays(year, month);
+            List<int> nonWorkingDayNumbers = BuildNonWorkingDayNumbers(year, month, workingDays);
             int requestedHours = normalizedWorkItems.Sum(static item => Math.Max(0, item.Hours));
             int calendarCapacityHours = totalMonthlyHourBudget;
             int availableCapacityHours = totalMonthlyHourBudget;
@@ -83,6 +86,7 @@ namespace AsutpKnowledgeBase.Services
                     totalMonthlyHourBudget,
                     calendarCapacityHours,
                     availableCapacityHours,
+                    nonWorkingDayNumbers,
                     normalizedWorkItems,
                     new List<KbMaintenanceMonthPlanDay>());
             }
@@ -96,6 +100,7 @@ namespace AsutpKnowledgeBase.Services
                     totalMonthlyHourBudget,
                     calendarCapacityHours,
                     availableCapacityHours,
+                    nonWorkingDayNumbers,
                     normalizedWorkItems);
             }
 
@@ -108,6 +113,7 @@ namespace AsutpKnowledgeBase.Services
                     totalMonthlyHourBudget,
                     calendarCapacityHours,
                     availableCapacityHours,
+                    nonWorkingDayNumbers,
                     normalizedWorkItems);
             }
 
@@ -148,6 +154,7 @@ namespace AsutpKnowledgeBase.Services
                 totalMonthlyHourBudget,
                 calendarCapacityHours,
                 availableCapacityHours,
+                nonWorkingDayNumbers,
                 normalizedWorkItems,
                 plannedDays);
         }
@@ -210,12 +217,32 @@ namespace AsutpKnowledgeBase.Services
                 _ => 2
             };
 
+        private static List<int> BuildNonWorkingDayNumbers(
+            int year,
+            int month,
+            IReadOnlyCollection<DateOnly> workingDays)
+        {
+            var workingDayNumbers = workingDays
+                .Select(static day => day.Day)
+                .ToHashSet();
+            var nonWorkingDayNumbers = new List<int>();
+            int daysInMonth = DateTime.DaysInMonth(year, month);
+            for (int day = 1; day <= daysInMonth; day++)
+            {
+                if (!workingDayNumbers.Contains(day))
+                    nonWorkingDayNumbers.Add(day);
+            }
+
+            return nonWorkingDayNumbers;
+        }
+
         private static KnowledgeBaseMaintenanceMonthPlanResult Success(
             int workingDayCount,
             int requestedHours,
             int budgetHours,
             int calendarCapacityHours,
             int availableCapacityHours,
+            IReadOnlyList<int> nonWorkingDayNumbers,
             IReadOnlyList<KbMaintenanceMonthWorkItem> workItems,
             List<KbMaintenanceMonthPlanDay> plannedDays) =>
             new()
@@ -226,6 +253,7 @@ namespace AsutpKnowledgeBase.Services
                 BudgetHours = budgetHours,
                 CalendarCapacityHours = calendarCapacityHours,
                 AvailableCapacityHours = availableCapacityHours,
+                NonWorkingDayNumbers = nonWorkingDayNumbers.ToList(),
                 PlannedWorkItems = workItems.ToList(),
                 PlannedDays = plannedDays
             };
@@ -237,6 +265,7 @@ namespace AsutpKnowledgeBase.Services
             int budgetHours = 0,
             int calendarCapacityHours = 0,
             int availableCapacityHours = 0,
+            IReadOnlyList<int>? nonWorkingDayNumbers = null,
             IReadOnlyList<KbMaintenanceMonthWorkItem>? workItems = null) =>
             new()
             {
@@ -247,6 +276,7 @@ namespace AsutpKnowledgeBase.Services
                 BudgetHours = budgetHours,
                 CalendarCapacityHours = calendarCapacityHours,
                 AvailableCapacityHours = availableCapacityHours,
+                NonWorkingDayNumbers = nonWorkingDayNumbers?.ToList() ?? new List<int>(),
                 PlannedWorkItems = workItems?.ToList() ?? new List<KbMaintenanceMonthWorkItem>()
             };
 

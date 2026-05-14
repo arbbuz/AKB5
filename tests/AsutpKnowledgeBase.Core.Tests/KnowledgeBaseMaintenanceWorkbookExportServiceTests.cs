@@ -199,6 +199,122 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
     }
 
     [Fact]
+    public void ExportSingleMonth_ForEveryMonthKeepsServiceRowsHiddenAndHeaderRowsVisible()
+    {
+        for (int month = 1; month <= 12; month++)
+        {
+            KnowledgeBaseMaintenanceWorkbookExportResult result =
+                _service.ExportSingleMonth(CreateModel(2026, month, $"System {month}", $"INV-{month:D2}"));
+
+            Assert.True(result.IsSuccess);
+            byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+            AssertValidWorkbook(packageBytes);
+            Assert.Equal(new[] { BuildMonthSheetName(month) }, ReadSheetNames(packageBytes));
+            AssertMonthlyHeaderRows(packageBytes, month);
+            Assert.False(HasSharedFormulas(packageBytes, BuildMonthSheetName(month)));
+        }
+    }
+
+    [Fact]
+    public void GenerateYearWorkbook_ForEveryMonthKeepsMonthlyFormHeaders()
+    {
+        var generationService = new KnowledgeBaseMaintenanceWorkbookGenerationService();
+
+        KnowledgeBaseMaintenanceYearWorkbookGenerationResult result =
+            generationService.GenerateYearWorkbook(
+                null,
+                2026,
+                0,
+                Array.Empty<KbNode>(),
+                Array.Empty<KbMaintenanceScheduleProfile>());
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        AssertValidWorkbook(packageBytes);
+
+        for (int month = 1; month <= 12; month++)
+        {
+            AssertMonthlyHeaderRows(packageBytes, month);
+            Assert.False(HasSharedFormulas(packageBytes, BuildMonthSheetName(month)));
+        }
+    }
+
+    [Fact]
+    public void GenerateYearWorkbookFromMonth_KeepsRecalculatedMonthlyFormHeaders()
+    {
+        var generationService = new KnowledgeBaseMaintenanceWorkbookGenerationService();
+        byte[] templatePackage = new KnowledgeBaseMaintenanceWorkbookTemplateService().GetTemplatePackage();
+
+        KnowledgeBaseMaintenanceYearWorkbookGenerationResult result =
+            generationService.GenerateYearWorkbookFromMonth(
+                templatePackage,
+                2026,
+                6,
+                0,
+                Array.Empty<KbNode>(),
+                Array.Empty<KbMaintenanceScheduleProfile>());
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        AssertValidWorkbook(packageBytes);
+
+        for (int month = 6; month <= 12; month++)
+        {
+            AssertMonthlyHeaderRows(packageBytes, month);
+            Assert.False(HasSharedFormulas(packageBytes, BuildMonthSheetName(month)));
+        }
+    }
+
+    [Fact]
+    public void GenerateSingleMonthWorkbook_ForJune2026RecalculatesHeaderDayStyles()
+    {
+        var generationService = new KnowledgeBaseMaintenanceWorkbookGenerationService();
+
+        KnowledgeBaseMaintenanceWorkbookGenerationResult result =
+            generationService.GenerateSingleMonthWorkbook(
+                2026,
+                6,
+                0,
+                Array.Empty<KbNode>(),
+                Array.Empty<KbMaintenanceScheduleProfile>());
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        AssertValidWorkbook(packageBytes);
+
+        uint sundayFillId = ReadCellFillId(packageBytes, "КЦ (6)", "S15");
+        uint mondayFillId = ReadCellFillId(packageBytes, "КЦ (6)", "T15");
+        uint tuesdayFillId = ReadCellFillId(packageBytes, "КЦ (6)", "U15");
+        Assert.NotEqual(sundayFillId, mondayFillId);
+        Assert.Equal(tuesdayFillId, mondayFillId);
+    }
+
+    [Fact]
+    public void ExportSingleMonth_OrdersSystemsByMonthlySourceTemplate()
+    {
+        var model = new KbMaintenanceMonthSheetModel
+        {
+            Year = 2026,
+            Month = 6,
+            WorkingDayCount = 21,
+            TotalPlannedHours = 4,
+            SystemGroups =
+            {
+                CreateSystemGroup(1, "АСУ дозатором никелевого купороса", "46739"),
+                CreateSystemGroup(2, "Система контроля и регулирования технологических параметров АКТ", "65526")
+            }
+        };
+
+        KnowledgeBaseMaintenanceWorkbookExportResult result = _service.ExportSingleMonth(model);
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        AssertValidWorkbook(packageBytes);
+        Assert.Equal("Система контроля и регулирования технологических параметров АКТ", ReadCellText(packageBytes, "КЦ (6)", "B16"));
+        Assert.Equal("АСУ дозатором никелевого купороса", ReadCellText(packageBytes, "КЦ (6)", "B20"));
+    }
+
+    [Fact]
     public void ExportAnnual_UsesTemplateAndWritesAnnualRows()
     {
         var model = new KbMaintenanceAnnualWorkbookModel
@@ -312,6 +428,37 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
             }
         };
 
+    private static KbMaintenanceMonthSheetSystemGroup CreateSystemGroup(
+        int sequenceNumber,
+        string systemName,
+        string inventoryNumber) =>
+        new()
+        {
+            SequenceNumber = sequenceNumber,
+            SystemName = systemName,
+            InventoryNumber = inventoryNumber,
+            DetailRows =
+            {
+                new KbMaintenanceMonthSheetDetailRow
+                {
+                    NodeName = "ШУ",
+                    TotalHours = 2,
+                    DayCells =
+                    {
+                        new KbMaintenanceMonthSheetDayCell
+                        {
+                            DayOfMonth = 15,
+                            TotalHours = 2,
+                            WorkEntries =
+                            {
+                                new KbMaintenanceMonthSheetWorkEntry { PlanText = "ТО1/2" }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
     private static KbMaintenanceMonthSheetModel CreateModelWithDetailCount(
         int year,
         int month,
@@ -416,6 +563,18 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         return FindCell(worksheetPart, cellReference)?.CellValue?.Text ?? string.Empty;
     }
 
+    private static uint ReadCellFillId(byte[] packageBytes, string sheetName, string cellReference)
+    {
+        using SpreadsheetDocument document = OpenDocument(packageBytes);
+        WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
+        Cell cell = FindCell(worksheetPart, cellReference)
+            ?? throw new InvalidOperationException($"Cell '{cellReference}' was not found.");
+        uint styleIndex = cell.StyleIndex?.Value ?? 0;
+        CellFormats cellFormats = document.WorkbookPart!.WorkbookStylesPart!.Stylesheet.CellFormats!;
+        CellFormat cellFormat = (CellFormat)cellFormats.ElementAt((int)styleIndex);
+        return cellFormat.FillId?.Value ?? 0;
+    }
+
     private static string ReadCellFormula(byte[] packageBytes, string sheetName, string cellReference)
     {
         using SpreadsheetDocument document = OpenDocument(packageBytes);
@@ -463,6 +622,47 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
         return worksheetPart.Worksheet.Descendants<CellFormula>()
             .Any(formula => formula.FormulaType?.Value == CellFormulaValues.Shared);
+    }
+
+    private static void AssertMonthlyHeaderRows(byte[] packageBytes, int month)
+    {
+        string sheetName = BuildMonthSheetName(month);
+        uint headerTopRowIndex = FindRowContainingText(packageBytes, sheetName, "N \u043F/\u043F");
+        Assert.True(headerTopRowIndex >= 14);
+        Assert.True(IsRowHidden(packageBytes, sheetName, 8), $"{sheetName}: row 8 must stay hidden.");
+        Assert.True(IsRowHidden(packageBytes, sheetName, 9), $"{sheetName}: row 9 must stay hidden.");
+
+        for (uint rowIndex = 1; rowIndex <= headerTopRowIndex + 1; rowIndex++)
+        {
+            if (rowIndex is 8 or 9)
+                continue;
+
+            Assert.False(IsRowHidden(packageBytes, sheetName, rowIndex), $"{sheetName}: row {rowIndex} must be visible.");
+        }
+    }
+
+    private static bool IsRowHidden(byte[] packageBytes, string sheetName, uint rowIndex)
+    {
+        using SpreadsheetDocument document = OpenDocument(packageBytes);
+        WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
+        Row? row = worksheetPart.Worksheet.GetFirstChild<SheetData>()?
+            .Elements<Row>()
+            .FirstOrDefault(candidate => candidate.RowIndex?.Value == rowIndex);
+        return row?.Hidden?.Value == true;
+    }
+
+    private static uint FindRowContainingText(byte[] packageBytes, string sheetName, string expectedText)
+    {
+        using SpreadsheetDocument document = OpenDocument(packageBytes);
+        WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
+        IReadOnlyList<string> sharedStrings = ReadSharedStrings(document);
+        foreach (Row row in worksheetPart.Worksheet.GetFirstChild<SheetData>()?.Elements<Row>() ?? Enumerable.Empty<Row>())
+        {
+            if (row.Elements<Cell>().Any(cell => string.Equals(ReadCellText(document, cell, sharedStrings), expectedText, StringComparison.Ordinal)))
+                return row.RowIndex?.Value ?? 0;
+        }
+
+        throw new InvalidOperationException($"Text '{expectedText}' was not found on sheet '{sheetName}'.");
     }
 
     private static string ReadSheetTopLeftCell(byte[] packageBytes, string sheetName)
@@ -522,6 +722,46 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         return worksheetPart.Worksheet.GetFirstChild<SheetData>()?
             .Descendants<Cell>()
             .FirstOrDefault(cell => string.Equals(cell.CellReference?.Value, cellReference, StringComparison.Ordinal));
+    }
+
+    private static IReadOnlyList<string> ReadSharedStrings(SpreadsheetDocument document)
+    {
+        SharedStringTablePart? sharedStrings = document.WorkbookPart?.SharedStringTablePart;
+        if (sharedStrings?.SharedStringTable == null)
+            return Array.Empty<string>();
+
+        return sharedStrings.SharedStringTable
+            .Elements<SharedStringItem>()
+            .Select(item => string.Concat(item.Descendants<Text>().Select(text => text.Text)))
+            .ToArray();
+    }
+
+    private static string ReadCellText(
+        SpreadsheetDocument document,
+        Cell cell,
+        IReadOnlyList<string> sharedStrings)
+    {
+        if (cell.DataType?.Value == CellValues.InlineString)
+        {
+            return string.Concat(
+                cell.InlineString?.Descendants<Text>().Select(text => text.Text)
+                ?? Enumerable.Empty<string>());
+        }
+
+        if (cell.DataType?.Value == CellValues.SharedString)
+        {
+            if (cell.CellValue == null ||
+                !int.TryParse(cell.CellValue.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int sharedStringIndex))
+            {
+                return string.Empty;
+            }
+
+            return sharedStringIndex >= 0 && sharedStringIndex < sharedStrings.Count
+                ? sharedStrings[sharedStringIndex]
+                : string.Empty;
+        }
+
+        return cell.CellValue?.Text ?? string.Empty;
     }
 
     private static IReadOnlyList<uint> ReadRowIndices(byte[] packageBytes, string sheetName)

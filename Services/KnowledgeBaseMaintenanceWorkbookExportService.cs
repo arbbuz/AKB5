@@ -207,9 +207,14 @@ namespace AsutpKnowledgeBase.Services
             ClearRowBreaks(targetWorksheet);
 
             WriteHeader(targetWorksheet, targetLayout, sheetModel);
+            NormalizeMonthSheetHeaderRows(targetWorksheet, targetLayout);
+            ApplyHeaderDayCalendarStyles(workbookPart, targetWorksheet, targetLayout, sheetModel);
 
             uint currentRowIndex = targetLayout.DataStartRowIndex;
-            foreach (KbMaintenanceMonthSheetSystemGroup systemGroup in sheetModel.SystemGroups)
+            IReadOnlyList<KbMaintenanceMonthSheetSystemGroup> orderedSystemGroups = OrderSystemGroupsByTemplate(
+                sheetModel.SystemGroups,
+                templateWorksheetPart);
+            foreach (KbMaintenanceMonthSheetSystemGroup systemGroup in orderedSystemGroups)
             {
                 uint groupStartRowIndex = currentRowIndex;
                 uint groupEndRowIndex = groupStartRowIndex + 1U + (uint)(systemGroup.DetailRows.Count * 2);
@@ -340,7 +345,11 @@ namespace AsutpKnowledgeBase.Services
             WriteAnnualHeader(targetWorksheet, workbookModel);
 
             uint currentRowIndex = layout.DataStartRowIndex;
-            foreach (KbMaintenanceAnnualSystemGroup systemGroup in workbookModel.SystemGroups)
+            IReadOnlyList<KbMaintenanceAnnualSystemGroup> orderedSystemGroups = OrderAnnualSystemGroupsByTemplate(
+                workbookModel.SystemGroups,
+                targetWorksheetPart,
+                layout);
+            foreach (KbMaintenanceAnnualSystemGroup systemGroup in orderedSystemGroups)
             {
                 uint groupStartRowIndex = currentRowIndex;
                 Row systemRow = CloneRowToIndex(systemTemplate, currentRowIndex);
@@ -419,6 +428,94 @@ namespace AsutpKnowledgeBase.Services
             SetSheetCellText(worksheet, 10, 1, $"на {workbookModel.Year} год");
             int approvalYear = Math.Max(1, workbookModel.Year - 1);
             SetSheetCellText(worksheet, 7, 21, $"____ ____________ {approvalYear} года");
+        }
+
+        private static void NormalizeMonthSheetHeaderRows(Worksheet worksheet, SheetLayout layout)
+        {
+            for (uint rowIndex = 1; rowIndex <= layout.HeaderBottomRowIndex; rowIndex++)
+            {
+                UnhideRow(worksheet, rowIndex);
+            }
+
+            HideRow(worksheet, 8);
+            HideRow(worksheet, 9);
+        }
+
+        private static void ApplyHeaderDayCalendarStyles(
+            WorkbookPart workbookPart,
+            Worksheet worksheet,
+            SheetLayout layout,
+            KbMaintenanceMonthSheetModel sheetModel)
+        {
+            int daysInMonth = DateTime.DaysInMonth(sheetModel.Year, sheetModel.Month);
+            var nonWorkingDays = sheetModel.NonWorkingDayNumbers
+                .Where(day => day >= 1 && day <= daysInMonth)
+                .ToHashSet();
+            if (nonWorkingDays.Count == 0)
+                return;
+
+            Row headerRow = GetOrCreateRow(worksheet, layout.HeaderBottomRowIndex);
+            if (!TryResolveHeaderCalendarStyles(workbookPart, headerRow, daysInMonth, out uint workingStyleIndex, out uint nonWorkingStyleIndex))
+                return;
+
+            for (int dayOfMonth = 1; dayOfMonth <= daysInMonth; dayOfMonth++)
+            {
+                int columnIndex = FirstDayColumnIndex + dayOfMonth - 1;
+                Cell cell = GetOrCreateCell(headerRow, columnIndex);
+                cell.StyleIndex = nonWorkingDays.Contains(dayOfMonth)
+                    ? nonWorkingStyleIndex
+                    : workingStyleIndex;
+            }
+        }
+
+        private static IReadOnlyList<KbMaintenanceMonthSheetSystemGroup> OrderSystemGroupsByTemplate(
+            IReadOnlyList<KbMaintenanceMonthSheetSystemGroup> groups,
+            WorksheetPart templateWorksheetPart)
+        {
+            if (groups.Count <= 1)
+                return groups;
+
+            IReadOnlyDictionary<string, int> templateOrder = ReadMayTemplateSystemOrder(templateWorksheetPart);
+            return groups
+                .Select((group, index) => new
+                {
+                    Group = group,
+                    OriginalIndex = index,
+                    Rank = TryGetTemplateSystemRank(templateOrder, group.SystemName, out int rank)
+                        ? rank
+                        : int.MaxValue
+                })
+                .OrderBy(static item => item.Rank)
+                .ThenBy(static item => item.OriginalIndex)
+                .Select(static item => item.Group)
+                .ToList();
+        }
+
+        private static IReadOnlyList<KbMaintenanceAnnualSystemGroup> OrderAnnualSystemGroupsByTemplate(
+            IReadOnlyList<KbMaintenanceAnnualSystemGroup> groups,
+            WorksheetPart templateWorksheetPart,
+            AnnualSheetLayout templateLayout)
+        {
+            if (groups.Count <= 1)
+                return groups;
+
+            IReadOnlyDictionary<string, int> templateOrder = ReadTemplateSystemOrder(
+                templateWorksheetPart,
+                templateLayout.DataStartRowIndex,
+                templateLayout.FooterStartRowIndex - 1);
+            return groups
+                .Select((group, index) => new
+                {
+                    Group = group,
+                    OriginalIndex = index,
+                    Rank = TryGetTemplateSystemRank(templateOrder, group.SystemName, out int rank)
+                        ? rank
+                        : int.MaxValue
+                })
+                .OrderBy(static item => item.Rank)
+                .ThenBy(static item => item.OriginalIndex)
+                .Select(static item => item.Group)
+                .ToList();
         }
 
         private static void PopulateSystemHeaderRows(
@@ -835,6 +932,182 @@ namespace AsutpKnowledgeBase.Services
         {
             RowBreaks? rowBreaks = worksheet.Elements<RowBreaks>().FirstOrDefault();
             rowBreaks?.Remove();
+        }
+
+        private static void HideRow(Worksheet worksheet, uint rowIndex)
+        {
+            Row row = GetOrCreateRow(worksheet, rowIndex);
+            row.Hidden = true;
+        }
+
+        private static void UnhideRow(Worksheet worksheet, uint rowIndex)
+        {
+            SheetData? sheetData = worksheet.GetFirstChild<SheetData>();
+            Row? row = sheetData?.Elements<Row>().FirstOrDefault(candidate => candidate.RowIndex?.Value == rowIndex);
+            if (row == null)
+                return;
+
+            row.Hidden = null;
+        }
+
+        private static bool TryResolveHeaderCalendarStyles(
+            WorkbookPart workbookPart,
+            Row headerRow,
+            int daysInMonth,
+            out uint workingStyleIndex,
+            out uint nonWorkingStyleIndex)
+        {
+            workingStyleIndex = 0;
+            nonWorkingStyleIndex = 0;
+
+            var styleCounts = new Dictionary<uint, int>();
+            var fillByStyle = new Dictionary<uint, uint>();
+            for (int dayOfMonth = 1; dayOfMonth <= daysInMonth; dayOfMonth++)
+            {
+                int columnIndex = FirstDayColumnIndex + dayOfMonth - 1;
+                Cell cell = GetOrCreateCell(headerRow, columnIndex);
+                uint styleIndex = cell.StyleIndex?.Value ?? 0;
+                uint? fillId = TryGetFillId(workbookPart, styleIndex);
+                if (fillId == null)
+                    continue;
+
+                styleCounts[styleIndex] = styleCounts.TryGetValue(styleIndex, out int count) ? count + 1 : 1;
+                fillByStyle[styleIndex] = fillId.Value;
+            }
+
+            if (styleCounts.Count == 0)
+                return false;
+
+            workingStyleIndex = styleCounts
+                .Where(pair => fillByStyle.TryGetValue(pair.Key, out uint fillId) && fillId == 0)
+                .DefaultIfEmpty(styleCounts.OrderByDescending(static pair => pair.Value).First())
+                .OrderByDescending(static pair => pair.Value)
+                .ThenBy(static pair => pair.Key)
+                .First()
+                .Key;
+
+            uint resolvedWorkingStyleIndex = workingStyleIndex;
+            nonWorkingStyleIndex = styleCounts
+                .Where(pair => pair.Key != resolvedWorkingStyleIndex &&
+                               fillByStyle.TryGetValue(pair.Key, out uint fillId) &&
+                               fillId != 0)
+                .OrderByDescending(static pair => pair.Value)
+                .ThenBy(static pair => pair.Key)
+                .Select(static pair => pair.Key)
+                .FirstOrDefault(workingStyleIndex);
+
+            return nonWorkingStyleIndex != workingStyleIndex;
+        }
+
+        private static uint? TryGetFillId(WorkbookPart workbookPart, uint styleIndex)
+        {
+            CellFormats? cellFormats = workbookPart.WorkbookStylesPart?.Stylesheet.CellFormats;
+            if (cellFormats == null || styleIndex >= cellFormats.ChildElements.Count)
+                return null;
+
+            return ((CellFormat)cellFormats.ElementAt((int)styleIndex)).FillId?.Value;
+        }
+
+        private static IReadOnlyDictionary<string, int> ReadTemplateSystemOrder(
+            WorksheetPart worksheetPart,
+            uint startRowIndex,
+            uint endRowIndex)
+        {
+            SheetData sheetData = worksheetPart.Worksheet.GetFirstChild<SheetData>()
+                ?? throw new InvalidOperationException("Шаблон графика ТО повреждён: отсутствует sheetData.");
+            IReadOnlyList<string> sharedStrings = ReadSharedStrings(
+                worksheetPart.GetParentParts().OfType<WorkbookPart>().FirstOrDefault()?.SharedStringTablePart);
+            var order = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (Row row in sheetData.Elements<Row>())
+            {
+                uint rowIndex = row.RowIndex?.Value ?? 0;
+                if (rowIndex < startRowIndex || rowIndex > endRowIndex)
+                    continue;
+
+                string sequenceText = ReadCellText(row, 1, sharedStrings);
+                string systemName = ReadCellText(row, 2, sharedStrings);
+                if (!int.TryParse(sequenceText, NumberStyles.Integer, CultureInfo.InvariantCulture, out _) ||
+                    string.IsNullOrWhiteSpace(systemName))
+                {
+                    continue;
+                }
+
+                string key = BuildTemplateSystemOrderKey(systemName);
+                if (!order.ContainsKey(key))
+                    order.Add(key, order.Count);
+            }
+
+            return order;
+        }
+
+        private static IReadOnlyDictionary<string, int> ReadMayTemplateSystemOrder(WorksheetPart templateWorksheetPart)
+        {
+            WorkbookPart templateWorkbookPart = templateWorksheetPart.GetParentParts().OfType<WorkbookPart>().FirstOrDefault()
+                ?? throw new InvalidOperationException("Шаблон графика ТО повреждён: отсутствует workbook part.");
+            Sheet maySheet = FindMonthSheet(templateWorkbookPart, 5);
+            WorksheetPart mayWorksheetPart = GetWorksheetPart(templateWorkbookPart, maySheet);
+            SheetLayout mayLayout = SheetLayout.Read(mayWorksheetPart, requireDetailTemplate: false);
+            return ReadTemplateSystemOrder(
+                mayWorksheetPart,
+                mayLayout.DataStartRowIndex,
+                mayLayout.FooterStartRowIndex - 1);
+        }
+
+        private static bool TryGetTemplateSystemRank(
+            IReadOnlyDictionary<string, int> templateOrder,
+            string systemName,
+            out int rank) =>
+            templateOrder.TryGetValue(BuildTemplateSystemOrderKey(systemName), out rank);
+
+        private static string BuildTemplateSystemOrderKey(string? systemName)
+        {
+            string normalized = Regex.Replace(systemName?.Trim() ?? string.Empty, @"\s+", " ");
+            return normalized.ToUpperInvariant();
+        }
+
+        private static string ReadCellText(Row row, int columnIndex, IReadOnlyList<string> sharedStrings)
+        {
+            Cell? cell = row.Elements<Cell>()
+                .FirstOrDefault(candidate =>
+                    string.Equals(
+                        Regex.Replace(candidate.CellReference?.Value ?? string.Empty, @"\d", string.Empty),
+                        GetColumnName(columnIndex),
+                        StringComparison.Ordinal));
+
+            return cell == null
+                ? string.Empty
+                : ReadCellText(cell, sharedStrings);
+        }
+
+        private static string ReadCellText(Cell cell, IReadOnlyList<string> sharedStrings)
+        {
+            if (cell.DataType?.Value == CellValues.SharedString)
+            {
+                if (cell.CellValue == null || !int.TryParse(cell.CellValue.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int index))
+                    return string.Empty;
+
+                return index >= 0 && index < sharedStrings.Count
+                    ? sharedStrings[index]
+                    : string.Empty;
+            }
+
+            if (cell.DataType?.Value == CellValues.InlineString)
+            {
+                return string.Concat(cell.InlineString?.Descendants<Text>().Select(text => text.Text) ?? Enumerable.Empty<string>());
+            }
+
+            return cell.CellValue?.Text ?? string.Empty;
+        }
+
+        private static IReadOnlyList<string> ReadSharedStrings(SharedStringTablePart? part)
+        {
+            if (part?.SharedStringTable == null)
+                return Array.Empty<string>();
+
+            return part.SharedStringTable
+                .Elements<SharedStringItem>()
+                .Select(item => string.Concat(item.Descendants<Text>().Select(text => text.Text)))
+                .ToArray();
         }
 
         private static MergeCells GetOrCreateMergeCells(Worksheet worksheet)

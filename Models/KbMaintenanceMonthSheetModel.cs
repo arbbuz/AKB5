@@ -10,6 +10,8 @@ namespace AsutpKnowledgeBase.Models
 
         public int TotalPlannedHours { get; init; }
 
+        public List<int> NonWorkingDayNumbers { get; init; } = new();
+
         public List<KbMaintenanceMonthSheetDayTotal> DailyTotals { get; init; } = new();
 
         public List<KbMaintenanceMonthSheetSystemGroup> SystemGroups { get; init; } = new();

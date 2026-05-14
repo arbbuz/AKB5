@@ -82,6 +82,11 @@ namespace AsutpKnowledgeBase.Services
                     Month = month,
                     WorkingDayCount = planResult.WorkingDayCount,
                     TotalPlannedHours = planResult.PlannedDays.Sum(static day => day.TotalHours),
+                    NonWorkingDayNumbers = planResult.NonWorkingDayNumbers
+                        .Where(static day => day is >= 1 and <= 31)
+                        .Distinct()
+                        .Order()
+                        .ToList(),
                     DailyTotals = dailyTotals,
                     SystemGroups = groups
                 });
