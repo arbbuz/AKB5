@@ -219,13 +219,19 @@ namespace AsutpKnowledgeBase.Services
             {
                 KbMaintenanceMonthSheetSystemGroup systemGroup = orderedSystemGroup.Group;
                 uint groupStartRowIndex = currentRowIndex;
-                uint groupEndRowIndex = groupStartRowIndex + 1U + (uint)(systemGroup.DetailRows.Count * 2);
+                IReadOnlyList<OrderedMonthDetailRow> orderedDetailRows = OrderMonthDetailRowsByTemplate(
+                    systemGroup.DetailRows,
+                    orderedSystemGroup.TemplateEntry);
+                uint groupEndRowIndex = groupStartRowIndex + 1U + (uint)(orderedDetailRows.Count * 2);
                 int sequenceNumber = orderedSystemGroup.TemplateEntry?.SequenceNumber ?? nextAppendedSequenceNumber++;
                 string systemName = orderedSystemGroup.TemplateEntry?.SystemName ?? systemGroup.SystemName;
+                string inventoryNumber = string.IsNullOrWhiteSpace(orderedSystemGroup.TemplateEntry?.InventoryNumber)
+                    ? systemGroup.InventoryNumber
+                    : orderedSystemGroup.TemplateEntry.InventoryNumber;
 
                 Row headerTopRow = CloneRowToIndex(systemHeaderTopTemplate, currentRowIndex);
                 Row headerBottomRow = CloneRowToIndex(systemHeaderBottomTemplate, currentRowIndex + 1);
-                PopulateSystemHeaderRows(headerTopRow, headerBottomRow, systemGroup, sequenceNumber, systemName);
+                PopulateSystemHeaderRows(headerTopRow, headerBottomRow, sequenceNumber, systemName, inventoryNumber);
                 targetSheetData.Append(headerTopRow, headerBottomRow);
 
                 AddMerge(mergeCells, 1, 1, groupStartRowIndex, groupEndRowIndex);
@@ -236,11 +242,13 @@ namespace AsutpKnowledgeBase.Services
                 AddMerge(mergeCells, HiddenMergeColumnIndex, HiddenMergeColumnIndex, currentRowIndex, currentRowIndex + 1);
 
                 currentRowIndex += 2;
-                foreach (KbMaintenanceMonthSheetDetailRow detailRow in systemGroup.DetailRows)
+                foreach (OrderedMonthDetailRow orderedDetailRow in orderedDetailRows)
                 {
+                    KbMaintenanceMonthSheetDetailRow detailRow = orderedDetailRow.Row;
+                    string detailName = orderedDetailRow.TemplateEntry?.NodeName ?? detailRow.NodeName;
                     Row planRow = CloneRowToIndex(detailPlanTemplate, currentRowIndex);
                     Row factRow = CloneRowToIndex(detailFactTemplate, currentRowIndex + 1);
-                    PopulateDetailRows(planRow, factRow, detailRow);
+                    PopulateDetailRows(planRow, factRow, detailRow, detailName);
                     targetSheetData.Append(planRow, factRow);
 
                     AddMerge(mergeCells, 2, 2, currentRowIndex, currentRowIndex + 1);
@@ -360,15 +368,26 @@ namespace AsutpKnowledgeBase.Services
                 uint groupStartRowIndex = currentRowIndex;
                 int sequenceNumber = orderedSystemGroup.TemplateEntry?.SequenceNumber ?? nextAppendedSequenceNumber++;
                 string systemName = orderedSystemGroup.TemplateEntry?.SystemName ?? systemGroup.SystemName;
+                string inventoryNumber = string.IsNullOrWhiteSpace(orderedSystemGroup.TemplateEntry?.InventoryNumber)
+                    ? systemGroup.InventoryNumber
+                    : orderedSystemGroup.TemplateEntry.InventoryNumber;
                 Row systemRow = CloneRowToIndex(systemTemplate, currentRowIndex);
-                PopulateAnnualSystemRow(systemRow, systemGroup, workbookModel.WorkshopName, sequenceNumber, systemName);
+                PopulateAnnualSystemRow(systemRow, workbookModel.WorkshopName, sequenceNumber, systemName, inventoryNumber);
                 targetSheetData.Append(systemRow);
                 currentRowIndex++;
 
-                foreach (KbMaintenanceAnnualDetailRow detailRow in systemGroup.DetailRows)
+                IReadOnlyList<OrderedAnnualDetailRow> orderedDetailRows = OrderAnnualDetailRowsByTemplate(
+                    systemGroup.DetailRows,
+                    orderedSystemGroup.TemplateEntry);
+                foreach (OrderedAnnualDetailRow orderedDetailRow in orderedDetailRows)
                 {
+                    KbMaintenanceAnnualDetailRow detailRow = orderedDetailRow.Row;
+                    string detailName = orderedDetailRow.TemplateEntry?.NodeName ?? detailRow.NodeName;
+                    string detailInventoryNumber = string.IsNullOrWhiteSpace(orderedDetailRow.TemplateEntry?.InventoryNumber)
+                        ? detailRow.InventoryNumber
+                        : orderedDetailRow.TemplateEntry.InventoryNumber;
                     Row row = CloneRowToIndex(detailTemplate, currentRowIndex);
-                    PopulateAnnualDetailRow(row, detailRow, layout.PlanColumnByMonth);
+                    PopulateAnnualDetailRow(row, detailRow, detailName, detailInventoryNumber, layout.PlanColumnByMonth);
                     targetSheetData.Append(row);
                     currentRowIndex++;
                 }
@@ -444,9 +463,6 @@ namespace AsutpKnowledgeBase.Services
             {
                 UnhideRow(worksheet, rowIndex);
             }
-
-            HideRow(worksheet, 8);
-            HideRow(worksheet, 9);
         }
 
         private static void ApplyHeaderDayCalendarStyles(
@@ -548,17 +564,75 @@ namespace AsutpKnowledgeBase.Services
                 .ToList();
         }
 
+        private static IReadOnlyList<OrderedMonthDetailRow> OrderMonthDetailRowsByTemplate(
+            IReadOnlyList<KbMaintenanceMonthSheetDetailRow> detailRows,
+            TemplateSystemOrderEntry? templateEntry)
+        {
+            if (detailRows.Count == 0)
+                return Array.Empty<OrderedMonthDetailRow>();
+
+            IReadOnlyList<TemplateDetailOrderEntry> templateDetails = templateEntry?.DetailRows ?? Array.Empty<TemplateDetailOrderEntry>();
+            return detailRows
+                .Select((row, index) =>
+                {
+                    TemplateDetailOrderEntry? detailEntry = ResolveTemplateDetailOrderEntry(
+                        templateDetails,
+                        row.NodeName,
+                        string.Empty);
+                    return new
+                    {
+                        Row = row,
+                        OriginalIndex = index,
+                        TemplateEntry = detailEntry,
+                        Rank = detailEntry?.Rank ?? int.MaxValue
+                    };
+                })
+                .OrderBy(static item => item.Rank)
+                .ThenBy(static item => item.OriginalIndex)
+                .Select(static item => new OrderedMonthDetailRow(item.Row, item.TemplateEntry))
+                .ToList();
+        }
+
+        private static IReadOnlyList<OrderedAnnualDetailRow> OrderAnnualDetailRowsByTemplate(
+            IReadOnlyList<KbMaintenanceAnnualDetailRow> detailRows,
+            TemplateSystemOrderEntry? templateEntry)
+        {
+            if (detailRows.Count == 0)
+                return Array.Empty<OrderedAnnualDetailRow>();
+
+            IReadOnlyList<TemplateDetailOrderEntry> templateDetails = templateEntry?.DetailRows ?? Array.Empty<TemplateDetailOrderEntry>();
+            return detailRows
+                .Select((row, index) =>
+                {
+                    TemplateDetailOrderEntry? detailEntry = ResolveTemplateDetailOrderEntry(
+                        templateDetails,
+                        row.NodeName,
+                        row.InventoryNumber);
+                    return new
+                    {
+                        Row = row,
+                        OriginalIndex = index,
+                        TemplateEntry = detailEntry,
+                        Rank = detailEntry?.Rank ?? int.MaxValue
+                    };
+                })
+                .OrderBy(static item => item.Rank)
+                .ThenBy(static item => item.OriginalIndex)
+                .Select(static item => new OrderedAnnualDetailRow(item.Row, item.TemplateEntry))
+                .ToList();
+        }
+
         private static void PopulateSystemHeaderRows(
             Row headerTopRow,
             Row headerBottomRow,
-            KbMaintenanceMonthSheetSystemGroup systemGroup,
             int sequenceNumber,
-            string systemName)
+            string systemName,
+            string inventoryNumber)
         {
             SetCellNumber(headerTopRow, 1, sequenceNumber);
             SetCellText(headerTopRow, 2, NormalizeText(systemName));
             SetCellText(headerTopRow, 3, DefaultDashText);
-            SetCellText(headerTopRow, 4, NormalizeText(systemGroup.InventoryNumber, DefaultDashText));
+            SetCellText(headerTopRow, 4, NormalizeText(inventoryNumber, DefaultDashText));
             ClearRowValues(headerTopRow, startColumnIndex: 5, endColumnIndex: SheetColumnSpanEndIndex);
             ClearRowValues(headerBottomRow, startColumnIndex: 1, endColumnIndex: SheetColumnSpanEndIndex);
         }
@@ -566,9 +640,10 @@ namespace AsutpKnowledgeBase.Services
         private static void PopulateDetailRows(
             Row planRow,
             Row factRow,
-            KbMaintenanceMonthSheetDetailRow detailRow)
+            KbMaintenanceMonthSheetDetailRow detailRow,
+            string detailName)
         {
-            SetCellText(planRow, 2, NormalizeText(detailRow.NodeName));
+            SetCellText(planRow, 2, NormalizeText(detailName));
             SetCellText(planRow, 3, DefaultDashText);
             SetCellText(planRow, 4, DefaultDashText);
             SetCellText(planRow, 5, PlanText);
@@ -591,26 +666,28 @@ namespace AsutpKnowledgeBase.Services
 
         private static void PopulateAnnualSystemRow(
             Row row,
-            KbMaintenanceAnnualSystemGroup systemGroup,
             string workshopName,
             int sequenceNumber,
-            string systemName)
+            string systemName,
+            string inventoryNumber)
         {
             ClearRowValues(row, 1, AnnualSheetColumnSpanEndIndex);
             SetCellNumber(row, 1, sequenceNumber);
             SetCellText(row, 2, NormalizeText(systemName, string.Empty));
             SetCellText(row, 3, NormalizeText(workshopName, string.Empty));
-            SetCellText(row, 4, NormalizeText(systemGroup.InventoryNumber, string.Empty));
+            SetCellText(row, 4, NormalizeText(inventoryNumber, string.Empty));
         }
 
         private static void PopulateAnnualDetailRow(
             Row row,
             KbMaintenanceAnnualDetailRow detailRow,
+            string detailName,
+            string inventoryNumber,
             IReadOnlyDictionary<int, int> planColumnByMonth)
         {
             ClearRowValues(row, 1, AnnualSheetColumnSpanEndIndex);
-            SetCellText(row, 2, NormalizeText(detailRow.NodeName, string.Empty));
-            SetCellText(row, 4, NormalizeText(detailRow.InventoryNumber, string.Empty));
+            SetCellText(row, 2, NormalizeText(detailName, string.Empty));
+            SetCellText(row, 4, NormalizeText(inventoryNumber, string.Empty));
 
             foreach (KbMaintenanceAnnualMonthCell monthCell in detailRow.MonthCells)
             {
@@ -852,29 +929,22 @@ namespace AsutpKnowledgeBase.Services
             if (sheetView == null)
                 return;
 
-            Pane? pane = sheetView.Elements<Pane>().FirstOrDefault();
-            if (pane != null)
-                pane.TopLeftCell = $"E{firstDataRowIndex}";
-
-            foreach (Selection selection in sheetView.Elements<Selection>())
+            foreach (Pane pane in sheetView.Elements<Pane>().ToList())
             {
-                if (selection.Pane?.Value == PaneValues.TopRight)
-                {
-                    selection.ActiveCell = "E1";
-                    selection.SequenceOfReferences = new ListValue<StringValue> { InnerText = "E1" };
-                    continue;
-                }
-
-                if (selection.Pane?.Value == PaneValues.BottomLeft)
-                {
-                    selection.ActiveCell = $"A{firstDataRowIndex}";
-                    selection.SequenceOfReferences = new ListValue<StringValue> { InnerText = $"A{firstDataRowIndex}" };
-                    continue;
-                }
-
-                selection.ActiveCell = $"E{firstDataRowIndex}";
-                selection.SequenceOfReferences = new ListValue<StringValue> { InnerText = $"E{firstDataRowIndex}" };
+                pane.Remove();
             }
+
+            foreach (Selection selection in sheetView.Elements<Selection>().ToList())
+            {
+                selection.Remove();
+            }
+
+            sheetView.Append(
+                new Selection
+                {
+                    ActiveCell = $"E{firstDataRowIndex}",
+                    SequenceOfReferences = new ListValue<StringValue> { InnerText = $"E{firstDataRowIndex}" }
+                });
         }
 
         private static void SetSheetCellText(Worksheet worksheet, uint rowIndex, int columnIndex, string value)
@@ -1051,7 +1121,8 @@ namespace AsutpKnowledgeBase.Services
                 ?? throw new InvalidOperationException("Шаблон графика ТО повреждён: отсутствует sheetData.");
             IReadOnlyList<string> sharedStrings = ReadSharedStrings(
                 worksheetPart.GetParentParts().OfType<WorkbookPart>().FirstOrDefault()?.SharedStringTablePart);
-            var order = new List<TemplateSystemOrderEntry>();
+            var order = new List<TemplateSystemOrderEntryBuilder>();
+            TemplateSystemOrderEntryBuilder? currentSystem = null;
             foreach (Row row in sheetData.Elements<Row>())
             {
                 uint rowIndex = row.RowIndex?.Value ?? 0;
@@ -1061,23 +1132,41 @@ namespace AsutpKnowledgeBase.Services
                 string sequenceText = ReadCellText(row, 1, sharedStrings);
                 string systemName = ReadCellText(row, 2, sharedStrings);
                 string inventoryNumber = ReadCellText(row, 4, sharedStrings);
-                if (!int.TryParse(sequenceText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int sequenceNumber) ||
-                    string.IsNullOrWhiteSpace(systemName))
+                if (int.TryParse(sequenceText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int sequenceNumber) &&
+                    !string.IsNullOrWhiteSpace(systemName))
                 {
+                    if (IsTemplateColumnNumberRow(sequenceNumber, systemName, inventoryNumber))
+                    {
+                        currentSystem = null;
+                        continue;
+                    }
+
+                    currentSystem = new TemplateSystemOrderEntryBuilder(
+                        order.Count,
+                        sequenceNumber,
+                        systemName.Trim(),
+                        inventoryNumber.Trim(),
+                        BuildTemplateSystemOrderKey(systemName),
+                        BuildTemplateInventoryNumberKey(inventoryNumber),
+                        BuildTemplateNameMatchKey(systemName));
+                    order.Add(currentSystem);
                     continue;
                 }
 
-                order.Add(
-                    new TemplateSystemOrderEntry(
-                        Rank: order.Count,
-                        SequenceNumber: sequenceNumber,
-                        SystemName: systemName.Trim(),
+                if (currentSystem == null || !IsTemplateDetailRowName(systemName))
+                    continue;
+
+                currentSystem.DetailRows.Add(
+                    new TemplateDetailOrderEntry(
+                        Rank: currentSystem.DetailRows.Count,
+                        NodeName: systemName.Trim(),
                         InventoryNumber: inventoryNumber.Trim(),
-                        SystemNameKey: BuildTemplateSystemOrderKey(systemName),
-                        InventoryNumberKey: BuildTemplateInventoryNumberKey(inventoryNumber)));
+                        NodeNameKey: BuildTemplateSystemOrderKey(systemName),
+                        InventoryNumberKey: BuildTemplateInventoryNumberKey(inventoryNumber),
+                        NodeNameMatchKey: BuildTemplateNameMatchKey(systemName)));
             }
 
-            return order;
+            return order.Select(static entry => entry.Build()).ToList();
         }
 
         private static IReadOnlyList<TemplateSystemOrderEntry> ReadMonthTemplateSystemOrder(WorksheetPart templateWorksheetPart)
@@ -1120,16 +1209,171 @@ namespace AsutpKnowledgeBase.Services
                     return inventoryMatches[0];
             }
 
-            return string.IsNullOrWhiteSpace(systemNameKey)
-                ? null
-                : templateOrder.FirstOrDefault(entry =>
+            if (!string.IsNullOrWhiteSpace(systemNameKey))
+            {
+                TemplateSystemOrderEntry? nameMatch = templateOrder.FirstOrDefault(entry =>
                     string.Equals(entry.SystemNameKey, systemNameKey, StringComparison.Ordinal));
+                if (nameMatch != null)
+                    return nameMatch;
+            }
+
+            return ResolveTemplateSystemNameMatch(templateOrder, systemName);
+        }
+
+        private static TemplateDetailOrderEntry? ResolveTemplateDetailOrderEntry(
+            IReadOnlyList<TemplateDetailOrderEntry> templateDetails,
+            string nodeName,
+            string inventoryNumber)
+        {
+            if (templateDetails.Count == 0)
+                return null;
+
+            string nodeNameKey = BuildTemplateSystemOrderKey(nodeName);
+            string inventoryNumberKey = BuildTemplateInventoryNumberKey(inventoryNumber);
+            if (!string.IsNullOrWhiteSpace(nodeNameKey) && !string.IsNullOrWhiteSpace(inventoryNumberKey))
+            {
+                TemplateDetailOrderEntry? exactEntry = templateDetails.FirstOrDefault(entry =>
+                    string.Equals(entry.NodeNameKey, nodeNameKey, StringComparison.Ordinal) &&
+                    string.Equals(entry.InventoryNumberKey, inventoryNumberKey, StringComparison.Ordinal));
+                if (exactEntry != null)
+                    return exactEntry;
+            }
+
+            if (!string.IsNullOrWhiteSpace(inventoryNumberKey))
+            {
+                List<TemplateDetailOrderEntry> inventoryMatches = templateDetails
+                    .Where(entry => string.Equals(entry.InventoryNumberKey, inventoryNumberKey, StringComparison.Ordinal))
+                    .Take(2)
+                    .ToList();
+                if (inventoryMatches.Count == 1)
+                    return inventoryMatches[0];
+            }
+
+            if (!string.IsNullOrWhiteSpace(nodeNameKey))
+            {
+                TemplateDetailOrderEntry? nameMatch = templateDetails.FirstOrDefault(entry =>
+                    string.Equals(entry.NodeNameKey, nodeNameKey, StringComparison.Ordinal));
+                if (nameMatch != null)
+                    return nameMatch;
+            }
+
+            return ResolveTemplateDetailNameMatch(templateDetails, nodeName);
         }
 
         private static int GetNextAppendedSequenceNumber(IReadOnlyList<TemplateSystemOrderEntry> templateOrder) =>
             templateOrder.Count == 0
                 ? 1
                 : templateOrder.Max(static entry => entry.SequenceNumber) + 1;
+
+        private static TemplateSystemOrderEntry? ResolveTemplateSystemNameMatch(
+            IReadOnlyList<TemplateSystemOrderEntry> templateOrder,
+            string systemName)
+        {
+            string systemNameMatchKey = BuildTemplateNameMatchKey(systemName);
+            if (string.IsNullOrWhiteSpace(systemNameMatchKey))
+                return null;
+
+            TemplateSystemOrderEntry? exactMatch = FindUnique(
+                templateOrder.Where(entry => string.Equals(entry.SystemNameMatchKey, systemNameMatchKey, StringComparison.Ordinal)));
+            if (exactMatch != null)
+                return exactMatch;
+
+            return templateOrder
+                .Select(entry => new
+                {
+                    Entry = entry,
+                    Score = CalculateTemplateNameMatchScore(entry.SystemName, entry.SystemNameMatchKey, systemName, systemNameMatchKey)
+                })
+                .Where(static item => item.Score > 0)
+                .OrderByDescending(static item => item.Score)
+                .ThenBy(static item => item.Entry.Rank)
+                .Select(static item => item.Entry)
+                .FirstOrDefault();
+        }
+
+        private static TemplateDetailOrderEntry? ResolveTemplateDetailNameMatch(
+            IReadOnlyList<TemplateDetailOrderEntry> templateDetails,
+            string nodeName)
+        {
+            string nodeNameMatchKey = BuildTemplateNameMatchKey(nodeName);
+            if (string.IsNullOrWhiteSpace(nodeNameMatchKey))
+                return null;
+
+            TemplateDetailOrderEntry? exactMatch = FindUnique(
+                templateDetails.Where(entry => string.Equals(entry.NodeNameMatchKey, nodeNameMatchKey, StringComparison.Ordinal)));
+            if (exactMatch != null)
+                return exactMatch;
+
+            return templateDetails
+                .Select(entry => new
+                {
+                    Entry = entry,
+                    Score = CalculateTemplateNameMatchScore(entry.NodeName, entry.NodeNameMatchKey, nodeName, nodeNameMatchKey)
+                })
+                .Where(static item => item.Score > 0)
+                .OrderByDescending(static item => item.Score)
+                .ThenBy(static item => item.Entry.Rank)
+                .Select(static item => item.Entry)
+                .FirstOrDefault();
+        }
+
+        private static T? FindUnique<T>(IEnumerable<T> items)
+            where T : class
+        {
+            List<T> matches = items.Take(2).ToList();
+            return matches.Count == 1 ? matches[0] : null;
+        }
+
+        private static int CalculateTemplateNameMatchScore(
+            string templateName,
+            string templateMatchKey,
+            string candidateName,
+            string candidateMatchKey)
+        {
+            if (string.IsNullOrWhiteSpace(templateMatchKey) || string.IsNullOrWhiteSpace(candidateMatchKey))
+                return 0;
+
+            if (string.Equals(templateMatchKey, candidateMatchKey, StringComparison.Ordinal))
+                return 10_000;
+
+            if (templateMatchKey.Contains(candidateMatchKey, StringComparison.Ordinal) ||
+                candidateMatchKey.Contains(templateMatchKey, StringComparison.Ordinal))
+            {
+                int shorterLength = Math.Min(templateMatchKey.Length, candidateMatchKey.Length);
+                int longerLength = Math.Max(templateMatchKey.Length, candidateMatchKey.Length);
+                return 6_000 + (shorterLength * 1_000 / Math.Max(1, longerLength));
+            }
+
+            HashSet<string> templateTokens = BuildTemplateNameTokens(templateName);
+            HashSet<string> candidateTokens = BuildTemplateNameTokens(candidateName);
+            if (templateTokens.Count == 0 || candidateTokens.Count == 0)
+                return 0;
+
+            int overlap = candidateTokens.Count(templateTokens.Contains);
+            if (overlap == 0 ||
+                (candidateTokens.Count <= 2 && overlap < candidateTokens.Count) ||
+                (candidateTokens.Count > 2 && overlap < 2))
+            {
+                return 0;
+            }
+
+            return 1_000 + (overlap * 100) + (overlap * 100 / candidateTokens.Count) + (overlap * 100 / templateTokens.Count);
+        }
+
+        private static bool IsTemplateColumnNumberRow(int sequenceNumber, string systemName, string inventoryNumber) =>
+            sequenceNumber == 1 &&
+            string.Equals(BuildTemplateSystemOrderKey(systemName), "2", StringComparison.Ordinal) &&
+            string.Equals(BuildTemplateInventoryNumberKey(inventoryNumber), "4", StringComparison.Ordinal);
+
+        private static bool IsTemplateDetailRowName(string value)
+        {
+            string key = BuildTemplateSystemOrderKey(value);
+            return !string.IsNullOrWhiteSpace(key) &&
+                   !string.Equals(key, BuildTemplateSystemOrderKey(PlanText), StringComparison.Ordinal) &&
+                   !string.Equals(key, BuildTemplateSystemOrderKey(FactText), StringComparison.Ordinal) &&
+                   !string.Equals(key, BuildTemplateSystemOrderKey(TotalsLabelText), StringComparison.Ordinal) &&
+                   !string.Equals(key, BuildTemplateSystemOrderKey(AnnualTotalsLabelText), StringComparison.Ordinal);
+        }
 
         private static string BuildTemplateSystemOrderKey(string? systemName)
         {
@@ -1143,13 +1387,99 @@ namespace AsutpKnowledgeBase.Services
             return normalized.ToUpperInvariant();
         }
 
+        private static string BuildTemplateNameMatchKey(string? value)
+        {
+            string normalized = NormalizeTemplateNameForMatching(value);
+            return Regex.Replace(normalized, @"[^\p{L}\p{Nd}]+", string.Empty).ToUpperInvariant();
+        }
+
+        private static HashSet<string> BuildTemplateNameTokens(string? value)
+        {
+            string normalized = NormalizeTemplateNameForMatching(value);
+            return Regex.Matches(normalized.ToUpperInvariant(), @"[\p{L}\p{Nd}]+")
+                .Select(static match => match.Value)
+                .Where(static token => token.Length > 0)
+                .ToHashSet(StringComparer.Ordinal);
+        }
+
+        private static string NormalizeTemplateNameForMatching(string? value)
+        {
+            string normalized = (value ?? string.Empty)
+                .Replace('Ё', 'Е')
+                .Replace('ё', 'е')
+                .Replace('№', ' ');
+            normalized = Regex.Replace(normalized, @"\bАСУТП\b", "АСУ", RegexOptions.IgnoreCase);
+            normalized = Regex.Replace(normalized, @"\bМО\b", "медного отделения", RegexOptions.IgnoreCase);
+            normalized = Regex.Replace(normalized, @"\bНО\b", "никелевого отделения", RegexOptions.IgnoreCase);
+            normalized = Regex.Replace(normalized, @"\bФП\b", "фильтр пресс", RegexOptions.IgnoreCase);
+            return normalized;
+        }
+
+        private sealed class TemplateSystemOrderEntryBuilder
+        {
+            public TemplateSystemOrderEntryBuilder(
+                int rank,
+                int sequenceNumber,
+                string systemName,
+                string inventoryNumber,
+                string systemNameKey,
+                string inventoryNumberKey,
+                string systemNameMatchKey)
+            {
+                Rank = rank;
+                SequenceNumber = sequenceNumber;
+                SystemName = systemName;
+                InventoryNumber = inventoryNumber;
+                SystemNameKey = systemNameKey;
+                InventoryNumberKey = inventoryNumberKey;
+                SystemNameMatchKey = systemNameMatchKey;
+            }
+
+            public int Rank { get; }
+
+            public int SequenceNumber { get; }
+
+            public string SystemName { get; }
+
+            public string InventoryNumber { get; }
+
+            public string SystemNameKey { get; }
+
+            public string InventoryNumberKey { get; }
+
+            public string SystemNameMatchKey { get; }
+
+            public List<TemplateDetailOrderEntry> DetailRows { get; } = new();
+
+            public TemplateSystemOrderEntry Build() =>
+                new(
+                    Rank,
+                    SequenceNumber,
+                    SystemName,
+                    InventoryNumber,
+                    SystemNameKey,
+                    InventoryNumberKey,
+                    SystemNameMatchKey,
+                    DetailRows.ToArray());
+        }
+
         private sealed record TemplateSystemOrderEntry(
             int Rank,
             int SequenceNumber,
             string SystemName,
             string InventoryNumber,
             string SystemNameKey,
-            string InventoryNumberKey);
+            string InventoryNumberKey,
+            string SystemNameMatchKey,
+            IReadOnlyList<TemplateDetailOrderEntry> DetailRows);
+
+        private sealed record TemplateDetailOrderEntry(
+            int Rank,
+            string NodeName,
+            string InventoryNumber,
+            string NodeNameKey,
+            string InventoryNumberKey,
+            string NodeNameMatchKey);
 
         private sealed record OrderedMonthSystemGroup(
             KbMaintenanceMonthSheetSystemGroup Group,
@@ -1158,6 +1488,14 @@ namespace AsutpKnowledgeBase.Services
         private sealed record OrderedAnnualSystemGroup(
             KbMaintenanceAnnualSystemGroup Group,
             TemplateSystemOrderEntry? TemplateEntry);
+
+        private sealed record OrderedMonthDetailRow(
+            KbMaintenanceMonthSheetDetailRow Row,
+            TemplateDetailOrderEntry? TemplateEntry);
+
+        private sealed record OrderedAnnualDetailRow(
+            KbMaintenanceAnnualDetailRow Row,
+            TemplateDetailOrderEntry? TemplateEntry);
 
         private static string ReadCellText(Row row, int columnIndex, IReadOnlyList<string> sharedStrings)
         {

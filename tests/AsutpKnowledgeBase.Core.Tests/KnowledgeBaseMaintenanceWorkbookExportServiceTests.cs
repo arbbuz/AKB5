@@ -110,8 +110,7 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         Assert.Equal("SUM(AK16:AK21)", ReadCellFormula(packageBytes, "КЦ (1)", "AK22"));
         Assert.False(HasCalculationChain(packageBytes));
         Assert.False(HasSharedFormulas(packageBytes, "КЦ (1)"));
-        Assert.Equal("E16", ReadSheetTopLeftCell(packageBytes, "КЦ (1)"));
-        Assert.Equal("E16", ReadBottomRightSelection(packageBytes, "КЦ (1)"));
+        Assert.False(HasPanes(packageBytes, "КЦ (1)"));
     }
 
     [Fact]
@@ -199,7 +198,7 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
     }
 
     [Fact]
-    public void ExportSingleMonth_ForEveryMonthKeepsServiceRowsHiddenAndHeaderRowsVisible()
+    public void ExportSingleMonth_ForEveryMonthKeepsMonthlyHeaderRowsVisible()
     {
         for (int month = 1; month <= 12; month++)
         {
@@ -315,6 +314,54 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
     }
 
     [Fact]
+    public void ExportSingleMonth_OrdersDetailRowsByMonthlySourceTemplate()
+    {
+        var model = new KbMaintenanceMonthSheetModel
+        {
+            Year = 2026,
+            Month = 6,
+            WorkingDayCount = 21,
+            TotalPlannedHours = 24,
+            SystemGroups =
+            {
+                new KbMaintenanceMonthSheetSystemGroup
+                {
+                    SequenceNumber = 1,
+                    SystemName = "Система контроля и регулирования технологических параметров АКТ",
+                    InventoryNumber = "65526",
+                    DetailRows =
+                    {
+                        CreateMonthDetailRow("ЩК1"),
+                        CreateMonthDetailRow("ЩКМ1"),
+                        CreateMonthDetailRow("ЩК2"),
+                        CreateMonthDetailRow("ЩКО"),
+                        CreateMonthDetailRow("АРМ оператора"),
+                        CreateMonthDetailRow("ЩКМО2"),
+                        CreateMonthDetailRow("ЩКМО"),
+                        CreateMonthDetailRow("ЩКМ2"),
+                        CreateMonthDetailRow("ЩКМ3"),
+                        CreateMonthDetailRow("ЩКМ4"),
+                        CreateMonthDetailRow("ЩКМ6"),
+                        CreateMonthDetailRow("ЩКМ7")
+                    }
+                }
+            }
+        };
+
+        KnowledgeBaseMaintenanceWorkbookExportResult result = _service.ExportSingleMonth(model);
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        AssertValidWorkbook(packageBytes);
+        Assert.Equal("ЩКМ 1", ReadCellText(packageBytes, "КЦ (6)", "B18"));
+        Assert.Equal("ЩКМ 2", ReadCellText(packageBytes, "КЦ (6)", "B20"));
+        Assert.Equal("ЩКМ 7", ReadCellText(packageBytes, "КЦ (6)", "B28"));
+        Assert.Equal("ЩКМО", ReadCellText(packageBytes, "КЦ (6)", "B30"));
+        Assert.Equal("ЩК1", ReadCellText(packageBytes, "КЦ (6)", "B34"));
+        Assert.Equal("АРМ оператора", ReadCellText(packageBytes, "КЦ (6)", "B40"));
+    }
+
+    [Fact]
     public void ExportAnnual_OrdersSystemsByAnnualSourceTemplate()
     {
         var model = new KbMaintenanceAnnualWorkbookModel
@@ -344,6 +391,87 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         Assert.Equal("Система контроля и регулирования технологических параметров АКТ", ReadCellText(packageBytes, "КЦ (2)", "B16"));
         Assert.Equal("2", ReadCellValue(packageBytes, "КЦ (2)", "A18"));
         Assert.Equal("Система контроля и регулирования технологических параметров ВВК медного отделения. АСУТП ВВК 3-я стадия", ReadCellText(packageBytes, "КЦ (2)", "B18"));
+    }
+
+    [Fact]
+    public void ExportAnnual_MatchesAbbreviatedSystemNamesToAnnualTemplate()
+    {
+        var model = new KbMaintenanceAnnualWorkbookModel
+        {
+            Year = 2026,
+            WorkshopName = "КЦ",
+            TotalHours = 4,
+            SystemGroups =
+            {
+                CreateAnnualSystemGroup(
+                    1,
+                    "АСУ фильтр-прессом МО №3 (ФП ASKM800)",
+                    "0355178"),
+                CreateAnnualSystemGroup(
+                    2,
+                    "АСУ подготовки растворов участка обезмеживания",
+                    "31626")
+            }
+        };
+
+        KnowledgeBaseMaintenanceWorkbookExportResult result = _service.ExportAnnual(model);
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        AssertValidWorkbook(packageBytes);
+        Assert.Equal("9", ReadCellValue(packageBytes, "КЦ (2)", "A16"));
+        Assert.Equal("АСУТП подготовки растворов участка обезмеживания", ReadCellText(packageBytes, "КЦ (2)", "B16"));
+        Assert.Equal("31626", ReadCellText(packageBytes, "КЦ (2)", "D16"));
+        Assert.Equal("15", ReadCellValue(packageBytes, "КЦ (2)", "A18"));
+        Assert.Equal("АСУ фильтр-прессом медного отделения №3(Фильтр-пресс ASKM800)", ReadCellText(packageBytes, "КЦ (2)", "B18"));
+        Assert.Equal("55178", ReadCellText(packageBytes, "КЦ (2)", "D18"));
+    }
+
+    [Fact]
+    public void ExportAnnual_OrdersDetailRowsByMatchedTemplateSystem()
+    {
+        var model = new KbMaintenanceAnnualWorkbookModel
+        {
+            Year = 2026,
+            WorkshopName = "КЦ",
+            TotalHours = 24,
+            SystemGroups =
+            {
+                new KbMaintenanceAnnualSystemGroup
+                {
+                    SequenceNumber = 1,
+                    SystemName = "Система контроля и регулирования технологических параметров АКТ",
+                    InventoryNumber = "65526",
+                    DetailRows =
+                    {
+                        CreateAnnualDetailRow("ЩК1"),
+                        CreateAnnualDetailRow("ЩКМ1"),
+                        CreateAnnualDetailRow("ЩК2"),
+                        CreateAnnualDetailRow("ЩКО"),
+                        CreateAnnualDetailRow("АРМ оператора"),
+                        CreateAnnualDetailRow("ЩКМО2"),
+                        CreateAnnualDetailRow("ЩКМО"),
+                        CreateAnnualDetailRow("ЩКМ2"),
+                        CreateAnnualDetailRow("ЩКМ3"),
+                        CreateAnnualDetailRow("ЩКМ4"),
+                        CreateAnnualDetailRow("ЩКМ6"),
+                        CreateAnnualDetailRow("ЩКМ7")
+                    }
+                }
+            }
+        };
+
+        KnowledgeBaseMaintenanceWorkbookExportResult result = _service.ExportAnnual(model);
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        AssertValidWorkbook(packageBytes);
+        Assert.Equal("ЩКМ 1.", ReadCellText(packageBytes, "КЦ (2)", "B17"));
+        Assert.Equal("ЩКМ 2.", ReadCellText(packageBytes, "КЦ (2)", "B18"));
+        Assert.Equal("ЩКМ 7.", ReadCellText(packageBytes, "КЦ (2)", "B22"));
+        Assert.Equal("ЩКМО.", ReadCellText(packageBytes, "КЦ (2)", "B23"));
+        Assert.Equal("ЩК1.", ReadCellText(packageBytes, "КЦ (2)", "B25"));
+        Assert.Equal("АРМ оператора.", ReadCellText(packageBytes, "КЦ (2)", "B28"));
     }
 
     [Fact]
@@ -491,6 +619,25 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
             }
         };
 
+    private static KbMaintenanceMonthSheetDetailRow CreateMonthDetailRow(string nodeName) =>
+        new()
+        {
+            NodeName = nodeName,
+            TotalHours = 2,
+            DayCells =
+            {
+                new KbMaintenanceMonthSheetDayCell
+                {
+                    DayOfMonth = 15,
+                    TotalHours = 2,
+                    WorkEntries =
+                    {
+                        new KbMaintenanceMonthSheetWorkEntry { PlanText = "ТО1/2" }
+                    }
+                }
+            }
+        };
+
     private static KbMaintenanceAnnualSystemGroup CreateAnnualSystemGroup(
         int sequenceNumber,
         string systemName,
@@ -516,6 +663,23 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
                             PlanText = "ТО1/2"
                         }
                     }
+                }
+            }
+        };
+
+    private static KbMaintenanceAnnualDetailRow CreateAnnualDetailRow(string nodeName) =>
+        new()
+        {
+            NodeName = nodeName,
+            TotalHours = 2,
+            MonthCells =
+            {
+                new KbMaintenanceAnnualMonthCell
+                {
+                    Month = 1,
+                    WorkKind = KbMaintenanceWorkKind.To1,
+                    Hours = 2,
+                    PlanText = "ТО1/2"
                 }
             }
         };
@@ -690,16 +854,21 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         string sheetName = BuildMonthSheetName(month);
         uint headerTopRowIndex = FindRowContainingText(packageBytes, sheetName, "N \u043F/\u043F");
         Assert.True(headerTopRowIndex >= 14);
-        Assert.True(IsRowHidden(packageBytes, sheetName, 8), $"{sheetName}: row 8 must stay hidden.");
-        Assert.True(IsRowHidden(packageBytes, sheetName, 9), $"{sheetName}: row 9 must stay hidden.");
 
         for (uint rowIndex = 1; rowIndex <= headerTopRowIndex + 1; rowIndex++)
         {
-            if (rowIndex is 8 or 9)
-                continue;
-
             Assert.False(IsRowHidden(packageBytes, sheetName, rowIndex), $"{sheetName}: row {rowIndex} must be visible.");
         }
+    }
+
+    private static bool HasPanes(byte[] packageBytes, string sheetName)
+    {
+        using SpreadsheetDocument document = OpenDocument(packageBytes);
+        WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
+        return worksheetPart.Worksheet.Elements<SheetViews>()
+            .SelectMany(static sheetViews => sheetViews.Elements<SheetView>())
+            .SelectMany(static sheetView => sheetView.Elements<Pane>())
+            .Any();
     }
 
     private static bool IsRowHidden(byte[] packageBytes, string sheetName, uint rowIndex)
@@ -724,33 +893,6 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         }
 
         throw new InvalidOperationException($"Text '{expectedText}' was not found on sheet '{sheetName}'.");
-    }
-
-    private static string ReadSheetTopLeftCell(byte[] packageBytes, string sheetName)
-    {
-        using SpreadsheetDocument document = OpenDocument(packageBytes);
-        WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
-        return worksheetPart.Worksheet.Elements<SheetViews>()
-            .First()
-            .Elements<SheetView>()
-            .First()
-            .Elements<Pane>()
-            .First()
-            .TopLeftCell?.Value ?? string.Empty;
-    }
-
-    private static string ReadBottomRightSelection(byte[] packageBytes, string sheetName)
-    {
-        using SpreadsheetDocument document = OpenDocument(packageBytes);
-        WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
-        return worksheetPart.Worksheet.Elements<SheetViews>()
-            .First()
-            .Elements<SheetView>()
-            .First()
-            .Elements<Selection>()
-            .First(selection => selection.Pane?.Value != PaneValues.TopRight &&
-                                selection.Pane?.Value != PaneValues.BottomLeft)
-            .ActiveCell?.Value ?? string.Empty;
     }
 
     private static SpreadsheetDocument OpenDocument(byte[] packageBytes)
