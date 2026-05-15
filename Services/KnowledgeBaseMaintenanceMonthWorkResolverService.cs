@@ -30,8 +30,9 @@ namespace AsutpKnowledgeBase.Services
                     StringComparer.Ordinal);
 
             var workItems = new List<KbMaintenanceMonthWorkItem>();
-            foreach ((KbNode node, int visibleLevel) in EnumerateNodesPreOrder(roots, visibleLevel: 1))
+            foreach (NodeContext context in BuildNodeContexts(roots))
             {
+                KbNode node = context.Node;
                 string ownerNodeId = node.NodeId?.Trim() ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(ownerNodeId))
                     continue;
@@ -40,7 +41,7 @@ namespace AsutpKnowledgeBase.Services
                     continue;
 
                 if (!profile.IsIncludedInSchedule ||
-                    !KnowledgeBaseMaintenanceScheduleStateService.SupportsProfile(node.NodeType, visibleLevel))
+                    !KnowledgeBaseMaintenanceScheduleStateService.SupportsProfile(node.NodeType, context.VisibleLevel))
                 {
                     continue;
                 }
@@ -48,29 +49,63 @@ namespace AsutpKnowledgeBase.Services
                 KbMaintenanceYearScheduleEntry? explicitEntry = ResolveExplicitYearScheduleEntry(profile.YearScheduleEntries, month);
                 KbMaintenanceWorkKind dueKind = explicitEntry?.WorkKind ?? ResolveDueWorkKind(profile, ownerNodeId, month);
 
-                AddWorkItemIfDue(workItems, node, profile, KbMaintenanceWorkKind.To3, ResolveDueHours(profile, explicitEntry, KbMaintenanceWorkKind.To3), dueKind == KbMaintenanceWorkKind.To3);
-                AddWorkItemIfDue(workItems, node, profile, KbMaintenanceWorkKind.To2, ResolveDueHours(profile, explicitEntry, KbMaintenanceWorkKind.To2), dueKind == KbMaintenanceWorkKind.To2);
-                AddWorkItemIfDue(workItems, node, profile, KbMaintenanceWorkKind.To1, ResolveDueHours(profile, explicitEntry, KbMaintenanceWorkKind.To1), dueKind == KbMaintenanceWorkKind.To1);
+                AddWorkItemIfDue(workItems, context, profile, KbMaintenanceWorkKind.To3, ResolveDueHours(profile, explicitEntry, KbMaintenanceWorkKind.To3), dueKind == KbMaintenanceWorkKind.To3);
+                AddWorkItemIfDue(workItems, context, profile, KbMaintenanceWorkKind.To2, ResolveDueHours(profile, explicitEntry, KbMaintenanceWorkKind.To2), dueKind == KbMaintenanceWorkKind.To2);
+                AddWorkItemIfDue(workItems, context, profile, KbMaintenanceWorkKind.To1, ResolveDueHours(profile, explicitEntry, KbMaintenanceWorkKind.To1), dueKind == KbMaintenanceWorkKind.To1);
             }
 
             return workItems;
         }
 
-        private static IEnumerable<(KbNode Node, int VisibleLevel)> EnumerateNodesPreOrder(
-            IEnumerable<KbNode> roots,
-            int visibleLevel)
+        private static List<NodeContext> BuildNodeContexts(IEnumerable<KbNode> roots)
         {
-            foreach (KbNode node in roots)
+            var contexts = new List<NodeContext>();
+            int preorderIndex = 0;
+            AddNodeContexts(
+                roots,
+                visibleLevel: 1,
+                systemNodeId: string.Empty,
+                systemPreorderIndex: int.MaxValue,
+                contexts,
+                ref preorderIndex);
+            return contexts;
+        }
+
+        private static void AddNodeContexts(
+            IEnumerable<KbNode> nodes,
+            int visibleLevel,
+            string systemNodeId,
+            int systemPreorderIndex,
+            ICollection<NodeContext> contexts,
+            ref int preorderIndex)
+        {
+            foreach (KbNode node in nodes)
             {
                 int currentVisibleLevel = GetEffectiveVisibleLevel(node, visibleLevel);
-                yield return (node, currentVisibleLevel);
-
-                foreach ((KbNode child, int childVisibleLevel) in EnumerateNodesPreOrder(
-                             node.Children,
-                             currentVisibleLevel + 1))
+                int currentPreorderIndex = preorderIndex++;
+                string currentSystemNodeId = systemNodeId;
+                int currentSystemPreorderIndex = systemPreorderIndex;
+                string nodeId = node.NodeId?.Trim() ?? string.Empty;
+                if (currentVisibleLevel == 2)
                 {
-                    yield return (child, childVisibleLevel);
+                    currentSystemNodeId = nodeId;
+                    currentSystemPreorderIndex = currentPreorderIndex;
                 }
+
+                contexts.Add(new NodeContext(
+                    node,
+                    currentVisibleLevel,
+                    currentPreorderIndex,
+                    currentSystemNodeId,
+                    currentSystemPreorderIndex));
+
+                AddNodeContexts(
+                    node.Children,
+                    currentVisibleLevel + 1,
+                    currentSystemNodeId,
+                    currentSystemPreorderIndex,
+                    contexts,
+                    ref preorderIndex);
             }
         }
 
@@ -84,7 +119,7 @@ namespace AsutpKnowledgeBase.Services
 
         private static void AddWorkItemIfDue(
             ICollection<KbMaintenanceMonthWorkItem> workItems,
-            KbNode node,
+            NodeContext context,
             KbMaintenanceScheduleProfile profile,
             KbMaintenanceWorkKind workKind,
             int hours,
@@ -96,11 +131,21 @@ namespace AsutpKnowledgeBase.Services
             workItems.Add(new KbMaintenanceMonthWorkItem
             {
                 OwnerNodeId = profile.OwnerNodeId?.Trim() ?? string.Empty,
-                NodeName = node.Name?.Trim() ?? string.Empty,
+                NodeName = context.Node.Name?.Trim() ?? string.Empty,
+                SystemNodeId = context.SystemNodeId,
+                SystemPreorderIndex = context.SystemPreorderIndex,
+                OwnerPreorderIndex = context.PreorderIndex,
                 WorkKind = workKind,
                 Hours = hours
             });
         }
+
+        private sealed record NodeContext(
+            KbNode Node,
+            int VisibleLevel,
+            int PreorderIndex,
+            string SystemNodeId,
+            int SystemPreorderIndex);
 
         private static KbMaintenanceWorkKind ResolveDueWorkKind(
             KbMaintenanceScheduleProfile profile,

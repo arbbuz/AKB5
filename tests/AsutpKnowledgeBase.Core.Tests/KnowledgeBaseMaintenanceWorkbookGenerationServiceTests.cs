@@ -228,6 +228,48 @@ public class KnowledgeBaseMaintenanceWorkbookGenerationServiceTests
     }
 
     [Fact]
+    public void GenerateYearWorkbook_WhenExistingPathContainsAnnualWorkbook_StartsFromMonthlyTemplate()
+    {
+        byte[] annualWorkbook = Assert.IsType<byte[]>(
+            _service.GenerateAnnualWorkbook(
+                year: 2026,
+                workshopName: "КЦ",
+                BuildSingleCabinetRoots(),
+                new[]
+                {
+                    new KbMaintenanceScheduleProfile
+                    {
+                        OwnerNodeId = "cabinet-1",
+                        IsIncludedInSchedule = true,
+                        YearScheduleEntries =
+                        {
+                            new KbMaintenanceYearScheduleEntry
+                            {
+                                Month = 5,
+                                WorkKind = KbMaintenanceWorkKind.To1,
+                                Hours = 2
+                            }
+                        }
+                    }
+                }).WorkbookPackage);
+
+        Assert.Equal(new[] { "КЦ (2)", "Лист1" }, ReadSheetNames(annualWorkbook));
+
+        KnowledgeBaseMaintenanceYearWorkbookGenerationResult result = _service.GenerateYearWorkbook(
+            annualWorkbook,
+            year: 2026,
+            totalMonthlyHourBudget: 20,
+            BuildSingleCabinetRoots(),
+            BuildSingleCabinetProfile());
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        Assert.Contains("КЦ (1)", ReadSheetNames(packageBytes));
+        Assert.Contains("КЦ (12)", ReadSheetNames(packageBytes));
+        Assert.Equal("на январь 2026 года", ReadCellText(packageBytes, "КЦ (1)", "A12"));
+    }
+
+    [Fact]
     public void GenerateYearWorkbook_WhenBudgetIsTooSmall_StopsAtFailedMonth()
     {
         KbNode[] roots = BuildSingleCabinetRoots();
@@ -285,6 +327,44 @@ public class KnowledgeBaseMaintenanceWorkbookGenerationServiceTests
         Assert.Equal("Новая система", ReadCellText(packageBytes, "КЦ (12)", "B16"));
         Assert.Equal("INV-OLD", ReadCellText(packageBytes, "КЦ (1)", "D16"));
         Assert.Equal("INV-NEW", ReadCellText(packageBytes, "КЦ (12)", "D16"));
+    }
+
+    [Fact]
+    public void GenerateYearWorkbookFromMonth_WhenExistingWorkbookMissesStartMonth_NormalizesFromMonthlyTemplate()
+    {
+        byte[] octoberWorkbook = Assert.IsType<byte[]>(
+            _service.GenerateSingleMonthWorkbook(
+                year: 2026,
+                month: 10,
+                totalMonthlyHourBudget: 20,
+                BuildSingleCabinetRoots(systemName: "Старая система", inventoryNumber: "INV-OLD"),
+                BuildSingleCabinetProfile()).WorkbookPackage);
+
+        Assert.Equal(new[] { "КЦ (10)" }, ReadSheetNames(octoberWorkbook));
+        Assert.DoesNotContain("КЦ (11)", ReadSheetNames(octoberWorkbook));
+
+        KnowledgeBaseMaintenanceYearWorkbookGenerationResult result = _service.GenerateYearWorkbookFromMonth(
+            octoberWorkbook,
+            year: 2026,
+            startMonth: 11,
+            totalMonthlyHourBudget: 20,
+            BuildSingleCabinetRoots(systemName: "Новая система", inventoryNumber: "INV-NEW"),
+            BuildSingleCabinetProfile());
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.Equal(2, result.MonthResults.Count);
+        Assert.Equal(Enumerable.Range(11, 2), result.MonthResults.Select(static monthResult => monthResult.Month));
+
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        IReadOnlyList<string> sheetNames = ReadSheetNames(packageBytes);
+        Assert.Contains("КЦ (10)", sheetNames);
+        Assert.Contains("КЦ (11)", sheetNames);
+        Assert.Contains("КЦ (12)", sheetNames);
+        Assert.Contains(
+            "Старая система",
+            new[] { ReadCellText(packageBytes, "КЦ (10)", "B16"), ReadCellText(packageBytes, "КЦ (10)", "B17") });
+        Assert.Equal("Новая система", ReadCellText(packageBytes, "КЦ (11)", "B16"));
+        Assert.Equal("Новая система", ReadCellText(packageBytes, "КЦ (12)", "B16"));
     }
 
     [Fact]

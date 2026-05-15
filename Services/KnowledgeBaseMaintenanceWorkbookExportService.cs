@@ -104,6 +104,50 @@ namespace AsutpKnowledgeBase.Services
             }
         }
 
+        public KnowledgeBaseMaintenanceWorkbookExportResult PrepareYearRecalculationWorkbook(
+            byte[]? existingWorkbookPackage,
+            int startMonth)
+        {
+            if (existingWorkbookPackage is not { Length: > 0 })
+            {
+                return new KnowledgeBaseMaintenanceWorkbookExportResult
+                {
+                    IsSuccess = true,
+                    WorkbookPackage = null
+                };
+            }
+
+            if (startMonth is < 1 or > 12)
+                return Failure("Стартовый месяц графика ТО должен быть в диапазоне от 1 до 12.");
+
+            try
+            {
+                using var existingStream = new MemoryStream(existingWorkbookPackage, writable: false);
+                using SpreadsheetDocument existingDocument = SpreadsheetDocument.Open(existingStream, false);
+                WorkbookPart existingWorkbookPart = existingDocument.WorkbookPart
+                    ?? throw new InvalidOperationException("Книга графика ТО повреждена: отсутствует workbook part.");
+
+                if (HasUsableMonthSheets(existingWorkbookPart, startMonth, 12))
+                {
+                    return new KnowledgeBaseMaintenanceWorkbookExportResult
+                    {
+                        IsSuccess = true,
+                        WorkbookPackage = existingWorkbookPackage.ToArray()
+                    };
+                }
+
+                return new KnowledgeBaseMaintenanceWorkbookExportResult
+                {
+                    IsSuccess = true,
+                    WorkbookPackage = BuildNormalizedYearRecalculationWorkbook(existingWorkbookPackage, startMonth)
+                };
+            }
+            catch (Exception ex)
+            {
+                return Failure(ex.Message);
+            }
+        }
+
         public KnowledgeBaseMaintenanceWorkbookExportResult ExportSingleMonth(KbMaintenanceMonthSheetModel? sheetModel)
         {
             if (sheetModel == null)
@@ -326,6 +370,41 @@ namespace AsutpKnowledgeBase.Services
             }
 
             return workbookStream.ToArray();
+        }
+
+        private byte[] BuildNormalizedYearRecalculationWorkbook(byte[] existingWorkbookPackage, int startMonth)
+        {
+            byte[] templateBytes = _templateService.GetTemplatePackage();
+            using var existingStream = new MemoryStream(existingWorkbookPackage, writable: false);
+            using var targetStream = CreateExpandableMemoryStream(templateBytes);
+            using (SpreadsheetDocument existingDocument = SpreadsheetDocument.Open(existingStream, false))
+            using (SpreadsheetDocument targetDocument = SpreadsheetDocument.Open(targetStream, true))
+            {
+                WorkbookPart existingWorkbookPart = existingDocument.WorkbookPart
+                    ?? throw new InvalidOperationException("Книга графика ТО повреждена: отсутствует workbook part.");
+                WorkbookPart targetWorkbookPart = targetDocument.WorkbookPart
+                    ?? throw new InvalidOperationException("Встроенный шаблон графика ТО повреждён: отсутствует workbook part.");
+
+                for (int month = 1; month < startMonth; month++)
+                {
+                    if (!TryFindMonthSheet(existingWorkbookPart, month, out Sheet? sourceSheet) || sourceSheet == null)
+                        continue;
+
+                    WorksheetPart sourceWorksheetPart = GetWorksheetPart(existingWorkbookPart, sourceSheet);
+                    if (!IsUsableMonthSheet(sourceWorksheetPart))
+                        continue;
+
+                    Sheet targetSheet = FindMonthSheet(targetWorkbookPart, month);
+                    WorksheetPart targetWorksheetPart = GetWorksheetPart(targetWorkbookPart, targetSheet);
+                    targetWorksheetPart.Worksheet = (Worksheet)sourceWorksheetPart.Worksheet.CloneNode(true);
+                    targetWorksheetPart.Worksheet.Save();
+                }
+
+                ResetWorkbookCalculationChain(targetWorkbookPart);
+                targetWorkbookPart.Workbook.Save();
+            }
+
+            return targetStream.ToArray();
         }
 
         private static void RewriteAnnualSheet(
@@ -1780,10 +1859,50 @@ namespace AsutpKnowledgeBase.Services
         private static Sheet FindMonthSheet(WorkbookPart workbookPart, int month)
         {
             string expectedName = $"КЦ ({month})";
-            return workbookPart.Workbook.Sheets?
+            if (TryFindMonthSheet(workbookPart, month, out Sheet? sheet) && sheet != null)
+                return sheet;
+
+            throw new InvalidOperationException($"Лист '{expectedName}' не найден в книге графика ТО.");
+        }
+
+        private static bool TryFindMonthSheet(WorkbookPart workbookPart, int month, out Sheet? sheet)
+        {
+            string expectedName = $"КЦ ({month})";
+            sheet = workbookPart.Workbook.Sheets?
                 .Elements<Sheet>()
-                .FirstOrDefault(sheet => string.Equals(sheet.Name?.Value, expectedName, StringComparison.Ordinal))
-                ?? throw new InvalidOperationException($"Лист '{expectedName}' не найден в книге графика ТО.");
+                .FirstOrDefault(sheet => string.Equals(sheet.Name?.Value, expectedName, StringComparison.Ordinal));
+            return sheet != null;
+        }
+
+        private static bool HasUsableMonthSheets(WorkbookPart workbookPart, int firstMonth, int lastMonth)
+        {
+            for (int month = firstMonth; month <= lastMonth; month++)
+            {
+                if (!TryFindMonthSheet(workbookPart, month, out Sheet? sheet) || sheet == null)
+                    return false;
+
+                WorksheetPart worksheetPart = GetWorksheetPart(workbookPart, sheet);
+                if (!IsUsableMonthSheet(worksheetPart))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static bool IsUsableMonthSheet(WorksheetPart worksheetPart)
+        {
+            if (AnnualSheetLayout.TryRead(worksheetPart, out _))
+                return false;
+
+            try
+            {
+                SheetLayout.Read(worksheetPart, requireDetailTemplate: false);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static Sheet FindAnnualSheet(WorkbookPart workbookPart)

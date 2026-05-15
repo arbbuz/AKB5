@@ -38,6 +38,55 @@ public class KnowledgeBaseMaintenanceMonthWorkResolverServiceTests
     }
 
     [Fact]
+    public void ResolveMonthWorkItems_PopulatesVisibleLevel2SystemContext()
+    {
+        var device = new KbNode
+        {
+            NodeId = "device-1",
+            Name = "Device 1",
+            NodeType = KbNodeType.Device
+        };
+        var roots = new[]
+        {
+            new KbNode
+            {
+                NodeId = "department-1",
+                Name = "Department 1",
+                NodeType = KbNodeType.Department,
+                Children =
+                {
+                    new KbNode
+                    {
+                        NodeId = "system-1",
+                        Name = "System 1",
+                        NodeType = KbNodeType.System,
+                        Children = { device }
+                    }
+                }
+            }
+        };
+
+        IReadOnlyList<KbMaintenanceMonthWorkItem> items = _service.ResolveMonthWorkItems(
+            2026,
+            2,
+            roots,
+            new[]
+            {
+                new KbMaintenanceScheduleProfile
+                {
+                    OwnerNodeId = "device-1",
+                    IsIncludedInSchedule = true,
+                    To1Hours = 3
+                }
+            });
+
+        KbMaintenanceMonthWorkItem item = Assert.Single(items);
+        Assert.Equal("system-1", item.SystemNodeId);
+        Assert.Equal(1, item.SystemPreorderIndex);
+        Assert.Equal(2, item.OwnerPreorderIndex);
+    }
+
+    [Fact]
     public void ResolveMonthWorkItems_WhenTo1To2AndTo3AreConfigured_UsesQuarterlySlotsAndAnnualReplacement()
     {
         var node = new KbNode

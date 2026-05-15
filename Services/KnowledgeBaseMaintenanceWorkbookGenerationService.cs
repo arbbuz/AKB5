@@ -207,8 +207,10 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbNode>? roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
         {
+            // Full-year generation rewrites every month, so start from the monthly template.
+            // Existing packages are only meaningful for partial recalculation from a selected month.
             return GenerateYearWorkbookFromMonth(
-                existingWorkbookPackage,
+                existingWorkbookPackage: null,
                 year,
                 startMonth: 1,
                 totalMonthlyHourBudget,
@@ -230,9 +232,17 @@ namespace AsutpKnowledgeBase.Services
             if (startMonth is < 1 or > 12)
                 return YearFailure("Стартовый месяц графика ТО должен быть в диапазоне от 1 до 12.");
 
-            byte[]? workbookPackage = existingWorkbookPackage is { Length: > 0 }
-                ? existingWorkbookPackage.ToArray()
-                : null;
+            KnowledgeBaseMaintenanceWorkbookExportResult preparationResult =
+                _workbookExportService.PrepareYearRecalculationWorkbook(existingWorkbookPackage, startMonth);
+            if (!preparationResult.IsSuccess)
+            {
+                return YearFailure(
+                    string.IsNullOrWhiteSpace(preparationResult.ErrorMessage)
+                        ? "Не удалось подготовить книгу графика ТО для пересчёта."
+                        : preparationResult.ErrorMessage);
+            }
+
+            byte[]? workbookPackage = preparationResult.WorkbookPackage;
             var monthResults = new List<KnowledgeBaseMaintenanceYearWorkbookGenerationMonthResult>(13 - startMonth);
 
             for (int month = startMonth; month <= 12; month++)

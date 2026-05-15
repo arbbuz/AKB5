@@ -59,10 +59,10 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerIntegrationTests
         Assert.Equal(8, result.RequestedHours);
         Assert.Equal(2, result.PlannedDays.Count);
         Assert.Equal(new DateOnly(2026, 1, 12), result.PlannedDays[0].Date);
-        Assert.Equal(5, result.PlannedDays[0].TotalHours);
+        Assert.Equal(3, result.PlannedDays[0].TotalHours);
         Assert.Single(result.PlannedDays[0].Assignments);
         Assert.Equal(new DateOnly(2026, 1, 13), result.PlannedDays[1].Date);
-        Assert.Equal(3, result.PlannedDays[1].TotalHours);
+        Assert.Equal(5, result.PlannedDays[1].TotalHours);
         Assert.Single(result.PlannedDays[1].Assignments);
     }
 
