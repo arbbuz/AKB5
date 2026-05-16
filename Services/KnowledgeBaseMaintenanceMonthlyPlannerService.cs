@@ -122,28 +122,25 @@ namespace AsutpKnowledgeBase.Services
                 .Select(static date => new DayPlanBuilder(date))
                 .ToList();
 
-            foreach (KbMaintenanceMonthWorkItem workItem in OrderWorkItems(normalizedWorkItems))
+            IReadOnlyList<MaintenanceVisitPlan> visitPlans = BuildVisitPlans(normalizedWorkItems);
+            foreach (MaintenanceVisitPlan visitPlan in OrderVisitPlans(visitPlans))
             {
-                if (workItem.Hours <= 0)
-                    continue;
-
-                foreach (int assignmentHours in SplitWorkItemHours(workItem))
+                DayPlanBuilder selectedDay = SelectBestDay(dayBuilders, visitPlan);
+                foreach (WorkAssignmentDraft assignmentDraft in visitPlan.Assignments)
                 {
-                    DayPlanBuilder selectedDay = SelectBestDay(dayBuilders, workItem, assignmentHours);
                     selectedDay.Assignments.Add(new KbMaintenanceMonthPlanAssignment
                     {
                         Date = selectedDay.Date,
-                        OwnerNodeId = workItem.OwnerNodeId?.Trim() ?? string.Empty,
-                        NodeName = workItem.NodeName?.Trim() ?? string.Empty,
-                        SystemNodeId = workItem.SystemNodeId?.Trim() ?? string.Empty,
-                        WorkKind = workItem.WorkKind,
-                        Hours = assignmentHours
+                        OwnerNodeId = assignmentDraft.OwnerNodeId,
+                        NodeName = assignmentDraft.NodeName,
+                        SystemNodeId = assignmentDraft.SystemNodeId,
+                        WorkKind = assignmentDraft.WorkKind,
+                        Hours = assignmentDraft.Hours
                     });
-                    selectedDay.TotalHours += assignmentHours;
-                    selectedDay.Register(workItem);
-                    if (IsMajorWork(workItem.WorkKind))
-                        selectedDay.HasMajorWork = true;
                 }
+
+                selectedDay.TotalHours += visitPlan.TotalHours;
+                selectedDay.Register(visitPlan);
             }
 
             List<KbMaintenanceMonthPlanDay> plannedDays = dayBuilders
@@ -172,6 +169,102 @@ namespace AsutpKnowledgeBase.Services
                 .ThenBy(static item => item.OwnerNodeId, StringComparer.Ordinal)
                 .ThenBy(static item => item.NodeName, StringComparer.Ordinal);
 
+        private static IReadOnlyList<MaintenanceVisitPlan> BuildVisitPlans(
+            IReadOnlyList<KbMaintenanceMonthWorkItem> workItems)
+        {
+            List<WorkAssignmentDraft> assignmentDrafts = OrderWorkItems(workItems)
+                .SelectMany(CreateAssignmentDrafts)
+                .ToList();
+            var visitPlans = new List<MaintenanceVisitPlan>();
+            int nextVisitOrderIndex = 0;
+
+            foreach (IGrouping<string, WorkAssignmentDraft> systemGroup in assignmentDrafts
+                .Where(static assignment => !string.IsNullOrWhiteSpace(assignment.SystemNodeId))
+                .GroupBy(static assignment => assignment.SystemNodeId, StringComparer.Ordinal)
+                .OrderBy(static group => group.Min(static assignment => assignment.SystemPreorderIndex))
+                .ThenBy(static group => group.Key, StringComparer.Ordinal))
+            {
+                foreach (List<WorkAssignmentDraft> visitAssignments in PackSystemAssignments(systemGroup))
+                {
+                    visitPlans.Add(new MaintenanceVisitPlan(nextVisitOrderIndex++, visitAssignments));
+                }
+            }
+
+            foreach (WorkAssignmentDraft assignmentDraft in assignmentDrafts
+                .Where(static assignment => string.IsNullOrWhiteSpace(assignment.SystemNodeId)))
+            {
+                visitPlans.Add(new MaintenanceVisitPlan(nextVisitOrderIndex++, new[] { assignmentDraft }));
+            }
+
+            return visitPlans;
+        }
+
+        private static IEnumerable<WorkAssignmentDraft> CreateAssignmentDrafts(
+            KbMaintenanceMonthWorkItem workItem)
+        {
+            if (workItem.Hours <= 0)
+                yield break;
+
+            foreach (int assignmentHours in SplitWorkItemHours(workItem))
+            {
+                yield return new WorkAssignmentDraft(
+                    OwnerNodeId: workItem.OwnerNodeId?.Trim() ?? string.Empty,
+                    NodeName: workItem.NodeName?.Trim() ?? string.Empty,
+                    SystemNodeId: workItem.SystemNodeId?.Trim() ?? string.Empty,
+                    SystemPreorderIndex: GetSystemPreorderSortKey(workItem),
+                    OwnerPreorderIndex: GetOwnerPreorderSortKey(workItem),
+                    WorkKind: workItem.WorkKind,
+                    Hours: assignmentHours);
+            }
+        }
+
+        private static IReadOnlyList<List<WorkAssignmentDraft>> PackSystemAssignments(
+            IEnumerable<WorkAssignmentDraft> assignments)
+        {
+            var visitBuilders = new List<MaintenanceVisitBuilder>();
+            foreach (WorkAssignmentDraft assignment in assignments
+                .OrderByDescending(static item => item.Hours)
+                .ThenBy(static item => GetWorkPriority(item.WorkKind))
+                .ThenBy(static item => item.OwnerPreorderIndex)
+                .ThenBy(static item => item.OwnerNodeId, StringComparer.Ordinal)
+                .ThenBy(static item => item.NodeName, StringComparer.Ordinal))
+            {
+                MaintenanceVisitBuilder? bestFitVisit = visitBuilders
+                    .Where(visit => visit.TotalHours + assignment.Hours <= DailySystemPackingTargetHours)
+                    .OrderBy(visit => DailySystemPackingTargetHours - (visit.TotalHours + assignment.Hours))
+                    .ThenBy(visit => visit.OrderIndex)
+                    .FirstOrDefault();
+
+                if (bestFitVisit == null)
+                {
+                    bestFitVisit = new MaintenanceVisitBuilder(visitBuilders.Count);
+                    visitBuilders.Add(bestFitVisit);
+                }
+
+                bestFitVisit.Assignments.Add(assignment);
+                bestFitVisit.TotalHours += assignment.Hours;
+            }
+
+            return visitBuilders
+                .OrderBy(static visit => visit.OrderIndex)
+                .Select(static visit => visit.Assignments
+                    .OrderBy(static assignment => GetWorkPriority(assignment.WorkKind))
+                    .ThenBy(static assignment => assignment.OwnerPreorderIndex)
+                    .ThenByDescending(static assignment => assignment.Hours)
+                    .ThenBy(static assignment => assignment.OwnerNodeId, StringComparer.Ordinal)
+                    .ThenBy(static assignment => assignment.NodeName, StringComparer.Ordinal)
+                    .ToList())
+                .ToList();
+        }
+
+        private static IEnumerable<MaintenanceVisitPlan> OrderVisitPlans(
+            IReadOnlyList<MaintenanceVisitPlan> visitPlans) =>
+            visitPlans
+                .OrderByDescending(static visit => Math.Min(visit.TotalHours, DailySystemPackingTargetHours))
+                .ThenBy(static visit => visit.HasMajorWork ? 0 : 1)
+                .ThenBy(static visit => visit.SystemPreorderIndex)
+                .ThenBy(static visit => visit.OrderIndex);
+
         private static IEnumerable<int> SplitWorkItemHours(KbMaintenanceMonthWorkItem workItem)
         {
             int hours = Math.Max(0, workItem.Hours);
@@ -192,40 +285,28 @@ namespace AsutpKnowledgeBase.Services
 
         private static DayPlanBuilder SelectBestDay(
             List<DayPlanBuilder> dayBuilders,
-            KbMaintenanceMonthWorkItem workItem,
-            int assignmentHours)
+            MaintenanceVisitPlan visitPlan)
         {
-            List<DayPlanBuilder> candidates = dayBuilders;
-            if (IsMajorWork(workItem.WorkKind))
-            {
-                List<DayPlanBuilder> daysWithoutMajorWork = dayBuilders
-                    .Where(static day => !day.HasMajorWork)
-                    .ToList();
-                if (daysWithoutMajorWork.Count > 0)
-                    candidates = daysWithoutMajorWork;
-            }
-
-            // Prefer non-adjacent owner chunks and same-system days; 16h remains a soft packing target.
-            string ownerNodeId = workItem.OwnerNodeId?.Trim() ?? string.Empty;
-            if (!string.IsNullOrWhiteSpace(ownerNodeId))
-            {
-                List<DayPlanBuilder> daysWithoutSameOwner = candidates
-                    .Where(day => !day.HasOwner(ownerNodeId))
-                    .ToList();
-                if (daysWithoutSameOwner.Count > 0)
-                    candidates = daysWithoutSameOwner;
-
-                List<DayPlanBuilder> daysWithoutAdjacentOwner = candidates
-                    .Where(day => !HasOwnerOnAdjacentWorkingDay(dayBuilders, day, ownerNodeId))
-                    .ToList();
-                if (daysWithoutAdjacentOwner.Count > 0)
-                    candidates = daysWithoutAdjacentOwner;
-            }
+            List<DayPlanBuilder> candidatesUnderTarget = dayBuilders
+                .Where(day => day.TotalHours + visitPlan.TotalHours <= DailySystemPackingTargetHours)
+                .ToList();
+            IReadOnlyList<DayPlanBuilder> candidates = candidatesUnderTarget.Count > 0
+                ? candidatesUnderTarget
+                : dayBuilders;
 
             return candidates
-                .OrderBy(day => GetSystemAffinityRank(day, workItem.SystemNodeId, assignmentHours))
-                .ThenBy(static day => day.TotalHours)
-                .ThenBy(static day => day.Date)
+                .Select(day => new DayCandidateScore(
+                    day,
+                    ProjectedHours: day.TotalHours + visitPlan.TotalHours,
+                    OwnerAdjacencyRank: HasOwnerOnAdjacentWorkingDay(dayBuilders, day, visitPlan) ? 1 : 0,
+                    SystemAdjacencyRank: HasSystemOnAdjacentWorkingDay(dayBuilders, day, visitPlan.SystemNodeId) ? 1 : 0))
+                .OrderBy(static score => score.ProjectedHours <= DailySystemPackingTargetHours ? 0 : 1)
+                .ThenBy(static score => score.Day.TotalHours)
+                .ThenBy(static score => score.SystemAdjacencyRank)
+                .ThenBy(static score => score.OwnerAdjacencyRank)
+                .ThenBy(static score => score.ProjectedHours)
+                .ThenBy(static score => score.Day.Date)
+                .Select(static score => score.Day)
                 .First();
         }
 
@@ -251,27 +332,43 @@ namespace AsutpKnowledgeBase.Services
                    (dayIndex < dayBuilders.Count - 1 && dayBuilders[dayIndex + 1].HasOwner(ownerNodeId));
         }
 
-        private static int GetSystemAffinityRank(
+        private static bool HasOwnerOnAdjacentWorkingDay(
+            IReadOnlyList<DayPlanBuilder> dayBuilders,
             DayPlanBuilder day,
-            string? systemNodeId,
-            int assignmentHours)
+            MaintenanceVisitPlan visitPlan)
         {
-            string normalizedSystemNodeId = systemNodeId?.Trim() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(normalizedSystemNodeId))
-                return 0;
-
-            if (day.HasOnlySystem(normalizedSystemNodeId))
+            foreach (string ownerNodeId in visitPlan.OwnerNodeIds)
             {
-                return day.TotalHours + assignmentHours <= DailySystemPackingTargetHours ? 0 : 2;
+                if (HasOwnerOnAdjacentWorkingDay(dayBuilders, day, ownerNodeId))
+                    return true;
             }
 
-            if (day.Assignments.Count == 0)
-                return 1;
+            return false;
+        }
 
-            if (day.HasSystem(normalizedSystemNodeId))
-                return 2;
+        private static bool HasSystemOnAdjacentWorkingDay(
+            IReadOnlyList<DayPlanBuilder> dayBuilders,
+            DayPlanBuilder day,
+            string systemNodeId)
+        {
+            if (string.IsNullOrWhiteSpace(systemNodeId))
+                return false;
 
-            return 3;
+            int dayIndex = -1;
+            for (int index = 0; index < dayBuilders.Count; index++)
+            {
+                if (ReferenceEquals(dayBuilders[index], day))
+                {
+                    dayIndex = index;
+                    break;
+                }
+            }
+
+            if (dayIndex < 0)
+                return false;
+
+            return (dayIndex > 0 && dayBuilders[dayIndex - 1].HasSystem(systemNodeId)) ||
+                   (dayIndex < dayBuilders.Count - 1 && dayBuilders[dayIndex + 1].HasSystem(systemNodeId));
         }
 
         private static bool IsMajorWork(KbMaintenanceWorkKind workKind) =>
@@ -295,6 +392,74 @@ namespace AsutpKnowledgeBase.Services
             !string.IsNullOrWhiteSpace(item.SystemNodeId) &&
             item.SystemPreorderIndex != int.MaxValue &&
             item.OwnerPreorderIndex != int.MaxValue;
+
+        private sealed record DayCandidateScore(
+            DayPlanBuilder Day,
+            int ProjectedHours,
+            int OwnerAdjacencyRank,
+            int SystemAdjacencyRank);
+
+        private sealed record WorkAssignmentDraft(
+            string OwnerNodeId,
+            string NodeName,
+            string SystemNodeId,
+            int SystemPreorderIndex,
+            int OwnerPreorderIndex,
+            KbMaintenanceWorkKind WorkKind,
+            int Hours);
+
+        private sealed class MaintenanceVisitBuilder
+        {
+            public MaintenanceVisitBuilder(int orderIndex)
+            {
+                OrderIndex = orderIndex;
+            }
+
+            public int OrderIndex { get; }
+
+            public int TotalHours { get; set; }
+
+            public List<WorkAssignmentDraft> Assignments { get; } = new();
+        }
+
+        private sealed class MaintenanceVisitPlan
+        {
+            public MaintenanceVisitPlan(int orderIndex, IEnumerable<WorkAssignmentDraft> assignments)
+            {
+                OrderIndex = orderIndex;
+                Assignments = assignments.ToList();
+                TotalHours = Assignments.Sum(static assignment => assignment.Hours);
+                HasMajorWork = Assignments.Any(static assignment => IsMajorWork(assignment.WorkKind));
+                SystemNodeId = Assignments
+                    .Select(static assignment => assignment.SystemNodeId)
+                    .FirstOrDefault(static systemNodeId => !string.IsNullOrWhiteSpace(systemNodeId))
+                    ?? string.Empty;
+                SystemPreorderIndex = Assignments
+                    .Where(static assignment => assignment.SystemPreorderIndex != int.MaxValue)
+                    .Select(static assignment => assignment.SystemPreorderIndex)
+                    .DefaultIfEmpty(int.MaxValue)
+                    .Min();
+                OwnerNodeIds = Assignments
+                    .Select(static assignment => assignment.OwnerNodeId)
+                    .Where(static ownerNodeId => !string.IsNullOrWhiteSpace(ownerNodeId))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
+            }
+
+            public int OrderIndex { get; }
+
+            public List<WorkAssignmentDraft> Assignments { get; }
+
+            public int TotalHours { get; }
+
+            public bool HasMajorWork { get; }
+
+            public string SystemNodeId { get; }
+
+            public int SystemPreorderIndex { get; }
+
+            public IReadOnlyList<string> OwnerNodeIds { get; }
+        }
 
         private static List<int> BuildNonWorkingDayNumbers(
             int year,
@@ -370,23 +535,21 @@ namespace AsutpKnowledgeBase.Services
 
             public int TotalHours { get; set; }
 
-            public bool HasMajorWork { get; set; }
-
             public List<KbMaintenanceMonthPlanAssignment> Assignments { get; } = new();
 
             private HashSet<string> OwnerNodeIds { get; } = new(StringComparer.Ordinal);
 
             private HashSet<string> SystemNodeIds { get; } = new(StringComparer.Ordinal);
 
-            public void Register(KbMaintenanceMonthWorkItem workItem)
+            public void Register(MaintenanceVisitPlan visitPlan)
             {
-                string ownerNodeId = workItem.OwnerNodeId?.Trim() ?? string.Empty;
-                if (!string.IsNullOrWhiteSpace(ownerNodeId))
+                foreach (string ownerNodeId in visitPlan.OwnerNodeIds)
+                {
                     OwnerNodeIds.Add(ownerNodeId);
+                }
 
-                string systemNodeId = workItem.SystemNodeId?.Trim() ?? string.Empty;
-                if (!string.IsNullOrWhiteSpace(systemNodeId))
-                    SystemNodeIds.Add(systemNodeId);
+                if (!string.IsNullOrWhiteSpace(visitPlan.SystemNodeId))
+                    SystemNodeIds.Add(visitPlan.SystemNodeId);
             }
 
             public bool HasOwner(string ownerNodeId) =>
@@ -394,9 +557,6 @@ namespace AsutpKnowledgeBase.Services
 
             public bool HasSystem(string systemNodeId) =>
                 SystemNodeIds.Contains(systemNodeId);
-
-            public bool HasOnlySystem(string systemNodeId) =>
-                SystemNodeIds.Count == 1 && SystemNodeIds.Contains(systemNodeId);
 
             public KbMaintenanceMonthPlanDay ToPlanDay() =>
                 new()

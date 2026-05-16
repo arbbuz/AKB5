@@ -44,14 +44,14 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerServiceTests
         Assert.Equal(29, result.RequestedHours);
         Assert.Equal(5, result.PlannedDays.Count);
         Assert.Equal(new DateOnly(2026, 1, 12), result.PlannedDays[0].Date);
-        Assert.Equal(3, result.PlannedDays[0].TotalHours);
+        Assert.Equal(8, result.PlannedDays[0].TotalHours);
         Assert.Equal(new DateOnly(2026, 1, 13), result.PlannedDays[1].Date);
         Assert.Equal(8, result.PlannedDays[1].TotalHours);
         Assert.Equal(new DateOnly(2026, 1, 14), result.PlannedDays[2].Date);
         Assert.Equal(8, result.PlannedDays[2].TotalHours);
         Assert.Equal(new DateOnly(2026, 1, 15), result.PlannedDays[3].Date);
-        Assert.Equal(8, result.PlannedDays[3].TotalHours);
-        Assert.Equal(new DateOnly(2026, 1, 19), result.PlannedDays[4].Date);
+        Assert.Equal(3, result.PlannedDays[3].TotalHours);
+        Assert.Equal(new DateOnly(2026, 1, 16), result.PlannedDays[4].Date);
         Assert.Equal(2, result.PlannedDays[4].TotalHours);
         Assert.Equal(5, result.PlannedDays.Sum(static day => day.Assignments.Count));
         Assert.All(result.PlannedDays, static day => Assert.Single(day.Assignments));
@@ -69,7 +69,7 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerServiceTests
             .Select(static assignment => assignment.Date)
             .ToArray();
         Assert.Equal(
-            new[] { new DateOnly(2026, 1, 13), new DateOnly(2026, 1, 15), new DateOnly(2026, 1, 19) },
+            new[] { new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 14), new DateOnly(2026, 1, 16) },
             cabinetDates);
     }
 
@@ -175,6 +175,113 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerServiceTests
     }
 
     [Fact]
+    public void PlanMonth_PacksSameSystemMajorAndLightWorkIntoSingleVisitWhenItFitsTarget()
+    {
+        KnowledgeBaseMaintenanceMonthPlanResult result = _service.PlanMonth(
+            2026,
+            1,
+            totalMonthlyHourBudget: 40,
+            new[]
+            {
+                new KbMaintenanceMonthWorkItem
+                {
+                    OwnerNodeId = "system-a-device-1",
+                    NodeName = "Device A1",
+                    SystemNodeId = "system-a",
+                    SystemPreorderIndex = 1,
+                    OwnerPreorderIndex = 1,
+                    WorkKind = KbMaintenanceWorkKind.To2,
+                    Hours = 8
+                },
+                new KbMaintenanceMonthWorkItem
+                {
+                    OwnerNodeId = "system-a-device-2",
+                    NodeName = "Device A2",
+                    SystemNodeId = "system-a",
+                    SystemPreorderIndex = 1,
+                    OwnerPreorderIndex = 2,
+                    WorkKind = KbMaintenanceWorkKind.To1,
+                    Hours = 4
+                },
+                new KbMaintenanceMonthWorkItem
+                {
+                    OwnerNodeId = "system-a-device-3",
+                    NodeName = "Device A3",
+                    SystemNodeId = "system-a",
+                    SystemPreorderIndex = 1,
+                    OwnerPreorderIndex = 3,
+                    WorkKind = KbMaintenanceWorkKind.To1,
+                    Hours = 4
+                }
+            });
+
+        Assert.True(result.IsSuccess);
+        KbMaintenanceMonthPlanDay plannedDay = Assert.Single(result.PlannedDays);
+        Assert.Equal(16, plannedDay.TotalHours);
+        Assert.Equal(3, plannedDay.Assignments.Count);
+        Assert.All(plannedDay.Assignments, static assignment => Assert.Equal("system-a", assignment.SystemNodeId));
+    }
+
+    [Fact]
+    public void PlanMonth_SplitsLargeSameSystemWorkIntoMinimumTargetVisits()
+    {
+        KnowledgeBaseMaintenanceMonthPlanResult result = _service.PlanMonth(
+            2026,
+            1,
+            totalMonthlyHourBudget: 64,
+            new[]
+            {
+                new KbMaintenanceMonthWorkItem
+                {
+                    OwnerNodeId = "system-a-device-1",
+                    NodeName = "Device A1",
+                    SystemNodeId = "system-a",
+                    SystemPreorderIndex = 1,
+                    OwnerPreorderIndex = 1,
+                    WorkKind = KbMaintenanceWorkKind.To2,
+                    Hours = 8
+                },
+                new KbMaintenanceMonthWorkItem
+                {
+                    OwnerNodeId = "system-a-device-2",
+                    NodeName = "Device A2",
+                    SystemNodeId = "system-a",
+                    SystemPreorderIndex = 1,
+                    OwnerPreorderIndex = 2,
+                    WorkKind = KbMaintenanceWorkKind.To2,
+                    Hours = 8
+                },
+                new KbMaintenanceMonthWorkItem
+                {
+                    OwnerNodeId = "system-a-device-3",
+                    NodeName = "Device A3",
+                    SystemNodeId = "system-a",
+                    SystemPreorderIndex = 1,
+                    OwnerPreorderIndex = 3,
+                    WorkKind = KbMaintenanceWorkKind.To1,
+                    Hours = 8
+                },
+                new KbMaintenanceMonthWorkItem
+                {
+                    OwnerNodeId = "system-a-device-4",
+                    NodeName = "Device A4",
+                    SystemNodeId = "system-a",
+                    SystemPreorderIndex = 1,
+                    OwnerPreorderIndex = 4,
+                    WorkKind = KbMaintenanceWorkKind.To1,
+                    Hours = 8
+                }
+            });
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, result.PlannedDays.Count);
+        Assert.All(result.PlannedDays, static day => Assert.Equal(16, day.TotalHours));
+        Assert.All(
+            result.PlannedDays.SelectMany(static day => day.Assignments),
+            static assignment => Assert.Equal("system-a", assignment.SystemNodeId));
+    }
+
+    [Fact]
     public void PlanMonth_CanExceedSixteenHoursWhenWorkingDaysAreExhausted()
     {
         KbMaintenanceMonthWorkItem[] workItems = Enumerable.Range(1, 31)
@@ -199,6 +306,76 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerServiceTests
         Assert.True(result.IsSuccess);
         Assert.Equal(15, result.PlannedDays.Count);
         Assert.Contains(result.PlannedDays, static day => day.TotalHours > 16);
+    }
+
+    [Fact]
+    public void PlanMonth_UsesLowerLoadDaysBeforeExceedingSoftTargetForSameSystem()
+    {
+        KbMaintenanceMonthWorkItem[] majorWorkItems = Enumerable.Range(1, 15)
+            .Select(index => new KbMaintenanceMonthWorkItem
+            {
+                OwnerNodeId = $"system-{index}-device-1",
+                NodeName = $"Device {index}",
+                SystemNodeId = $"system-{index}",
+                SystemPreorderIndex = index,
+                OwnerPreorderIndex = 1,
+                WorkKind = KbMaintenanceWorkKind.To2,
+                Hours = 8
+            })
+            .ToArray();
+        KbMaintenanceMonthWorkItem[] sameSystemLightWork =
+        [
+            new KbMaintenanceMonthWorkItem
+            {
+                OwnerNodeId = "system-1-device-2",
+                NodeName = "Device 1.2",
+                SystemNodeId = "system-1",
+                SystemPreorderIndex = 1,
+                OwnerPreorderIndex = 2,
+                WorkKind = KbMaintenanceWorkKind.To1,
+                Hours = 8
+            },
+            new KbMaintenanceMonthWorkItem
+            {
+                OwnerNodeId = "system-1-device-3",
+                NodeName = "Device 1.3",
+                SystemNodeId = "system-1",
+                SystemPreorderIndex = 1,
+                OwnerPreorderIndex = 3,
+                WorkKind = KbMaintenanceWorkKind.To1,
+                Hours = 8
+            },
+            new KbMaintenanceMonthWorkItem
+            {
+                OwnerNodeId = "system-1-device-4",
+                NodeName = "Device 1.4",
+                SystemNodeId = "system-1",
+                SystemPreorderIndex = 1,
+                OwnerPreorderIndex = 4,
+                WorkKind = KbMaintenanceWorkKind.To1,
+                Hours = 8
+            }
+        ];
+
+        KnowledgeBaseMaintenanceMonthPlanResult result = _service.PlanMonth(
+            2026,
+            1,
+            totalMonthlyHourBudget: 200,
+            majorWorkItems.Concat(sameSystemLightWork).ToArray());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(15, result.PlannedDays.Count);
+        Assert.All(result.PlannedDays, static day => Assert.True(day.TotalHours <= 16));
+        Assert.Equal(144, result.PlannedDays.Sum(static day => day.TotalHours));
+
+        DateOnly[] systemOneVisitDates = result.PlannedDays
+            .SelectMany(static day => day.Assignments)
+            .Where(static assignment => assignment.SystemNodeId == "system-1")
+            .Select(static assignment => assignment.Date)
+            .Distinct()
+            .OrderBy(static date => date)
+            .ToArray();
+        Assert.Equal(2, systemOneVisitDates.Length);
     }
 
     [Fact]

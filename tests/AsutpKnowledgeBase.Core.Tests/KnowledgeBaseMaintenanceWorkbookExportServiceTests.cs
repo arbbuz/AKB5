@@ -114,6 +114,58 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
     }
 
     [Fact]
+    public void ExportMonth_AdjustsGeneratedRowHeightsForWrappedText()
+    {
+        var model = new KbMaintenanceMonthSheetModel
+        {
+            Year = 2027,
+            Month = 1,
+            WorkingDayCount = 15,
+            TotalPlannedHours = 16,
+            SystemGroups =
+            {
+                new KbMaintenanceMonthSheetSystemGroup
+                {
+                    SequenceNumber = 1,
+                    SystemName = "Очень длинное название системы автоматизированного управления технологическим процессом с дополнительным описанием участка",
+                    InventoryNumber = "INV-LONG",
+                    DetailRows =
+                    {
+                        new KbMaintenanceMonthSheetDetailRow
+                        {
+                            NodeName = "Очень длинное название шкафа управления с несколькими пояснениями, которое должно быть полностью видно в строке графика",
+                            TotalHours = 16,
+                            DayCells =
+                            {
+                                new KbMaintenanceMonthSheetDayCell
+                                {
+                                    DayOfMonth = 12,
+                                    TotalHours = 16,
+                                    WorkEntries =
+                                    {
+                                        new KbMaintenanceMonthSheetWorkEntry { PlanText = "ТО1/2" },
+                                        new KbMaintenanceMonthSheetWorkEntry { PlanText = "ТО2/4" },
+                                        new KbMaintenanceMonthSheetWorkEntry { PlanText = "ТО3/8" },
+                                        new KbMaintenanceMonthSheetWorkEntry { PlanText = "ТО1/2" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        KnowledgeBaseMaintenanceWorkbookExportResult result = _service.ExportMonth(null, model);
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        Assert.True(ReadRowHeight(packageBytes, "КЦ (1)", 17) > 18d);
+        Assert.True(ReadRowHeight(packageBytes, "КЦ (1)", 18) > 18d);
+        Assert.True(ReadRowHeight(packageBytes, "КЦ (1)", 19) > 18d);
+    }
+
+    [Fact]
     public void ExportMonth_WhenWorkbookAlreadyExists_RewritesOnlyRequestedMonthSheet()
     {
         byte[] januaryWorkbook = Assert.IsType<byte[]>(
@@ -198,6 +250,27 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
     }
 
     [Fact]
+    public void ExportSingleMonth_ForEveryMonthWritesWorkingDayCountToAverageRow()
+    {
+        for (int month = 1; month <= 12; month++)
+        {
+            var model = new KbMaintenanceMonthSheetModel
+            {
+                Year = 2026,
+                Month = month,
+                WorkingDayCount = 19,
+                TotalPlannedHours = 297
+            };
+
+            KnowledgeBaseMaintenanceWorkbookExportResult result = _service.ExportSingleMonth(model);
+
+            Assert.True(result.IsSuccess);
+            byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+            AssertMonthlyAverageRow(packageBytes, month, totalPlannedHours: 297, workingDayCount: 19);
+        }
+    }
+
+    [Fact]
     public void ExportSingleMonth_ForEveryMonthKeepsMonthlyHeaderRowsVisible()
     {
         for (int month = 1; month <= 12; month++)
@@ -234,6 +307,11 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         for (int month = 1; month <= 12; month++)
         {
             AssertMonthlyHeaderRows(packageBytes, month);
+            AssertMonthlyAverageRow(
+                packageBytes,
+                month,
+                totalPlannedHours: result.MonthResults[month - 1].SheetModel?.TotalPlannedHours ?? 0,
+                workingDayCount: result.MonthResults[month - 1].SheetModel?.WorkingDayCount ?? 0);
             Assert.False(HasSharedFormulas(packageBytes, BuildMonthSheetName(month)));
         }
     }
@@ -260,6 +338,13 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         for (int month = 6; month <= 12; month++)
         {
             AssertMonthlyHeaderRows(packageBytes, month);
+            KnowledgeBaseMaintenanceYearWorkbookGenerationMonthResult monthResult =
+                result.MonthResults.Single(item => item.Month == month);
+            AssertMonthlyAverageRow(
+                packageBytes,
+                month,
+                totalPlannedHours: monthResult.SheetModel?.TotalPlannedHours ?? 0,
+                workingDayCount: monthResult.SheetModel?.WorkingDayCount ?? 0);
             Assert.False(HasSharedFormulas(packageBytes, BuildMonthSheetName(month)));
         }
     }
@@ -472,6 +557,52 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         Assert.Equal("ЩКМО.", ReadCellText(packageBytes, "КЦ (2)", "B23"));
         Assert.Equal("ЩК1.", ReadCellText(packageBytes, "КЦ (2)", "B25"));
         Assert.Equal("АРМ оператора.", ReadCellText(packageBytes, "КЦ (2)", "B28"));
+    }
+
+    [Fact]
+    public void ExportAnnual_AdjustsGeneratedRowHeightsForWrappedText()
+    {
+        var model = new KbMaintenanceAnnualWorkbookModel
+        {
+            Year = 2027,
+            WorkshopName = "КЦ",
+            TotalHours = 14,
+            SystemGroups =
+            {
+                new KbMaintenanceAnnualSystemGroup
+                {
+                    SequenceNumber = 1,
+                    SystemName = "Очень длинное название годовой системы автоматизированного управления технологическим процессом с дополнительным описанием участка",
+                    InventoryNumber = "SYS-LONG",
+                    DetailRows =
+                    {
+                        new KbMaintenanceAnnualDetailRow
+                        {
+                            NodeName = "Очень длинное название шкафа управления в годовом графике, которое должно быть полностью видно",
+                            InventoryNumber = "CAB-LONG",
+                            TotalHours = 14,
+                            MonthCells =
+                            {
+                                new KbMaintenanceAnnualMonthCell
+                                {
+                                    Month = 1,
+                                    WorkKind = KbMaintenanceWorkKind.To3,
+                                    Hours = 14,
+                                    PlanText = "ТО3/14"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        KnowledgeBaseMaintenanceWorkbookExportResult result = _service.ExportAnnual(model);
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        Assert.True(ReadRowHeight(packageBytes, "КЦ (2)", 16) > 18d);
+        Assert.True(ReadRowHeight(packageBytes, "КЦ (2)", 17) > 18d);
     }
 
     [Fact]
@@ -788,6 +919,17 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         return FindCell(worksheetPart, cellReference)?.CellValue?.Text ?? string.Empty;
     }
 
+    private static double ReadRowHeight(byte[] packageBytes, string sheetName, uint rowIndex)
+    {
+        using SpreadsheetDocument document = OpenDocument(packageBytes);
+        WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
+        Row row = worksheetPart.Worksheet.GetFirstChild<SheetData>()?
+            .Elements<Row>()
+            .FirstOrDefault(candidate => candidate.RowIndex?.Value == rowIndex)
+            ?? throw new InvalidOperationException($"Row {rowIndex} was not found.");
+        return row.Height?.Value ?? 0d;
+    }
+
     private static uint ReadCellFillId(byte[] packageBytes, string sheetName, string cellReference)
     {
         using SpreadsheetDocument document = OpenDocument(packageBytes);
@@ -859,6 +1001,36 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         {
             Assert.False(IsRowHidden(packageBytes, sheetName, rowIndex), $"{sheetName}: row {rowIndex} must be visible.");
         }
+    }
+
+    private static void AssertMonthlyAverageRow(
+        byte[] packageBytes,
+        int month,
+        int totalPlannedHours,
+        int workingDayCount)
+    {
+        string sheetName = BuildMonthSheetName(month);
+        uint averageRowIndex = FindMonthlyAverageRowIndex(packageBytes, sheetName);
+        string workingDayCellReference = $"AL{averageRowIndex}";
+        string averageCellReference = $"AK{averageRowIndex}";
+
+        Assert.Equal(
+            workingDayCount.ToString(CultureInfo.InvariantCulture),
+            ReadCellValue(packageBytes, sheetName, workingDayCellReference));
+
+        double expectedAverage = workingDayCount > 0
+            ? (double)totalPlannedHours / workingDayCount
+            : 0d;
+        double actualAverage = double.Parse(
+            ReadCellValue(packageBytes, sheetName, averageCellReference),
+            CultureInfo.InvariantCulture);
+        Assert.Equal(expectedAverage, actualAverage, precision: 10);
+    }
+
+    private static uint FindMonthlyAverageRowIndex(byte[] packageBytes, string sheetName)
+    {
+        uint headerTopRowIndex = FindRowContainingText(packageBytes, sheetName, "N \u043F/\u043F");
+        return headerTopRowIndex - 5;
     }
 
     private static bool HasPanes(byte[] packageBytes, string sheetName)

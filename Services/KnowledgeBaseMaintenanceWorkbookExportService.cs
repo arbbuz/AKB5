@@ -26,6 +26,14 @@ namespace AsutpKnowledgeBase.Services
         private const int AnnualFirstMonthPlanColumnIndex = 5; // E
         private const int AnnualTotalHoursColumnIndex = 29; // AC
         private const int AnnualSheetColumnSpanEndIndex = 43; // AQ
+        private const double DefaultGeneratedRowHeight = 18d;
+        private const double TextLineHeight = 15d;
+        private const double TextRowHeightPadding = 3d;
+        private const int MonthlySystemNameCharactersPerLine = 36;
+        private const int MonthlyDetailNameCharactersPerLine = 32;
+        private const int MonthlyPlanCellCharactersPerLine = 8;
+        private const int AnnualNameCharactersPerLine = 42;
+        private const int AnnualPlanCellCharactersPerLine = 10;
         private const string TotalsLabelText = "Итого:";
         private const string AnnualTotalsLabelText = "Итого";
         private const string PlanText = "план";
@@ -714,6 +722,7 @@ namespace AsutpKnowledgeBase.Services
             SetCellText(headerTopRow, 4, NormalizeText(inventoryNumber, DefaultDashText));
             ClearRowValues(headerTopRow, startColumnIndex: 5, endColumnIndex: SheetColumnSpanEndIndex);
             ClearRowValues(headerBottomRow, startColumnIndex: 1, endColumnIndex: SheetColumnSpanEndIndex);
+            SetMergedRowBlockHeight(headerTopRow, headerBottomRow, systemName, MonthlySystemNameCharactersPerLine);
         }
 
         private static void PopulateDetailRows(
@@ -728,19 +737,25 @@ namespace AsutpKnowledgeBase.Services
             SetCellText(planRow, 5, PlanText);
             ClearRowValues(planRow, FirstDayColumnIndex, SheetColumnSpanEndIndex);
 
+            int maxPlanCellLineCount = 1;
             foreach (KbMaintenanceMonthSheetDayCell dayCell in detailRow.DayCells)
             {
                 if (dayCell.DayOfMonth is < 1 or > 31)
                     continue;
 
                 int dayColumnIndex = FirstDayColumnIndex + dayCell.DayOfMonth - 1;
-                SetCellText(planRow, dayColumnIndex, BuildPlanCellText(dayCell.WorkEntries));
+                string planCellText = BuildPlanCellText(dayCell.WorkEntries);
+                maxPlanCellLineCount = Math.Max(
+                    maxPlanCellLineCount,
+                    EstimateWrappedLineCount(planCellText, MonthlyPlanCellCharactersPerLine));
+                SetCellText(planRow, dayColumnIndex, planCellText);
             }
 
             SetCellNumber(planRow, TotalHoursColumnIndex, detailRow.TotalHours);
 
             ClearRowValues(factRow, 1, SheetColumnSpanEndIndex);
             SetCellText(factRow, 5, FactText);
+            SetMonthlyDetailRowHeights(planRow, factRow, detailName, maxPlanCellLineCount);
         }
 
         private static void PopulateAnnualSystemRow(
@@ -755,6 +770,7 @@ namespace AsutpKnowledgeBase.Services
             SetCellText(row, 2, NormalizeText(systemName, string.Empty));
             SetCellText(row, 3, NormalizeText(workshopName, string.Empty));
             SetCellText(row, 4, NormalizeText(inventoryNumber, string.Empty));
+            SetRowHeightAtLeast(row, CalculateTextRowHeight(systemName, AnnualNameCharactersPerLine));
         }
 
         private static void PopulateAnnualDetailRow(
@@ -768,16 +784,21 @@ namespace AsutpKnowledgeBase.Services
             SetCellText(row, 2, NormalizeText(detailName, string.Empty));
             SetCellText(row, 4, NormalizeText(inventoryNumber, string.Empty));
 
+            int maxLineCount = EstimateWrappedLineCount(detailName, AnnualNameCharactersPerLine);
             foreach (KbMaintenanceAnnualMonthCell monthCell in detailRow.MonthCells)
             {
                 if (!planColumnByMonth.TryGetValue(monthCell.Month, out int planColumnIndex))
                     continue;
 
+                maxLineCount = Math.Max(
+                    maxLineCount,
+                    EstimateWrappedLineCount(monthCell.PlanText, AnnualPlanCellCharactersPerLine));
                 SetCellText(row, planColumnIndex, monthCell.PlanText);
                 SetCellNumber(row, planColumnIndex + 1, monthCell.Hours);
             }
 
             SetCellNumber(row, AnnualTotalHoursColumnIndex, detailRow.TotalHours);
+            SetRowHeightAtLeast(row, CalculateTextRowHeight(maxLineCount));
         }
 
         private static void PopulateFooter(
@@ -1083,6 +1104,70 @@ namespace AsutpKnowledgeBase.Services
         private static Row CloneRow(Row row) =>
             (Row)row.CloneNode(true);
 
+        private static void SetMergedRowBlockHeight(
+            Row topRow,
+            Row bottomRow,
+            string text,
+            int charactersPerLine)
+        {
+            double blockHeight = Math.Max(
+                DefaultGeneratedRowHeight * 2,
+                CalculateTextRowHeight(text, charactersPerLine));
+            double rowHeight = RoundUpToQuarterPoint(blockHeight / 2);
+
+            SetRowHeightAtLeast(topRow, rowHeight);
+            SetRowHeightAtLeast(bottomRow, rowHeight);
+        }
+
+        private static void SetMonthlyDetailRowHeights(
+            Row planRow,
+            Row factRow,
+            string detailName,
+            int maxPlanCellLineCount)
+        {
+            double detailBlockHeight = Math.Max(
+                DefaultGeneratedRowHeight * 2,
+                CalculateTextRowHeight(detailName, MonthlyDetailNameCharactersPerLine));
+            double mergedTextRowHeight = RoundUpToQuarterPoint(detailBlockHeight / 2);
+            double planCellHeight = CalculateTextRowHeight(maxPlanCellLineCount);
+
+            SetRowHeightAtLeast(planRow, Math.Max(mergedTextRowHeight, planCellHeight));
+            SetRowHeightAtLeast(factRow, mergedTextRowHeight);
+        }
+
+        private static double CalculateTextRowHeight(string? text, int charactersPerLine) =>
+            CalculateTextRowHeight(EstimateWrappedLineCount(text, charactersPerLine));
+
+        private static double CalculateTextRowHeight(int lineCount) =>
+            RoundUpToQuarterPoint(Math.Max(DefaultGeneratedRowHeight, (lineCount * TextLineHeight) + TextRowHeightPadding));
+
+        private static int EstimateWrappedLineCount(string? text, int charactersPerLine)
+        {
+            if (string.IsNullOrWhiteSpace(text) || charactersPerLine <= 0)
+                return 1;
+
+            int lineCount = 0;
+            foreach (string paragraph in text.Replace("\r", string.Empty).Split('\n'))
+            {
+                string normalizedParagraph = paragraph.Trim();
+                lineCount += Math.Max(
+                    1,
+                    (int)Math.Ceiling(normalizedParagraph.Length / (double)charactersPerLine));
+            }
+
+            return Math.Max(1, lineCount);
+        }
+
+        private static void SetRowHeightAtLeast(Row row, double minimumHeight)
+        {
+            double existingHeight = row.Height?.Value ?? DefaultGeneratedRowHeight;
+            row.Height = Math.Max(existingHeight, minimumHeight);
+            row.CustomHeight = true;
+        }
+
+        private static double RoundUpToQuarterPoint(double value) =>
+            Math.Ceiling(value * 4d) / 4d;
+
         private static Row FindRequiredRow(SheetData sheetData, uint rowIndex) =>
             sheetData.Elements<Row>().FirstOrDefault(row => row.RowIndex?.Value == rowIndex)
             ?? throw new InvalidOperationException($"Шаблон графика ТО повреждён: отсутствует строка {rowIndex}.");
@@ -1115,12 +1200,6 @@ namespace AsutpKnowledgeBase.Services
         {
             RowBreaks? rowBreaks = worksheet.Elements<RowBreaks>().FirstOrDefault();
             rowBreaks?.Remove();
-        }
-
-        private static void HideRow(Worksheet worksheet, uint rowIndex)
-        {
-            Row row = GetOrCreateRow(worksheet, rowIndex);
-            row.Hidden = true;
         }
 
         private static void UnhideRow(Worksheet worksheet, uint rowIndex)
@@ -1765,17 +1844,6 @@ namespace AsutpKnowledgeBase.Services
                 row.InsertBefore(cell, nextCell);
 
             return cell;
-        }
-
-        private static int FindRightmostPopulatedColumn(Worksheet worksheet, uint rowIndex)
-        {
-            SheetData sheetData = worksheet.GetFirstChild<SheetData>()
-                ?? throw new InvalidOperationException("Лист графика ТО повреждён: отсутствует sheetData.");
-            Row row = FindRequiredRow(sheetData, rowIndex);
-            return row.Elements<Cell>()
-                .Select(cell => GetColumnIndex(cell.CellReference?.Value))
-                .DefaultIfEmpty(1)
-                .Max();
         }
 
         private static int[] BuildDayTotals(KbMaintenanceMonthSheetModel sheetModel)
