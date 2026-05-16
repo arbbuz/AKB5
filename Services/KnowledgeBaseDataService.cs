@@ -9,6 +9,8 @@ namespace AsutpKnowledgeBase.Services
 
         public static StringComparer WorkshopNameComparer { get; } = StringComparer.OrdinalIgnoreCase;
 
+        private readonly record struct NodeOwnershipState(int VisibleLevel, string Level2NodeId);
+
         public static KbConfig CreateDefaultConfig() =>
             new()
             {
@@ -44,10 +46,13 @@ namespace AsutpKnowledgeBase.Services
             var source = data ?? CreateDefaultData();
             var normalizedConfig = NormalizeConfig(source.Config);
             var normalizedWorkshops = NormalizeWorkshops(source.Workshops);
+            var nodeOwnershipIndex = BuildNodeOwnershipIndex(normalizedWorkshops);
             var normalizedCompositionEntries = NormalizeCompositionEntries(source.CompositionEntries);
-            var normalizedDocumentLinks = NormalizeDocumentLinks(source.DocumentLinks);
-            var normalizedSoftwareRecords = NormalizeSoftwareRecords(source.SoftwareRecords);
-            var normalizedNetworkFileReferences = NormalizeNetworkFileReferences(source.NetworkFileReferences);
+            var normalizedDocumentLinks = NormalizeDocumentLinks(source.DocumentLinks, nodeOwnershipIndex);
+            var normalizedSoftwareRecords = NormalizeSoftwareRecords(source.SoftwareRecords, nodeOwnershipIndex);
+            var normalizedNetworkFileReferences = NormalizeNetworkFileReferences(
+                source.NetworkFileReferences,
+                nodeOwnershipIndex);
             var normalizedMaintenanceScheduleProfiles = NormalizeMaintenanceScheduleProfiles(source.MaintenanceScheduleProfiles);
             var normalizedEquipmentCatalogItems = NormalizeEquipmentCatalogItems(source.EquipmentCatalogItems);
             var normalizedObjectTemplates = NormalizeObjectTemplates(source.ObjectTemplates);
@@ -411,6 +416,65 @@ namespace AsutpKnowledgeBase.Services
                     : string.Empty
             };
 
+        private static Dictionary<string, NodeOwnershipState> BuildNodeOwnershipIndex(
+            IReadOnlyDictionary<string, List<KbNode>> workshops)
+        {
+            var index = new Dictionary<string, NodeOwnershipState>(StringComparer.Ordinal);
+            foreach (List<KbNode> roots in workshops.Values)
+            {
+                bool hasHiddenWrapperRoot =
+                    roots.Count == 1 &&
+                    roots[0].LevelIndex == 0 &&
+                    roots[0].NodeType == KbNodeType.WorkshopRoot;
+
+                foreach (KbNode root in roots)
+                {
+                    int visibleLevel = hasHiddenWrapperRoot && ReferenceEquals(root, roots[0]) ? 0 : 1;
+                    CollectNodeOwnership(root, visibleLevel, level2NodeId: string.Empty, index);
+                }
+            }
+
+            return index;
+        }
+
+        private static void CollectNodeOwnership(
+            KbNode node,
+            int visibleLevel,
+            string level2NodeId,
+            IDictionary<string, NodeOwnershipState> index)
+        {
+            string nodeId = node.NodeId?.Trim() ?? string.Empty;
+            string currentLevel2NodeId = visibleLevel == 2 && !string.IsNullOrWhiteSpace(nodeId)
+                ? nodeId
+                : level2NodeId;
+
+            if (!string.IsNullOrWhiteSpace(nodeId))
+            {
+                index[nodeId] = new NodeOwnershipState(
+                    visibleLevel,
+                    currentLevel2NodeId);
+            }
+
+            foreach (KbNode child in node.Children ?? new List<KbNode>())
+                CollectNodeOwnership(child, visibleLevel + 1, currentLevel2NodeId, index);
+        }
+
+        private static string ResolveLevel2EngineeringOwnerNodeId(
+            string ownerNodeId,
+            IReadOnlyDictionary<string, NodeOwnershipState>? nodeOwnershipIndex)
+        {
+            if (string.IsNullOrWhiteSpace(ownerNodeId) ||
+                nodeOwnershipIndex == null ||
+                !nodeOwnershipIndex.TryGetValue(ownerNodeId, out NodeOwnershipState ownership))
+            {
+                return ownerNodeId;
+            }
+
+            return ownership.VisibleLevel >= 3 && !string.IsNullOrWhiteSpace(ownership.Level2NodeId)
+                ? ownership.Level2NodeId
+                : ownerNodeId;
+        }
+
         private static List<KbCompositionEntry> NormalizeCompositionEntries(IEnumerable<KbCompositionEntry>? entries)
         {
             var normalized = new List<KbCompositionEntry>();
@@ -458,7 +522,9 @@ namespace AsutpKnowledgeBase.Services
             return normalized;
         }
 
-        private static List<KbDocumentLink> NormalizeDocumentLinks(IEnumerable<KbDocumentLink>? links)
+        private static List<KbDocumentLink> NormalizeDocumentLinks(
+            IEnumerable<KbDocumentLink>? links,
+            IReadOnlyDictionary<string, NodeOwnershipState>? nodeOwnershipIndex = null)
         {
             var normalized = new List<KbDocumentLink>();
             if (links == null)
@@ -472,7 +538,9 @@ namespace AsutpKnowledgeBase.Services
                 if (link == null)
                     continue;
 
-                string ownerNodeId = link.OwnerNodeId?.Trim() ?? string.Empty;
+                string ownerNodeId = ResolveLevel2EngineeringOwnerNodeId(
+                    link.OwnerNodeId?.Trim() ?? string.Empty,
+                    nodeOwnershipIndex);
                 if (string.IsNullOrWhiteSpace(ownerNodeId))
                     continue;
 
@@ -501,7 +569,9 @@ namespace AsutpKnowledgeBase.Services
             return normalized;
         }
 
-        private static List<KbSoftwareRecord> NormalizeSoftwareRecords(IEnumerable<KbSoftwareRecord>? records)
+        private static List<KbSoftwareRecord> NormalizeSoftwareRecords(
+            IEnumerable<KbSoftwareRecord>? records,
+            IReadOnlyDictionary<string, NodeOwnershipState>? nodeOwnershipIndex = null)
         {
             var normalized = new List<KbSoftwareRecord>();
             if (records == null)
@@ -515,7 +585,9 @@ namespace AsutpKnowledgeBase.Services
                 if (record == null)
                     continue;
 
-                string ownerNodeId = record.OwnerNodeId?.Trim() ?? string.Empty;
+                string ownerNodeId = ResolveLevel2EngineeringOwnerNodeId(
+                    record.OwnerNodeId?.Trim() ?? string.Empty,
+                    nodeOwnershipIndex);
                 if (string.IsNullOrWhiteSpace(ownerNodeId))
                     continue;
 
@@ -543,7 +615,8 @@ namespace AsutpKnowledgeBase.Services
         }
 
         private static List<KbNetworkFileReference> NormalizeNetworkFileReferences(
-            IEnumerable<KbNetworkFileReference>? references)
+            IEnumerable<KbNetworkFileReference>? references,
+            IReadOnlyDictionary<string, NodeOwnershipState>? nodeOwnershipIndex = null)
         {
             var normalized = new List<KbNetworkFileReference>();
             if (references == null)
@@ -557,7 +630,9 @@ namespace AsutpKnowledgeBase.Services
                 if (reference == null)
                     continue;
 
-                string ownerNodeId = reference.OwnerNodeId?.Trim() ?? string.Empty;
+                string ownerNodeId = ResolveLevel2EngineeringOwnerNodeId(
+                    reference.OwnerNodeId?.Trim() ?? string.Empty,
+                    nodeOwnershipIndex);
                 if (string.IsNullOrWhiteSpace(ownerNodeId))
                     continue;
 

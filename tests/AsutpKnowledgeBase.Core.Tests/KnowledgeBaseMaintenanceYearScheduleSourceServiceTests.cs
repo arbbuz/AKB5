@@ -207,17 +207,26 @@ public class KnowledgeBaseMaintenanceYearScheduleSourceServiceTests
                 {
                     new KbNode
                     {
-                        NodeId = "device-1",
-                        Name = "Шкаф 1",
-                        NodeType = KbNodeType.Cabinet,
-                        Details = new KbNodeDetails { InventoryNumber = "INV-001" }
-                    },
-                    new KbNode
-                    {
-                        NodeId = "device-2",
-                        Name = "Шкаф 2",
-                        NodeType = KbNodeType.Cabinet,
-                        Details = new KbNodeDetails { InventoryNumber = "INV-002" }
+                        NodeId = "system-1",
+                        Name = "АСУ установки",
+                        NodeType = KbNodeType.System,
+                        Children =
+                        {
+                            new KbNode
+                            {
+                                NodeId = "device-1",
+                                Name = "Шкаф 1",
+                                NodeType = KbNodeType.Cabinet,
+                                Details = new KbNodeDetails { InventoryNumber = "INV-001" }
+                            },
+                            new KbNode
+                            {
+                                NodeId = "device-2",
+                                Name = "Шкаф 2",
+                                NodeType = KbNodeType.Cabinet,
+                                Details = new KbNodeDetails { InventoryNumber = "INV-002" }
+                            }
+                        }
                     }
                 }
             }

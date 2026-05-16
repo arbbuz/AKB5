@@ -83,7 +83,7 @@ namespace AsutpKnowledgeBase.Services
         }
 
         public static bool SupportsComposition(KbNodeType nodeType, int visibleLevel = 0) =>
-            KnowledgeBaseEngineeringNodeSupportService.SupportsEngineeringWorkspace(nodeType, visibleLevel);
+            KnowledgeBaseEngineeringNodeSupportService.SupportsComposition(nodeType, visibleLevel);
 
         private static List<KbCompositionEntry> GetOrderedTypedEntries(
             string parentNodeId,

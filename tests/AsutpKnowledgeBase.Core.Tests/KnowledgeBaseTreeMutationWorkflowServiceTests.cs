@@ -271,13 +271,21 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
         {
             NodeId = "system-1",
             Name = "System 1",
-            LevelIndex = 0,
+            LevelIndex = 1,
             NodeType = KbNodeType.System
+        };
+        var department = new KbNode
+        {
+            NodeId = "department-1",
+            Name = "Department 1",
+            LevelIndex = 0,
+            NodeType = KbNodeType.Department,
+            Children = { parentNode }
         };
         var session = CreateSession(
             new Dictionary<string, List<KbNode>>
             {
-                ["Workshop 1"] = new List<KbNode> { parentNode }
+                ["Workshop 1"] = new List<KbNode> { department }
             });
         session.ReplaceObjectTemplates(new[] { CreateCabinetObjectTemplate() });
 
@@ -299,13 +307,13 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
         var cabinet = Assert.Single(parentNode.Children);
         Assert.Same(cabinet, result.AffectedNode);
         Assert.Equal("Cabinet A", cabinet.Name);
-        Assert.Equal(1, cabinet.LevelIndex);
+        Assert.Equal(2, cabinet.LevelIndex);
         Assert.Equal(KbNodeType.Cabinet, cabinet.NodeType);
         Assert.False(string.Equals("cabinet", cabinet.NodeId, StringComparison.Ordinal));
 
         var controllerNode = Assert.Single(cabinet.Children);
         Assert.Equal("Template controller", controllerNode.Name);
-        Assert.Equal(2, controllerNode.LevelIndex);
+        Assert.Equal(3, controllerNode.LevelIndex);
         Assert.Equal(KbNodeType.Controller, controllerNode.NodeType);
         Assert.NotEqual(cabinet.NodeId, controllerNode.NodeId);
 
@@ -314,14 +322,14 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
         Assert.Equal("CPU", composition.ComponentType);
 
         var document = Assert.Single(session.DocumentLinks);
-        Assert.Equal(controllerNode.NodeId, document.OwnerNodeId);
+        Assert.Equal(parentNode.NodeId, document.OwnerNodeId);
         Assert.Equal(KbDocumentKind.SchemeLink, document.Kind);
 
         var software = Assert.Single(session.SoftwareRecords);
-        Assert.Equal(controllerNode.NodeId, software.OwnerNodeId);
+        Assert.Equal(parentNode.NodeId, software.OwnerNodeId);
 
         var networkFile = Assert.Single(session.NetworkFileReferences);
-        Assert.Equal(controllerNode.NodeId, networkFile.OwnerNodeId);
+        Assert.Equal(parentNode.NodeId, networkFile.OwnerNodeId);
         Assert.Equal(KbNetworkPreviewKind.Image, networkFile.PreviewKind);
 
         var maintenanceProfile = Assert.Single(session.MaintenanceScheduleProfiles);
@@ -330,12 +338,167 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
 
         var undoResult = workflow.Undo(session.GetCurrentWorkshopNodes());
         Assert.True(undoResult.IsSuccess);
-        Assert.Empty(Assert.Single(session.GetCurrentWorkshopNodes()).Children);
+        Assert.Empty(Assert.Single(Assert.Single(session.GetCurrentWorkshopNodes()).Children).Children);
         Assert.Empty(session.CompositionEntries);
         Assert.Empty(session.DocumentLinks);
         Assert.Empty(session.SoftwareRecords);
         Assert.Empty(session.NetworkFileReferences);
         Assert.Empty(session.MaintenanceScheduleProfiles);
+    }
+
+    [Fact]
+    public void CreateObjectFromCatalog_WhenSuccessful_AddsInstalledObjectAndKeepsCatalog()
+    {
+        var parentNode = new KbNode
+        {
+            NodeId = "system-1",
+            Name = "System 1",
+            LevelIndex = 0,
+            NodeType = KbNodeType.System
+        };
+        var session = CreateSession(
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Цех 1"] = new List<KbNode> { parentNode }
+            });
+        session.ReplaceEquipmentCatalogItems(
+            new[]
+            {
+                new KbEquipmentCatalogItem
+                {
+                    CatalogItemId = "catalog-plc",
+                    EquipmentKind = "ПЛК",
+                    Manufacturer = "Siemens",
+                    Model = "CPU 1214C",
+                    DefaultNodeType = KbNodeType.Controller,
+                    Description = "Контроллер линии"
+                }
+            });
+
+        var history = new UndoRedoService();
+        var controller = new KnowledgeBaseTreeController(session);
+        var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
+        var workflow = new KnowledgeBaseTreeMutationWorkflowService(session, sessionWorkflow, controller, history);
+
+        var result = workflow.CreateObjectFromCatalog(
+            session.CurrentWorkshop,
+            parentNode,
+            session.EquipmentCatalogItems[0],
+            session.GetCurrentWorkshopNodes());
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.True(workflow.CanUndo);
+        var createdNode = Assert.Single(parentNode.Children);
+        Assert.Same(createdNode, result.AffectedNode);
+        Assert.Equal("ПЛК Siemens CPU 1214C", createdNode.Name);
+        Assert.Equal(KbNodeType.Controller, createdNode.NodeType);
+        Assert.Equal("Контроллер линии", createdNode.Details.Description);
+        Assert.Single(session.EquipmentCatalogItems);
+
+        var undoResult = workflow.Undo(session.GetCurrentWorkshopNodes());
+        Assert.True(undoResult.IsSuccess);
+        Assert.Empty(Assert.Single(session.GetCurrentWorkshopNodes()).Children);
+        Assert.Single(session.EquipmentCatalogItems);
+    }
+
+    [Fact]
+    public void CreateObjectFromCatalog_WhenDefaultNodeTypeIsNotInstalledObject_UsesDevice()
+    {
+        var parentNode = new KbNode
+        {
+            NodeId = "system-1",
+            Name = "System 1",
+            LevelIndex = 0,
+            NodeType = KbNodeType.System
+        };
+        var session = CreateSession(
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Цех 1"] = new List<KbNode> { parentNode }
+            });
+        var history = new UndoRedoService();
+        var controller = new KnowledgeBaseTreeController(session);
+        var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
+        var workflow = new KnowledgeBaseTreeMutationWorkflowService(session, sessionWorkflow, controller, history);
+
+        var result = workflow.CreateObjectFromCatalog(
+            session.CurrentWorkshop,
+            parentNode,
+            new KbEquipmentCatalogItem
+            {
+                EquipmentKind = "Датчик",
+                DefaultNodeType = KbNodeType.Department
+            },
+            session.GetCurrentWorkshopNodes());
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        var createdNode = Assert.Single(parentNode.Children);
+        Assert.Equal("Датчик", createdNode.Name);
+        Assert.Equal(KbNodeType.Device, createdNode.NodeType);
+    }
+
+    [Fact]
+    public void CreateObjectFromCatalog_WhenParentAtDepthLimit_ReturnsDepthFailure()
+    {
+        var parentNode = new KbNode
+        {
+            NodeId = "module-1",
+            Name = "Module 1",
+            NodeType = KbNodeType.Module
+        };
+        var controllerNode = new KbNode
+        {
+            NodeId = "controller-1",
+            Name = "Controller 1",
+            NodeType = KbNodeType.Controller,
+            Children = { parentNode }
+        };
+        var cabinetNode = new KbNode
+        {
+            NodeId = "cabinet-1",
+            Name = "Cabinet 1",
+            NodeType = KbNodeType.Cabinet,
+            Children = { controllerNode }
+        };
+        var session = CreateSession(
+            new Dictionary<string, List<KbNode>>
+            {
+                ["Цех 1"] = new List<KbNode>
+                {
+                    new KbNode
+                    {
+                        NodeId = "system-1",
+                        Name = "System 1",
+                        NodeType = KbNodeType.System,
+                        Children = { cabinetNode }
+                    }
+                }
+            },
+            maxLevels: 4);
+        session.ReplaceEquipmentCatalogItems(
+            new[]
+            {
+                new KbEquipmentCatalogItem
+                {
+                    EquipmentKind = "Датчик",
+                    DefaultNodeType = KbNodeType.Device
+                }
+            });
+        var history = new UndoRedoService();
+        var controller = new KnowledgeBaseTreeController(session);
+        var sessionWorkflow = new KnowledgeBaseSessionWorkflowService(session);
+        var workflow = new KnowledgeBaseTreeMutationWorkflowService(session, sessionWorkflow, controller, history);
+
+        var result = workflow.CreateObjectFromCatalog(
+            session.CurrentWorkshop,
+            parentNode,
+            session.EquipmentCatalogItems[0],
+            session.GetCurrentWorkshopNodes());
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(KnowledgeBaseTreeMutationFailure.DepthLimitExceeded, result.Failure);
+        Assert.Empty(parentNode.Children);
+        Assert.False(workflow.CanUndo);
     }
 
     [Fact]
@@ -511,13 +674,13 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
         Assert.Equal("cabinet-existing", composition.ParentNodeId);
 
         KbDocumentLink document = Assert.Single(session.DocumentLinks);
-        Assert.Equal(controllerNode.NodeId, document.OwnerNodeId);
+        Assert.Equal(system.NodeId, document.OwnerNodeId);
 
         KbSoftwareRecord software = Assert.Single(session.SoftwareRecords);
-        Assert.Equal(controllerNode.NodeId, software.OwnerNodeId);
+        Assert.Equal(system.NodeId, software.OwnerNodeId);
 
         KbNetworkFileReference network = Assert.Single(session.NetworkFileReferences);
-        Assert.Equal(controllerNode.NodeId, network.OwnerNodeId);
+        Assert.Equal(system.NodeId, network.OwnerNodeId);
 
         KbMaintenanceScheduleProfile maintenance = Assert.Single(session.MaintenanceScheduleProfiles);
         Assert.Equal(controllerNode.NodeId, maintenance.OwnerNodeId);

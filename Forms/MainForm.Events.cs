@@ -222,6 +222,9 @@ namespace AsutpKnowledgeBase
         private void AddChildNode()
             => _treeMutationUiWorkflowService.AddChildNode(CreateTreeMutationUiWorkflowContext());
 
+        private void CreateObjectFromCatalog()
+            => _treeMutationUiWorkflowService.CreateObjectFromCatalog(CreateTreeMutationUiWorkflowContext());
+
         private void CreateObjectFromTemplate()
             => _treeMutationUiWorkflowService.CreateObjectFromTemplate(CreateTreeMutationUiWorkflowContext());
 

@@ -19,19 +19,17 @@ public class KnowledgeBaseNodeWorkspaceResolverServiceTests
     }
 
     [Fact]
-    public void Resolve_ForCabinet_ReturnsEngineeringTabHost()
+    public void Resolve_ForLevel2System_ReturnsDocsAndNetworkTabs()
     {
-        var workspace = _service.Resolve(KbNodeType.Cabinet);
+        var workspace = _service.Resolve(KbNodeType.System, visibleLevel: 2);
 
         Assert.True(workspace.UseTabHost);
         Assert.Equal(
             new[]
             {
                 KnowledgeBaseNodeWorkspaceTabKind.Info,
-                KnowledgeBaseNodeWorkspaceTabKind.Composition,
                 KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware,
-                KnowledgeBaseNodeWorkspaceTabKind.Network,
-                KnowledgeBaseNodeWorkspaceTabKind.Maintenance
+                KnowledgeBaseNodeWorkspaceTabKind.Network
             },
             workspace.Tabs.Select(static tab => tab.Kind).ToArray());
     }
@@ -47,9 +45,9 @@ public class KnowledgeBaseNodeWorkspaceResolverServiceTests
     }
 
     [Fact]
-    public void Resolve_ForVisibleLevel3System_ReturnsEngineeringTabHost()
+    public void Resolve_ForLevel3Cabinet_ReturnsCompositionAndMaintenanceTabs()
     {
-        var workspace = _service.Resolve(KbNodeType.System, visibleLevel: 3);
+        var workspace = _service.Resolve(KbNodeType.Cabinet, visibleLevel: 3);
 
         Assert.True(workspace.UseTabHost);
         Assert.Equal(
@@ -57,8 +55,6 @@ public class KnowledgeBaseNodeWorkspaceResolverServiceTests
             {
                 KnowledgeBaseNodeWorkspaceTabKind.Info,
                 KnowledgeBaseNodeWorkspaceTabKind.Composition,
-                KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware,
-                KnowledgeBaseNodeWorkspaceTabKind.Network,
                 KnowledgeBaseNodeWorkspaceTabKind.Maintenance
             },
             workspace.Tabs.Select(static tab => tab.Kind).ToArray());

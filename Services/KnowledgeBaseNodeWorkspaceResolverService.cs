@@ -38,64 +38,72 @@ namespace AsutpKnowledgeBase.Services
 
     public class KnowledgeBaseNodeWorkspaceResolverService
     {
-        public KnowledgeBaseNodeWorkspaceState Resolve(KbNodeType nodeType, int visibleLevel = 0) =>
-            UsesEngineeringTabHost(nodeType, visibleLevel)
-                ? CreateEngineeringWorkspace()
-                : CreateInfoWorkspace();
-
-        private static bool UsesEngineeringTabHost(KbNodeType nodeType, int visibleLevel) =>
-            KnowledgeBaseEngineeringNodeSupportService.SupportsEngineeringWorkspace(nodeType, visibleLevel);
-
-        private static KnowledgeBaseNodeWorkspaceState CreateInfoWorkspace() =>
-            new()
+        public KnowledgeBaseNodeWorkspaceState Resolve(KbNodeType nodeType, int visibleLevel = 0)
+        {
+            var tabs = CreateWorkspaceTabs(nodeType, visibleLevel);
+            return new KnowledgeBaseNodeWorkspaceState
             {
-                LayoutKind = KnowledgeBaseNodeWorkspaceLayoutKind.InfoOnly,
-                Tabs =
-                [
-                    new KnowledgeBaseNodeWorkspaceTabState
-                    {
-                        Kind = KnowledgeBaseNodeWorkspaceTabKind.Info,
-                        Title = "Карточка"
-                    }
-                ]
+                LayoutKind = tabs.Count > 1
+                    ? KnowledgeBaseNodeWorkspaceLayoutKind.TabHost
+                    : KnowledgeBaseNodeWorkspaceLayoutKind.InfoOnly,
+                Tabs = tabs
+            };
+        }
+
+        private static IReadOnlyList<KnowledgeBaseNodeWorkspaceTabState> CreateWorkspaceTabs(
+            KbNodeType nodeType,
+            int visibleLevel)
+        {
+            var tabs = new List<KnowledgeBaseNodeWorkspaceTabState>
+            {
+                new()
+                {
+                    Kind = KnowledgeBaseNodeWorkspaceTabKind.Info,
+                    Title = "Карточка"
+                }
             };
 
-        private static KnowledgeBaseNodeWorkspaceState CreateEngineeringWorkspace() =>
-            new()
+            if (KnowledgeBaseCompositionStateService.SupportsComposition(nodeType, visibleLevel))
             {
-                LayoutKind = KnowledgeBaseNodeWorkspaceLayoutKind.TabHost,
-                Tabs =
-                [
-                    new KnowledgeBaseNodeWorkspaceTabState
-                    {
-                        Kind = KnowledgeBaseNodeWorkspaceTabKind.Info,
-                        Title = "Карточка"
-                    },
-                    new KnowledgeBaseNodeWorkspaceTabState
-                    {
-                        Kind = KnowledgeBaseNodeWorkspaceTabKind.Composition,
-                        Title = "Состав",
-                        Description = "Показывает типизированные записи состава для этого типа узла."
-                    },
-                    new KnowledgeBaseNodeWorkspaceTabState
-                    {
-                        Kind = KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware,
-                        Title = "Документация и ПО",
-                        Description = "Показывает ссылки на документы и программное обеспечение для этого узла."
-                    },
-                    new KnowledgeBaseNodeWorkspaceTabState
-                    {
-                        Kind = KnowledgeBaseNodeWorkspaceTabKind.Network,
-                        Title = "Сеть",
-                        Description = "Показывает сетевые схемы, адресацию и другие файлы по сети для этого узла."
-                    },
-                    new KnowledgeBaseNodeWorkspaceTabState
-                    {
-                        Kind = KnowledgeBaseNodeWorkspaceTabKind.Maintenance,
-                        Title = "График ТО",
-                        Description = "Показывает участие узла в графике ТО и нормы часов для ТО1, ТО2 и ТО3."
-                    }
-                ]
-            };
+                tabs.Add(new KnowledgeBaseNodeWorkspaceTabState
+                {
+                    Kind = KnowledgeBaseNodeWorkspaceTabKind.Composition,
+                    Title = "Состав",
+                    Description = "Показывает типизированные записи состава для этого типа узла."
+                });
+            }
+
+            if (KnowledgeBaseDocsAndSoftwareStateService.SupportsRecords(nodeType, visibleLevel))
+            {
+                tabs.Add(new KnowledgeBaseNodeWorkspaceTabState
+                {
+                    Kind = KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware,
+                    Title = "Документация и ПО",
+                    Description = "Показывает ссылки на документы и программное обеспечение для этого узла."
+                });
+            }
+
+            if (KnowledgeBaseNetworkStateService.SupportsRecords(nodeType, visibleLevel))
+            {
+                tabs.Add(new KnowledgeBaseNodeWorkspaceTabState
+                {
+                    Kind = KnowledgeBaseNodeWorkspaceTabKind.Network,
+                    Title = "Сеть",
+                    Description = "Показывает сетевые схемы, адресацию и другие файлы по сети для этого узла."
+                });
+            }
+
+            if (KnowledgeBaseMaintenanceScheduleStateService.SupportsProfile(nodeType, visibleLevel))
+            {
+                tabs.Add(new KnowledgeBaseNodeWorkspaceTabState
+                {
+                    Kind = KnowledgeBaseNodeWorkspaceTabKind.Maintenance,
+                    Title = "График ТО",
+                    Description = "Показывает участие узла в графике ТО и нормы часов для ТО1, ТО2 и ТО3."
+                });
+            }
+
+            return tabs;
+        }
     }
 }

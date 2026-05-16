@@ -49,6 +49,7 @@ namespace AsutpKnowledgeBase
                 GetPersistedTreeData = GetPersistedTreeData,
                 GetEffectiveParentForRootOperations = GetEffectiveParentForRootOperations,
                 ResolveActualParentNode = ResolveActualParentNode,
+                GetEquipmentCatalogItems = () => _session.EquipmentCatalogItems,
                 CaptureExpandedNodes = CaptureExpandedNodes,
                 GetDeleteImpact = BuildDeleteImpact,
                 OfferProtectiveSnapshotBeforeDangerousOperation = OfferProtectiveSnapshotBeforeDangerousOperation,

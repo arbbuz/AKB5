@@ -20,7 +20,7 @@ public class KnowledgeBaseMaintenanceMonthWorkResolverServiceTests
         IReadOnlyList<KbMaintenanceMonthWorkItem> items = _service.ResolveMonthWorkItems(
             2026,
             2,
-            new[] { node },
+            CreateLevel3Roots(node),
             new[]
             {
                 new KbMaintenanceScheduleProfile
@@ -142,7 +142,7 @@ public class KnowledgeBaseMaintenanceMonthWorkResolverServiceTests
         };
 
         IReadOnlyList<KbMaintenanceMonthWorkItem> allItems = Enumerable.Range(1, 12)
-            .SelectMany(month => _service.ResolveMonthWorkItems(2026, month, new[] { node }, new[] { profile }))
+            .SelectMany(month => _service.ResolveMonthWorkItems(2026, month, CreateLevel3Roots(node), new[] { profile }))
             .ToArray();
 
         Assert.Equal(12, allItems.Count);
@@ -176,11 +176,11 @@ public class KnowledgeBaseMaintenanceMonthWorkResolverServiceTests
         };
 
         IReadOnlyList<KbMaintenanceMonthWorkItem> januaryItems =
-            _service.ResolveMonthWorkItems(2026, 1, new[] { node }, new[] { profile });
+            _service.ResolveMonthWorkItems(2026, 1, CreateLevel3Roots(node), new[] { profile });
         IReadOnlyList<KbMaintenanceMonthWorkItem> februaryItems =
-            _service.ResolveMonthWorkItems(2026, 2, new[] { node }, new[] { profile });
+            _service.ResolveMonthWorkItems(2026, 2, CreateLevel3Roots(node), new[] { profile });
         IReadOnlyList<KbMaintenanceMonthWorkItem> marchItems =
-            _service.ResolveMonthWorkItems(2026, 3, new[] { node }, new[] { profile });
+            _service.ResolveMonthWorkItems(2026, 3, CreateLevel3Roots(node), new[] { profile });
 
         Assert.Equal(KbMaintenanceWorkKind.To1, Assert.Single(januaryItems).WorkKind);
         Assert.Equal(2, januaryItems[0].Hours);
@@ -221,9 +221,9 @@ public class KnowledgeBaseMaintenanceMonthWorkResolverServiceTests
         };
 
         IReadOnlyList<KbMaintenanceMonthWorkItem> fallbackItems =
-            _service.ResolveMonthWorkItems(2026, 1, new[] { node }, new[] { fallbackProfile });
+            _service.ResolveMonthWorkItems(2026, 1, CreateLevel3Roots(node), new[] { fallbackProfile });
         IReadOnlyList<KbMaintenanceMonthWorkItem> partialItems =
-            _service.ResolveMonthWorkItems(2026, 1, new[] { node }, new[] { partialProfile });
+            _service.ResolveMonthWorkItems(2026, 1, CreateLevel3Roots(node), new[] { partialProfile });
 
         Assert.Equal(Assert.Single(fallbackItems).WorkKind, Assert.Single(partialItems).WorkKind);
         Assert.Equal(fallbackItems[0].Hours, partialItems[0].Hours);
@@ -248,7 +248,7 @@ public class KnowledgeBaseMaintenanceMonthWorkResolverServiceTests
         };
 
         IReadOnlyList<KbMaintenanceMonthWorkItem> allItems = Enumerable.Range(1, 12)
-            .SelectMany(month => _service.ResolveMonthWorkItems(2026, month, new[] { node }, new[] { profile }))
+            .SelectMany(month => _service.ResolveMonthWorkItems(2026, month, CreateLevel3Roots(node), new[] { profile }))
             .ToArray();
 
         Assert.Collection(
@@ -346,7 +346,7 @@ public class KnowledgeBaseMaintenanceMonthWorkResolverServiceTests
         IReadOnlyList<KbMaintenanceMonthWorkItem> items = _service.ResolveMonthWorkItems(
             2026,
             1,
-            new[] { firstNode, secondNode },
+            CreateLevel3Roots(firstNode, secondNode),
             new[]
             {
                 new KbMaintenanceScheduleProfile
@@ -387,7 +387,7 @@ public class KnowledgeBaseMaintenanceMonthWorkResolverServiceTests
         IReadOnlyList<KbMaintenanceMonthWorkItem> items = _service.ResolveMonthWorkItems(
             2026,
             1,
-            new[] { supportedNode, unsupportedNode },
+            CreateRootsWithLevel2SystemAndLevel3Children(unsupportedNode, supportedNode),
             new[]
             {
                 new KbMaintenanceScheduleProfile
@@ -419,11 +419,38 @@ public class KnowledgeBaseMaintenanceMonthWorkResolverServiceTests
             .Select(month => new
             {
                 Month = month,
-                Items = _service.ResolveMonthWorkItems(2026, month, new[] { node }, new[] { profile })
+                Items = _service.ResolveMonthWorkItems(2026, month, CreateLevel3Roots(node), new[] { profile })
             })
             .Where(static result => result.Items.Count > 0)
             .ToDictionary(
                 static result => result.Month,
                 static result => Assert.Single(result.Items).WorkKind);
+    }
+
+    private static KbNode[] CreateLevel3Roots(params KbNode[] nodes) =>
+        CreateRootsWithLevel2SystemAndLevel3Children(
+            new KbNode
+            {
+                NodeId = "system-1",
+                Name = "System 1",
+                NodeType = KbNodeType.System
+            },
+            nodes);
+
+    private static KbNode[] CreateRootsWithLevel2SystemAndLevel3Children(KbNode systemNode, params KbNode[] children)
+    {
+        systemNode.Children.Clear();
+        systemNode.Children.AddRange(children);
+
+        return new[]
+        {
+            new KbNode
+            {
+                NodeId = "department-1",
+                Name = "Department 1",
+                NodeType = KbNodeType.Department,
+                Children = { systemNode }
+            }
+        };
     }
 }

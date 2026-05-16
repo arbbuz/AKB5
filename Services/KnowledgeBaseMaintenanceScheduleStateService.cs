@@ -82,7 +82,7 @@ namespace AsutpKnowledgeBase.Services
         }
 
         public static bool SupportsProfile(KbNodeType nodeType, int visibleLevel = 0) =>
-            KnowledgeBaseEngineeringNodeSupportService.SupportsEngineeringWorkspace(nodeType, visibleLevel);
+            KnowledgeBaseEngineeringNodeSupportService.SupportsMaintenanceProfile(nodeType, visibleLevel);
 
         private static KbMaintenanceScheduleProfile? FindOwnedProfile(
             string ownerNodeId,

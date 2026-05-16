@@ -17,6 +17,8 @@ namespace AsutpKnowledgeBase.UiServices
 
         public Func<KbNode, KbNode?, KbNode?> ResolveActualParentNode { get; init; } = null!;
 
+        public Func<IReadOnlyList<KbEquipmentCatalogItem>> GetEquipmentCatalogItems { get; init; } = null!;
+
         public Func<HashSet<KbNode>> CaptureExpandedNodes { get; init; } = null!;
 
         public Action<KnowledgeBaseSessionViewState, bool, KbNode?, ISet<KbNode>?> ApplySessionView { get; init; } = null!;
@@ -93,6 +95,52 @@ namespace AsutpKnowledgeBase.UiServices
                 context,
                 selectedNode,
                 "Введите название нового дочернего объекта:");
+        }
+
+        public void CreateObjectFromCatalog(KnowledgeBaseTreeMutationUiWorkflowContext context)
+        {
+            KbNode? parentNode = context.TreeView.SelectedNode?.Tag as KbNode ??
+                                 context.GetEffectiveParentForRootOperations();
+            IReadOnlyList<KbEquipmentCatalogItem> catalogItems = context.GetEquipmentCatalogItems();
+            if (catalogItems.Count == 0)
+            {
+                MessageBox.Show(
+                    context.Owner,
+                    "В каталоге оборудования нет записей.",
+                    "Каталог оборудования",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            if (!_treeMutationWorkflowService.CanCreateObjectFromCatalog(parentNode))
+            {
+                MessageBox.Show(
+                    context.Owner,
+                    "В выбранном месте нельзя добавить объект из каталога: достигнута максимальная глубина дерева.",
+                    "Каталог оборудования",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            using var dialog = new KnowledgeBaseEquipmentCatalogSelectionDialog(catalogItems);
+            if (dialog.ShowDialog(context.Owner) != DialogResult.OK || dialog.SelectedItem == null)
+                return;
+
+            var expandedNodes = context.CaptureExpandedNodes();
+            var result = _treeMutationWorkflowService.CreateObjectFromCatalog(
+                context.CurrentWorkshop,
+                parentNode,
+                dialog.SelectedItem,
+                context.GetPersistedTreeData());
+            if (!result.IsSuccess)
+            {
+                ShowMutationFailure(context.Owner, result, "Создание объекта из каталога");
+                return;
+            }
+
+            ApplySuccessfulMutation(context, result, result.AffectedNode, expandedNodes);
         }
 
         public void CreateObjectFromTemplate(KnowledgeBaseTreeMutationUiWorkflowContext context)

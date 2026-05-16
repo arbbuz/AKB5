@@ -7,6 +7,7 @@ namespace AsutpKnowledgeBase.Services
         None,
         InvalidNodeName,
         DepthLimitExceeded,
+        CatalogUnavailable,
         TemplateUnavailable,
         ClipboardUnavailable,
         DeleteFailed,
@@ -63,6 +64,10 @@ namespace AsutpKnowledgeBase.Services
         public bool CanRedo => _history.CanRedo;
 
         public bool CanAddNode(KbNode? parentNode) => _treeController.CanAddNode(parentNode);
+
+        public bool CanCreateObjectFromCatalog(KbNode? parentNode) =>
+            _session.EquipmentCatalogItems.Count > 0 &&
+            _treeController.CanAddNode(parentNode);
 
         public bool CanAddNodeFromTemplate(KbNode? parentNode) =>
             _treeController.CanAddNode(parentNode) &&
@@ -185,6 +190,49 @@ namespace AsutpKnowledgeBase.Services
             return Success(
                 $"Добавлено по шаблону: {newNode.Name}",
                 newNode);
+        }
+
+        public KnowledgeBaseTreeMutationResult CreateObjectFromCatalog(
+            string workshopName,
+            KbNode? parentNode,
+            KbEquipmentCatalogItem? catalogItem,
+            List<KbNode> currentRoots)
+        {
+            List<KbEquipmentCatalogItem> normalizedCatalogItems =
+                KnowledgeBaseDataService.NormalizeEquipmentCatalogItems(new[] { catalogItem });
+            if (normalizedCatalogItems.Count == 0)
+            {
+                return Failure(
+                    KnowledgeBaseTreeMutationFailure.CatalogUnavailable,
+                    "Выберите запись каталога оборудования.");
+            }
+
+            if (!_treeController.CanAddNode(parentNode))
+            {
+                return Failure(
+                    KnowledgeBaseTreeMutationFailure.DepthLimitExceeded,
+                    $"Достигнута максимальная глубина ({_session.Config.MaxLevels}).");
+            }
+
+            KbEquipmentCatalogItem item = normalizedCatalogItems[0];
+            string historySnapshot = CaptureHistorySnapshot(currentRoots);
+            KbNode newNode = _treeController.AddNode(
+                workshopName,
+                parentNode,
+                new KbNode
+                {
+                    Name = BuildCatalogObjectNodeName(item),
+                    NodeType = ResolveCatalogObjectNodeType(item.DefaultNodeType),
+                    Details = new KbNodeDetails
+                    {
+                        Description = item.Description
+                    }
+                });
+
+            PersistVirtualWorkshopWrapperIfNeeded(parentNode, currentRoots);
+            _history.SaveState(historySnapshot);
+
+            return Success($"Создан объект из каталога: {newNode.Name}", newNode);
         }
 
         public KnowledgeBaseTreeMutationResult CreateObjectFromTemplate(
@@ -588,24 +636,100 @@ namespace AsutpKnowledgeBase.Services
         private void DeleteUnsupportedTypedDataForMovedSubtree(KbNode movedRoot, IReadOnlyList<KbNode> currentRoots)
         {
             Dictionary<string, int> visibleLevelByNodeId = BuildVisibleLevelByNodeId(currentRoots);
-            HashSet<string> unsupportedNodeIds = CollectMovedSubtreeUnsupportedEngineeringNodeIds(
+            DeleteCompositionDataForNodeIds(CollectMovedSubtreeUnsupportedTypedNodeIds(
                 movedRoot,
-                visibleLevelByNodeId);
-            DeleteTypedDataForNodeIds(unsupportedNodeIds);
+                visibleLevelByNodeId,
+                static (node, visibleLevel) => !KnowledgeBaseCompositionStateService.SupportsComposition(
+                    node.NodeType,
+                    visibleLevel)));
+            DeleteDocsAndSoftwareDataForNodeIds(CollectMovedSubtreeUnsupportedTypedNodeIds(
+                movedRoot,
+                visibleLevelByNodeId,
+                static (node, visibleLevel) => !KnowledgeBaseDocsAndSoftwareStateService.SupportsRecords(
+                    node.NodeType,
+                    visibleLevel)));
+            DeleteNetworkDataForNodeIds(CollectMovedSubtreeUnsupportedTypedNodeIds(
+                movedRoot,
+                visibleLevelByNodeId,
+                static (node, visibleLevel) => !KnowledgeBaseNetworkStateService.SupportsRecords(
+                    node.NodeType,
+                    visibleLevel)));
+            DeleteMaintenanceDataForNodeIds(CollectMovedSubtreeUnsupportedTypedNodeIds(
+                movedRoot,
+                visibleLevelByNodeId,
+                static (node, visibleLevel) => !KnowledgeBaseMaintenanceScheduleStateService.SupportsProfile(
+                    node.NodeType,
+                    visibleLevel)));
         }
 
-        private static HashSet<string> CollectMovedSubtreeUnsupportedEngineeringNodeIds(
+        private void DeleteCompositionDataForNodeIds(ISet<string> removedNodeIds)
+        {
+            if (removedNodeIds.Count == 0)
+                return;
+
+            var remainingCompositionEntries = _session.CompositionEntries
+                .Where(entry => !removedNodeIds.Contains(entry.ParentNodeId))
+                .ToList();
+            if (remainingCompositionEntries.Count != _session.CompositionEntries.Count)
+                _session.ReplaceCompositionEntries(remainingCompositionEntries);
+        }
+
+        private void DeleteDocsAndSoftwareDataForNodeIds(ISet<string> removedNodeIds)
+        {
+            if (removedNodeIds.Count == 0)
+                return;
+
+            var remainingDocumentLinks = _session.DocumentLinks
+                .Where(link => !removedNodeIds.Contains(link.OwnerNodeId))
+                .ToList();
+            if (remainingDocumentLinks.Count != _session.DocumentLinks.Count)
+                _session.ReplaceDocumentLinks(remainingDocumentLinks);
+
+            var remainingSoftwareRecords = _session.SoftwareRecords
+                .Where(record => !removedNodeIds.Contains(record.OwnerNodeId))
+                .ToList();
+            if (remainingSoftwareRecords.Count != _session.SoftwareRecords.Count)
+                _session.ReplaceSoftwareRecords(remainingSoftwareRecords);
+        }
+
+        private void DeleteNetworkDataForNodeIds(ISet<string> removedNodeIds)
+        {
+            if (removedNodeIds.Count == 0)
+                return;
+
+            var remainingNetworkFileReferences = _session.NetworkFileReferences
+                .Where(reference => !removedNodeIds.Contains(reference.OwnerNodeId))
+                .ToList();
+            if (remainingNetworkFileReferences.Count != _session.NetworkFileReferences.Count)
+                _session.ReplaceNetworkFileReferences(remainingNetworkFileReferences);
+        }
+
+        private void DeleteMaintenanceDataForNodeIds(ISet<string> removedNodeIds)
+        {
+            if (removedNodeIds.Count == 0)
+                return;
+
+            var remainingMaintenanceScheduleProfiles = _session.MaintenanceScheduleProfiles
+                .Where(profile => !removedNodeIds.Contains(profile.OwnerNodeId))
+                .ToList();
+            if (remainingMaintenanceScheduleProfiles.Count != _session.MaintenanceScheduleProfiles.Count)
+                _session.ReplaceMaintenanceScheduleProfiles(remainingMaintenanceScheduleProfiles);
+        }
+
+        private static HashSet<string> CollectMovedSubtreeUnsupportedTypedNodeIds(
             KbNode root,
-            IReadOnlyDictionary<string, int> visibleLevelByNodeId)
+            IReadOnlyDictionary<string, int> visibleLevelByNodeId,
+            Func<KbNode, int, bool> isUnsupported)
         {
             var nodeIds = new HashSet<string>(StringComparer.Ordinal);
-            CollectMovedSubtreeUnsupportedEngineeringNodeIdsRecursive(root, visibleLevelByNodeId, nodeIds);
+            CollectMovedSubtreeUnsupportedTypedNodeIdsRecursive(root, visibleLevelByNodeId, isUnsupported, nodeIds);
             return nodeIds;
         }
 
-        private static void CollectMovedSubtreeUnsupportedEngineeringNodeIdsRecursive(
+        private static void CollectMovedSubtreeUnsupportedTypedNodeIdsRecursive(
             KbNode node,
             IReadOnlyDictionary<string, int> visibleLevelByNodeId,
+            Func<KbNode, int, bool> isUnsupported,
             ISet<string> nodeIds)
         {
             string nodeId = node.NodeId?.Trim() ?? string.Empty;
@@ -613,14 +737,11 @@ namespace AsutpKnowledgeBase.Services
                 ? value
                 : Math.Max(1, node.LevelIndex);
 
-            if (!string.IsNullOrWhiteSpace(nodeId) &&
-                !KnowledgeBaseEngineeringNodeSupportService.SupportsEngineeringWorkspace(node.NodeType, visibleLevel))
-            {
+            if (!string.IsNullOrWhiteSpace(nodeId) && isUnsupported(node, visibleLevel))
                 nodeIds.Add(nodeId);
-            }
 
             foreach (KbNode child in node.Children)
-                CollectMovedSubtreeUnsupportedEngineeringNodeIdsRecursive(child, visibleLevelByNodeId, nodeIds);
+                CollectMovedSubtreeUnsupportedTypedNodeIdsRecursive(child, visibleLevelByNodeId, isUnsupported, nodeIds);
         }
 
         private static Dictionary<string, int> BuildVisibleLevelByNodeId(IEnumerable<KbNode> roots)
@@ -653,6 +774,32 @@ namespace AsutpKnowledgeBase.Services
 
             return visibleLevel;
         }
+
+        private static string BuildCatalogObjectNodeName(KbEquipmentCatalogItem item)
+        {
+            string[] primaryParts =
+            {
+                item.EquipmentKind?.Trim() ?? string.Empty,
+                item.Manufacturer?.Trim() ?? string.Empty,
+                item.Model?.Trim() ?? string.Empty
+            };
+            string name = string.Join(" ", primaryParts.Where(static part => !string.IsNullOrWhiteSpace(part)));
+            if (!string.IsNullOrWhiteSpace(name))
+                return name;
+
+            string series = item.Series?.Trim() ?? string.Empty;
+            return string.IsNullOrWhiteSpace(series) ? "Оборудование" : series;
+        }
+
+        private static KbNodeType ResolveCatalogObjectNodeType(KbNodeType defaultNodeType) => defaultNodeType switch
+        {
+            KbNodeType.System => KbNodeType.System,
+            KbNodeType.Cabinet => KbNodeType.Cabinet,
+            KbNodeType.Device => KbNodeType.Device,
+            KbNodeType.Controller => KbNodeType.Controller,
+            KbNodeType.Module => KbNodeType.Module,
+            _ => KbNodeType.Device
+        };
 
         private static HashSet<string> CollectSubtreeNodeIds(KbNode root)
         {

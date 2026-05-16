@@ -531,6 +531,87 @@ public class KnowledgeBaseDataServiceTests
     }
 
     [Fact]
+    public void NormalizeSavedData_MovesDocsSoftwareAndNetworkFromLevel3ToLevel2Owner()
+    {
+        var normalized = KnowledgeBaseDataService.NormalizeSavedData(
+            new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = new KbConfig
+                {
+                    MaxLevels = 3,
+                    LevelNames = new List<string> { "Отделение", "Система", "Шкаф" }
+                },
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех 1"] = new List<KbNode>
+                    {
+                        new()
+                        {
+                            NodeId = "department-1",
+                            Name = "Медное отделение",
+                            LevelIndex = 0,
+                            NodeType = KbNodeType.Department,
+                            Children =
+                            {
+                                new KbNode
+                                {
+                                    NodeId = "system-1",
+                                    Name = "АСУ установкой получения МДК",
+                                    LevelIndex = 1,
+                                    NodeType = KbNodeType.System,
+                                    Children =
+                                    {
+                                        new KbNode
+                                        {
+                                            NodeId = "cabinet-1",
+                                            Name = "ШУ",
+                                            LevelIndex = 2,
+                                            NodeType = KbNodeType.Cabinet
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                DocumentLinks = new List<KbDocumentLink>
+                {
+                    new()
+                    {
+                        OwnerNodeId = "cabinet-1",
+                        Kind = KbDocumentKind.SchemeLink,
+                        Title = "Схема",
+                        Path = "\\\\srv\\docs\\scheme.pdf"
+                    }
+                },
+                SoftwareRecords = new List<KbSoftwareRecord>
+                {
+                    new()
+                    {
+                        OwnerNodeId = "cabinet-1",
+                        Title = "Архив ПО",
+                        Path = "\\\\srv\\software\\backup.zip"
+                    }
+                },
+                NetworkFileReferences = new List<KbNetworkFileReference>
+                {
+                    new()
+                    {
+                        OwnerNodeId = "cabinet-1",
+                        Title = "Сеть",
+                        Path = "\\\\srv\\network\\topology.png"
+                    }
+                },
+                LastWorkshop = "Цех 1"
+            });
+
+        Assert.Equal("system-1", Assert.Single(normalized.DocumentLinks).OwnerNodeId);
+        Assert.Equal("system-1", Assert.Single(normalized.SoftwareRecords).OwnerNodeId);
+        Assert.Equal("system-1", Assert.Single(normalized.NetworkFileReferences).OwnerNodeId);
+    }
+
+    [Fact]
     public void NormalizeSavedData_NormalizesMaintenanceScheduleProfiles()
     {
         var normalized = KnowledgeBaseDataService.NormalizeSavedData(

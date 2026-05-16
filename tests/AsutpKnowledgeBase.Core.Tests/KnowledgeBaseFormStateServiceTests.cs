@@ -312,9 +312,30 @@ public class KnowledgeBaseFormStateServiceTests
         var selectedNode = new KbNode
         {
             NodeId = "device-1",
-            Name = "Насос 1",
-            LevelIndex = 3,
-            NodeType = KbNodeType.Device
+            Name = "ШУ",
+            LevelIndex = 2,
+            NodeType = KbNodeType.Cabinet
+        };
+        var roots = new List<KbNode>
+        {
+            new()
+            {
+                NodeId = "department-1",
+                Name = "Отделение 1",
+                LevelIndex = 0,
+                NodeType = KbNodeType.Department,
+                Children =
+                {
+                    new KbNode
+                    {
+                        NodeId = "system-1",
+                        Name = "АСУ установки",
+                        LevelIndex = 1,
+                        NodeType = KbNodeType.System,
+                        Children = { selectedNode }
+                    }
+                }
+            }
         };
 
         var state = _service.Build(
@@ -324,7 +345,7 @@ public class KnowledgeBaseFormStateServiceTests
             currentWorkshop: "Цех 1",
             lastSavedWorkshop: "Цех 1",
             totalNodes: 1,
-            currentRoots: new List<KbNode> { selectedNode },
+            currentRoots: roots,
             selectedNode: selectedNode,
             maintenanceScheduleProfiles: new[]
             {
@@ -347,15 +368,23 @@ public class KnowledgeBaseFormStateServiceTests
     }
 
     [Fact]
-    public void Build_UsesEngineeringWorkspaceForVisibleLevel3SystemNode()
+    public void Build_SplitsEngineeringTabsBetweenLevel2AndLevel3()
     {
-        var selectedNode = new KbNode
+        var systemNode = new KbNode
         {
-            NodeId = "legacy-cabinet-1",
-            Name = "Шкаф 1",
-            LevelIndex = 2,
+            NodeId = "system-1",
+            Name = "АСУ установки",
+            LevelIndex = 1,
             NodeType = KbNodeType.System
         };
+        var cabinetNode = new KbNode
+        {
+            NodeId = "cabinet-1",
+            Name = "ШУ",
+            LevelIndex = 2,
+            NodeType = KbNodeType.Cabinet
+        };
+        systemNode.Children.Add(cabinetNode);
 
         var roots = new List<KbNode>
         {
@@ -364,34 +393,41 @@ public class KnowledgeBaseFormStateServiceTests
                 Name = "Отделение 1",
                 LevelIndex = 0,
                 NodeType = KbNodeType.Department,
-                Children =
-                {
-                    new KbNode
-                    {
-                        Name = "АСУ Никелевого отделения",
-                        LevelIndex = 1,
-                        NodeType = KbNodeType.System,
-                        Children = { selectedNode }
-                    }
-                }
+                Children = { systemNode }
             }
         };
 
-        var state = _service.Build(
+        var systemState = _service.Build(
             isDirty: false,
             requiresSave: false,
-            currentDataPath: "/tmp/legacy-cabinet.json",
+            currentDataPath: "/tmp/system.json",
             currentWorkshop: "Цех 1",
             lastSavedWorkshop: "Цех 1",
             totalNodes: 1,
             currentRoots: roots,
-            selectedNode: selectedNode);
+            selectedNode: systemNode);
 
-        Assert.True(state.SelectedNode.Workspace.UseTabHost);
-        Assert.True(state.SelectedNode.Composition.SupportsEditing);
-        Assert.True(state.SelectedNode.DocsAndSoftware.SupportsEditing);
-        Assert.True(state.SelectedNode.Network.SupportsEditing);
-        Assert.True(state.SelectedNode.MaintenanceSchedule.SupportsEditing);
+        Assert.True(systemState.SelectedNode.Workspace.UseTabHost);
+        Assert.False(systemState.SelectedNode.Composition.SupportsEditing);
+        Assert.True(systemState.SelectedNode.DocsAndSoftware.SupportsEditing);
+        Assert.True(systemState.SelectedNode.Network.SupportsEditing);
+        Assert.False(systemState.SelectedNode.MaintenanceSchedule.SupportsEditing);
+
+        var cabinetState = _service.Build(
+            isDirty: false,
+            requiresSave: false,
+            currentDataPath: "/tmp/cabinet.json",
+            currentWorkshop: "Цех 1",
+            lastSavedWorkshop: "Цех 1",
+            totalNodes: 1,
+            currentRoots: roots,
+            selectedNode: cabinetNode);
+
+        Assert.True(cabinetState.SelectedNode.Workspace.UseTabHost);
+        Assert.True(cabinetState.SelectedNode.Composition.SupportsEditing);
+        Assert.False(cabinetState.SelectedNode.DocsAndSoftware.SupportsEditing);
+        Assert.False(cabinetState.SelectedNode.Network.SupportsEditing);
+        Assert.True(cabinetState.SelectedNode.MaintenanceSchedule.SupportsEditing);
     }
 
     [Fact]

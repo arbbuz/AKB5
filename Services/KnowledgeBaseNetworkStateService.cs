@@ -63,7 +63,7 @@ namespace AsutpKnowledgeBase.Services
         }
 
         public static bool SupportsRecords(KbNodeType nodeType, int visibleLevel = 0) =>
-            KnowledgeBaseEngineeringNodeSupportService.SupportsEngineeringWorkspace(nodeType, visibleLevel);
+            KnowledgeBaseEngineeringNodeSupportService.SupportsNetworkRecords(nodeType, visibleLevel);
 
         private static List<KbNetworkFileReference> GetOwnedFileReferences(
             string ownerNodeId,

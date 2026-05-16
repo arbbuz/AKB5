@@ -171,7 +171,7 @@ public class KnowledgeBaseDocsAndSoftwareMutationServiceTests
         Assert.Contains("Документация и ПО", result.ErrorMessage, StringComparison.Ordinal);
     }
     [Fact]
-    public void UpsertDocumentLink_ForVisibleLevel3System_ReturnsSuccess()
+    public void UpsertDocumentLink_ForVisibleLevel3System_ReturnsFailure()
     {
         var ownerNode = new KbNode
         {
@@ -191,7 +191,7 @@ public class KnowledgeBaseDocsAndSoftwareMutationServiceTests
             },
             visibleLevel: 3);
 
-        Assert.True(result.IsSuccess);
-        Assert.Single(result.DocumentLinks);
+        Assert.False(result.IsSuccess);
+        Assert.Contains("Документация и ПО", result.ErrorMessage, StringComparison.Ordinal);
     }
 }

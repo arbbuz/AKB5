@@ -98,7 +98,7 @@ namespace AsutpKnowledgeBase.Services
         }
 
         public static bool SupportsRecords(KbNodeType nodeType, int visibleLevel = 0) =>
-            KnowledgeBaseEngineeringNodeSupportService.SupportsEngineeringWorkspace(nodeType, visibleLevel);
+            KnowledgeBaseEngineeringNodeSupportService.SupportsDocsAndSoftwareRecords(nodeType, visibleLevel);
 
         private static List<KbDocumentLink> GetOwnedDocumentLinks(
             string ownerNodeId,

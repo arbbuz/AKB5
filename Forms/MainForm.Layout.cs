@@ -481,11 +481,19 @@ namespace AsutpKnowledgeBase
             var ctxMenu = new ContextMenuStrip();
 
             ctxAdd = new ToolStripMenuItem("➕ Добавить отдел", null, (s, e) => AddNode());
+            ctxCreateObjectFromCatalogAtRoot = new ToolStripMenuItem(
+                "Создать объект из каталога...",
+                null,
+                (s, e) => CreateObjectFromCatalog());
             ctxCreateObjectFromTemplateAtRoot = new ToolStripMenuItem(
                 "Создать объект из шаблона...",
                 null,
                 (s, e) => CreateObjectFromTemplate());
             ctxAddChild = new ToolStripMenuItem("↳ Добавить сюда", null, (s, e) => AddChildNode());
+            ctxCreateObjectFromCatalog = new ToolStripMenuItem(
+                "Создать объект из каталога...",
+                null,
+                (s, e) => CreateObjectFromCatalog());
             ctxTemplates = new ToolStripMenuItem("Шаблоны");
             ctxCopy = new ToolStripMenuItem("📋 Копировать", null, (s, e) => CopyNode());
             ctxPaste = new ToolStripMenuItem("📌 Вставить", null, (s, e) => PasteNode());
@@ -495,8 +503,10 @@ namespace AsutpKnowledgeBase
             ctxDeleteSeparator = new ToolStripSeparator();
 
             ctxMenu.Items.Add(ctxAdd);
+            ctxMenu.Items.Add(ctxCreateObjectFromCatalogAtRoot);
             ctxMenu.Items.Add(ctxCreateObjectFromTemplateAtRoot);
             ctxMenu.Items.Add(ctxAddChild);
+            ctxMenu.Items.Add(ctxCreateObjectFromCatalog);
             ctxMenu.Items.Add(ctxTemplates);
             ctxMenu.Items.Add(ctxEditSeparator);
             ctxMenu.Items.Add(ctxCopy);

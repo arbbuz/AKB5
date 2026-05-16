@@ -22,16 +22,7 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerIntegrationTests
             Name = "Насос 2",
             NodeType = KbNodeType.Device
         };
-        var roots = new[]
-        {
-            new KbNode
-            {
-                NodeId = "cabinet-1",
-                Name = "Шкаф 1",
-                NodeType = KbNodeType.Cabinet,
-                Children = { device1, device2 }
-            }
-        };
+        var roots = CreateLevel3Roots(device1, device2);
 
         KnowledgeBaseMaintenanceMonthPlanResult result = _service.PlanMonth(
             2026,
@@ -57,13 +48,10 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerIntegrationTests
         Assert.True(result.IsSuccess);
         Assert.Equal(2, result.PlannedWorkItems.Count);
         Assert.Equal(8, result.RequestedHours);
-        Assert.Equal(2, result.PlannedDays.Count);
+        Assert.Single(result.PlannedDays);
         Assert.Equal(new DateOnly(2026, 1, 12), result.PlannedDays[0].Date);
-        Assert.Equal(5, result.PlannedDays[0].TotalHours);
-        Assert.Single(result.PlannedDays[0].Assignments);
-        Assert.Equal(new DateOnly(2026, 1, 13), result.PlannedDays[1].Date);
-        Assert.Equal(3, result.PlannedDays[1].TotalHours);
-        Assert.Single(result.PlannedDays[1].Assignments);
+        Assert.Equal(8, result.PlannedDays[0].TotalHours);
+        Assert.Equal(2, result.PlannedDays[0].Assignments.Count);
     }
 
     [Fact]
@@ -75,16 +63,7 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerIntegrationTests
             Name = "Насос 1",
             NodeType = KbNodeType.Device
         };
-        var roots = new[]
-        {
-            new KbNode
-            {
-                NodeId = "cabinet-1",
-                Name = "Шкаф 1",
-                NodeType = KbNodeType.Cabinet,
-                Children = { device }
-            }
-        };
+        var roots = CreateLevel3Roots(device);
 
         KnowledgeBaseMaintenanceMonthPlanResult result = _service.PlanMonth(
             2026,
@@ -135,7 +114,7 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerIntegrationTests
             2026,
             1,
             totalMonthlyHourBudget: 4,
-            new[] { node },
+            CreateLevel3Roots(node),
             new[]
             {
                 new KbMaintenanceScheduleProfile
@@ -165,7 +144,7 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerIntegrationTests
             2026,
             1,
             totalMonthlyHourBudget: 40,
-            new[] { node },
+            CreateLevel3Roots(node),
             new[]
             {
                 new KbMaintenanceScheduleProfile
@@ -182,4 +161,25 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerIntegrationTests
         Assert.Empty(result.PlannedWorkItems);
         Assert.Empty(result.PlannedDays);
     }
+
+    private static KbNode[] CreateLevel3Roots(params KbNode[] nodes) =>
+        new[]
+        {
+            new KbNode
+            {
+                NodeId = "department-1",
+                Name = "Отделение 1",
+                NodeType = KbNodeType.Department,
+                Children =
+                {
+                    new KbNode
+                    {
+                        NodeId = "system-1",
+                        Name = "АСУ установки",
+                        NodeType = KbNodeType.System,
+                        Children = nodes.ToList()
+                    }
+                }
+            }
+        };
 }

@@ -133,7 +133,7 @@ public class KnowledgeBaseNetworkMutationServiceTests
         Assert.Contains("Сеть", result.ErrorMessage, StringComparison.Ordinal);
     }
     [Fact]
-    public void UpsertNetworkFileReference_ForVisibleLevel3System_ReturnsSuccess()
+    public void UpsertNetworkFileReference_ForVisibleLevel3System_ReturnsFailure()
     {
         var ownerNode = new KbNode
         {
@@ -152,7 +152,7 @@ public class KnowledgeBaseNetworkMutationServiceTests
             },
             visibleLevel: 3);
 
-        Assert.True(result.IsSuccess);
-        Assert.Single(result.NetworkFileReferences);
+        Assert.False(result.IsSuccess);
+        Assert.Contains("Сеть", result.ErrorMessage, StringComparison.Ordinal);
     }
 }

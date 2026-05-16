@@ -99,6 +99,8 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem ctxAdd = null!;
         private ToolStripMenuItem ctxAddChild = null!;
         private ToolStripMenuItem ctxTemplates = null!;
+        private ToolStripMenuItem ctxCreateObjectFromCatalogAtRoot = null!;
+        private ToolStripMenuItem ctxCreateObjectFromCatalog = null!;
         private ToolStripMenuItem ctxCreateObjectFromTemplateAtRoot = null!;
         private ToolStripMenuItem ctxCreateObjectFromTemplate = null!;
         private ToolStripMenuItem ctxSaveObjectAsTemplate = null!;
@@ -478,9 +480,13 @@ namespace AsutpKnowledgeBase
             ctxRename.Enabled = hasSelection;
             ctxDelete.Enabled = hasSelection;
             ctxAdd.Enabled = _treeMutationWorkflowService.CanAddNode(GetEffectiveParentForRootOperations());
+            ctxCreateObjectFromCatalogAtRoot.Enabled =
+                _treeMutationWorkflowService.CanCreateObjectFromCatalog(GetEffectiveParentForRootOperations());
             ctxCreateObjectFromTemplateAtRoot.Enabled =
                 _treeMutationWorkflowService.CanCreateObjectFromTemplate(GetEffectiveParentForRootOperations());
             ctxAddChild.Enabled = hasSelection && _treeMutationWorkflowService.CanAddNode(selectedNode!);
+            ctxCreateObjectFromCatalog.Enabled = hasSelection &&
+                _treeMutationWorkflowService.CanCreateObjectFromCatalog(selectedNode);
             ctxCreateObjectFromTemplate.Enabled = _treeMutationWorkflowService.CanCreateObjectFromTemplate(
                 hasSelection ? selectedNode : null);
             ctxSaveObjectAsTemplate.Enabled = hasSelection &&
@@ -737,8 +743,10 @@ namespace AsutpKnowledgeBase
             bool hasSelection = tvTree.SelectedNode?.Tag is KbNode;
 
             ctxAdd.Visible = !hasSelection;
+            ctxCreateObjectFromCatalogAtRoot.Visible = !hasSelection;
             ctxCreateObjectFromTemplateAtRoot.Visible = !hasSelection;
             ctxAddChild.Visible = hasSelection;
+            ctxCreateObjectFromCatalog.Visible = hasSelection;
             ctxTemplates.Visible = hasSelection;
             ctxEditSeparator.Visible = hasSelection;
             ctxCopy.Visible = hasSelection;
