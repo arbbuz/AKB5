@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - to
+      - card
   pull_request:
     branches:
       - to
+      - card
   workflow_dispatch:
 
 permissions:
