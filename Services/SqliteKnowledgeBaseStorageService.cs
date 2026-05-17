@@ -9,7 +9,7 @@ namespace AsutpKnowledgeBase.Services
 {
     public sealed class SqliteKnowledgeBaseStorageService : IKnowledgeBaseStorageService
     {
-        public const int CurrentDatabaseSchemaVersion = 4;
+        public const int CurrentDatabaseSchemaVersion = 6;
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -568,8 +568,36 @@ namespace AsutpKnowledgeBase.Services
             foreach (string statement in SchemaStatements)
                 ExecuteNonQuery(connection, transaction, statement);
 
+            EnsureCompositionEntriesRackNumberColumn(connection, transaction);
+            EnsureObjectTemplatesCompositionRacksColumn(connection, transaction);
             EnsureMaintenanceYearScheduleHoursColumn(connection, transaction);
             ExecuteNonQuery(connection, transaction, $"PRAGMA user_version={CurrentDatabaseSchemaVersion};");
+        }
+
+        private static void EnsureCompositionEntriesRackNumberColumn(
+            SqliteConnection connection,
+            SqliteTransaction? transaction)
+        {
+            if (ColumnExists(connection, transaction, "composition_entries", "rack_number"))
+                return;
+
+            ExecuteNonQuery(
+                connection,
+                transaction,
+                "ALTER TABLE composition_entries ADD COLUMN rack_number INTEGER NOT NULL DEFAULT 0;");
+        }
+
+        private static void EnsureObjectTemplatesCompositionRacksColumn(
+            SqliteConnection connection,
+            SqliteTransaction? transaction)
+        {
+            if (ColumnExists(connection, transaction, "object_templates", "composition_racks_json"))
+                return;
+
+            ExecuteNonQuery(
+                connection,
+                transaction,
+                "ALTER TABLE object_templates ADD COLUMN composition_racks_json TEXT NOT NULL DEFAULT '[]';");
         }
 
         private static void EnsureMaintenanceYearScheduleHoursColumn(
@@ -635,6 +663,7 @@ namespace AsutpKnowledgeBase.Services
 
             InsertConfig(connection, transaction, data.Config);
             InsertWorkshops(connection, transaction, data.Workshops);
+            InsertCompositionRacks(connection, transaction, data.CompositionRacks);
             InsertCompositionEntries(connection, transaction, data.CompositionEntries);
             InsertDocumentLinks(connection, transaction, data.DocumentLinks);
             InsertSoftwareRecords(connection, transaction, data.SoftwareRecords);
@@ -656,6 +685,7 @@ namespace AsutpKnowledgeBase.Services
                     SavedData.CurrentSchemaVersion),
                 Config = config,
                 Workshops = LoadWorkshops(connection),
+                CompositionRacks = LoadCompositionRacks(connection),
                 CompositionEntries = LoadCompositionEntries(connection),
                 DocumentLinks = LoadDocumentLinks(connection),
                 SoftwareRecords = LoadSoftwareRecords(connection),
@@ -939,6 +969,55 @@ namespace AsutpKnowledgeBase.Services
             return roots;
         }
 
+        private static void InsertCompositionRacks(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            IReadOnlyList<KbCompositionRack> racks)
+        {
+            for (int i = 0; i < racks.Count; i++)
+            {
+                KbCompositionRack rack = racks[i];
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO composition_racks (
+                        rack_id, entry_order, parent_node_id, rack_number, sort_order, rack_type, label,
+                        network_link, notes, properties_json)
+                    VALUES (
+                        @rack_id, @entry_order, @parent_node_id, @rack_number, @sort_order, @rack_type, @label,
+                        @network_link, @notes, @properties_json);
+                    """,
+                    ("@rack_id", rack.RackId),
+                    ("@entry_order", i),
+                    ("@parent_node_id", rack.ParentNodeId),
+                    ("@rack_number", rack.RackNumber),
+                    ("@sort_order", rack.SortOrder),
+                    ("@rack_type", rack.RackType),
+                    ("@label", rack.Label),
+                    ("@network_link", rack.NetworkLink),
+                    ("@notes", rack.Notes),
+                    ("@properties_json", SerializeJson(rack.Properties)));
+            }
+        }
+
+        private static List<KbCompositionRack> LoadCompositionRacks(SqliteConnection connection) =>
+            Query(
+                connection,
+                "SELECT * FROM composition_racks ORDER BY entry_order;",
+                static reader => new KbCompositionRack
+                {
+                    RackId = GetString(reader, "rack_id"),
+                    ParentNodeId = GetString(reader, "parent_node_id"),
+                    RackNumber = GetInt(reader, "rack_number"),
+                    SortOrder = GetInt(reader, "sort_order"),
+                    RackType = GetString(reader, "rack_type"),
+                    Label = GetString(reader, "label"),
+                    NetworkLink = GetString(reader, "network_link"),
+                    Notes = GetString(reader, "notes"),
+                    Properties = DeserializeJson<List<KbCompositionRackProperty>>(GetString(reader, "properties_json"))
+                }).ToList();
+
         private static void InsertCompositionEntries(
             SqliteConnection connection,
             SqliteTransaction transaction,
@@ -952,15 +1031,16 @@ namespace AsutpKnowledgeBase.Services
                     transaction,
                     """
                     INSERT INTO composition_entries (
-                        entry_id, entry_order, parent_node_id, slot_number, position_order, component_type, model,
+                        entry_id, entry_order, parent_node_id, rack_number, slot_number, position_order, component_type, model,
                         ip_address, last_calibration_at, next_calibration_at, notes)
                     VALUES (
-                        @entry_id, @entry_order, @parent_node_id, @slot_number, @position_order, @component_type, @model,
+                        @entry_id, @entry_order, @parent_node_id, @rack_number, @slot_number, @position_order, @component_type, @model,
                         @ip_address, @last_calibration_at, @next_calibration_at, @notes);
                     """,
                     ("@entry_id", entry.EntryId),
                     ("@entry_order", i),
                     ("@parent_node_id", entry.ParentNodeId),
+                    ("@rack_number", entry.RackNumber),
                     ("@slot_number", entry.SlotNumber),
                     ("@position_order", entry.PositionOrder),
                     ("@component_type", entry.ComponentType),
@@ -980,6 +1060,7 @@ namespace AsutpKnowledgeBase.Services
                 {
                     EntryId = GetString(reader, "entry_id"),
                     ParentNodeId = GetString(reader, "parent_node_id"),
+                    RackNumber = GetInt(reader, "rack_number"),
                     SlotNumber = GetNullableInt(reader, "slot_number"),
                     PositionOrder = GetInt(reader, "position_order"),
                     ComponentType = GetString(reader, "component_type"),
@@ -1302,11 +1383,11 @@ namespace AsutpKnowledgeBase.Services
                     transaction,
                     """
                     INSERT INTO object_templates (
-                        template_id, entry_order, display_name, description, category, composition_entries_json,
+                        template_id, entry_order, display_name, description, category, composition_racks_json, composition_entries_json,
                         document_links_json, software_records_json, network_file_references_json,
                         maintenance_schedule_profiles_json, network_interface_stubs_json)
                     VALUES (
-                        @template_id, @entry_order, @display_name, @description, @category, @composition_entries_json,
+                        @template_id, @entry_order, @display_name, @description, @category, @composition_racks_json, @composition_entries_json,
                         @document_links_json, @software_records_json, @network_file_references_json,
                         @maintenance_schedule_profiles_json, @network_interface_stubs_json);
                     """,
@@ -1315,6 +1396,7 @@ namespace AsutpKnowledgeBase.Services
                     ("@display_name", template.DisplayName),
                     ("@description", template.Description),
                     ("@category", template.Category),
+                    ("@composition_racks_json", SerializeJson(template.CompositionRacks)),
                     ("@composition_entries_json", SerializeJson(template.CompositionEntries)),
                     ("@document_links_json", SerializeJson(template.DocumentLinks)),
                     ("@software_records_json", SerializeJson(template.SoftwareRecords)),
@@ -1342,6 +1424,7 @@ namespace AsutpKnowledgeBase.Services
                     DisplayName = GetString(reader, "display_name"),
                     Description = GetString(reader, "description"),
                     Category = GetString(reader, "category"),
+                    CompositionRacks = DeserializeJson<List<KbObjectTemplateCompositionRack>>(GetString(reader, "composition_racks_json")),
                     CompositionEntries = DeserializeJson<List<KbObjectTemplateCompositionEntry>>(GetString(reader, "composition_entries_json")),
                     DocumentLinks = DeserializeJson<List<KbObjectTemplateDocumentLink>>(GetString(reader, "document_links_json")),
                     SoftwareRecords = DeserializeJson<List<KbObjectTemplateSoftwareRecord>>(GetString(reader, "software_records_json")),
@@ -1776,6 +1859,7 @@ namespace AsutpKnowledgeBase.Services
             "software_records",
             "document_links",
             "composition_entries",
+            "composition_racks",
             "nodes",
             "workshops",
             "production_calendar_dates",
@@ -1846,10 +1930,25 @@ namespace AsutpKnowledgeBase.Services
             );
             """,
             """
+            CREATE TABLE IF NOT EXISTS composition_racks (
+                rack_id TEXT PRIMARY KEY,
+                entry_order INTEGER NOT NULL,
+                parent_node_id TEXT NOT NULL,
+                rack_number INTEGER NOT NULL,
+                sort_order INTEGER NOT NULL,
+                rack_type TEXT NOT NULL,
+                label TEXT NOT NULL,
+                network_link TEXT NOT NULL,
+                notes TEXT NOT NULL,
+                properties_json TEXT NOT NULL
+            );
+            """,
+            """
             CREATE TABLE IF NOT EXISTS composition_entries (
                 entry_id TEXT PRIMARY KEY,
                 entry_order INTEGER NOT NULL,
                 parent_node_id TEXT NOT NULL,
+                rack_number INTEGER NOT NULL DEFAULT 0,
                 slot_number INTEGER NULL,
                 position_order INTEGER NOT NULL,
                 component_type TEXT NOT NULL,
@@ -1965,6 +2064,7 @@ namespace AsutpKnowledgeBase.Services
                 display_name TEXT NOT NULL,
                 description TEXT NOT NULL,
                 category TEXT NOT NULL,
+                composition_racks_json TEXT NOT NULL DEFAULT '[]',
                 composition_entries_json TEXT NOT NULL,
                 document_links_json TEXT NOT NULL,
                 software_records_json TEXT NOT NULL,

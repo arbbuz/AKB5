@@ -55,6 +55,7 @@ public class KnowledgeBaseNodeWorkspaceResolverServiceTests
             {
                 KnowledgeBaseNodeWorkspaceTabKind.Info,
                 KnowledgeBaseNodeWorkspaceTabKind.Composition,
+                KnowledgeBaseNodeWorkspaceTabKind.AdditionalEquipment,
                 KnowledgeBaseNodeWorkspaceTabKind.Maintenance
             },
             workspace.Tabs.Select(static tab => tab.Kind).ToArray());

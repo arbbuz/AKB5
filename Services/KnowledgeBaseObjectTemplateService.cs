@@ -12,6 +12,8 @@ namespace AsutpKnowledgeBase.Services
 
         public Dictionary<string, string> NodeIdMap { get; init; } = new(StringComparer.Ordinal);
 
+        public List<KbCompositionRack> CompositionRacks { get; init; } = new();
+
         public List<KbCompositionEntry> CompositionEntries { get; init; } = new();
 
         public List<KbDocumentLink> DocumentLinks { get; init; } = new();
@@ -41,6 +43,7 @@ namespace AsutpKnowledgeBase.Services
             string? displayName,
             string? category,
             string? description,
+            IEnumerable<KbCompositionRack>? compositionRacks,
             IEnumerable<KbCompositionEntry>? compositionEntries,
             IEnumerable<KbDocumentLink>? documentLinks,
             IEnumerable<KbSoftwareRecord>? softwareRecords,
@@ -66,6 +69,7 @@ namespace AsutpKnowledgeBase.Services
                 Category = category?.Trim() ?? string.Empty,
                 Description = description?.Trim() ?? string.Empty,
                 RootNode = templateRoot,
+                CompositionRacks = CreateTemplateCompositionRacks(compositionRacks, nodeIdMap),
                 CompositionEntries = CreateTemplateCompositionEntries(compositionEntries, nodeIdMap),
                 DocumentLinks = CreateTemplateDocumentLinks(documentLinks, nodeIdMap),
                 SoftwareRecords = CreateTemplateSoftwareRecords(softwareRecords, nodeIdMap),
@@ -111,6 +115,7 @@ namespace AsutpKnowledgeBase.Services
                 IsSuccess = true,
                 RootNode = rootNode,
                 NodeIdMap = nodeIdMap,
+                CompositionRacks = CreateCompositionRacks(normalizedTemplate.CompositionRacks, nodeIdMap),
                 CompositionEntries = CreateCompositionEntries(normalizedTemplate.CompositionEntries, nodeIdMap),
                 DocumentLinks = CreateDocumentLinks(normalizedTemplate.DocumentLinks, nodeIdMap),
                 SoftwareRecords = CreateSoftwareRecords(normalizedTemplate.SoftwareRecords, nodeIdMap),
@@ -125,6 +130,7 @@ namespace AsutpKnowledgeBase.Services
             KbObjectTemplate? template,
             KbNode? targetRoot,
             int maxLevels,
+            IEnumerable<KbCompositionRack>? existingCompositionRacks,
             IEnumerable<KbCompositionEntry>? existingCompositionEntries,
             IEnumerable<KbDocumentLink>? existingDocumentLinks,
             IEnumerable<KbSoftwareRecord>? existingSoftwareRecords,
@@ -170,6 +176,12 @@ namespace AsutpKnowledgeBase.Services
                 templateNodePathMap,
                 plan);
 
+            AddCompositionRackPlans(
+                normalizedTemplate.CompositionRacks,
+                existingCompositionRacks,
+                nodeIdMap,
+                templateNodePathMap,
+                plan);
             AddCompositionEntryPlans(
                 normalizedTemplate.CompositionEntries,
                 existingCompositionEntries,
@@ -435,6 +447,7 @@ namespace AsutpKnowledgeBase.Services
                 var entry = new KbCompositionEntry
                 {
                     ParentNodeId = parentNodeId,
+                    RackNumber = templateEntry.RackNumber,
                     SlotNumber = templateEntry.SlotNumber,
                     PositionOrder = templateEntry.PositionOrder,
                     ComponentType = templateEntry.ComponentType,
@@ -714,6 +727,76 @@ namespace AsutpKnowledgeBase.Services
                 "Целевой узел не найден: соответствующая часть шаблона была пропущена.");
         }
 
+        private static void AddCompositionRackPlans(
+            IEnumerable<KbObjectTemplateCompositionRack> templateRacks,
+            IEnumerable<KbCompositionRack>? existingRacks,
+            IReadOnlyDictionary<string, string> nodeIdMap,
+            IReadOnlyDictionary<string, string> templateNodePathMap,
+            KnowledgeBaseObjectTemplateApplicationPlan plan)
+        {
+            var existing = existingRacks?.ToList() ?? new List<KbCompositionRack>();
+            foreach (KbObjectTemplateCompositionRack templateRack in templateRacks)
+            {
+                if (!nodeIdMap.TryGetValue(templateRack.ParentTemplateNodeId, out string? parentNodeId))
+                {
+                    AddSkippedForMissingMappedNode("Rack состава", templateRack.ParentTemplateNodeId, templateNodePathMap, plan);
+                    continue;
+                }
+
+                var rack = new KbCompositionRack
+                {
+                    ParentNodeId = parentNodeId,
+                    RackNumber = templateRack.RackNumber,
+                    SortOrder = templateRack.SortOrder,
+                    RackType = templateRack.RackType,
+                    Label = templateRack.Label,
+                    NetworkLink = templateRack.NetworkLink,
+                    Notes = templateRack.Notes,
+                    Properties = templateRack.Properties
+                        .Select(static property => new KbCompositionRackProperty
+                        {
+                            Name = property.Name,
+                            Value = property.Value
+                        })
+                        .ToList()
+                };
+                string targetPath = ResolveTemplateNodePath(templateRack.ParentTemplateNodeId, templateNodePathMap);
+                if (existing.Concat(plan.CompositionRacks).Any(current => CompositionRacksEqual(current, rack)))
+                {
+                    AddPreviewItem(
+                        plan,
+                        KnowledgeBaseObjectTemplateApplicationAction.Unchanged,
+                        "Rack состава",
+                        targetPath,
+                        BuildCompositionRackPreviewText(rack, "Rack уже есть."));
+                    continue;
+                }
+
+                bool hasSameRackNumber = existing.Concat(plan.CompositionRacks).Any(current =>
+                    string.Equals(current.ParentNodeId, rack.ParentNodeId, StringComparison.Ordinal) &&
+                    KnowledgeBaseCompositionRackSlotRulesService.NormalizeRackNumber(current.RackNumber) ==
+                    KnowledgeBaseCompositionRackSlotRulesService.NormalizeRackNumber(rack.RackNumber));
+                if (hasSameRackNumber)
+                {
+                    AddPreviewItem(
+                        plan,
+                        KnowledgeBaseObjectTemplateApplicationAction.Skipped,
+                        "Rack состава",
+                        targetPath,
+                        BuildCompositionRackPreviewText(rack, "Rack с таким номером уже есть и не будет перезаписан."));
+                    continue;
+                }
+
+                plan.CompositionRacks.Add(rack);
+                AddPreviewItem(
+                    plan,
+                    KnowledgeBaseObjectTemplateApplicationAction.Added,
+                    "Rack состава",
+                    targetPath,
+                    BuildCompositionRackPreviewText(rack, "Будет добавлен Rack."));
+            }
+        }
+
         private static void AddPreviewItem(
             KnowledgeBaseObjectTemplateApplicationPlan plan,
             KnowledgeBaseObjectTemplateApplicationAction action,
@@ -779,9 +862,21 @@ namespace AsutpKnowledgeBase.Services
             if (!string.IsNullOrWhiteSpace(model) && !string.Equals(component, model, StringComparison.CurrentCulture))
                 summary = string.IsNullOrWhiteSpace(summary) ? model : $"{summary}: {model}";
 
-            return string.IsNullOrWhiteSpace(summary)
-                ? prefix
+            if (string.IsNullOrWhiteSpace(summary))
+                return prefix;
+
+            return entry.SlotNumber.HasValue
+                ? $"{prefix} {KnowledgeBaseCompositionRackSlotRulesService.FormatRackText(entry.RackNumber)} / {summary}"
                 : $"{prefix} {summary}";
+        }
+
+        private static string BuildCompositionRackPreviewText(KbCompositionRack rack, string prefix)
+        {
+            string title = KnowledgeBaseCompositionRackSlotRulesService.FormatRackTitle(
+                rack.RackNumber,
+                rack.RackType,
+                rack.Label);
+            return $"{prefix} {title}";
         }
 
         private static string BuildTitlePathPreviewText(string? title, string? path, string prefix)
@@ -802,6 +897,7 @@ namespace AsutpKnowledgeBase.Services
 
         private static bool CompositionEntriesEqual(KbCompositionEntry first, KbCompositionEntry second) =>
             string.Equals(first.ParentNodeId, second.ParentNodeId, StringComparison.Ordinal) &&
+            first.RackNumber == second.RackNumber &&
             first.SlotNumber == second.SlotNumber &&
             first.PositionOrder == second.PositionOrder &&
             TextEqual(first.ComponentType, second.ComponentType) &&
@@ -809,6 +905,16 @@ namespace AsutpKnowledgeBase.Services
             TextEqual(first.IpAddress, second.IpAddress) &&
             first.LastCalibrationAt == second.LastCalibrationAt &&
             first.NextCalibrationAt == second.NextCalibrationAt &&
+            TextEqual(first.Notes, second.Notes);
+
+        private static bool CompositionRacksEqual(KbCompositionRack first, KbCompositionRack second) =>
+            string.Equals(first.ParentNodeId, second.ParentNodeId, StringComparison.Ordinal) &&
+            KnowledgeBaseCompositionRackSlotRulesService.NormalizeRackNumber(first.RackNumber) ==
+            KnowledgeBaseCompositionRackSlotRulesService.NormalizeRackNumber(second.RackNumber) &&
+            first.SortOrder == second.SortOrder &&
+            TextEqual(first.RackType, second.RackType) &&
+            TextEqual(first.Label, second.Label) &&
+            TextEqual(first.NetworkLink, second.NetworkLink) &&
             TextEqual(first.Notes, second.Notes);
 
         private static bool DocumentLinksEqual(KbDocumentLink first, KbDocumentLink second) =>
@@ -845,6 +951,7 @@ namespace AsutpKnowledgeBase.Services
                 result.Add(new KbObjectTemplateCompositionEntry
                 {
                     ParentTemplateNodeId = parentTemplateNodeId,
+                    RackNumber = entry.RackNumber,
                     SlotNumber = entry.SlotNumber,
                     PositionOrder = entry.PositionOrder,
                     ComponentType = entry.ComponentType,
@@ -853,6 +960,38 @@ namespace AsutpKnowledgeBase.Services
                     LastCalibrationAt = entry.LastCalibrationAt,
                     NextCalibrationAt = entry.NextCalibrationAt,
                     Notes = entry.Notes
+                });
+            }
+
+            return result;
+        }
+
+        private static List<KbObjectTemplateCompositionRack> CreateTemplateCompositionRacks(
+            IEnumerable<KbCompositionRack>? racks,
+            IReadOnlyDictionary<string, string> nodeIdMap)
+        {
+            var result = new List<KbObjectTemplateCompositionRack>();
+            foreach (KbCompositionRack rack in racks ?? Enumerable.Empty<KbCompositionRack>())
+            {
+                if (!nodeIdMap.TryGetValue(rack.ParentNodeId, out string? parentTemplateNodeId))
+                    continue;
+
+                result.Add(new KbObjectTemplateCompositionRack
+                {
+                    ParentTemplateNodeId = parentTemplateNodeId,
+                    RackNumber = rack.RackNumber,
+                    SortOrder = rack.SortOrder,
+                    RackType = rack.RackType,
+                    Label = rack.Label,
+                    NetworkLink = rack.NetworkLink,
+                    Notes = rack.Notes,
+                    Properties = rack.Properties
+                        .Select(static property => new KbCompositionRackProperty
+                        {
+                            Name = property.Name,
+                            Value = property.Value
+                        })
+                        .ToList()
                 });
             }
 
@@ -993,6 +1132,7 @@ namespace AsutpKnowledgeBase.Services
                 result.Add(new KbCompositionEntry
                 {
                     ParentNodeId = parentNodeId,
+                    RackNumber = entry.RackNumber,
                     SlotNumber = entry.SlotNumber,
                     PositionOrder = entry.PositionOrder,
                     ComponentType = entry.ComponentType,
@@ -1001,6 +1141,38 @@ namespace AsutpKnowledgeBase.Services
                     LastCalibrationAt = entry.LastCalibrationAt,
                     NextCalibrationAt = entry.NextCalibrationAt,
                     Notes = entry.Notes
+                });
+            }
+
+            return result;
+        }
+
+        private static List<KbCompositionRack> CreateCompositionRacks(
+            IEnumerable<KbObjectTemplateCompositionRack> racks,
+            IReadOnlyDictionary<string, string> nodeIdMap)
+        {
+            var result = new List<KbCompositionRack>();
+            foreach (KbObjectTemplateCompositionRack rack in racks)
+            {
+                if (!nodeIdMap.TryGetValue(rack.ParentTemplateNodeId, out string? parentNodeId))
+                    continue;
+
+                result.Add(new KbCompositionRack
+                {
+                    ParentNodeId = parentNodeId,
+                    RackNumber = rack.RackNumber,
+                    SortOrder = rack.SortOrder,
+                    RackType = rack.RackType,
+                    Label = rack.Label,
+                    NetworkLink = rack.NetworkLink,
+                    Notes = rack.Notes,
+                    Properties = rack.Properties
+                        .Select(static property => new KbCompositionRackProperty
+                        {
+                            Name = property.Name,
+                            Value = property.Value
+                        })
+                        .ToList()
                 });
             }
 

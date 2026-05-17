@@ -34,6 +34,33 @@ public class KnowledgeBaseWindowLayoutStateServiceTests
     }
 
     [Fact]
+    public void SaveAndLoad_RoundTripsCompositionRackDetailsHeight()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "window-layout-state.json");
+            var service = new KnowledgeBaseWindowLayoutStateService(path);
+
+            service.SaveCompositionRackDetailsHeight(260);
+
+            int? loaded = service.LoadCompositionRackDetailsHeight();
+
+            Assert.Equal(260, loaded);
+
+            using JsonDocument document = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.Equal(260, document.RootElement
+                .GetProperty("CompositionRackDetailsHeight")
+                .GetInt32());
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void SaveAndLoad_RoundTripsMainWindowPlacement()
     {
         string tempDirectory = CreateTempDirectory();
@@ -130,6 +157,34 @@ public class KnowledgeBaseWindowLayoutStateServiceTests
             Assert.NotNull(loadedPlacement);
             Assert.Equal(10, loadedPlacement!.Left);
             Assert.Equal(20, loadedPlacement.Top);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void SaveWindowPlacement_PreservesCompositionRackDetailsHeight()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "window-layout-state.json");
+            var service = new KnowledgeBaseWindowLayoutStateService(path);
+
+            service.SaveCompositionRackDetailsHeight(240);
+            service.SaveWindowPlacement(
+                new KnowledgeBaseWindowPlacement
+                {
+                    Left = 10,
+                    Top = 20,
+                    Width = 1024,
+                    Height = 768
+                });
+
+            Assert.Equal(240, service.LoadCompositionRackDetailsHeight());
         }
         finally
         {

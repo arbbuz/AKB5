@@ -31,6 +31,7 @@ namespace AsutpKnowledgeBase.Services
                 {
                     ["Новый цех"] = new List<KbNode>()
                 },
+                CompositionRacks = new List<KbCompositionRack>(),
                 CompositionEntries = new List<KbCompositionEntry>(),
                 DocumentLinks = new List<KbDocumentLink>(),
                 SoftwareRecords = new List<KbSoftwareRecord>(),
@@ -47,6 +48,7 @@ namespace AsutpKnowledgeBase.Services
             var normalizedConfig = NormalizeConfig(source.Config);
             var normalizedWorkshops = NormalizeWorkshops(source.Workshops);
             var nodeOwnershipIndex = BuildNodeOwnershipIndex(normalizedWorkshops);
+            var normalizedCompositionRacks = NormalizeCompositionRacks(source.CompositionRacks);
             var normalizedCompositionEntries = NormalizeCompositionEntries(source.CompositionEntries);
             var normalizedDocumentLinks = NormalizeDocumentLinks(source.DocumentLinks, nodeOwnershipIndex);
             var normalizedSoftwareRecords = NormalizeSoftwareRecords(source.SoftwareRecords, nodeOwnershipIndex);
@@ -69,6 +71,7 @@ namespace AsutpKnowledgeBase.Services
                 SchemaVersion = SavedData.CurrentSchemaVersion,
                 Config = normalizedConfig,
                 Workshops = normalizedWorkshops,
+                CompositionRacks = normalizedCompositionRacks,
                 CompositionEntries = normalizedCompositionEntries,
                 DocumentLinks = normalizedDocumentLinks,
                 SoftwareRecords = normalizedSoftwareRecords,
@@ -307,6 +310,7 @@ namespace AsutpKnowledgeBase.Services
             SerializeSnapshot(
                 config,
                 workshops,
+                compositionRacks: null,
                 compositionEntries: null,
                 documentLinks: null,
                 softwareRecords: null,
@@ -320,6 +324,7 @@ namespace AsutpKnowledgeBase.Services
         public static string SerializeSnapshot(
             KbConfig config,
             Dictionary<string, List<KbNode>> workshops,
+            IReadOnlyList<KbCompositionRack>? compositionRacks,
             IReadOnlyList<KbCompositionEntry>? compositionEntries,
             IReadOnlyList<KbDocumentLink>? documentLinks,
             IReadOnlyList<KbSoftwareRecord>? softwareRecords,
@@ -331,6 +336,7 @@ namespace AsutpKnowledgeBase.Services
             SerializeSnapshot(
                 config,
                 workshops,
+                compositionRacks,
                 compositionEntries,
                 documentLinks,
                 softwareRecords,
@@ -350,6 +356,32 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbNetworkFileReference>? networkFileReferences,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
             IReadOnlyList<KbEquipmentCatalogItem>? equipmentCatalogItems,
+            string currentWorkshop,
+            bool includeCurrentWorkshop) =>
+            SerializeSnapshot(
+                config,
+                workshops,
+                compositionRacks: null,
+                compositionEntries,
+                documentLinks,
+                softwareRecords,
+                networkFileReferences,
+                maintenanceScheduleProfiles,
+                equipmentCatalogItems,
+                objectTemplates: null,
+                currentWorkshop,
+                includeCurrentWorkshop);
+
+        public static string SerializeSnapshot(
+            KbConfig config,
+            Dictionary<string, List<KbNode>> workshops,
+            IReadOnlyList<KbCompositionRack>? compositionRacks,
+            IReadOnlyList<KbCompositionEntry>? compositionEntries,
+            IReadOnlyList<KbDocumentLink>? documentLinks,
+            IReadOnlyList<KbSoftwareRecord>? softwareRecords,
+            IReadOnlyList<KbNetworkFileReference>? networkFileReferences,
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
+            IReadOnlyList<KbEquipmentCatalogItem>? equipmentCatalogItems,
             IReadOnlyList<KbObjectTemplate>? objectTemplates,
             string currentWorkshop,
             bool includeCurrentWorkshop)
@@ -359,6 +391,7 @@ namespace AsutpKnowledgeBase.Services
                 SchemaVersion = SavedData.CurrentSchemaVersion,
                 Config = config,
                 Workshops = workshops,
+                CompositionRacks = compositionRacks?.ToList() ?? new List<KbCompositionRack>(),
                 CompositionEntries = compositionEntries?.ToList() ?? new List<KbCompositionEntry>(),
                 DocumentLinks = documentLinks?.ToList() ?? new List<KbDocumentLink>(),
                 SoftwareRecords = softwareRecords?.ToList() ?? new List<KbSoftwareRecord>(),
@@ -475,6 +508,97 @@ namespace AsutpKnowledgeBase.Services
                 : ownerNodeId;
         }
 
+        public static List<KbCompositionRack> NormalizeCompositionRacks(IEnumerable<KbCompositionRack>? racks)
+        {
+            var normalized = new List<KbCompositionRack>();
+            if (racks == null)
+                return normalized;
+
+            var usedRackIds = new HashSet<string>(StringComparer.Ordinal);
+            var usedParentRackKeys = new HashSet<string>(StringComparer.Ordinal);
+            int normalizedIndex = 0;
+
+            foreach (var rack in racks)
+            {
+                if (rack == null)
+                    continue;
+
+                string parentNodeId = rack.ParentNodeId?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(parentNodeId))
+                    continue;
+
+                int rackNumber = KnowledgeBaseCompositionRackSlotRulesService.NormalizeRackNumber(rack.RackNumber);
+                string parentRackKey = $"{parentNodeId}|{rackNumber}";
+                if (!usedParentRackKeys.Add(parentRackKey))
+                    continue;
+
+                int sortOrder = rack.SortOrder >= 0 ? rack.SortOrder : normalizedIndex;
+                normalized.Add(new KbCompositionRack
+                {
+                    RackId = NormalizeOwnedRecordId(
+                        rack.RackId,
+                        "rack",
+                        parentNodeId,
+                        $"rack{rackNumber}",
+                        usedRackIds),
+                    ParentNodeId = parentNodeId,
+                    RackNumber = rackNumber,
+                    SortOrder = sortOrder,
+                    RackType = NormalizeRackType(rack.RackType),
+                    Label = rack.Label?.Trim() ?? string.Empty,
+                    NetworkLink = rack.NetworkLink?.Trim() ?? string.Empty,
+                    Notes = rack.Notes?.Trim() ?? string.Empty,
+                    Properties = NormalizeCompositionRackProperties(rack.Properties)
+                });
+
+                normalizedIndex++;
+            }
+
+            return normalized
+                .OrderBy(static rack => rack.ParentNodeId, StringComparer.Ordinal)
+                .ThenBy(static rack => rack.SortOrder)
+                .ThenBy(static rack => rack.RackNumber)
+                .ThenBy(static rack => rack.RackId, StringComparer.Ordinal)
+                .ToList();
+        }
+
+        private static List<KbCompositionRackProperty> NormalizeCompositionRackProperties(
+            IEnumerable<KbCompositionRackProperty>? properties)
+        {
+            var normalized = new List<KbCompositionRackProperty>();
+            if (properties == null)
+                return normalized;
+
+            var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (KbCompositionRackProperty? property in properties)
+            {
+                if (property == null)
+                    continue;
+
+                string name = property.Name?.Trim() ?? string.Empty;
+                string value = property.Value?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(value))
+                    continue;
+
+                if (!usedNames.Add(name))
+                    continue;
+
+                normalized.Add(new KbCompositionRackProperty
+                {
+                    Name = name,
+                    Value = value
+                });
+            }
+
+            return normalized;
+        }
+
+        private static string NormalizeRackType(string? rackType)
+        {
+            string normalizedRackType = rackType?.Trim() ?? string.Empty;
+            return string.IsNullOrWhiteSpace(normalizedRackType) ? "UR" : normalizedRackType;
+        }
+
         private static List<KbCompositionEntry> NormalizeCompositionEntries(IEnumerable<KbCompositionEntry>? entries)
         {
             var normalized = new List<KbCompositionEntry>();
@@ -502,10 +626,12 @@ namespace AsutpKnowledgeBase.Services
                     EntryId = NormalizeCompositionEntryId(
                         entry.EntryId,
                         parentNodeId,
+                        KnowledgeBaseCompositionRackSlotRulesService.NormalizeRackNumber(entry.RackNumber),
                         entry.SlotNumber,
                         positionOrder,
                         usedEntryIds),
                     ParentNodeId = parentNodeId,
+                    RackNumber = KnowledgeBaseCompositionRackSlotRulesService.NormalizeRackNumber(entry.RackNumber),
                     SlotNumber = entry.SlotNumber is > 0 ? entry.SlotNumber : null,
                     PositionOrder = positionOrder,
                     ComponentType = entry.ComponentType?.Trim() ?? string.Empty,
@@ -818,6 +944,9 @@ namespace AsutpKnowledgeBase.Services
                     Description = template.Description?.Trim() ?? string.Empty,
                     Category = template.Category?.Trim() ?? string.Empty,
                     RootNode = normalizedRootNode,
+                    CompositionRacks = NormalizeObjectTemplateCompositionRacks(
+                        template.CompositionRacks,
+                        knownTemplateNodeIds),
                     CompositionEntries = NormalizeObjectTemplateCompositionEntries(
                         template.CompositionEntries,
                         knownTemplateNodeIds),
@@ -957,6 +1086,7 @@ namespace AsutpKnowledgeBase.Services
                 normalized.Add(new KbObjectTemplateCompositionEntry
                 {
                     ParentTemplateNodeId = parentTemplateNodeId,
+                    RackNumber = KnowledgeBaseCompositionRackSlotRulesService.NormalizeRackNumber(entry.RackNumber),
                     SlotNumber = entry.SlotNumber is > 0 ? entry.SlotNumber : null,
                     PositionOrder = entry.PositionOrder >= 0 ? entry.PositionOrder : normalizedIndex,
                     ComponentType = entry.ComponentType?.Trim() ?? string.Empty,
@@ -972,9 +1102,56 @@ namespace AsutpKnowledgeBase.Services
 
             return normalized
                 .OrderBy(static entry => entry.ParentTemplateNodeId, StringComparer.Ordinal)
+                .ThenBy(static entry => entry.RackNumber)
                 .ThenBy(static entry => entry.SlotNumber.HasValue ? 0 : 1)
                 .ThenBy(static entry => entry.SlotNumber ?? int.MaxValue)
                 .ThenBy(static entry => entry.PositionOrder)
+                .ToList();
+        }
+
+        private static List<KbObjectTemplateCompositionRack> NormalizeObjectTemplateCompositionRacks(
+            IEnumerable<KbObjectTemplateCompositionRack>? racks,
+            ISet<string> knownTemplateNodeIds)
+        {
+            var normalized = new List<KbObjectTemplateCompositionRack>();
+            if (racks == null)
+                return normalized;
+
+            var usedTemplateRackKeys = new HashSet<string>(StringComparer.Ordinal);
+            int normalizedIndex = 0;
+            foreach (KbObjectTemplateCompositionRack? rack in racks)
+            {
+                if (rack == null)
+                    continue;
+
+                string parentTemplateNodeId = rack.ParentTemplateNodeId?.Trim() ?? string.Empty;
+                if (!knownTemplateNodeIds.Contains(parentTemplateNodeId))
+                    continue;
+
+                int rackNumber = KnowledgeBaseCompositionRackSlotRulesService.NormalizeRackNumber(rack.RackNumber);
+                string rackKey = $"{parentTemplateNodeId}|{rackNumber}";
+                if (!usedTemplateRackKeys.Add(rackKey))
+                    continue;
+
+                normalized.Add(new KbObjectTemplateCompositionRack
+                {
+                    ParentTemplateNodeId = parentTemplateNodeId,
+                    RackNumber = rackNumber,
+                    SortOrder = rack.SortOrder >= 0 ? rack.SortOrder : normalizedIndex,
+                    RackType = NormalizeRackType(rack.RackType),
+                    Label = rack.Label?.Trim() ?? string.Empty,
+                    NetworkLink = rack.NetworkLink?.Trim() ?? string.Empty,
+                    Notes = rack.Notes?.Trim() ?? string.Empty,
+                    Properties = NormalizeCompositionRackProperties(rack.Properties)
+                });
+
+                normalizedIndex++;
+            }
+
+            return normalized
+                .OrderBy(static rack => rack.ParentTemplateNodeId, StringComparer.Ordinal)
+                .ThenBy(static rack => rack.SortOrder)
+                .ThenBy(static rack => rack.RackNumber)
                 .ToList();
         }
 
@@ -1401,6 +1578,7 @@ namespace AsutpKnowledgeBase.Services
         private static string NormalizeCompositionEntryId(
             string? entryId,
             string parentNodeId,
+            int rackNumber,
             int? slotNumber,
             int positionOrder,
             ISet<string> usedEntryIds)
@@ -1409,7 +1587,9 @@ namespace AsutpKnowledgeBase.Services
             if (!string.IsNullOrWhiteSpace(normalizedExistingId) && usedEntryIds.Add(normalizedExistingId))
                 return normalizedExistingId;
 
-            string deterministicId = $"comp-{parentNodeId}-{slotNumber?.ToString() ?? "aux"}-{positionOrder}";
+            string deterministicId = slotNumber.HasValue
+                ? $"comp-{parentNodeId}-rack{rackNumber}-{slotNumber.Value}-{positionOrder}"
+                : $"comp-{parentNodeId}-aux-{positionOrder}";
             if (usedEntryIds.Add(deterministicId))
                 return deterministicId;
 

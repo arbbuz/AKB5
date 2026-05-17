@@ -47,6 +47,19 @@ namespace AsutpKnowledgeBase.Services
             }
         }
 
+        public int? LoadCompositionRackDetailsHeight()
+        {
+            try
+            {
+                return NormalizeSplitterDistance(LoadStateCore()?.CompositionRackDetailsHeight);
+            }
+            catch (Exception ex)
+            {
+                LogLoadFailure(ex);
+                return null;
+            }
+        }
+
         public KnowledgeBaseWindowPlacement? LoadWindowPlacement()
         {
             try
@@ -123,6 +136,36 @@ namespace AsutpKnowledgeBase.Services
                     new KnowledgeBaseWindowLayoutState
                     {
                         SplitterDistance = NormalizeSplitterDistance(splitterDistance),
+                        CompositionRackDetailsHeight =
+                            NormalizeSplitterDistance(existingState?.CompositionRackDetailsHeight),
+                        SplitterDistancesByWorkshop = existingState?.SplitterDistancesByWorkshop,
+                        MainWindowPlacement = NormalizeWindowPlacement(existingState?.MainWindowPlacement),
+                        EquipmentCatalogWindowPlacement =
+                            NormalizeWindowPlacement(existingState?.EquipmentCatalogWindowPlacement),
+                        EquipmentCatalogColumnWidths =
+                            NormalizeColumnWidths(existingState?.EquipmentCatalogColumnWidths),
+                        EquipmentCatalogSelectionWindowPlacement =
+                            NormalizeWindowPlacement(existingState?.EquipmentCatalogSelectionWindowPlacement),
+                        EquipmentCatalogSelectionColumnWidths =
+                            NormalizeColumnWidths(existingState?.EquipmentCatalogSelectionColumnWidths)
+                    });
+            }
+            catch (Exception ex)
+            {
+                LogSaveFailure(ex);
+            }
+        }
+
+        public void SaveCompositionRackDetailsHeight(int detailsHeight)
+        {
+            try
+            {
+                var existingState = LoadStateForWrite();
+                SaveStateCore(
+                    new KnowledgeBaseWindowLayoutState
+                    {
+                        SplitterDistance = NormalizeSplitterDistance(existingState),
+                        CompositionRackDetailsHeight = NormalizeSplitterDistance(detailsHeight),
                         SplitterDistancesByWorkshop = existingState?.SplitterDistancesByWorkshop,
                         MainWindowPlacement = NormalizeWindowPlacement(existingState?.MainWindowPlacement),
                         EquipmentCatalogWindowPlacement =
@@ -154,6 +197,8 @@ namespace AsutpKnowledgeBase.Services
                     new KnowledgeBaseWindowLayoutState
                     {
                         SplitterDistance = NormalizeSplitterDistance(existingState),
+                        CompositionRackDetailsHeight =
+                            NormalizeSplitterDistance(existingState?.CompositionRackDetailsHeight),
                         SplitterDistancesByWorkshop = existingState?.SplitterDistancesByWorkshop,
                         MainWindowPlacement = normalizedPlacement,
                         EquipmentCatalogWindowPlacement =
@@ -187,6 +232,8 @@ namespace AsutpKnowledgeBase.Services
                     new KnowledgeBaseWindowLayoutState
                     {
                         SplitterDistance = NormalizeSplitterDistance(existingState),
+                        CompositionRackDetailsHeight =
+                            NormalizeSplitterDistance(existingState?.CompositionRackDetailsHeight),
                         SplitterDistancesByWorkshop = existingState?.SplitterDistancesByWorkshop,
                         MainWindowPlacement = NormalizeWindowPlacement(existingState?.MainWindowPlacement),
                         EquipmentCatalogWindowPlacement = normalizedPlacement,
@@ -218,6 +265,8 @@ namespace AsutpKnowledgeBase.Services
                     new KnowledgeBaseWindowLayoutState
                     {
                         SplitterDistance = NormalizeSplitterDistance(existingState),
+                        CompositionRackDetailsHeight =
+                            NormalizeSplitterDistance(existingState?.CompositionRackDetailsHeight),
                         SplitterDistancesByWorkshop = existingState?.SplitterDistancesByWorkshop,
                         MainWindowPlacement = NormalizeWindowPlacement(existingState?.MainWindowPlacement),
                         EquipmentCatalogWindowPlacement =
@@ -405,6 +454,8 @@ namespace AsutpKnowledgeBase.Services
     internal sealed class KnowledgeBaseWindowLayoutState
     {
         public int? SplitterDistance { get; init; }
+
+        public int? CompositionRackDetailsHeight { get; init; }
 
         public Dictionary<string, int>? SplitterDistancesByWorkshop { get; init; }
 

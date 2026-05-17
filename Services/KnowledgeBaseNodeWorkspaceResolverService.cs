@@ -12,9 +12,10 @@ namespace AsutpKnowledgeBase.Services
     {
         Info = 0,
         Composition = 1,
-        DocsAndSoftware = 2,
-        Network = 3,
-        Maintenance = 4
+        AdditionalEquipment = 2,
+        DocsAndSoftware = 3,
+        Network = 4,
+        Maintenance = 5
     }
 
     public sealed class KnowledgeBaseNodeWorkspaceTabState
@@ -69,7 +70,13 @@ namespace AsutpKnowledgeBase.Services
                 {
                     Kind = KnowledgeBaseNodeWorkspaceTabKind.Composition,
                     Title = "Состав",
-                    Description = "Показывает типизированные записи состава для этого типа узла."
+                    Description = "Показывает Rack и слотовые записи выбранного шкафа или щита."
+                });
+                tabs.Add(new KnowledgeBaseNodeWorkspaceTabState
+                {
+                    Kind = KnowledgeBaseNodeWorkspaceTabKind.AdditionalEquipment,
+                    Title = "Доп. оборудование",
+                    Description = "Показывает оборудование выбранного шкафа или щита вне Rack-слотов."
                 });
             }
 

@@ -42,6 +42,7 @@ public class JsonStorageServiceCompositionTests
                     {
                         EntryId = "entry-1",
                         ParentNodeId = "cabinet-1",
+                        RackNumber = 1,
                         SlotNumber = 1,
                         PositionOrder = 0,
                         ComponentType = "CPU",
@@ -62,6 +63,7 @@ public class JsonStorageServiceCompositionTests
             var entry = Assert.Single(loaded.Data!.CompositionEntries);
             Assert.Equal("entry-1", entry.EntryId);
             Assert.Equal("cabinet-1", entry.ParentNodeId);
+            Assert.Equal(1, entry.RackNumber);
             Assert.Equal(1, entry.SlotNumber);
             Assert.Equal("CPU", entry.ComponentType);
             Assert.Equal("S7-1500", entry.Model);

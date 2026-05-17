@@ -349,6 +349,7 @@ namespace AsutpKnowledgeBase.Services
                 SchemaVersion = data.SchemaVersion,
                 Config = normalizedConfig,
                 Workshops = normalizedWorkshops,
+                CompositionRacks = data.CompositionRacks ?? new List<KbCompositionRack>(),
                 CompositionEntries = data.CompositionEntries ?? new List<KbCompositionEntry>(),
                 DocumentLinks = data.DocumentLinks ?? new List<KbDocumentLink>(),
                 SoftwareRecords = data.SoftwareRecords ?? new List<KbSoftwareRecord>(),

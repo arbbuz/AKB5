@@ -55,6 +55,11 @@ namespace AsutpKnowledgeBase.Services
                     normalizedRight.CompositionEntries,
                     static entry => entry.EntryId),
                 CompareKeyed(
+                    "Rack состава",
+                    normalizedLeft.CompositionRacks,
+                    normalizedRight.CompositionRacks,
+                    static rack => rack.RackId),
+                CompareKeyed(
                     "Документы",
                     normalizedLeft.DocumentLinks,
                     normalizedRight.DocumentLinks,

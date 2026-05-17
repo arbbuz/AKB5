@@ -1,4 +1,5 @@
 using AsutpKnowledgeBase.Models;
+using AsutpKnowledgeBase.Services;
 
 namespace AsutpKnowledgeBase
 {
@@ -8,8 +9,11 @@ namespace AsutpKnowledgeBase
         private readonly IReadOnlyList<KbEquipmentCatalogItem> _catalogItems;
 
         private ComboBox _cmbEntryKind = null!;
+        private Label _lblRackNumber = null!;
+        private NumericUpDown _numRackNumber = null!;
         private Label _lblSlotNumber = null!;
         private NumericUpDown _numSlotNumber = null!;
+        private Label _lblSlotAdvisory = null!;
         private NumericUpDown _numPositionOrder = null!;
         private TextBox _txtComponentType = null!;
         private TextBox _txtModel = null!;
@@ -32,7 +36,7 @@ namespace AsutpKnowledgeBase
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(620, 470);
+            ClientSize = new Size(620, 530);
             AppIconProvider.Apply(this);
 
             var layout = new TableLayoutPanel
@@ -40,11 +44,11 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Padding = new Padding(12),
                 ColumnCount = 2,
-                RowCount = 10
+                RowCount = 12
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            for (int rowIndex = 0; rowIndex < 9; rowIndex++)
+            for (int rowIndex = 0; rowIndex < 11; rowIndex++)
                 layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
@@ -69,52 +73,74 @@ namespace AsutpKnowledgeBase
             layout.Controls.Add(new Label(), 0, 1);
             layout.Controls.Add(btnSelectFromCatalog, 1, 1);
 
+            _lblRackNumber = CreateLabel("Rack");
+            _numRackNumber = CreateNumericInput(
+                minimum: 0,
+                maximum: 32,
+                value: existingEntry?.RackNumber ?? 0);
+            _numRackNumber.ValueChanged += (_, _) => UpdateSlotAdvisory();
+            layout.Controls.Add(_lblRackNumber, 0, 2);
+            layout.Controls.Add(_numRackNumber, 1, 2);
+
             _lblSlotNumber = CreateLabel("Номер слота");
             _numSlotNumber = CreateNumericInput(
                 minimum: 1,
                 maximum: 512,
                 value: existingEntry?.SlotNumber ?? 1);
-            layout.Controls.Add(_lblSlotNumber, 0, 2);
-            layout.Controls.Add(_numSlotNumber, 1, 2);
+            _numSlotNumber.ValueChanged += (_, _) => UpdateSlotAdvisory();
+            layout.Controls.Add(_lblSlotNumber, 0, 3);
+            layout.Controls.Add(_numSlotNumber, 1, 3);
+
+            _lblSlotAdvisory = new Label
+            {
+                Dock = DockStyle.Fill,
+                AutoSize = true,
+                ForeColor = Color.DimGray,
+                Margin = new Padding(0, 0, 0, 8)
+            };
+            layout.Controls.Add(CreateLabel("Проверка"), 0, 4);
+            layout.Controls.Add(_lblSlotAdvisory, 1, 4);
 
             _numPositionOrder = CreateNumericInput(
                 minimum: 1,
                 maximum: 512,
                 value: (existingEntry?.PositionOrder ?? 0) + 1);
-            layout.Controls.Add(CreateLabel("Порядок"), 0, 3);
-            layout.Controls.Add(_numPositionOrder, 1, 3);
+            layout.Controls.Add(CreateLabel("Порядок"), 0, 5);
+            layout.Controls.Add(_numPositionOrder, 1, 5);
 
             _txtComponentType = new TextBox
             {
                 Dock = DockStyle.Fill,
                 Text = existingEntry?.ComponentType ?? string.Empty
             };
-            layout.Controls.Add(CreateLabel("Тип компонента"), 0, 4);
-            layout.Controls.Add(_txtComponentType, 1, 4);
+            _txtComponentType.TextChanged += (_, _) => UpdateSlotAdvisory();
+            layout.Controls.Add(CreateLabel("Тип компонента"), 0, 6);
+            layout.Controls.Add(_txtComponentType, 1, 6);
 
             _txtModel = new TextBox
             {
                 Dock = DockStyle.Fill,
                 Text = existingEntry?.Model ?? string.Empty
             };
-            layout.Controls.Add(CreateLabel("Модель"), 0, 5);
-            layout.Controls.Add(_txtModel, 1, 5);
+            _txtModel.TextChanged += (_, _) => UpdateSlotAdvisory();
+            layout.Controls.Add(CreateLabel("Модель"), 0, 7);
+            layout.Controls.Add(_txtModel, 1, 7);
 
             _txtIpAddress = new TextBox
             {
                 Dock = DockStyle.Fill,
                 Text = existingEntry?.IpAddress ?? string.Empty
             };
-            layout.Controls.Add(CreateLabel("IP-адрес"), 0, 6);
-            layout.Controls.Add(_txtIpAddress, 1, 6);
+            layout.Controls.Add(CreateLabel("IP-адрес"), 0, 8);
+            layout.Controls.Add(_txtIpAddress, 1, 8);
 
             _dtpLastCalibration = CreateDatePicker(existingEntry?.LastCalibrationAt);
-            layout.Controls.Add(CreateLabel("Последняя калибровка"), 0, 7);
-            layout.Controls.Add(_dtpLastCalibration, 1, 7);
+            layout.Controls.Add(CreateLabel("Последняя калибровка"), 0, 9);
+            layout.Controls.Add(_dtpLastCalibration, 1, 9);
 
             _dtpNextCalibration = CreateDatePicker(existingEntry?.NextCalibrationAt);
-            layout.Controls.Add(CreateLabel("Следующая калибровка"), 0, 8);
-            layout.Controls.Add(_dtpNextCalibration, 1, 8);
+            layout.Controls.Add(CreateLabel("Следующая калибровка"), 0, 10);
+            layout.Controls.Add(_dtpNextCalibration, 1, 10);
 
             _txtNotes = new TextBox
             {
@@ -124,8 +150,8 @@ namespace AsutpKnowledgeBase
                 Height = 120,
                 Text = existingEntry?.Notes ?? string.Empty
             };
-            layout.Controls.Add(CreateLabel("Примечание"), 0, 9);
-            layout.Controls.Add(_txtNotes, 1, 9);
+            layout.Controls.Add(CreateLabel("Примечание"), 0, 11);
+            layout.Controls.Add(_txtNotes, 1, 11);
 
             var buttonsPanel = new FlowLayoutPanel
             {
@@ -200,6 +226,7 @@ namespace AsutpKnowledgeBase
             Result = new KbCompositionEntry
             {
                 EntryId = _entryId,
+                RackNumber = IsSlotted ? (int)_numRackNumber.Value : 0,
                 SlotNumber = IsSlotted ? (int)_numSlotNumber.Value : null,
                 PositionOrder = (int)_numPositionOrder.Value - 1,
                 ComponentType = componentType,
@@ -216,8 +243,50 @@ namespace AsutpKnowledgeBase
 
         private void UpdateEntryKindState()
         {
+            _lblRackNumber.Enabled = IsSlotted;
+            _numRackNumber.Enabled = IsSlotted;
             _lblSlotNumber.Enabled = IsSlotted;
             _numSlotNumber.Enabled = IsSlotted;
+            _lblSlotAdvisory.Visible = IsSlotted;
+            UpdateSlotAdvisory();
+        }
+
+        private void UpdateSlotAdvisory()
+        {
+            if (_lblSlotAdvisory == null)
+                return;
+
+            if (!IsSlotted)
+            {
+                _lblSlotAdvisory.Text = string.Empty;
+                return;
+            }
+
+            int rackNumber = (int)_numRackNumber.Value;
+            int slotNumber = (int)_numSlotNumber.Value;
+            string slotRole = KnowledgeBaseCompositionRackSlotRulesService.GetSlotRoleText(rackNumber, slotNumber);
+            var advisory = KnowledgeBaseCompositionRackSlotRulesService.GetSlotAdvisory(
+                rackNumber,
+                slotNumber,
+                _txtComponentType?.Text,
+                _txtModel?.Text);
+
+            if (advisory.Severity == KnowledgeBaseCompositionSlotAdvisorySeverity.Warning)
+            {
+                _lblSlotAdvisory.ForeColor = Color.DarkOrange;
+                _lblSlotAdvisory.Text = $"{slotRole}: {advisory.Text}";
+                return;
+            }
+
+            if (advisory.Severity == KnowledgeBaseCompositionSlotAdvisorySeverity.Hint)
+            {
+                _lblSlotAdvisory.ForeColor = Color.SteelBlue;
+                _lblSlotAdvisory.Text = $"{slotRole}: {advisory.Text}";
+                return;
+            }
+
+            _lblSlotAdvisory.ForeColor = Color.DimGray;
+            _lblSlotAdvisory.Text = $"Роль слота: {slotRole}";
         }
 
         private static string FormatCatalogModel(KbEquipmentCatalogItem item)

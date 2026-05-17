@@ -108,6 +108,7 @@ public class KnowledgeBaseObjectTemplateServiceTests
             "Reusable cabinet",
             "Cabinets",
             "Template description",
+            compositionRacks: null,
             new[]
             {
                 new KbCompositionEntry
@@ -233,6 +234,7 @@ public class KnowledgeBaseObjectTemplateServiceTests
             template,
             target,
             maxLevels: 4,
+            existingCompositionRacks: Array.Empty<KbCompositionRack>(),
             existingCompositionEntries: Array.Empty<KbCompositionEntry>(),
             existingDocumentLinks: Array.Empty<KbDocumentLink>(),
             existingSoftwareRecords: Array.Empty<KbSoftwareRecord>(),
@@ -296,6 +298,7 @@ public class KnowledgeBaseObjectTemplateServiceTests
                 NodeType = KbNodeType.Controller
             },
             maxLevels: 4,
+            existingCompositionRacks: null,
             existingCompositionEntries: null,
             existingDocumentLinks: null,
             existingSoftwareRecords: null,

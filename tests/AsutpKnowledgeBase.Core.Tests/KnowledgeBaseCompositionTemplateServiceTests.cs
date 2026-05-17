@@ -19,6 +19,7 @@ public class KnowledgeBaseCompositionTemplateServiceTests
 
         var result = _service.ApplyTemplate(
             targetNode,
+            compositionRacks: null,
             new List<KbCompositionEntry>
             {
                 new()
@@ -82,12 +83,14 @@ public class KnowledgeBaseCompositionTemplateServiceTests
 
         var result = _service.CopyComposition(
             targetNode,
+            compositionRacks: null,
             new List<KbCompositionEntry>
             {
                 new()
                 {
                     EntryId = "source-1",
                     ParentNodeId = "cabinet-source",
+                    RackNumber = 1,
                     SlotNumber = 2,
                     PositionOrder = 0,
                     ComponentType = "I/O module",
@@ -129,6 +132,7 @@ public class KnowledgeBaseCompositionTemplateServiceTests
 
         Assert.Equal(2, targetEntries.Count);
         Assert.All(targetEntries, entry => Assert.Equal(string.Empty, entry.EntryId));
+        Assert.Equal(1, targetEntries[0].RackNumber);
         Assert.Equal("I/O module", targetEntries[0].ComponentType);
         Assert.Equal("Digital input", targetEntries[0].Model);
         Assert.Equal("Power supply", targetEntries[1].ComponentType);
@@ -145,6 +149,7 @@ public class KnowledgeBaseCompositionTemplateServiceTests
                 Name = "Cabinet target",
                 NodeType = KbNodeType.Cabinet
             },
+            compositionRacks: null,
             Array.Empty<KbCompositionEntry>(),
             new KbNode
             {

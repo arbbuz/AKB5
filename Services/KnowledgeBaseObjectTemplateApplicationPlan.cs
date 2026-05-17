@@ -54,6 +54,8 @@ namespace AsutpKnowledgeBase.Services
 
         public List<KnowledgeBaseObjectTemplateNodeAddition> NodeAdditions { get; init; } = new();
 
+        public List<KbCompositionRack> CompositionRacks { get; init; } = new();
+
         public List<KbCompositionEntry> CompositionEntries { get; init; } = new();
 
         public List<KbDocumentLink> DocumentLinks { get; init; } = new();
@@ -76,6 +78,7 @@ namespace AsutpKnowledgeBase.Services
         public bool HasChanges =>
             DetailUpdates.Count > 0 ||
             NodeAdditions.Count > 0 ||
+            CompositionRacks.Count > 0 ||
             CompositionEntries.Count > 0 ||
             DocumentLinks.Count > 0 ||
             SoftwareRecords.Count > 0 ||

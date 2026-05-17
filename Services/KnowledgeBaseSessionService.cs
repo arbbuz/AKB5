@@ -15,6 +15,8 @@ namespace AsutpKnowledgeBase.Services
         public Dictionary<string, List<KbNode>> Workshops { get; private set; } =
             new(KnowledgeBaseDataService.WorkshopNameComparer);
 
+        public List<KbCompositionRack> CompositionRacks { get; private set; } = new();
+
         public List<KbCompositionEntry> CompositionEntries { get; private set; } = new();
 
         public List<KbDocumentLink> DocumentLinks { get; private set; } = new();
@@ -53,6 +55,7 @@ namespace AsutpKnowledgeBase.Services
             var normalizedData = KnowledgeBaseDataService.NormalizeSavedData(data);
             Config = normalizedData.Config;
             Workshops = normalizedData.Workshops;
+            CompositionRacks = normalizedData.CompositionRacks;
             CompositionEntries = normalizedData.CompositionEntries;
             DocumentLinks = normalizedData.DocumentLinks;
             SoftwareRecords = normalizedData.SoftwareRecords;
@@ -76,6 +79,7 @@ namespace AsutpKnowledgeBase.Services
                 SchemaVersion = SavedData.CurrentSchemaVersion,
                 Config = Config,
                 Workshops = Workshops,
+                CompositionRacks = CompositionRacks,
                 CompositionEntries = CompositionEntries,
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = SoftwareRecords,
@@ -93,6 +97,7 @@ namespace AsutpKnowledgeBase.Services
             return KnowledgeBaseDataService.SerializeSnapshot(
                 Config,
                 Workshops,
+                CompositionRacks,
                 CompositionEntries,
                 DocumentLinks,
                 SoftwareRecords,
@@ -233,6 +238,7 @@ namespace AsutpKnowledgeBase.Services
                 SchemaVersion = SavedData.CurrentSchemaVersion,
                 Config = Config,
                 Workshops = Workshops,
+                CompositionRacks = CompositionRacks,
                 CompositionEntries = compositionEntries?.ToList() ?? new List<KbCompositionEntry>(),
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = SoftwareRecords,
@@ -243,12 +249,30 @@ namespace AsutpKnowledgeBase.Services
                 LastWorkshop = CurrentWorkshop
             }).CompositionEntries;
 
+        public void ReplaceCompositionRacks(IEnumerable<KbCompositionRack> compositionRacks) =>
+            CompositionRacks = KnowledgeBaseDataService.NormalizeSavedData(new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = Config,
+                Workshops = Workshops,
+                CompositionRacks = compositionRacks?.ToList() ?? new List<KbCompositionRack>(),
+                CompositionEntries = CompositionEntries,
+                DocumentLinks = DocumentLinks,
+                SoftwareRecords = SoftwareRecords,
+                NetworkFileReferences = NetworkFileReferences,
+                MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
+                EquipmentCatalogItems = EquipmentCatalogItems,
+                ObjectTemplates = ObjectTemplates,
+                LastWorkshop = CurrentWorkshop
+            }).CompositionRacks;
+
         public void ReplaceDocumentLinks(IEnumerable<KbDocumentLink> documentLinks) =>
             DocumentLinks = KnowledgeBaseDataService.NormalizeSavedData(new SavedData
             {
                 SchemaVersion = SavedData.CurrentSchemaVersion,
                 Config = Config,
                 Workshops = Workshops,
+                CompositionRacks = CompositionRacks,
                 CompositionEntries = CompositionEntries,
                 DocumentLinks = documentLinks?.ToList() ?? new List<KbDocumentLink>(),
                 SoftwareRecords = SoftwareRecords,
@@ -265,6 +289,7 @@ namespace AsutpKnowledgeBase.Services
                 SchemaVersion = SavedData.CurrentSchemaVersion,
                 Config = Config,
                 Workshops = Workshops,
+                CompositionRacks = CompositionRacks,
                 CompositionEntries = CompositionEntries,
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = softwareRecords?.ToList() ?? new List<KbSoftwareRecord>(),
@@ -281,6 +306,7 @@ namespace AsutpKnowledgeBase.Services
                 SchemaVersion = SavedData.CurrentSchemaVersion,
                 Config = Config,
                 Workshops = Workshops,
+                CompositionRacks = CompositionRacks,
                 CompositionEntries = CompositionEntries,
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = SoftwareRecords,
@@ -297,6 +323,7 @@ namespace AsutpKnowledgeBase.Services
                 SchemaVersion = SavedData.CurrentSchemaVersion,
                 Config = Config,
                 Workshops = Workshops,
+                CompositionRacks = CompositionRacks,
                 CompositionEntries = CompositionEntries,
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = SoftwareRecords,
@@ -313,6 +340,7 @@ namespace AsutpKnowledgeBase.Services
                 SchemaVersion = SavedData.CurrentSchemaVersion,
                 Config = Config,
                 Workshops = Workshops,
+                CompositionRacks = CompositionRacks,
                 CompositionEntries = CompositionEntries,
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = SoftwareRecords,
@@ -329,6 +357,7 @@ namespace AsutpKnowledgeBase.Services
                 SchemaVersion = SavedData.CurrentSchemaVersion,
                 Config = Config,
                 Workshops = Workshops,
+                CompositionRacks = CompositionRacks,
                 CompositionEntries = CompositionEntries,
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = SoftwareRecords,

@@ -306,7 +306,7 @@ namespace AsutpKnowledgeBase
                 AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 BackColor = Color.FromArgb(250, 250, 250),
-                Padding = new Padding(14, 8, 14, 8),
+                Padding = new Padding(14, 6, 14, 6),
                 Visible = false
             };
 
@@ -316,10 +316,9 @@ namespace AsutpKnowledgeBase
                 AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 ColumnCount = 1,
-                RowCount = 2
+                RowCount = 1
             };
             contextHeaderLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            contextHeaderLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             contextHeaderLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             lblSelectedNodeContextName = new Label
@@ -328,9 +327,9 @@ namespace AsutpKnowledgeBase
                 AutoSize = false,
                 Height = 22,
                 AutoEllipsis = true,
-                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(30, 30, 30),
-                Margin = new Padding(0, 0, 0, 2),
+                Margin = new Padding(0),
                 Text = string.Empty
             };
 
@@ -342,11 +341,11 @@ namespace AsutpKnowledgeBase
                 ReadOnly = true,
                 TabStop = false,
                 ForeColor = Color.DimGray,
-                Text = string.Empty
+                Text = string.Empty,
+                Visible = false
             };
 
             contextHeaderLayout.Controls.Add(lblSelectedNodeContextName, 0, 0);
-            contextHeaderLayout.Controls.Add(txtSelectedNodeContextPath, 0, 1);
             pnlSelectedNodeContextHeader.Controls.Add(contextHeaderLayout);
 
             pnlSelectedNodeWorkspaceHost = new Panel
@@ -385,6 +384,10 @@ namespace AsutpKnowledgeBase
             {
                 Tag = KnowledgeBaseNodeWorkspaceTabKind.Composition
             };
+            tabSelectedNodeAdditionalEquipment = new TabPage("Доп. оборудование")
+            {
+                Tag = KnowledgeBaseNodeWorkspaceTabKind.AdditionalEquipment
+            };
             tabSelectedNodeDocsAndSoftware = new TabPage("Документация и ПО")
             {
                 Tag = KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware
@@ -405,6 +408,10 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Fill
             };
+            selectedNodeAdditionalEquipmentScreen = new KnowledgeBaseAdditionalEquipmentScreenControl
+            {
+                Dock = DockStyle.Fill
+            };
             selectedNodeDocsAndSoftwareScreen = new KnowledgeBaseDocsAndSoftwareScreenControl
             {
                 Dock = DockStyle.Fill
@@ -419,6 +426,7 @@ namespace AsutpKnowledgeBase
             };
 
             tabSelectedNodeComposition.Controls.Add(selectedNodeCompositionScreen);
+            tabSelectedNodeAdditionalEquipment.Controls.Add(selectedNodeAdditionalEquipmentScreen);
             tabSelectedNodeDocsAndSoftware.Controls.Add(selectedNodeDocsAndSoftwareScreen);
             tabSelectedNodeNetwork.Controls.Add(selectedNodeNetworkScreen);
             tabSelectedNodeMaintenance.Controls.Add(selectedNodeMaintenanceScreen);
@@ -432,6 +440,7 @@ namespace AsutpKnowledgeBase
             pnlSelectedNodeInfoScreen.Controls.Add(selectedNodeInfoScreen);
             tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeInfo);
             tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeComposition);
+            tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeAdditionalEquipment);
             tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeDocsAndSoftware);
             tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeNetwork);
             tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeMaintenance);

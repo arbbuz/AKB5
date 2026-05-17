@@ -24,6 +24,7 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseTreeController _treeController;
         private readonly KnowledgeBaseTreeMutationWorkflowService _treeMutationWorkflowService;
         private readonly KnowledgeBaseCompositionMutationService _compositionMutationService = new();
+        private readonly KnowledgeBaseCompositionRackMutationService _compositionRackMutationService = new();
         private readonly KnowledgeBaseCompositionTemplateService _compositionTemplateService = new();
         private readonly KnowledgeBaseDocsAndSoftwareMutationService _docsAndSoftwareMutationService = new();
         private readonly KnowledgeBaseNetworkMutationService _networkMutationService = new();
@@ -119,11 +120,13 @@ namespace AsutpKnowledgeBase
         private TabControl tabSelectedNodeWorkspace = null!;
         private TabPage tabSelectedNodeInfo = null!;
         private TabPage tabSelectedNodeComposition = null!;
+        private TabPage tabSelectedNodeAdditionalEquipment = null!;
         private TabPage tabSelectedNodeDocsAndSoftware = null!;
         private TabPage tabSelectedNodeNetwork = null!;
         private TabPage tabSelectedNodeMaintenance = null!;
         private KnowledgeBaseInfoScreenControl selectedNodeInfoScreen = null!;
         private KnowledgeBaseCompositionScreenControl selectedNodeCompositionScreen = null!;
+        private KnowledgeBaseAdditionalEquipmentScreenControl selectedNodeAdditionalEquipmentScreen = null!;
         private KnowledgeBaseDocsAndSoftwareScreenControl selectedNodeDocsAndSoftwareScreen = null!;
         private KnowledgeBaseNetworkScreenControl selectedNodeNetworkScreen = null!;
         private KnowledgeBaseMaintenanceScheduleScreenControl selectedNodeMaintenanceScreen = null!;
@@ -150,6 +153,8 @@ namespace AsutpKnowledgeBase
             InitializeTemplateContextMenuItem();
             AppIconProvider.Apply(this);
             _savedSplitterDistance = _windowLayoutStateService.LoadSplitterDistance();
+            selectedNodeCompositionScreen.ApplyDetailsPanelHeight(
+                _windowLayoutStateService.LoadCompositionRackDetailsHeight());
             RestoreSavedWindowLayout();
             var startupStorage = CreateStartupStorageService();
             var fileWorkflowService = new KnowledgeBaseFileWorkflowService(
@@ -408,10 +413,11 @@ namespace AsutpKnowledgeBase
                 lblSelectedNodeEmptyState.Text = selectedNodeState.EmptyStateText;
                 if (hasSelection)
                 {
-                    lblSelectedNodeContextName.Text = selectedNodeState.Name;
+                    lblSelectedNodeContextName.Text = FormatSelectedNodeContextHeader(selectedNodeState);
                     txtSelectedNodeContextPath.Text = selectedNodeState.FullPath;
                     selectedNodeInfoScreen.ApplyState(selectedNodeState);
                     selectedNodeCompositionScreen.ApplyState(selectedNodeState.Composition);
+                    selectedNodeAdditionalEquipmentScreen.ApplyState(selectedNodeState.Composition);
                     selectedNodeDocsAndSoftwareScreen.ApplyState(selectedNodeState.DocsAndSoftware);
                     selectedNodeNetworkScreen.ApplyState(selectedNodeState.Network);
                     selectedNodeMaintenanceScreen.ApplyState(selectedNodeState.MaintenanceSchedule);
@@ -428,6 +434,20 @@ namespace AsutpKnowledgeBase
             {
                 _isApplyingSelectedNodeState = false;
             }
+        }
+
+        private static string FormatSelectedNodeContextHeader(KnowledgeBaseSelectedNodeState selectedNodeState)
+        {
+            string name = selectedNodeState.Name.Trim();
+            string path = selectedNodeState.FullPath.Trim();
+
+            if (string.IsNullOrWhiteSpace(path))
+                return name;
+
+            if (string.IsNullOrWhiteSpace(name) || string.Equals(name, path, StringComparison.Ordinal))
+                return path;
+
+            return $"{name} | {path}";
         }
 
         private void SetLastActionText(string text)
@@ -464,7 +484,8 @@ namespace AsutpKnowledgeBase
                 _session.DocumentLinks,
                 _session.SoftwareRecords,
                 _session.NetworkFileReferences,
-                _session.MaintenanceScheduleProfiles);
+                _session.MaintenanceScheduleProfiles,
+                _session.CompositionRacks);
         }
 
         private void ApplyFormState(KnowledgeBaseFormState formState, bool refreshSelectedNodeState)
@@ -572,6 +593,15 @@ namespace AsutpKnowledgeBase
 
             _savedSplitterDistance = splitMain.SplitterDistance;
             _windowLayoutStateService.SaveSplitterDistance(splitMain.SplitterDistance);
+        }
+
+        private void SaveCompositionRackDetailsHeight(object? sender, EventArgs e)
+        {
+            if (selectedNodeCompositionScreen.DetailsPanelHeight <= 0)
+                return;
+
+            _windowLayoutStateService.SaveCompositionRackDetailsHeight(
+                selectedNodeCompositionScreen.DetailsPanelHeight);
         }
 
         private void RestoreSavedWindowLayout()

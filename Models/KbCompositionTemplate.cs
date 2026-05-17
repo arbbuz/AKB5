@@ -12,12 +12,32 @@ namespace AsutpKnowledgeBase.Models
 
         public KbNodeType TargetNodeType { get; init; } = KbNodeType.Unknown;
 
+        public IReadOnlyList<KbCompositionTemplateRack> Racks { get; init; } =
+            Array.Empty<KbCompositionTemplateRack>();
+
         public IReadOnlyList<KbCompositionTemplateEntry> Entries { get; init; } =
             Array.Empty<KbCompositionTemplateEntry>();
     }
 
+    public sealed class KbCompositionTemplateRack
+    {
+        public int RackNumber { get; init; }
+
+        public int SortOrder { get; init; }
+
+        public string RackType { get; init; } = "UR";
+
+        public string Label { get; init; } = string.Empty;
+
+        public string NetworkLink { get; init; } = string.Empty;
+
+        public string Notes { get; init; } = string.Empty;
+    }
+
     public sealed class KbCompositionTemplateEntry
     {
+        public int RackNumber { get; init; }
+
         public int? SlotNumber { get; init; }
 
         public int PositionOrder { get; init; }

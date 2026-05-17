@@ -147,7 +147,9 @@ namespace AsutpKnowledgeBase
             return new KnowledgeBaseTreeDeleteImpact
             {
                 ChildNodeCount = Math.Max(0, nodeIds.Count - 1),
-                CompositionEntryCount = _session.CompositionEntries.Count(entry => nodeIds.Contains(entry.ParentNodeId)),
+                CompositionEntryCount =
+                    _session.CompositionEntries.Count(entry => nodeIds.Contains(entry.ParentNodeId)) +
+                    _session.CompositionRacks.Count(rack => nodeIds.Contains(rack.ParentNodeId)),
                 DocumentLinkCount = _session.DocumentLinks.Count(link => nodeIds.Contains(link.OwnerNodeId)),
                 SoftwareRecordCount = _session.SoftwareRecords.Count(record => nodeIds.Contains(record.OwnerNodeId)),
                 NetworkFileReferenceCount = _session.NetworkFileReferences.Count(reference => nodeIds.Contains(reference.OwnerNodeId)),

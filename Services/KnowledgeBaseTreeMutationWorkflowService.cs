@@ -174,6 +174,7 @@ namespace AsutpKnowledgeBase.Services
 
             var templateResult = _compositionTemplateService.ApplyTemplate(
                 newNode,
+                _session.CompositionRacks,
                 _session.CompositionEntries,
                 template.TemplateId);
             if (!templateResult.IsSuccess)
@@ -184,6 +185,7 @@ namespace AsutpKnowledgeBase.Services
             }
 
             _session.ReplaceCompositionEntries(templateResult.CompositionEntries);
+            _session.ReplaceCompositionRacks(templateResult.CompositionRacks);
             PersistVirtualWorkshopWrapperIfNeeded(parentNode, currentRoots);
             _history.SaveState(historySnapshot);
 
@@ -271,6 +273,9 @@ namespace AsutpKnowledgeBase.Services
             if (instance.CompositionEntries.Count > 0)
                 _session.ReplaceCompositionEntries(_session.CompositionEntries.Concat(instance.CompositionEntries));
 
+            if (instance.CompositionRacks.Count > 0)
+                _session.ReplaceCompositionRacks(_session.CompositionRacks.Concat(instance.CompositionRacks));
+
             if (instance.DocumentLinks.Count > 0)
                 _session.ReplaceDocumentLinks(_session.DocumentLinks.Concat(instance.DocumentLinks));
 
@@ -309,6 +314,7 @@ namespace AsutpKnowledgeBase.Services
                 displayName,
                 category,
                 description,
+                _session.CompositionRacks,
                 _session.CompositionEntries,
                 _session.DocumentLinks,
                 _session.SoftwareRecords,
@@ -337,6 +343,7 @@ namespace AsutpKnowledgeBase.Services
                 template,
                 targetNode,
                 _session.Config.MaxLevels,
+                _session.CompositionRacks,
                 _session.CompositionEntries,
                 _session.DocumentLinks,
                 _session.SoftwareRecords,
@@ -374,6 +381,9 @@ namespace AsutpKnowledgeBase.Services
 
             if (plan.CompositionEntries.Count > 0)
                 _session.ReplaceCompositionEntries(_session.CompositionEntries.Concat(plan.CompositionEntries));
+
+            if (plan.CompositionRacks.Count > 0)
+                _session.ReplaceCompositionRacks(_session.CompositionRacks.Concat(plan.CompositionRacks));
 
             if (plan.DocumentLinks.Count > 0)
                 _session.ReplaceDocumentLinks(_session.DocumentLinks.Concat(plan.DocumentLinks));
@@ -608,6 +618,12 @@ namespace AsutpKnowledgeBase.Services
             if (remainingCompositionEntries.Count != _session.CompositionEntries.Count)
                 _session.ReplaceCompositionEntries(remainingCompositionEntries);
 
+            var remainingCompositionRacks = _session.CompositionRacks
+                .Where(rack => !removedNodeIds.Contains(rack.ParentNodeId))
+                .ToList();
+            if (remainingCompositionRacks.Count != _session.CompositionRacks.Count)
+                _session.ReplaceCompositionRacks(remainingCompositionRacks);
+
             var remainingDocumentLinks = _session.DocumentLinks
                 .Where(link => !removedNodeIds.Contains(link.OwnerNodeId))
                 .ToList();
@@ -672,6 +688,12 @@ namespace AsutpKnowledgeBase.Services
                 .ToList();
             if (remainingCompositionEntries.Count != _session.CompositionEntries.Count)
                 _session.ReplaceCompositionEntries(remainingCompositionEntries);
+
+            var remainingCompositionRacks = _session.CompositionRacks
+                .Where(rack => !removedNodeIds.Contains(rack.ParentNodeId))
+                .ToList();
+            if (remainingCompositionRacks.Count != _session.CompositionRacks.Count)
+                _session.ReplaceCompositionRacks(remainingCompositionRacks);
         }
 
         private void DeleteDocsAndSoftwareDataForNodeIds(ISet<string> removedNodeIds)

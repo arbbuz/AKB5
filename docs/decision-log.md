@@ -1,6 +1,13 @@
 # Decision Log
 
-Last updated: `2026-05-13`
+Last updated: `2026-05-17`
+
+## 2026-05-17
+
+- The accepted implementation direction for `Lvl3` `Состав` is the staged hybrid: keep contents on the right panel, group slotted components by Siemens-style `Rack0+`, and do not expand cabinet/board contents into `Lvl4` tree nodes by default.
+- Stage 1 stores `RackNumber` directly on `KbCompositionEntry` for compatibility. A separate persisted rack entity is deferred until empty racks, rack metadata, or rack operations are required.
+- Siemens slot rules are advisory in the first rack-layout slice. The UI may show S7-300-style roles (`PS`, `CPU`, `IM`, `SM/FM/CP`) but should not hard-block user placement until after manual review.
+- Stage 2 keeps the same non-blocking approach: `SIMATIC S7-300` warnings and `IM 360/361/365` hints are displayed in the right-panel `Состав` UI and dialog, but persistence accepts real-world cabinet layouts even when the profile advisory disagrees.
 
 ## 2026-05-13
 

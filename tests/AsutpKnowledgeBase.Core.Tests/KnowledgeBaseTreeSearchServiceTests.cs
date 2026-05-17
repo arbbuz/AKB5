@@ -94,6 +94,28 @@ public class KnowledgeBaseTreeSearchServiceTests
     }
 
     [Fact]
+    public void FindMatches_WhenCompositionScopeMatchesAuxiliaryModel_PrefersAdditionalEquipmentTab()
+    {
+        var fixture = CreateFixture();
+
+        var matches = _service.FindMatches(
+            fixture.Roots,
+            CreateConfig(),
+            "Power Supply",
+            KnowledgeBaseSearchScope.Composition,
+            fixture.CompositionEntries,
+            fixture.DocumentLinks,
+            fixture.SoftwareRecords);
+
+        var match = Assert.Single(matches);
+        Assert.Equal(KnowledgeBaseSearchDomain.Composition, match.Domain);
+        Assert.Equal(KnowledgeBaseNodeWorkspaceTabKind.AdditionalEquipment, match.PreferredTabKind);
+        Assert.Equal("модель", match.MatchFieldLabel);
+        Assert.Equal("Power Supply 24V", match.MatchValue);
+        Assert.Equal("Шкаф АВР", match.Node.Name);
+    }
+
+    [Fact]
     public void FindMatches_WhenDocsAndSoftwareScopeMatchesAddedDate_ReturnsSoftwareMatch()
     {
         var fixture = CreateFixture();

@@ -34,6 +34,7 @@ namespace AsutpKnowledgeBase.Services
             if (slotNumber.HasValue && slotNumber.Value <= 0)
                 return Failure("Номер слота должен быть положительным.");
 
+            int rackNumber = KnowledgeBaseCompositionRackSlotRulesService.NormalizeRackNumber(draftEntry.RackNumber);
             var updatedEntries = CloneEntries(compositionEntries);
             int existingIndex = !string.IsNullOrWhiteSpace(draftEntry.EntryId)
                 ? updatedEntries.FindIndex(entry => string.Equals(entry.EntryId, draftEntry.EntryId, StringComparison.Ordinal))
@@ -49,6 +50,7 @@ namespace AsutpKnowledgeBase.Services
             {
                 EntryId = draftEntry.EntryId?.Trim() ?? string.Empty,
                 ParentNodeId = parentNodeId,
+                RackNumber = rackNumber,
                 SlotNumber = slotNumber,
                 PositionOrder = draftEntry.PositionOrder < 0 ? 0 : draftEntry.PositionOrder,
                 ComponentType = componentType,
@@ -133,6 +135,7 @@ namespace AsutpKnowledgeBase.Services
                 {
                     EntryId = entry.EntryId,
                     ParentNodeId = entry.ParentNodeId,
+                    RackNumber = entry.RackNumber,
                     SlotNumber = entry.SlotNumber,
                     PositionOrder = entry.PositionOrder,
                     ComponentType = entry.ComponentType,

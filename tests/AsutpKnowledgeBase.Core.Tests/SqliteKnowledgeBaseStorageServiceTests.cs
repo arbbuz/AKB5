@@ -89,6 +89,55 @@ public class SqliteKnowledgeBaseStorageServiceTests
     }
 
     [Fact]
+    public void Load_WhenCompositionEntriesHaveLegacySchema_AddsRackNumberColumnAsRack0()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "legacy.akb");
+            using (var connection = new SqliteConnection($"Data Source={path};Pooling=False"))
+            {
+                connection.Open();
+                using var command = connection.CreateCommand();
+                command.CommandText =
+                    """
+                    CREATE TABLE composition_entries (
+                        entry_id TEXT PRIMARY KEY,
+                        entry_order INTEGER NOT NULL,
+                        parent_node_id TEXT NOT NULL,
+                        slot_number INTEGER NULL,
+                        position_order INTEGER NOT NULL,
+                        component_type TEXT NOT NULL,
+                        model TEXT NOT NULL,
+                        ip_address TEXT NOT NULL,
+                        last_calibration_at TEXT NULL,
+                        next_calibration_at TEXT NULL,
+                        notes TEXT NOT NULL
+                    );
+                    INSERT INTO composition_entries (
+                        entry_id, entry_order, parent_node_id, slot_number, position_order, component_type, model,
+                        ip_address, last_calibration_at, next_calibration_at, notes)
+                    VALUES ('legacy-composition-1', 0, 'cabinet-1', 2, 0, 'CPU', 'S7-300', '', NULL, NULL, '');
+                    """;
+                command.ExecuteNonQuery();
+            }
+
+            var service = new SqliteKnowledgeBaseStorageService(path);
+            KnowledgeBaseStorageLoadResult loadResult = service.Load();
+
+            Assert.True(loadResult.IsSuccess, loadResult.ErrorMessage);
+            var entry = Assert.Single(loadResult.Data!.CompositionEntries);
+            Assert.Equal(0, entry.RackNumber);
+            Assert.Equal(2, entry.SlotNumber);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Load_WhenDatabaseMissing_ReturnsFileMissing()
     {
         string tempDirectory = CreateTempDirectory();
@@ -447,6 +496,7 @@ public class SqliteKnowledgeBaseStorageServiceTests
                 {
                     EntryId = "composition-1",
                     ParentNodeId = childId,
+                    RackNumber = 1,
                     SlotNumber = 1,
                     PositionOrder = 2,
                     ComponentType = "ПЛК",
@@ -562,6 +612,7 @@ public class SqliteKnowledgeBaseStorageServiceTests
                         new()
                         {
                             ParentTemplateNodeId = "template-child",
+                            RackNumber = 1,
                             SlotNumber = 1,
                             PositionOrder = 1,
                             ComponentType = "ПЛК",

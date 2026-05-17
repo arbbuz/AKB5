@@ -113,6 +113,7 @@ namespace AsutpKnowledgeBase
         {
             KnowledgeBaseNodeWorkspaceTabKind.Info => tabSelectedNodeInfo,
             KnowledgeBaseNodeWorkspaceTabKind.Composition => tabSelectedNodeComposition,
+            KnowledgeBaseNodeWorkspaceTabKind.AdditionalEquipment => tabSelectedNodeAdditionalEquipment,
             KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware => tabSelectedNodeDocsAndSoftware,
             KnowledgeBaseNodeWorkspaceTabKind.Network => tabSelectedNodeNetwork,
             KnowledgeBaseNodeWorkspaceTabKind.Maintenance => tabSelectedNodeMaintenance,

@@ -9,9 +9,27 @@ namespace AsutpKnowledgeBase.Services
 
         public bool IsSlotted { get; init; }
 
+        public bool IsPlaceholder { get; init; }
+
+        public int RackNumber { get; init; }
+
+        public int? SlotNumberValue { get; init; }
+
+        public int PositionOrder { get; init; }
+
+        public string RackText { get; init; } = string.Empty;
+
         public string PositionText { get; init; } = string.Empty;
 
         public string SlotText { get; init; } = string.Empty;
+
+        public string SlotRoleText { get; init; } = string.Empty;
+
+        public string SlotAdvisoryText { get; init; } = string.Empty;
+
+        public bool HasSlotWarning { get; init; }
+
+        public bool HasSlotHint { get; init; }
 
         public string ComponentTypeText { get; init; } = string.Empty;
 
@@ -26,6 +44,41 @@ namespace AsutpKnowledgeBase.Services
         public string NotesText { get; init; } = string.Empty;
     }
 
+    public sealed class KnowledgeBaseCompositionRackState
+    {
+        public string RackId { get; init; } = string.Empty;
+
+        public int RackNumber { get; init; }
+
+        public string Title { get; init; } = string.Empty;
+
+        public string RackTypeText { get; init; } = "UR";
+
+        public string LabelText { get; init; } = string.Empty;
+
+        public string NetworkLinkText { get; init; } = string.Empty;
+
+        public string NotesText { get; init; } = string.Empty;
+
+        public bool IsExplicit { get; init; }
+
+        public int FilledSlots { get; init; }
+
+        public int TotalSlots { get; init; }
+
+        public int WarningCount { get; init; }
+
+        public int HintCount { get; init; }
+
+        public bool CanDelete => IsExplicit && Entries.Count == 0;
+
+        public IReadOnlyList<KnowledgeBaseCompositionEntryState> SlotRows { get; init; } =
+            Array.Empty<KnowledgeBaseCompositionEntryState>();
+
+        public IReadOnlyList<KnowledgeBaseCompositionEntryState> Entries { get; init; } =
+            Array.Empty<KnowledgeBaseCompositionEntryState>();
+    }
+
     public sealed class KnowledgeBaseCompositionState
     {
         public bool SupportsEditing { get; init; }
@@ -36,9 +89,21 @@ namespace AsutpKnowledgeBase.Services
 
         public int TotalEntries { get; init; }
 
+        public int RackCount { get; init; }
+
         public int SlottedEntries { get; init; }
 
         public int AuxiliaryEntries { get; init; }
+
+        public string ProfileText { get; init; } =
+            KnowledgeBaseCompositionRackSlotRulesService.DefaultProfileDisplayName;
+
+        public int WarningCount { get; init; }
+
+        public int HintCount { get; init; }
+
+        public IReadOnlyList<KnowledgeBaseCompositionRackState> RackStates { get; init; } =
+            Array.Empty<KnowledgeBaseCompositionRackState>();
 
         public IReadOnlyList<KnowledgeBaseCompositionEntryState> SlottedEntryStates { get; init; } =
             Array.Empty<KnowledgeBaseCompositionEntryState>();
@@ -49,6 +114,8 @@ namespace AsutpKnowledgeBase.Services
         public IReadOnlyList<KnowledgeBaseCompositionEntryState> Entries { get; init; } =
             Array.Empty<KnowledgeBaseCompositionEntryState>();
 
+        public bool HasRackModel { get; init; }
+
         public bool HasEntries => Entries.Count > 0;
     }
 
@@ -56,6 +123,7 @@ namespace AsutpKnowledgeBase.Services
     {
         public KnowledgeBaseCompositionState Build(
             KbNode? selectedNode,
+            IReadOnlyList<KbCompositionRack>? compositionRacks,
             IReadOnlyList<KbCompositionEntry>? compositionEntries,
             int visibleLevel = 0)
         {
@@ -67,9 +135,13 @@ namespace AsutpKnowledgeBase.Services
                 };
             }
 
+            var typedRacks = GetOrderedTypedRacks(selectedNode.NodeId, compositionRacks);
             var typedEntries = GetOrderedTypedEntries(selectedNode.NodeId, compositionEntries);
             if (typedEntries.Count > 0)
-                return BuildTypedState(selectedNode.NodeType, typedEntries);
+                return BuildTypedState(typedRacks, typedEntries);
+
+            if (typedRacks.Count > 0)
+                return BuildTypedState(typedRacks, typedEntries);
 
             if (selectedNode.Children.Count > 0)
                 return BuildLegacyFallbackState(selectedNode);
@@ -77,13 +149,36 @@ namespace AsutpKnowledgeBase.Services
             return new KnowledgeBaseCompositionState
             {
                 SupportsEditing = true,
-                SourceText = "Записи состава еще не заполнены.",
-                EmptyStateText = "Для этого узла еще нет записей состава."
+                SourceText = "Записи состава еще не заполнены. Доступен Rack0 для первичной компоновки.",
+                EmptyStateText = "Для этого узла еще нет записей состава.",
+                RackCount = 1,
+                RackStates = CreateRackStates(Array.Empty<KbCompositionRack>(), Array.Empty<KnowledgeBaseCompositionEntryState>())
             };
         }
 
+        public KnowledgeBaseCompositionState Build(
+            KbNode? selectedNode,
+            IReadOnlyList<KbCompositionEntry>? compositionEntries,
+            int visibleLevel = 0) =>
+            Build(selectedNode, compositionRacks: null, compositionEntries, visibleLevel);
+
         public static bool SupportsComposition(KbNodeType nodeType, int visibleLevel = 0) =>
             KnowledgeBaseEngineeringNodeSupportService.SupportsComposition(nodeType, visibleLevel);
+
+        private static List<KbCompositionRack> GetOrderedTypedRacks(
+            string parentNodeId,
+            IReadOnlyList<KbCompositionRack>? compositionRacks)
+        {
+            if (string.IsNullOrWhiteSpace(parentNodeId) || compositionRacks == null)
+                return new List<KbCompositionRack>();
+
+            return KnowledgeBaseDataService.NormalizeCompositionRacks(compositionRacks)
+                .Where(rack => string.Equals(rack.ParentNodeId, parentNodeId, StringComparison.Ordinal))
+                .OrderBy(static rack => rack.SortOrder)
+                .ThenBy(static rack => rack.RackNumber)
+                .ThenBy(static rack => rack.RackId, StringComparer.Ordinal)
+                .ToList();
+        }
 
         private static List<KbCompositionEntry> GetOrderedTypedEntries(
             string parentNodeId,
@@ -95,6 +190,7 @@ namespace AsutpKnowledgeBase.Services
             return compositionEntries
                 .Where(entry => string.Equals(entry.ParentNodeId, parentNodeId, StringComparison.Ordinal))
                 .OrderBy(static entry => entry.SlotNumber.HasValue ? 0 : 1)
+                .ThenBy(static entry => entry.RackNumber)
                 .ThenBy(static entry => entry.SlotNumber ?? int.MaxValue)
                 .ThenBy(static entry => entry.PositionOrder)
                 .ThenBy(static entry => entry.EntryId, StringComparer.Ordinal)
@@ -102,9 +198,15 @@ namespace AsutpKnowledgeBase.Services
         }
 
         private static KnowledgeBaseCompositionState BuildTypedState(
-            KbNodeType nodeType,
+            IReadOnlyList<KbCompositionRack> typedRacks,
             IReadOnlyList<KbCompositionEntry> typedEntries)
         {
+            bool hasExpansionRacks = typedEntries
+                .Where(static entry => entry.SlotNumber.HasValue)
+                .Select(static entry => KnowledgeBaseCompositionRackSlotRulesService.NormalizeRackNumber(entry.RackNumber))
+                .Concat(typedRacks.Select(static rack => rack.RackNumber))
+                .Append(KnowledgeBaseCompositionRackSlotRulesService.DefaultRackNumber)
+                .Any(static rackNumber => rackNumber > KnowledgeBaseCompositionRackSlotRulesService.DefaultRackNumber);
             var states = new List<KnowledgeBaseCompositionEntryState>(typedEntries.Count);
             var slottedStates = new List<KnowledgeBaseCompositionEntryState>();
             var auxiliaryStates = new List<KnowledgeBaseCompositionEntryState>();
@@ -115,21 +217,7 @@ namespace AsutpKnowledgeBase.Services
                 if (!entry.SlotNumber.HasValue)
                     auxiliaryIndex++;
 
-                var state = new KnowledgeBaseCompositionEntryState
-                {
-                    EntryId = entry.EntryId,
-                    IsSlotted = entry.SlotNumber.HasValue,
-                    PositionText = entry.SlotNumber.HasValue
-                        ? $"Слот {entry.SlotNumber.Value}"
-                        : $"Позиция {auxiliaryIndex}",
-                    SlotText = entry.SlotNumber?.ToString(CultureInfo.InvariantCulture) ?? "-",
-                    ComponentTypeText = GetDisplayText(entry.ComponentType),
-                    ComponentText = GetDisplayText(entry.Model),
-                    IpAddressText = GetDisplayText(entry.IpAddress),
-                    LastCalibrationText = FormatDate(entry.LastCalibrationAt),
-                    NextCalibrationText = FormatDate(entry.NextCalibrationAt),
-                    NotesText = GetDisplayText(entry.Notes)
-                };
+                var state = CreateEntryState(entry, auxiliaryIndex, hasExpansionRacks);
 
                 states.Add(state);
                 if (state.IsSlotted)
@@ -138,16 +226,24 @@ namespace AsutpKnowledgeBase.Services
                     auxiliaryStates.Add(state);
             }
 
+            var rackStates = CreateRackStates(typedRacks, slottedStates);
             return new KnowledgeBaseCompositionState
             {
                 SupportsEditing = true,
-                SourceText = "Показаны сохранённые записи состава.",
+                SourceText = typedRacks.Count > 0
+                    ? "Показана сохранённая модель Rack и записей состава. Проверка выполняется по профилю SIMATIC S7-300."
+                    : "Показаны сохранённые записи состава, сгруппированные по Rack0+. Проверка выполняется по профилю SIMATIC S7-300.",
                 TotalEntries = states.Count,
-                SlottedEntries = typedEntries.Count(static entry => entry.SlotNumber.HasValue),
-                AuxiliaryEntries = typedEntries.Count(static entry => !entry.SlotNumber.HasValue),
+                RackCount = rackStates.Count,
+                SlottedEntries = slottedStates.Count,
+                AuxiliaryEntries = auxiliaryStates.Count,
+                WarningCount = rackStates.Sum(static rack => rack.WarningCount),
+                HintCount = rackStates.Sum(static rack => rack.HintCount),
+                RackStates = rackStates,
                 SlottedEntryStates = slottedStates,
                 AuxiliaryEntryStates = auxiliaryStates,
-                Entries = states
+                Entries = states,
+                HasRackModel = typedRacks.Count > 0
             };
         }
 
@@ -166,6 +262,7 @@ namespace AsutpKnowledgeBase.Services
                     IsSlotted = false,
                     PositionText = $"Позиция {auxiliaryIndex}",
                     SlotText = "-",
+                    SlotRoleText = "-",
                     ComponentTypeText = child.NodeType.ToString(),
                     ComponentText = GetDisplayText(child.Name),
                     IpAddressText = GetDisplayText(child.Details?.IpAddress),
@@ -181,13 +278,178 @@ namespace AsutpKnowledgeBase.Services
             return new KnowledgeBaseCompositionState
             {
                 SupportsEditing = true,
-                SourceText = "Записи состава еще не заполнены. Пока показаны дочерние узлы дерева.",
+                SourceText = "Записи состава еще не заполнены. Пока показаны дочерние узлы дерева; Rack0 доступен для первичной компоновки.",
                 TotalEntries = states.Count,
-                SlottedEntries = 0,
+                RackCount = 1,
                 AuxiliaryEntries = states.Count,
+                RackStates = CreateRackStates(Array.Empty<KbCompositionRack>(), Array.Empty<KnowledgeBaseCompositionEntryState>()),
                 AuxiliaryEntryStates = auxiliaryStates,
                 Entries = states
             };
+        }
+
+        private static KnowledgeBaseCompositionEntryState CreateEntryState(
+            KbCompositionEntry entry,
+            int auxiliaryIndex,
+            bool hasExpansionRacks = false)
+        {
+            bool isSlotted = entry.SlotNumber.HasValue;
+            int rackNumber = KnowledgeBaseCompositionRackSlotRulesService.NormalizeRackNumber(entry.RackNumber);
+            string rackText = isSlotted
+                ? KnowledgeBaseCompositionRackSlotRulesService.FormatRackText(rackNumber)
+                : string.Empty;
+            string slotText = entry.SlotNumber?.ToString(CultureInfo.InvariantCulture) ?? "-";
+            var slotAdvisory = isSlotted
+                ? KnowledgeBaseCompositionRackSlotRulesService.GetSlotAdvisory(
+                    rackNumber,
+                    entry.SlotNumber!.Value,
+                    entry.ComponentType,
+                    entry.Model,
+                    hasExpansionRacks: hasExpansionRacks)
+                : KnowledgeBaseCompositionSlotAdvisory.None;
+
+            return new KnowledgeBaseCompositionEntryState
+            {
+                EntryId = entry.EntryId,
+                IsSlotted = isSlotted,
+                RackNumber = rackNumber,
+                SlotNumberValue = entry.SlotNumber,
+                PositionOrder = entry.PositionOrder,
+                RackText = rackText,
+                PositionText = isSlotted
+                    ? $"Слот {entry.SlotNumber!.Value}"
+                    : $"Позиция {auxiliaryIndex}",
+                SlotText = slotText,
+                SlotRoleText = isSlotted
+                    ? KnowledgeBaseCompositionRackSlotRulesService.GetSlotRoleText(rackNumber, entry.SlotNumber!.Value)
+                    : "-",
+                SlotAdvisoryText = GetDisplayText(slotAdvisory.Text),
+                HasSlotWarning = slotAdvisory.HasWarning,
+                HasSlotHint = slotAdvisory.HasHint,
+                ComponentTypeText = GetDisplayText(entry.ComponentType),
+                ComponentText = GetDisplayText(entry.Model),
+                IpAddressText = GetDisplayText(entry.IpAddress),
+                LastCalibrationText = FormatDate(entry.LastCalibrationAt),
+                NextCalibrationText = FormatDate(entry.NextCalibrationAt),
+                NotesText = GetDisplayText(entry.Notes)
+            };
+        }
+
+        private static IReadOnlyList<KnowledgeBaseCompositionRackState> CreateRackStates(
+            IReadOnlyList<KbCompositionRack> typedRacks,
+            IReadOnlyList<KnowledgeBaseCompositionEntryState> slottedStates)
+        {
+            var explicitRacksByNumber = typedRacks
+                .GroupBy(static rack => rack.RackNumber)
+                .ToDictionary(static group => group.Key, static group => group.First());
+            var rackNumbers = typedRacks
+                .Select(static rack => rack.RackNumber)
+                .Concat(slottedStates.Select(static state => state.RackNumber))
+                .Append(KnowledgeBaseCompositionRackSlotRulesService.DefaultRackNumber)
+                .Distinct()
+                .OrderBy(rackNumber => explicitRacksByNumber.TryGetValue(rackNumber, out KbCompositionRack? rack)
+                    ? rack.SortOrder
+                    : rackNumber)
+                .ThenBy(static rackNumber => rackNumber)
+                .ToList();
+
+            var rackStates = new List<KnowledgeBaseCompositionRackState>(rackNumbers.Count);
+            foreach (int rackNumber in rackNumbers)
+            {
+                explicitRacksByNumber.TryGetValue(rackNumber, out KbCompositionRack? rackMetadata);
+                var rackEntries = slottedStates
+                    .Where(state => state.RackNumber == rackNumber)
+                    .OrderBy(static state => state.SlotNumberValue ?? int.MaxValue)
+                    .ThenBy(static state => state.PositionOrder)
+                    .ThenBy(static state => state.EntryId, StringComparer.Ordinal)
+                    .ToList();
+
+                int maxSlot = Math.Max(
+                    KnowledgeBaseCompositionRackSlotRulesService.DefaultSlotCount,
+                    rackEntries.Select(static state => state.SlotNumberValue ?? 0).DefaultIfEmpty(0).Max());
+                bool hasExpansionRacks = rackNumbers.Any(static number => number > KnowledgeBaseCompositionRackSlotRulesService.DefaultRackNumber);
+                var slotRows = CreateSlotRows(rackNumber, maxSlot, rackEntries, hasExpansionRacks);
+
+                rackStates.Add(new KnowledgeBaseCompositionRackState
+                {
+                    RackId = rackMetadata?.RackId ?? string.Empty,
+                    RackNumber = rackNumber,
+                    Title = rackMetadata == null
+                        ? KnowledgeBaseCompositionRackSlotRulesService.FormatRackTitle(rackNumber)
+                        : KnowledgeBaseCompositionRackSlotRulesService.FormatRackTitle(
+                            rackNumber,
+                            rackMetadata.RackType,
+                            rackMetadata.Label),
+                    RackTypeText = rackMetadata?.RackType ?? "UR",
+                    LabelText = rackMetadata?.Label ?? string.Empty,
+                    NetworkLinkText = rackMetadata?.NetworkLink ?? string.Empty,
+                    NotesText = rackMetadata?.Notes ?? string.Empty,
+                    IsExplicit = rackMetadata != null,
+                    FilledSlots = rackEntries
+                        .Where(static state => state.SlotNumberValue.HasValue)
+                        .Select(static state => state.SlotNumberValue!.Value)
+                        .Distinct()
+                        .Count(),
+                    TotalSlots = maxSlot,
+                    WarningCount = slotRows.Count(static state => state.HasSlotWarning),
+                    HintCount = slotRows.Count(static state => state.HasSlotHint),
+                    SlotRows = slotRows,
+                    Entries = rackEntries
+                });
+            }
+
+            return rackStates;
+        }
+
+        private static IReadOnlyList<KnowledgeBaseCompositionEntryState> CreateSlotRows(
+            int rackNumber,
+            int maxSlot,
+            IReadOnlyList<KnowledgeBaseCompositionEntryState> rackEntries,
+            bool hasExpansionRacks)
+        {
+            var rows = new List<KnowledgeBaseCompositionEntryState>();
+            for (int slotNumber = 1; slotNumber <= maxSlot; slotNumber++)
+            {
+                var slotEntries = rackEntries
+                    .Where(state => state.SlotNumberValue == slotNumber)
+                    .ToList();
+                if (slotEntries.Count > 0)
+                {
+                    rows.AddRange(slotEntries);
+                    continue;
+                }
+
+                var slotAdvisory = KnowledgeBaseCompositionRackSlotRulesService.GetSlotAdvisory(
+                    rackNumber,
+                    slotNumber,
+                    componentType: string.Empty,
+                    model: string.Empty,
+                    isPlaceholder: true,
+                    hasExpansionRacks);
+
+                rows.Add(new KnowledgeBaseCompositionEntryState
+                {
+                    IsSlotted = true,
+                    IsPlaceholder = true,
+                    RackNumber = rackNumber,
+                    SlotNumberValue = slotNumber,
+                    RackText = KnowledgeBaseCompositionRackSlotRulesService.FormatRackText(rackNumber),
+                    PositionText = $"Слот {slotNumber.ToString(CultureInfo.InvariantCulture)}",
+                    SlotText = slotNumber.ToString(CultureInfo.InvariantCulture),
+                    SlotRoleText = KnowledgeBaseCompositionRackSlotRulesService.GetSlotRoleText(rackNumber, slotNumber),
+                    SlotAdvisoryText = GetDisplayText(slotAdvisory.Text),
+                    HasSlotWarning = slotAdvisory.HasWarning,
+                    HasSlotHint = slotAdvisory.HasHint,
+                    ComponentTypeText = "-",
+                    ComponentText = "-",
+                    IpAddressText = "-",
+                    LastCalibrationText = "-",
+                    NextCalibrationText = "-",
+                    NotesText = "-"
+                });
+            }
+
+            return rows;
         }
 
         private static string GetDisplayText(string? value) =>

@@ -6,6 +6,8 @@ namespace AsutpKnowledgeBase.Models
 
         public string ParentNodeId { get; set; } = string.Empty;
 
+        public int RackNumber { get; set; }
+
         public int? SlotNumber { get; set; }
 
         public int PositionOrder { get; set; }

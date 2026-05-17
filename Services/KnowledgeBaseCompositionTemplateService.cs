@@ -12,6 +12,8 @@ namespace AsutpKnowledgeBase.Services
 
         public List<KbCompositionEntry> CompositionEntries { get; init; } = new();
 
+        public List<KbCompositionRack> CompositionRacks { get; init; } = new();
+
         public int ImportedEntryCount { get; init; }
     }
 
@@ -266,6 +268,7 @@ namespace AsutpKnowledgeBase.Services
 
         public KnowledgeBaseCompositionTransferResult ApplyTemplate(
             KbNode? targetNode,
+            IReadOnlyList<KbCompositionRack>? compositionRacks,
             IReadOnlyList<KbCompositionEntry>? compositionEntries,
             string? templateId)
         {
@@ -283,13 +286,16 @@ namespace AsutpKnowledgeBase.Services
             }
 
             var updatedEntries = CopyEntriesExceptTarget(compositionEntries, targetNodeId);
+            var updatedRacks = CopyRacksExceptTarget(compositionRacks, targetNodeId);
+            updatedRacks.AddRange(CreateRacksFromTemplate(targetNodeId, template));
             updatedEntries.AddRange(CreateEntriesFromTemplate(targetNodeId, template));
 
-            return Success(updatedEntries, template.DisplayName, template.Entries.Count);
+            return Success(updatedEntries, updatedRacks, template.DisplayName, template.Entries.Count);
         }
 
         public KnowledgeBaseCompositionTransferResult CopyComposition(
             KbNode? targetNode,
+            IReadOnlyList<KbCompositionRack>? compositionRacks,
             IReadOnlyList<KbCompositionEntry>? compositionEntries,
             KbNode? sourceNode)
         {
@@ -313,18 +319,27 @@ namespace AsutpKnowledgeBase.Services
 
             var sourceEntries = (compositionEntries ?? Array.Empty<KbCompositionEntry>())
                 .Where(entry => string.Equals(entry.ParentNodeId, sourceNode.NodeId, StringComparison.Ordinal))
-                .OrderBy(entry => entry.SlotNumber.HasValue ? 0 : 1)
+                .OrderBy(entry => entry.RackNumber)
+                .ThenBy(entry => entry.SlotNumber.HasValue ? 0 : 1)
                 .ThenBy(entry => entry.SlotNumber ?? int.MaxValue)
                 .ThenBy(entry => entry.PositionOrder)
                 .ThenBy(entry => entry.EntryId, StringComparer.Ordinal)
                 .ToList();
+            var sourceRacks = (compositionRacks ?? Array.Empty<KbCompositionRack>())
+                .Where(rack => string.Equals(rack.ParentNodeId, sourceNode.NodeId, StringComparison.Ordinal))
+                .OrderBy(rack => rack.SortOrder)
+                .ThenBy(rack => rack.RackNumber)
+                .ThenBy(rack => rack.RackId, StringComparer.Ordinal)
+                .ToList();
 
-            if (sourceEntries.Count == 0)
+            if (sourceEntries.Count == 0 && sourceRacks.Count == 0)
                 return Failure("У объекта-источника нет заполненных записей состава.");
 
             var updatedEntries = CopyEntriesExceptTarget(compositionEntries, targetNodeId);
+            var updatedRacks = CopyRacksExceptTarget(compositionRacks, targetNodeId);
+            updatedRacks.AddRange(CloneRacksForTarget(sourceRacks, targetNodeId));
             updatedEntries.AddRange(CloneEntriesForTarget(sourceEntries, targetNodeId));
-            return Success(updatedEntries, appliedTemplateName: string.Empty, sourceEntries.Count);
+            return Success(updatedEntries, updatedRacks, appliedTemplateName: string.Empty, sourceEntries.Count);
         }
 
         public static string BuildInheritedLocation(KbNode? parentNode)
@@ -398,6 +413,7 @@ namespace AsutpKnowledgeBase.Services
                 {
                     EntryId = string.Empty,
                     ParentNodeId = targetNodeId,
+                    RackNumber = entry.RackNumber,
                     SlotNumber = entry.SlotNumber,
                     PositionOrder = entry.PositionOrder,
                     ComponentType = entry.ComponentType,
@@ -406,6 +422,25 @@ namespace AsutpKnowledgeBase.Services
                     LastCalibrationAt = entry.LastCalibrationAt,
                     NextCalibrationAt = entry.NextCalibrationAt,
                     Notes = entry.Notes
+                };
+            }
+        }
+
+        private static IEnumerable<KbCompositionRack> CreateRacksFromTemplate(
+            string targetNodeId,
+            KbCompositionTemplate template)
+        {
+            foreach (var rack in template.Racks)
+            {
+                yield return new KbCompositionRack
+                {
+                    ParentNodeId = targetNodeId,
+                    RackNumber = rack.RackNumber,
+                    SortOrder = rack.SortOrder,
+                    RackType = rack.RackType,
+                    Label = rack.Label,
+                    NetworkLink = rack.NetworkLink,
+                    Notes = rack.Notes
                 };
             }
         }
@@ -420,6 +455,7 @@ namespace AsutpKnowledgeBase.Services
                 {
                     EntryId = string.Empty,
                     ParentNodeId = targetNodeId,
+                    RackNumber = entry.RackNumber,
                     SlotNumber = entry.SlotNumber,
                     PositionOrder = entry.PositionOrder,
                     ComponentType = entry.ComponentType,
@@ -432,11 +468,38 @@ namespace AsutpKnowledgeBase.Services
             }
         }
 
+        private static IEnumerable<KbCompositionRack> CloneRacksForTarget(
+            IEnumerable<KbCompositionRack> sourceRacks,
+            string targetNodeId)
+        {
+            foreach (var rack in sourceRacks)
+            {
+                yield return new KbCompositionRack
+                {
+                    ParentNodeId = targetNodeId,
+                    RackNumber = rack.RackNumber,
+                    SortOrder = rack.SortOrder,
+                    RackType = rack.RackType,
+                    Label = rack.Label,
+                    NetworkLink = rack.NetworkLink,
+                    Notes = rack.Notes,
+                    Properties = rack.Properties
+                        .Select(static property => new KbCompositionRackProperty
+                        {
+                            Name = property.Name,
+                            Value = property.Value
+                        })
+                        .ToList()
+                };
+            }
+        }
+
         private static KbCompositionEntry CloneEntry(KbCompositionEntry entry) =>
             new()
             {
                 EntryId = entry.EntryId,
                 ParentNodeId = entry.ParentNodeId,
+                RackNumber = entry.RackNumber,
                 SlotNumber = entry.SlotNumber,
                 PositionOrder = entry.PositionOrder,
                 ComponentType = entry.ComponentType,
@@ -447,8 +510,45 @@ namespace AsutpKnowledgeBase.Services
                 Notes = entry.Notes
             };
 
+        private static List<KbCompositionRack> CopyRacksExceptTarget(
+            IReadOnlyList<KbCompositionRack>? compositionRacks,
+            string targetNodeId)
+        {
+            var updatedRacks = new List<KbCompositionRack>();
+            if (compositionRacks == null)
+                return updatedRacks;
+
+            foreach (var rack in compositionRacks)
+            {
+                if (string.Equals(rack.ParentNodeId, targetNodeId, StringComparison.Ordinal))
+                    continue;
+
+                updatedRacks.Add(new KbCompositionRack
+                {
+                    RackId = rack.RackId,
+                    ParentNodeId = rack.ParentNodeId,
+                    RackNumber = rack.RackNumber,
+                    SortOrder = rack.SortOrder,
+                    RackType = rack.RackType,
+                    Label = rack.Label,
+                    NetworkLink = rack.NetworkLink,
+                    Notes = rack.Notes,
+                    Properties = rack.Properties
+                        .Select(static property => new KbCompositionRackProperty
+                        {
+                            Name = property.Name,
+                            Value = property.Value
+                        })
+                        .ToList()
+                });
+            }
+
+            return updatedRacks;
+        }
+
         private static KnowledgeBaseCompositionTransferResult Success(
             List<KbCompositionEntry> compositionEntries,
+            List<KbCompositionRack> compositionRacks,
             string appliedTemplateName,
             int importedEntryCount) =>
             new()
@@ -456,6 +556,7 @@ namespace AsutpKnowledgeBase.Services
                 IsSuccess = true,
                 AppliedTemplateName = appliedTemplateName,
                 CompositionEntries = compositionEntries,
+                CompositionRacks = compositionRacks,
                 ImportedEntryCount = importedEntryCount
             };
 

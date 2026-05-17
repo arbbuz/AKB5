@@ -377,6 +377,7 @@ public class KnowledgeBaseDataServiceTests
                     new()
                     {
                         ParentNodeId = " cabinet-1 ",
+                        RackNumber = -2,
                         SlotNumber = -1,
                         PositionOrder = -2,
                         ComponentType = " CPU ",
@@ -393,6 +394,7 @@ public class KnowledgeBaseDataServiceTests
 
         var entry = Assert.Single(normalized.CompositionEntries);
         Assert.Equal("cabinet-1", entry.ParentNodeId);
+        Assert.Equal(0, entry.RackNumber);
         Assert.Null(entry.SlotNumber);
         Assert.Equal(0, entry.PositionOrder);
         Assert.Equal("CPU", entry.ComponentType);
@@ -852,6 +854,7 @@ public class KnowledgeBaseDataServiceTests
             {
                 ["Цех"] = new()
             },
+            compositionRacks: null,
             compositionEntries: null,
             documentLinks: null,
             softwareRecords: null,
@@ -1061,6 +1064,7 @@ public class KnowledgeBaseDataServiceTests
             {
                 ["Цех"] = new()
             },
+            compositionRacks: null,
             compositionEntries: null,
             documentLinks: null,
             softwareRecords: null,

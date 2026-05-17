@@ -208,6 +208,19 @@ namespace AsutpKnowledgeBase.Services
 
             foreach (var entry in entries)
             {
+                var preferredTabKind = entry.SlotNumber.HasValue
+                    ? KnowledgeBaseNodeWorkspaceTabKind.Composition
+                    : KnowledgeBaseNodeWorkspaceTabKind.AdditionalEquipment;
+
+                AddMatchIfContains(
+                    matches,
+                    node,
+                    KnowledgeBaseSearchDomain.Composition,
+                    searchText,
+                    "rack",
+                    KnowledgeBaseCompositionRackSlotRulesService.FormatRackText(entry.RackNumber),
+                    nodePath,
+                    preferredTabKind);
                 AddMatchIfContains(
                     matches,
                     node,
@@ -215,7 +228,8 @@ namespace AsutpKnowledgeBase.Services
                     searchText,
                     "слот",
                     entry.SlotNumber?.ToString(CultureInfo.InvariantCulture),
-                    nodePath);
+                    nodePath,
+                    preferredTabKind);
                 AddMatchIfContains(
                     matches,
                     node,
@@ -223,7 +237,8 @@ namespace AsutpKnowledgeBase.Services
                     searchText,
                     "позиция",
                     entry.PositionOrder.ToString(CultureInfo.InvariantCulture),
-                    nodePath);
+                    nodePath,
+                    preferredTabKind);
                 AddMatchIfContains(
                     matches,
                     node,
@@ -231,7 +246,8 @@ namespace AsutpKnowledgeBase.Services
                     searchText,
                     "тип компонента",
                     entry.ComponentType,
-                    nodePath);
+                    nodePath,
+                    preferredTabKind);
                 AddMatchIfContains(
                     matches,
                     node,
@@ -239,7 +255,8 @@ namespace AsutpKnowledgeBase.Services
                     searchText,
                     "модель",
                     entry.Model,
-                    nodePath);
+                    nodePath,
+                    preferredTabKind);
                 AddMatchIfContains(
                     matches,
                     node,
@@ -247,7 +264,8 @@ namespace AsutpKnowledgeBase.Services
                     searchText,
                     "IP-адрес",
                     entry.IpAddress,
-                    nodePath);
+                    nodePath,
+                    preferredTabKind);
                 AddMatchIfContains(
                     matches,
                     node,
@@ -255,7 +273,8 @@ namespace AsutpKnowledgeBase.Services
                     searchText,
                     "последняя калибровка",
                     FormatDate(entry.LastCalibrationAt),
-                    nodePath);
+                    nodePath,
+                    preferredTabKind);
                 AddMatchIfContains(
                     matches,
                     node,
@@ -263,7 +282,8 @@ namespace AsutpKnowledgeBase.Services
                     searchText,
                     "следующая калибровка",
                     FormatDate(entry.NextCalibrationAt),
-                    nodePath);
+                    nodePath,
+                    preferredTabKind);
                 AddMatchIfContains(
                     matches,
                     node,
@@ -271,7 +291,8 @@ namespace AsutpKnowledgeBase.Services
                     searchText,
                     "примечание",
                     entry.Notes,
-                    nodePath);
+                    nodePath,
+                    preferredTabKind);
             }
         }
 
@@ -352,13 +373,21 @@ namespace AsutpKnowledgeBase.Services
             string searchText,
             string matchFieldLabel,
             string? matchValue,
-            string nodePath)
+            string nodePath,
+            KnowledgeBaseNodeWorkspaceTabKind? preferredTabKind = null)
         {
             string normalizedValue = matchValue?.Trim() ?? string.Empty;
             if (!Contains(normalizedValue, searchText))
                 return;
 
-            matches.Add(BuildMatch(node, domain, searchText, matchFieldLabel, normalizedValue, nodePath));
+            matches.Add(BuildMatch(
+                node,
+                domain,
+                searchText,
+                matchFieldLabel,
+                normalizedValue,
+                nodePath,
+                preferredTabKind));
         }
 
         private static bool Contains(string? value, string searchText) =>
@@ -383,12 +412,13 @@ namespace AsutpKnowledgeBase.Services
             string searchText,
             string matchFieldLabel,
             string matchValue,
-            string nodePath) =>
+            string nodePath,
+            KnowledgeBaseNodeWorkspaceTabKind? preferredTabKind = null) =>
             new()
             {
                 Node = node,
                 Domain = domain,
-                PreferredTabKind = GetPreferredTabKind(domain),
+                PreferredTabKind = preferredTabKind ?? GetPreferredTabKind(domain),
                 SearchText = searchText,
                 MatchFieldLabel = matchFieldLabel,
                 MatchValue = matchValue,
@@ -450,6 +480,7 @@ namespace AsutpKnowledgeBase.Services
                 return entries
                     .Where(static entry => !string.IsNullOrWhiteSpace(entry.ParentNodeId))
                     .OrderBy(static entry => entry.SlotNumber.HasValue ? 0 : 1)
+                    .ThenBy(static entry => entry.RackNumber)
                     .ThenBy(static entry => entry.SlotNumber ?? int.MaxValue)
                     .ThenBy(static entry => entry.PositionOrder)
                     .ThenBy(static entry => entry.EntryId, StringComparer.Ordinal)

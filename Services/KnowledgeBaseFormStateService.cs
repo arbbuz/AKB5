@@ -94,7 +94,8 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbDocumentLink>? documentLinks = null,
             IReadOnlyList<KbSoftwareRecord>? softwareRecords = null,
             IReadOnlyList<KbNetworkFileReference>? networkFileReferences = null,
-            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles = null)
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles = null,
+            IReadOnlyList<KbCompositionRack>? compositionRacks = null)
         {
             bool fileExists = File.Exists(currentDataPath);
             string currentDataFileName = Path.GetFileName(currentDataPath);
@@ -109,7 +110,8 @@ namespace AsutpKnowledgeBase.Services
                 documentLinks,
                 softwareRecords,
                 networkFileReferences,
-                maintenanceScheduleProfiles);
+                maintenanceScheduleProfiles,
+                compositionRacks);
 
             return new KnowledgeBaseFormState
             {
@@ -194,7 +196,8 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbDocumentLink>? documentLinks,
             IReadOnlyList<KbSoftwareRecord>? softwareRecords,
             IReadOnlyList<KbNetworkFileReference>? networkFileReferences,
-            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
+            IReadOnlyList<KbCompositionRack>? compositionRacks)
         {
             if (selectedNode == null)
             {
@@ -231,7 +234,7 @@ namespace AsutpKnowledgeBase.Services
                 ShowLocation = supportsLocation,
                 ShowPhoto = supportsPhoto,
                 Workspace = _nodeWorkspaceResolverService.Resolve(selectedNode.NodeType, visibleLevel),
-                Composition = _compositionStateService.Build(selectedNode, compositionEntries, visibleLevel),
+                Composition = _compositionStateService.Build(selectedNode, compositionRacks, compositionEntries, visibleLevel),
                 DocsAndSoftware = _docsAndSoftwareStateService.Build(
                     selectedNode,
                     documentLinks,

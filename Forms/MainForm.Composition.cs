@@ -5,6 +5,83 @@ namespace AsutpKnowledgeBase
 {
     public partial class MainForm
     {
+        private void AddCompositionRack(object? sender, EventArgs e)
+        {
+            if (!TryGetCompositionParentNode(out var parentNode))
+                return;
+
+            var draftRack = _compositionRackMutationService.CreateAddDraft(
+                parentNode,
+                _session.CompositionRacks,
+                _session.CompositionEntries);
+            using var dialog = new KnowledgeBaseCompositionRackDialog("Добавить Rack", draftRack);
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            ApplyCompositionRackMutation(
+                _compositionRackMutationService.UpsertRack(
+                    parentNode,
+                    _session.CompositionRacks,
+                    dialog.Result,
+                    GetVisibleLevelForNode(parentNode)),
+                "Rack добавлен.");
+        }
+
+        private void EditSelectedCompositionRack(object? sender, EventArgs e)
+        {
+            if (!TryGetCompositionParentNode(out var parentNode))
+                return;
+
+            var selectedRack = BuildSelectedRackDraft(parentNode);
+            if (selectedRack == null)
+            {
+                MessageBox.Show(
+                    this,
+                    "Выберите Rack для изменения.",
+                    "Состав",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            using var dialog = new KnowledgeBaseCompositionRackDialog("Изменить Rack", selectedRack);
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            ApplyCompositionRackMutation(
+                _compositionRackMutationService.UpsertRack(
+                    parentNode,
+                    _session.CompositionRacks,
+                    dialog.Result,
+                    GetVisibleLevelForNode(parentNode)),
+                "Rack обновлён.");
+        }
+
+        private void DeleteSelectedCompositionRack(object? sender, EventArgs e)
+        {
+            if (!TryGetCompositionParentNode(out var parentNode))
+                return;
+
+            int rackNumber = selectedNodeCompositionScreen.SelectedRackNumber;
+            var confirmResult = MessageBox.Show(
+                this,
+                $"Удалить пустой {KnowledgeBaseCompositionRackSlotRulesService.FormatRackText(rackNumber)}?",
+                "Состав",
+                MessageBoxButtons.OKCancel,
+                MessageBoxIcon.Warning);
+            if (confirmResult != DialogResult.OK)
+                return;
+
+            ApplyCompositionRackMutation(
+                _compositionRackMutationService.DeleteRack(
+                    parentNode,
+                    _session.CompositionRacks,
+                    _session.CompositionEntries,
+                    rackNumber,
+                    GetVisibleLevelForNode(parentNode)),
+                "Rack удалён.");
+        }
+
         private void AddSlottedCompositionEntry(object? sender, EventArgs e)
         {
             if (!TryGetCompositionParentNode(out var parentNode))
@@ -15,7 +92,11 @@ namespace AsutpKnowledgeBase
                 new KbCompositionEntry
                 {
                     ParentNodeId = parentNode.NodeId,
-                    SlotNumber = GetNextSlotNumber(parentNode.NodeId),
+                    RackNumber = selectedNodeCompositionScreen.SelectedRackNumber,
+                    SlotNumber = ResolveInitialSlotNumber(
+                        parentNode.NodeId,
+                        selectedNodeCompositionScreen.SelectedRackNumber,
+                        selectedNodeCompositionScreen.SelectedSlotNumber),
                     PositionOrder = 0
                 },
                 "Добавить слот состава",
@@ -32,11 +113,12 @@ namespace AsutpKnowledgeBase
                 new KbCompositionEntry
                 {
                     ParentNodeId = parentNode.NodeId,
+                    RackNumber = 0,
                     SlotNumber = null,
                     PositionOrder = GetNextAuxiliaryOrder(parentNode.NodeId)
                 },
                 "Добавить оборудование",
-                "Оборудование добавлено в состав.");
+                "Оборудование добавлено в доп. оборудование.");
         }
 
         private void CopyCompositionFromExistingObject(object? sender, EventArgs e)
@@ -66,6 +148,7 @@ namespace AsutpKnowledgeBase
             ApplyCompositionTransfer(
                 _compositionTemplateService.CopyComposition(
                     parentNode,
+                    _session.CompositionRacks,
                     _session.CompositionEntries,
                     dialog.SelectedSourceNode),
                 "Состав скопирован из выбранного объекта.");
@@ -76,7 +159,10 @@ namespace AsutpKnowledgeBase
             if (!TryGetCompositionParentNode(out var parentNode))
                 return;
 
-            var selectedEntry = FindSelectedCompositionEntry(parentNode);
+            var selectedEntry = FindSelectedCompositionEntry(
+                parentNode,
+                selectedNodeCompositionScreen.SelectedEntryId,
+                requireSlotted: true);
             if (selectedEntry == null)
             {
                 MessageBox.Show(
@@ -95,12 +181,42 @@ namespace AsutpKnowledgeBase
                 "Запись состава обновлена.");
         }
 
+        private void EditSelectedAuxiliaryCompositionEntry(object? sender, EventArgs e)
+        {
+            if (!TryGetCompositionParentNode(out var parentNode))
+                return;
+
+            var selectedEntry = FindSelectedCompositionEntry(
+                parentNode,
+                selectedNodeAdditionalEquipmentScreen.SelectedEntryId,
+                requireSlotted: false);
+            if (selectedEntry == null)
+            {
+                MessageBox.Show(
+                    this,
+                    "Выберите доп. оборудование для изменения.",
+                    "Доп. оборудование",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            EditCompositionEntryCore(
+                parentNode,
+                CloneCompositionEntry(selectedEntry),
+                "Изменить доп. оборудование",
+                "Доп. оборудование обновлено.");
+        }
+
         private void DeleteSelectedCompositionEntry(object? sender, EventArgs e)
         {
             if (!TryGetCompositionParentNode(out var parentNode))
                 return;
 
-            var selectedEntry = FindSelectedCompositionEntry(parentNode);
+            var selectedEntry = FindSelectedCompositionEntry(
+                parentNode,
+                selectedNodeCompositionScreen.SelectedEntryId,
+                requireSlotted: true);
             if (selectedEntry == null)
             {
                 MessageBox.Show(
@@ -128,6 +244,44 @@ namespace AsutpKnowledgeBase
                     selectedEntry.EntryId,
                     GetVisibleLevelForNode(parentNode)),
                 "Запись состава удалена.");
+        }
+
+        private void DeleteSelectedAuxiliaryCompositionEntry(object? sender, EventArgs e)
+        {
+            if (!TryGetCompositionParentNode(out var parentNode))
+                return;
+
+            var selectedEntry = FindSelectedCompositionEntry(
+                parentNode,
+                selectedNodeAdditionalEquipmentScreen.SelectedEntryId,
+                requireSlotted: false);
+            if (selectedEntry == null)
+            {
+                MessageBox.Show(
+                    this,
+                    "Выберите доп. оборудование для удаления.",
+                    "Доп. оборудование",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            var confirmResult = MessageBox.Show(
+                this,
+                $"Удалить доп. оборудование \"{GetCompositionEntryDisplayName(selectedEntry)}\"?",
+                "Доп. оборудование",
+                MessageBoxButtons.OKCancel,
+                MessageBoxIcon.Warning);
+            if (confirmResult != DialogResult.OK)
+                return;
+
+            ApplyCompositionMutation(
+                _compositionMutationService.DeleteEntry(
+                    parentNode,
+                    _session.CompositionEntries,
+                    selectedEntry.EntryId,
+                    GetVisibleLevelForNode(parentNode)),
+                "Доп. оборудование удалено.");
         }
 
         private void EditCompositionEntryCore(
@@ -173,6 +327,27 @@ namespace AsutpKnowledgeBase
             SetLastActionText(successStatusText);
         }
 
+        private void ApplyCompositionRackMutation(
+            KnowledgeBaseCompositionRackMutationResult result,
+            string successStatusText)
+        {
+            if (!result.IsSuccess)
+            {
+                MessageBox.Show(
+                    this,
+                    result.ErrorMessage,
+                    "Состав",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            _session.ReplaceCompositionRacks(result.CompositionRacks);
+            UpdateDirtyState();
+            UpdateUI();
+            SetLastActionText(successStatusText);
+        }
+
         private void ApplyCompositionTransfer(
             KnowledgeBaseCompositionTransferResult result,
             string successStatusText)
@@ -189,6 +364,7 @@ namespace AsutpKnowledgeBase
             }
 
             _session.ReplaceCompositionEntries(result.CompositionEntries);
+            _session.ReplaceCompositionRacks(result.CompositionRacks);
             UpdateDirtyState();
             UpdateUI();
             SetLastActionText(successStatusText);
@@ -196,12 +372,12 @@ namespace AsutpKnowledgeBase
 
         private bool ConfirmReplaceCompositionEntries(KbNode parentNode)
         {
-            if (CountTypedCompositionEntries(parentNode.NodeId) == 0)
+            if (CountTypedCompositionRecords(parentNode.NodeId) == 0)
                 return true;
 
             return MessageBox.Show(
                 this,
-                "Текущий состав будет заменен. Продолжить?",
+                "Текущие Rack и записи состава будут заменены. Продолжить?",
                 "Состав",
                 MessageBoxButtons.OKCancel,
                 MessageBoxIcon.Warning) == DialogResult.OK;
@@ -221,22 +397,25 @@ namespace AsutpKnowledgeBase
 
             MessageBox.Show(
                 this,
-                "Вкладка \"Состав\" доступна только для шкафов, устройств, контроллеров и модулей.",
+                "Вкладки \"Состав\" и \"Доп. оборудование\" доступны только для шкафов, устройств, контроллеров и модулей.",
                 "Состав",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
             return false;
         }
 
-        private KbCompositionEntry? FindSelectedCompositionEntry(KbNode parentNode)
+        private KbCompositionEntry? FindSelectedCompositionEntry(
+            KbNode parentNode,
+            string selectedEntryId,
+            bool requireSlotted)
         {
-            string selectedEntryId = selectedNodeCompositionScreen.SelectedEntryId;
             if (string.IsNullOrWhiteSpace(selectedEntryId))
                 return null;
 
             return _session.CompositionEntries.FirstOrDefault(entry =>
                 string.Equals(entry.EntryId, selectedEntryId, StringComparison.Ordinal) &&
-                string.Equals(entry.ParentNodeId, parentNode.NodeId, StringComparison.Ordinal));
+                string.Equals(entry.ParentNodeId, parentNode.NodeId, StringComparison.Ordinal) &&
+                entry.SlotNumber.HasValue == requireSlotted);
         }
 
         private IReadOnlyList<KnowledgeBaseCompositionCopySourceOption> BuildCopySourceOptions(KbNode targetNode)
@@ -260,9 +439,10 @@ namespace AsutpKnowledgeBase
             {
                 if (!ReferenceEquals(node, targetNode) &&
                     node.NodeType == targetNode.NodeType &&
-                    CountTypedCompositionEntries(node.NodeId) > 0)
+                    CountTypedCompositionRecords(node.NodeId) > 0)
                 {
                     int entryCount = CountTypedCompositionEntries(node.NodeId);
+                    int rackCount = CountTypedCompositionRacks(node.NodeId);
                     string path = _nodePresentationService.BuildNodePath(roots, node);
                     options.Add(new KnowledgeBaseCompositionCopySourceOption
                     {
@@ -271,6 +451,7 @@ namespace AsutpKnowledgeBase
                         Description =
                             $"Путь: {path}{Environment.NewLine}" +
                             $"Тип узла: {node.NodeType}{Environment.NewLine}" +
+                            $"Rack: {rackCount}{Environment.NewLine}" +
                             $"Записей состава: {entryCount}"
                     });
                 }
@@ -283,11 +464,77 @@ namespace AsutpKnowledgeBase
             _session.CompositionEntries.Count(entry =>
                 string.Equals(entry.ParentNodeId, parentNodeId, StringComparison.Ordinal));
 
-        private int GetNextSlotNumber(string parentNodeId)
+        private int CountTypedCompositionRacks(string parentNodeId) =>
+            _session.CompositionRacks.Count(rack =>
+                string.Equals(rack.ParentNodeId, parentNodeId, StringComparison.Ordinal));
+
+        private int CountTypedCompositionRecords(string parentNodeId) =>
+            CountTypedCompositionEntries(parentNodeId) + CountTypedCompositionRacks(parentNodeId);
+
+        private KbCompositionRack? BuildSelectedRackDraft(KbNode parentNode)
+        {
+            int rackNumber = selectedNodeCompositionScreen.SelectedRackNumber;
+            KbCompositionRack? savedRack = _session.CompositionRacks.FirstOrDefault(rack =>
+                string.Equals(rack.ParentNodeId, parentNode.NodeId, StringComparison.Ordinal) &&
+                KnowledgeBaseCompositionRackSlotRulesService.NormalizeRackNumber(rack.RackNumber) == rackNumber);
+            if (savedRack != null)
+            {
+                return new KbCompositionRack
+                {
+                    RackId = savedRack.RackId,
+                    ParentNodeId = savedRack.ParentNodeId,
+                    RackNumber = savedRack.RackNumber,
+                    SortOrder = savedRack.SortOrder,
+                    RackType = savedRack.RackType,
+                    Label = savedRack.Label,
+                    NetworkLink = savedRack.NetworkLink,
+                    Notes = savedRack.Notes,
+                    Properties = savedRack.Properties
+                        .Select(static property => new KbCompositionRackProperty
+                        {
+                            Name = property.Name,
+                            Value = property.Value
+                        })
+                        .ToList()
+                };
+            }
+
+            var rackState = selectedNodeCompositionScreen.SelectedRackState;
+            return rackState == null
+                ? null
+                : new KbCompositionRack
+                {
+                    ParentNodeId = parentNode.NodeId,
+                    RackNumber = rackState.RackNumber,
+                    SortOrder = rackState.RackNumber,
+                    RackType = rackState.RackTypeText,
+                    Label = rackState.LabelText,
+                    NetworkLink = rackState.NetworkLinkText,
+                    Notes = rackState.NotesText
+                };
+        }
+
+        private int ResolveInitialSlotNumber(string parentNodeId, int rackNumber, int? selectedSlotNumber)
+        {
+            int normalizedRackNumber = KnowledgeBaseCompositionRackSlotRulesService.NormalizeRackNumber(rackNumber);
+            if (selectedSlotNumber.HasValue &&
+                !_session.CompositionEntries.Any(entry =>
+                    string.Equals(entry.ParentNodeId, parentNodeId, StringComparison.Ordinal) &&
+                    entry.RackNumber == normalizedRackNumber &&
+                    entry.SlotNumber == selectedSlotNumber.Value))
+            {
+                return selectedSlotNumber.Value;
+            }
+
+            return GetNextSlotNumber(parentNodeId, normalizedRackNumber);
+        }
+
+        private int GetNextSlotNumber(string parentNodeId, int rackNumber)
         {
             int? maxSlot = _session.CompositionEntries
                 .Where(entry =>
                     string.Equals(entry.ParentNodeId, parentNodeId, StringComparison.Ordinal) &&
+                    entry.RackNumber == rackNumber &&
                     entry.SlotNumber.HasValue)
                 .Select(entry => entry.SlotNumber)
                 .Max();
@@ -325,6 +572,7 @@ namespace AsutpKnowledgeBase
             {
                 EntryId = entry.EntryId,
                 ParentNodeId = entry.ParentNodeId,
+                RackNumber = entry.RackNumber,
                 SlotNumber = entry.SlotNumber,
                 PositionOrder = entry.PositionOrder,
                 ComponentType = entry.ComponentType,

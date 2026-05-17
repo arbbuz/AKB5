@@ -22,6 +22,7 @@ public class KnowledgeBaseCompositionMutationServiceTests
             Array.Empty<KbCompositionEntry>(),
             new KbCompositionEntry
             {
+                RackNumber = 2,
                 SlotNumber = 1,
                 PositionOrder = 0,
                 ComponentType = " CPU ",
@@ -32,6 +33,7 @@ public class KnowledgeBaseCompositionMutationServiceTests
         Assert.True(result.IsSuccess);
         var entry = Assert.Single(result.CompositionEntries);
         Assert.Equal("cabinet-1", entry.ParentNodeId);
+        Assert.Equal(2, entry.RackNumber);
         Assert.Equal(1, entry.SlotNumber);
         Assert.Equal("CPU", entry.ComponentType);
         Assert.Equal("PLC-1", entry.Model);
@@ -65,6 +67,7 @@ public class KnowledgeBaseCompositionMutationServiceTests
             new KbCompositionEntry
             {
                 EntryId = "entry-1",
+                RackNumber = 1,
                 SlotNumber = 2,
                 PositionOrder = 1,
                 ComponentType = "Module",
@@ -73,6 +76,7 @@ public class KnowledgeBaseCompositionMutationServiceTests
 
         Assert.True(result.IsSuccess);
         var entry = Assert.Single(result.CompositionEntries);
+        Assert.Equal(1, entry.RackNumber);
         Assert.Equal(2, entry.SlotNumber);
         Assert.Equal(1, entry.PositionOrder);
         Assert.Equal("Module", entry.ComponentType);

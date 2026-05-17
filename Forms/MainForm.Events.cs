@@ -23,10 +23,15 @@ namespace AsutpKnowledgeBase
             selectedNodeInfoScreen.BrowsePhotoRequested += BtnBrowsePhoto_Click;
             selectedNodeInfoScreen.OpenPhotoRequested += BtnOpenPhoto_Click;
             selectedNodeCompositionScreen.AddSlottedRequested += AddSlottedCompositionEntry;
-            selectedNodeCompositionScreen.AddAuxiliaryRequested += AddAuxiliaryCompositionEntry;
+            selectedNodeCompositionScreen.AddRackRequested += AddCompositionRack;
+            selectedNodeCompositionScreen.EditRackRequested += EditSelectedCompositionRack;
+            selectedNodeCompositionScreen.DeleteRackRequested += DeleteSelectedCompositionRack;
             selectedNodeCompositionScreen.CopyFromExistingRequested += CopyCompositionFromExistingObject;
             selectedNodeCompositionScreen.EditSelectedRequested += EditSelectedCompositionEntry;
-            selectedNodeCompositionScreen.DeleteSelectedRequested += DeleteSelectedCompositionEntry;
+            selectedNodeCompositionScreen.DetailsPanelHeightChanged += SaveCompositionRackDetailsHeight;
+            selectedNodeAdditionalEquipmentScreen.AddRequested += AddAuxiliaryCompositionEntry;
+            selectedNodeAdditionalEquipmentScreen.EditSelectedRequested += EditSelectedAuxiliaryCompositionEntry;
+            selectedNodeAdditionalEquipmentScreen.DeleteSelectedRequested += DeleteSelectedAuxiliaryCompositionEntry;
             selectedNodeDocsAndSoftwareScreen.AddSchemeRequested += AddSchemeDocumentLink;
             selectedNodeDocsAndSoftwareScreen.AddDocumentRequested += AddManualOrInstructionLink;
             selectedNodeDocsAndSoftwareScreen.AddSoftwareRequested += AddSoftwareRecord;

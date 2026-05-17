@@ -12,6 +12,8 @@ namespace AsutpKnowledgeBase.Models
 
         public KbObjectTemplateNode RootNode { get; set; } = new();
 
+        public List<KbObjectTemplateCompositionRack> CompositionRacks { get; set; } = new();
+
         public List<KbObjectTemplateCompositionEntry> CompositionEntries { get; set; } = new();
 
         public List<KbObjectTemplateDocumentLink> DocumentLinks { get; set; } = new();
@@ -40,9 +42,30 @@ namespace AsutpKnowledgeBase.Models
         public List<KbObjectTemplateNode> Children { get; set; } = new();
     }
 
+    public class KbObjectTemplateCompositionRack
+    {
+        public string ParentTemplateNodeId { get; set; } = string.Empty;
+
+        public int RackNumber { get; set; }
+
+        public int SortOrder { get; set; }
+
+        public string RackType { get; set; } = "UR";
+
+        public string Label { get; set; } = string.Empty;
+
+        public string NetworkLink { get; set; } = string.Empty;
+
+        public string Notes { get; set; } = string.Empty;
+
+        public List<KbCompositionRackProperty> Properties { get; set; } = new();
+    }
+
     public class KbObjectTemplateCompositionEntry
     {
         public string ParentTemplateNodeId { get; set; } = string.Empty;
+
+        public int RackNumber { get; set; }
 
         public int? SlotNumber { get; set; }
 
