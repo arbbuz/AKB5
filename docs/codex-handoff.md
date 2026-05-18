@@ -1,6 +1,6 @@
 # Current State
 
-Last updated: `2026-05-17`
+Last updated: `2026-05-18`
 
 ## Current objective
 
@@ -9,6 +9,39 @@ Implement the accepted staged hybrid for the `Lvl3` right-panel tab `Соста�
 Roadmap file:
 
 - `docs/composition-rack-roadmap-2026-05-17.md`
+- `docs/composition-rack-ui-note-2026-05-18.md`
+
+## Current checkpoint 2026-05-18
+
+Latest pushed commit on `origin/card`:
+
+```text
+8832b74 Improve rack composition switching
+```
+
+Current local worktree has an uncommitted UI redesign for the `Состав` tab:
+
+- `Controls/KnowledgeBaseCompositionScreenControl.cs`
+- `Forms/MainForm.cs`
+- `Forms/MainForm.Events.cs`
+
+The redesign removes the duplicated upper/lower Rack view. The `Состав` tab now uses one detailed Rack table per Rack, stacked vertically. Two Rack tables are intended to be visible on screen; `Rack2+` appears below with vertical scrolling. The old text button `Добавить Rack` is replaced by a compact `+` button. The old horizontal splitter and saved splitter-height wiring were removed because there is no longer a top/bottom split inside the tab.
+
+Current manual-review build:
+
+```text
+C:\Users\Olga\AKB5\artifacts\build-check\asutpKB-20260518-121141\asutpKB.exe
+```
+
+Validation already run for this local WIP:
+
+- `dotnet build asutpKB.csproj --configuration Release --no-restore`
+- `dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore --no-build` (`365/365`)
+- `git diff --check`
+- temporary WinForms smoke-test: two Rack detail windows render and default selection remains `Rack0` slot 1;
+- temporary WinForms smoke-test: selecting a row in the second Rack switches active selection to `Rack1`.
+
+Recommended next action: start the new chat by reading the standalone handoff at `C:\Users\Olga\Documents\Codex\2026-05-18\akb5-card-handoff-cc-users-olga\akb5-card-handoff-2026-05-18-rack-details-ui.md`, then run `git -C C:\Users\Olga\AKB5 status --short --branch`.
 
 ## Current repo state
 

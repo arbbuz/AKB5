@@ -12,7 +12,6 @@ namespace AsutpKnowledgeBase
         private const int DefaultSplitterDistance = 340;
         private const int NavigationPanelMinSize = 260;
         private const int DetailsPanelMinSize = 480;
-        private const string CompositionRackSlotsColumnWidthsKey = "composition.rack-slots";
         private const string CompositionRackDetailsColumnWidthsKey = "composition.rack-details";
 
         private readonly IAppLogger _appLogger;
@@ -44,7 +43,6 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBasePortableStorageSettingsService _storageSettingsService;
         private readonly KnowledgeBaseWindowLayoutStateService _windowLayoutStateService;
         private int? _savedSplitterDistance;
-        private int? _savedCompositionRackDetailsHeight;
         private string? _lastSelectedWorkspaceNodeId;
 
         private bool _isBindingWorkshops;
@@ -156,13 +154,9 @@ namespace AsutpKnowledgeBase
             InitializeTemplateContextMenuItem();
             AppIconProvider.Apply(this);
             _savedSplitterDistance = _windowLayoutStateService.LoadSplitterDistance();
-            _savedCompositionRackDetailsHeight =
-                _windowLayoutStateService.LoadCompositionRackDetailsHeight();
             selectedNodeCompositionScreen.ApplyColumnWidths(
-                _windowLayoutStateService.LoadColumnWidths(CompositionRackSlotsColumnWidthsKey),
                 _windowLayoutStateService.LoadColumnWidths(CompositionRackDetailsColumnWidthsKey));
             RestoreSavedWindowLayout();
-            selectedNodeCompositionScreen.ApplyDetailsPanelHeight(_savedCompositionRackDetailsHeight);
             var startupStorage = CreateStartupStorageService();
             var fileWorkflowService = new KnowledgeBaseFileWorkflowService(
                 _session,
@@ -584,7 +578,6 @@ namespace AsutpKnowledgeBase
                 panel1MinSize: NavigationPanelMinSize,
                 panel2MinSize: DetailsPanelMinSize,
                 desiredDistance: GetPreferredSplitterDistance());
-            selectedNodeCompositionScreen.ApplyDetailsPanelHeight(_savedCompositionRackDetailsHeight);
         }
 
         private int GetPreferredSplitterDistance()
@@ -603,21 +596,8 @@ namespace AsutpKnowledgeBase
             _windowLayoutStateService.SaveSplitterDistance(splitMain.SplitterDistance);
         }
 
-        private void SaveCompositionRackDetailsHeight(object? sender, EventArgs e)
-        {
-            if (selectedNodeCompositionScreen.DetailsPanelHeight <= 0)
-                return;
-
-            _savedCompositionRackDetailsHeight = selectedNodeCompositionScreen.DetailsPanelHeight;
-            _windowLayoutStateService.SaveCompositionRackDetailsHeight(
-                selectedNodeCompositionScreen.DetailsPanelHeight);
-        }
-
         private void SaveCompositionColumnWidths(object? sender, EventArgs e)
         {
-            _windowLayoutStateService.SaveColumnWidths(
-                CompositionRackSlotsColumnWidthsKey,
-                selectedNodeCompositionScreen.GetRackColumnWidths());
             _windowLayoutStateService.SaveColumnWidths(
                 CompositionRackDetailsColumnWidthsKey,
                 selectedNodeCompositionScreen.GetRackDetailsColumnWidths());

@@ -28,7 +28,6 @@ namespace AsutpKnowledgeBase
             selectedNodeCompositionScreen.DeleteRackRequested += DeleteSelectedCompositionRack;
             selectedNodeCompositionScreen.CopyFromExistingRequested += CopyCompositionFromExistingObject;
             selectedNodeCompositionScreen.EditSelectedRequested += EditSelectedCompositionEntry;
-            selectedNodeCompositionScreen.DetailsPanelHeightChanged += SaveCompositionRackDetailsHeight;
             selectedNodeCompositionScreen.ColumnWidthsChanged += SaveCompositionColumnWidths;
             selectedNodeAdditionalEquipmentScreen.AddRequested += AddAuxiliaryCompositionEntry;
             selectedNodeAdditionalEquipmentScreen.EditSelectedRequested += EditSelectedAuxiliaryCompositionEntry;
@@ -327,7 +326,6 @@ namespace AsutpKnowledgeBase
                 return;
 
             SaveCurrentSplitterDistance();
-            SaveCompositionRackDetailsHeight(selectedNodeCompositionScreen, EventArgs.Empty);
             SaveCurrentWindowLayout();
         }
     }
