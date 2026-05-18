@@ -29,6 +29,7 @@ namespace AsutpKnowledgeBase
             selectedNodeCompositionScreen.CopyFromExistingRequested += CopyCompositionFromExistingObject;
             selectedNodeCompositionScreen.EditSelectedRequested += EditSelectedCompositionEntry;
             selectedNodeCompositionScreen.DetailsPanelHeightChanged += SaveCompositionRackDetailsHeight;
+            selectedNodeCompositionScreen.ColumnWidthsChanged += SaveCompositionColumnWidths;
             selectedNodeAdditionalEquipmentScreen.AddRequested += AddAuxiliaryCompositionEntry;
             selectedNodeAdditionalEquipmentScreen.EditSelectedRequested += EditSelectedAuxiliaryCompositionEntry;
             selectedNodeAdditionalEquipmentScreen.DeleteSelectedRequested += DeleteSelectedAuxiliaryCompositionEntry;

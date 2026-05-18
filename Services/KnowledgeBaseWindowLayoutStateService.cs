@@ -127,6 +127,31 @@ namespace AsutpKnowledgeBase.Services
             }
         }
 
+        public Dictionary<string, int> LoadColumnWidths(string viewKey)
+        {
+            try
+            {
+                string normalizedViewKey = NormalizeViewKey(viewKey);
+                if (string.IsNullOrWhiteSpace(normalizedViewKey))
+                    return new Dictionary<string, int>(StringComparer.Ordinal);
+
+                Dictionary<string, Dictionary<string, int>>? columnWidthsByView =
+                    NormalizeColumnWidthsByView(LoadStateCore()?.ColumnWidthsByView);
+                if (columnWidthsByView == null ||
+                    !columnWidthsByView.TryGetValue(normalizedViewKey, out var columnWidths))
+                {
+                    return new Dictionary<string, int>(StringComparer.Ordinal);
+                }
+
+                return new Dictionary<string, int>(columnWidths, StringComparer.Ordinal);
+            }
+            catch (Exception ex)
+            {
+                LogLoadFailure(ex);
+                return new Dictionary<string, int>(StringComparer.Ordinal);
+            }
+        }
+
         public void SaveSplitterDistance(int splitterDistance)
         {
             try
@@ -147,7 +172,9 @@ namespace AsutpKnowledgeBase.Services
                         EquipmentCatalogSelectionWindowPlacement =
                             NormalizeWindowPlacement(existingState?.EquipmentCatalogSelectionWindowPlacement),
                         EquipmentCatalogSelectionColumnWidths =
-                            NormalizeColumnWidths(existingState?.EquipmentCatalogSelectionColumnWidths)
+                            NormalizeColumnWidths(existingState?.EquipmentCatalogSelectionColumnWidths),
+                        ColumnWidthsByView =
+                            NormalizeColumnWidthsByView(existingState?.ColumnWidthsByView)
                     });
             }
             catch (Exception ex)
@@ -175,7 +202,9 @@ namespace AsutpKnowledgeBase.Services
                         EquipmentCatalogSelectionWindowPlacement =
                             NormalizeWindowPlacement(existingState?.EquipmentCatalogSelectionWindowPlacement),
                         EquipmentCatalogSelectionColumnWidths =
-                            NormalizeColumnWidths(existingState?.EquipmentCatalogSelectionColumnWidths)
+                            NormalizeColumnWidths(existingState?.EquipmentCatalogSelectionColumnWidths),
+                        ColumnWidthsByView =
+                            NormalizeColumnWidthsByView(existingState?.ColumnWidthsByView)
                     });
             }
             catch (Exception ex)
@@ -208,7 +237,9 @@ namespace AsutpKnowledgeBase.Services
                         EquipmentCatalogSelectionWindowPlacement =
                             NormalizeWindowPlacement(existingState?.EquipmentCatalogSelectionWindowPlacement),
                         EquipmentCatalogSelectionColumnWidths =
-                            NormalizeColumnWidths(existingState?.EquipmentCatalogSelectionColumnWidths)
+                            NormalizeColumnWidths(existingState?.EquipmentCatalogSelectionColumnWidths),
+                        ColumnWidthsByView =
+                            NormalizeColumnWidthsByView(existingState?.ColumnWidthsByView)
                     });
             }
             catch (Exception ex)
@@ -241,7 +272,9 @@ namespace AsutpKnowledgeBase.Services
                         EquipmentCatalogSelectionWindowPlacement =
                             NormalizeWindowPlacement(existingState?.EquipmentCatalogSelectionWindowPlacement),
                         EquipmentCatalogSelectionColumnWidths =
-                            NormalizeColumnWidths(existingState?.EquipmentCatalogSelectionColumnWidths)
+                            NormalizeColumnWidths(existingState?.EquipmentCatalogSelectionColumnWidths),
+                        ColumnWidthsByView =
+                            NormalizeColumnWidthsByView(existingState?.ColumnWidthsByView)
                     });
             }
             catch (Exception ex)
@@ -274,7 +307,54 @@ namespace AsutpKnowledgeBase.Services
                         EquipmentCatalogColumnWidths =
                             NormalizeColumnWidths(existingState?.EquipmentCatalogColumnWidths),
                         EquipmentCatalogSelectionWindowPlacement = normalizedPlacement,
-                        EquipmentCatalogSelectionColumnWidths = NormalizeColumnWidths(columnWidths)
+                        EquipmentCatalogSelectionColumnWidths = NormalizeColumnWidths(columnWidths),
+                        ColumnWidthsByView =
+                            NormalizeColumnWidthsByView(existingState?.ColumnWidthsByView)
+                    });
+            }
+            catch (Exception ex)
+            {
+                LogSaveFailure(ex);
+            }
+        }
+
+        public void SaveColumnWidths(string viewKey, IReadOnlyDictionary<string, int> columnWidths)
+        {
+            try
+            {
+                string normalizedViewKey = NormalizeViewKey(viewKey);
+                if (string.IsNullOrWhiteSpace(normalizedViewKey))
+                    return;
+
+                var existingState = LoadStateForWrite();
+                Dictionary<string, Dictionary<string, int>> columnWidthsByView =
+                    NormalizeColumnWidthsByView(existingState?.ColumnWidthsByView) ??
+                    new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal);
+                Dictionary<string, int>? normalizedColumnWidths = NormalizeColumnWidths(columnWidths);
+                if (normalizedColumnWidths == null)
+                    columnWidthsByView.Remove(normalizedViewKey);
+                else
+                    columnWidthsByView[normalizedViewKey] = normalizedColumnWidths;
+
+                SaveStateCore(
+                    new KnowledgeBaseWindowLayoutState
+                    {
+                        SplitterDistance = NormalizeSplitterDistance(existingState),
+                        CompositionRackDetailsHeight =
+                            NormalizeSplitterDistance(existingState?.CompositionRackDetailsHeight),
+                        SplitterDistancesByWorkshop = existingState?.SplitterDistancesByWorkshop,
+                        MainWindowPlacement = NormalizeWindowPlacement(existingState?.MainWindowPlacement),
+                        EquipmentCatalogWindowPlacement =
+                            NormalizeWindowPlacement(existingState?.EquipmentCatalogWindowPlacement),
+                        EquipmentCatalogColumnWidths =
+                            NormalizeColumnWidths(existingState?.EquipmentCatalogColumnWidths),
+                        EquipmentCatalogSelectionWindowPlacement =
+                            NormalizeWindowPlacement(existingState?.EquipmentCatalogSelectionWindowPlacement),
+                        EquipmentCatalogSelectionColumnWidths =
+                            NormalizeColumnWidths(existingState?.EquipmentCatalogSelectionColumnWidths),
+                        ColumnWidthsByView = columnWidthsByView.Count == 0
+                            ? null
+                            : columnWidthsByView
                     });
             }
             catch (Exception ex)
@@ -404,6 +484,30 @@ namespace AsutpKnowledgeBase.Services
             return normalized.Count == 0 ? null : normalized;
         }
 
+        private static Dictionary<string, Dictionary<string, int>>? NormalizeColumnWidthsByView(
+            IReadOnlyDictionary<string, Dictionary<string, int>>? columnWidthsByView)
+        {
+            if (columnWidthsByView == null || columnWidthsByView.Count == 0)
+                return null;
+
+            var normalized = new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal);
+            foreach (var pair in columnWidthsByView)
+            {
+                string viewKey = NormalizeViewKey(pair.Key);
+                if (string.IsNullOrWhiteSpace(viewKey))
+                    continue;
+
+                Dictionary<string, int>? columnWidths = NormalizeColumnWidths(pair.Value);
+                if (columnWidths != null)
+                    normalized[viewKey] = columnWidths;
+            }
+
+            return normalized.Count == 0 ? null : normalized;
+        }
+
+        private static string NormalizeViewKey(string? viewKey) =>
+            viewKey?.Trim() ?? string.Empty;
+
         private static string ResolveStatePath(string? overridePath)
         {
             if (!string.IsNullOrWhiteSpace(overridePath))
@@ -468,5 +572,7 @@ namespace AsutpKnowledgeBase.Services
         public KnowledgeBaseWindowPlacement? EquipmentCatalogSelectionWindowPlacement { get; init; }
 
         public Dictionary<string, int>? EquipmentCatalogSelectionColumnWidths { get; init; }
+
+        public Dictionary<string, Dictionary<string, int>>? ColumnWidthsByView { get; init; }
     }
 }

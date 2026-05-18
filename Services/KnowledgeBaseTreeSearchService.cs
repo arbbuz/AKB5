@@ -334,24 +334,6 @@ namespace AsutpKnowledgeBase.Services
                     node,
                     KnowledgeBaseSearchDomain.Composition,
                     searchText,
-                    "последняя калибровка",
-                    FormatDate(entry.LastCalibrationAt),
-                    nodePath,
-                    preferredTabKind);
-                AddMatchIfContains(
-                    matches,
-                    node,
-                    KnowledgeBaseSearchDomain.Composition,
-                    searchText,
-                    "следующая калибровка",
-                    FormatDate(entry.NextCalibrationAt),
-                    nodePath,
-                    preferredTabKind);
-                AddMatchIfContains(
-                    matches,
-                    node,
-                    KnowledgeBaseSearchDomain.Composition,
-                    searchText,
                     "примечание",
                     entry.Notes,
                     nodePath,

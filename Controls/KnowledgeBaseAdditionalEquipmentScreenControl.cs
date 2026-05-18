@@ -125,8 +125,6 @@ namespace AsutpKnowledgeBase
                         entry.ComponentTypeText,
                         entry.ComponentText,
                         entry.IpAddressText,
-                        entry.LastCalibrationText,
-                        entry.NextCalibrationText,
                         entry.NotesText
                     ])
                     {
@@ -219,8 +217,6 @@ namespace AsutpKnowledgeBase
             listView.Columns.Add("Тип", 120);
             listView.Columns.Add("Компонент", 200);
             listView.Columns.Add("IP-адрес", 120);
-            listView.Columns.Add("Последняя калибровка", 140);
-            listView.Columns.Add("Следующая калибровка", 140);
             listView.Columns.Add("Примечание", 260);
             return listView;
         }

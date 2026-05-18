@@ -19,7 +19,10 @@ namespace AsutpKnowledgeBase
         private KnowledgeBaseCompositionState _currentState = new();
         private bool _isSynchronizingSelection;
         private bool _isApplyingDetailsPanelHeight;
+        private bool _isApplyingColumnWidths;
         private int? _pendingDetailsPanelHeight;
+        private Dictionary<string, int> _rackColumnWidths = new(StringComparer.Ordinal);
+        private Dictionary<string, int> _rackDetailsColumnWidths = new(StringComparer.Ordinal);
 
         public KnowledgeBaseCompositionScreenControl()
         {
@@ -68,11 +71,12 @@ namespace AsutpKnowledgeBase
                 AutoScroll = true,
                 FlowDirection = FlowDirection.TopDown,
                 WrapContents = false,
-                Padding = new Padding(4)
+                Padding = new Padding(2, 2, 2, 0)
             };
             _rackPanel.SizeChanged += (_, _) => UpdateRackCardWidths();
 
             _dgvRackDetails = CreateRackDetailsGrid();
+            _dgvRackDetails.ColumnWidthChanged += HandleRackDetailsColumnWidthChanged;
             _dgvRackDetails.SelectionChanged += (_, _) => HandleRackDetailsSelectionChanged();
             _dgvRackDetails.CellDoubleClick += (_, _) =>
             {
@@ -84,20 +88,32 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Fill,
                 Orientation = Orientation.Horizontal,
-                FixedPanel = FixedPanel.Panel2,
+                FixedPanel = FixedPanel.None,
                 Panel1MinSize = 240,
                 Panel2MinSize = 130,
-                SplitterWidth = 6,
+                SplitterWidth = 3,
+                BackColor = SystemColors.Control,
                 Margin = new Padding(0)
             };
+            _splitRackDetails.Panel1.BackColor = SystemColors.Control;
+            _splitRackDetails.Panel2.BackColor = SystemColors.Control;
             _splitRackDetails.Panel1.Controls.Add(CreateRacksGroup());
             _splitRackDetails.Panel2.Controls.Add(CreateDetailsGroup("Детали выбранного Rack", _dgvRackDetails));
             _splitRackDetails.SplitterMoved += (_, _) =>
             {
                 if (!_isApplyingDetailsPanelHeight)
+                {
+                    _pendingDetailsPanelHeight = DetailsPanelHeight;
+                    _splitRackDetails.Invalidate();
                     DetailsPanelHeightChanged?.Invoke(this, EventArgs.Empty);
+                }
             };
-            _splitRackDetails.SizeChanged += (_, _) => ApplyPendingDetailsPanelHeight();
+            _splitRackDetails.SizeChanged += (_, _) =>
+            {
+                ApplyPendingDetailsPanelHeight();
+                _splitRackDetails.Invalidate();
+            };
+            _splitRackDetails.Paint += (_, e) => PaintRackDetailsSplitter(e.Graphics);
 
             layout.Controls.Add(actionsPanel, 0, 0);
             layout.Controls.Add(_splitRackDetails, 0, 1);
@@ -119,6 +135,8 @@ namespace AsutpKnowledgeBase
         public event EventHandler? EditSelectedRequested;
 
         public event EventHandler? DetailsPanelHeightChanged;
+
+        public event EventHandler? ColumnWidthsChanged;
 
         public string SelectedEntryId { get; private set; } = string.Empty;
 
@@ -153,6 +171,33 @@ namespace AsutpKnowledgeBase
             ApplyPendingDetailsPanelHeight();
         }
 
+        public void ApplyColumnWidths(
+            IReadOnlyDictionary<string, int>? rackColumnWidths,
+            IReadOnlyDictionary<string, int>? rackDetailsColumnWidths)
+        {
+            _rackColumnWidths = NormalizeColumnWidths(rackColumnWidths);
+            _rackDetailsColumnWidths = NormalizeColumnWidths(rackDetailsColumnWidths);
+
+            _isApplyingColumnWidths = true;
+            try
+            {
+                foreach (var listView in _rackListViews.Values)
+                    ApplyRackListViewColumnLayout(listView);
+
+                ApplyGridColumnWidths(_dgvRackDetails, _rackDetailsColumnWidths);
+            }
+            finally
+            {
+                _isApplyingColumnWidths = false;
+            }
+        }
+
+        public Dictionary<string, int> GetRackColumnWidths() =>
+            new(_rackColumnWidths, StringComparer.Ordinal);
+
+        public Dictionary<string, int> GetRackDetailsColumnWidths() =>
+            new(_rackDetailsColumnWidths, StringComparer.Ordinal);
+
         private void ApplyPendingDetailsPanelHeight()
         {
             if (!_pendingDetailsPanelHeight.HasValue ||
@@ -179,12 +224,16 @@ namespace AsutpKnowledgeBase
                 availableHeight - _splitRackDetails.Panel2MinSize);
 
             if (_splitRackDetails.SplitterDistance == splitterDistance)
+            {
+                _pendingDetailsPanelHeight = null;
                 return;
+            }
 
             _isApplyingDetailsPanelHeight = true;
             try
             {
                 _splitRackDetails.SplitterDistance = splitterDistance;
+                _pendingDetailsPanelHeight = null;
             }
             finally
             {
@@ -198,7 +247,7 @@ namespace AsutpKnowledgeBase
             {
                 Text = "Rack-компоновка",
                 Dock = DockStyle.Fill,
-                Padding = new Padding(10)
+                Padding = new Padding(8, 8, 8, 4)
             };
             groupBox.Controls.Add(_rackPanel);
             return groupBox;
@@ -235,6 +284,7 @@ namespace AsutpKnowledgeBase
                             entry.SlotRoleText,
                             entry.ComponentText,
                             entry.ComponentTypeText,
+                            entry.NotesText,
                             entry.SlotAdvisoryText
                         ])
                         {
@@ -324,6 +374,38 @@ namespace AsutpKnowledgeBase
             UpdateButtonStates();
         }
 
+        private void HandleRackColumnWidthChanged(object? sender, ColumnWidthChangedEventArgs e)
+        {
+            if (_isApplyingColumnWidths || sender is not ListView source)
+                return;
+
+            _rackColumnWidths = GetListViewColumnWidths(source);
+            _isApplyingColumnWidths = true;
+            try
+            {
+                foreach (var listView in _rackListViews.Values)
+                {
+                    if (!ReferenceEquals(listView, source))
+                        ApplyListViewColumnWidths(listView, _rackColumnWidths);
+                }
+            }
+            finally
+            {
+                _isApplyingColumnWidths = false;
+            }
+
+            ColumnWidthsChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void HandleRackDetailsColumnWidthChanged(object? sender, DataGridViewColumnEventArgs e)
+        {
+            if (_isApplyingColumnWidths)
+                return;
+
+            _rackDetailsColumnWidths = GetGridColumnWidths(_dgvRackDetails);
+            ColumnWidthsChanged?.Invoke(this, EventArgs.Empty);
+        }
+
         private void PopulateRackDetails(int rackNumber, string preferredSelectedEntryId, int? preferredSlotNumber)
         {
             var rack = _currentState.RackStates.FirstOrDefault(state => state.RackNumber == rackNumber) ??
@@ -336,7 +418,6 @@ namespace AsutpKnowledgeBase
             foreach (var entry in rack.SlotRows)
             {
                 int rowIndex = _dgvRackDetails.Rows.Add(
-                    entry.RackText,
                     entry.SlotText,
                     entry.SlotRoleText,
                     entry.ComponentTypeText,
@@ -346,18 +427,10 @@ namespace AsutpKnowledgeBase
                     entry.MpiDpPnAddressText,
                     entry.InputAddressText,
                     entry.OutputAddressText,
-                    entry.CommentText,
-                    entry.InterfaceRowsText,
-                    entry.IpAddressText,
-                    entry.LastCalibrationText,
-                    entry.NextCalibrationText,
-                    entry.NotesText,
-                    entry.SlotAdvisoryText);
+                    entry.IpAddressText);
                 var row = _dgvRackDetails.Rows[rowIndex];
                 row.Tag = entry;
                 ApplyGridRowStyle(row, entry);
-                if (entry.SlotAdvisoryText != "-")
-                    row.Cells["Check"].ToolTipText = entry.SlotAdvisoryText;
 
                 if (ShouldSelectEntry(entry, preferredSelectedEntryId, rack.RackNumber, preferredSlotNumber))
                     row.Selected = true;
@@ -423,8 +496,8 @@ namespace AsutpKnowledgeBase
                 Text = $"{rack.Title}   ({rack.FilledSlots}/{rack.TotalSlots}){warningText}",
                 Width = 720,
                 Height = 270,
-                Padding = new Padding(8),
-                Margin = new Padding(0, 0, 0, 12),
+                Padding = new Padding(6, 6, 6, 4),
+                Margin = new Padding(0, 0, 0, 4),
                 MinimumSize = new Size(520, 220)
             };
 
@@ -438,14 +511,35 @@ namespace AsutpKnowledgeBase
             {
                 Text = title,
                 Dock = DockStyle.Fill,
-                Padding = new Padding(10),
-                Margin = new Padding(0, 0, 0, 12)
+                Padding = new Padding(8, 4, 8, 8),
+                Margin = new Padding(0)
             };
             groupBox.Controls.Add(content);
             return groupBox;
         }
 
-        private static ListView CreateRackListView()
+        private void PaintRackDetailsSplitter(Graphics graphics)
+        {
+            if (_splitRackDetails == null || _splitRackDetails.IsDisposed)
+                return;
+
+            var splitterBounds = new Rectangle(
+                0,
+                _splitRackDetails.SplitterDistance,
+                _splitRackDetails.Width,
+                _splitRackDetails.SplitterWidth);
+
+            using var backgroundBrush = new SolidBrush(SystemColors.Control);
+            graphics.FillRectangle(backgroundBrush, splitterBounds);
+
+            int gripY = splitterBounds.Top + splitterBounds.Height / 2;
+            int gripStart = Math.Min(24, Math.Max(0, splitterBounds.Width / 4));
+            int gripEnd = Math.Max(gripStart, splitterBounds.Width - gripStart);
+            using var gripPen = new Pen(SystemColors.ControlDark);
+            graphics.DrawLine(gripPen, gripStart, gripY, gripEnd, gripY);
+        }
+
+        private ListView CreateRackListView()
         {
             var listView = new ListView
             {
@@ -462,8 +556,10 @@ namespace AsutpKnowledgeBase
             listView.Columns.Add("Роль", 76);
             listView.Columns.Add("Модуль", 170);
             listView.Columns.Add("Тип", 105);
+            listView.Columns.Add("Примечание", 220);
             listView.Columns.Add("Проверка", 240);
-            listView.SizeChanged += (_, _) => ResizeRackListViewColumns(listView);
+            listView.ColumnWidthChanged += HandleRackColumnWidthChanged;
+            listView.SizeChanged += (_, _) => ApplyRackListViewColumnLayout(listView);
             return listView;
         }
 
@@ -485,7 +581,6 @@ namespace AsutpKnowledgeBase
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect
             };
 
-            grid.Columns.Add(CreateGridColumn("Rack", "Rack", 70));
             grid.Columns.Add(CreateGridColumn("Slot", "Slot", 55));
             grid.Columns.Add(CreateGridColumn("Role", "Роль", 80));
             grid.Columns.Add(CreateGridColumn("Type", "Тип", 120));
@@ -495,13 +590,7 @@ namespace AsutpKnowledgeBase
             grid.Columns.Add(CreateGridColumn("MpiDpPnAddress", "MPI/DP/PN", 110));
             grid.Columns.Add(CreateGridColumn("InputAddress", "I address", 100));
             grid.Columns.Add(CreateGridColumn("OutputAddress", "Q address", 100));
-            grid.Columns.Add(CreateGridColumn("Comment", "Comment", 180));
-            grid.Columns.Add(CreateGridColumn("InterfaceRows", "Интерфейсы", 180));
             grid.Columns.Add(CreateGridColumn("IpAddress", "IP-адрес", 120));
-            grid.Columns.Add(CreateGridColumn("LastCalibration", "Последняя калибровка", 140));
-            grid.Columns.Add(CreateGridColumn("NextCalibration", "Следующая калибровка", 140));
-            grid.Columns.Add(CreateGridColumn("Notes", "Примечание", 260));
-            grid.Columns.Add(CreateGridColumn("Check", "Проверка", 220));
 
             return grid;
         }
@@ -557,36 +646,119 @@ namespace AsutpKnowledgeBase
             if (_rackPanel == null || _rackPanel.IsDisposed)
                 return;
 
+            int verticalScrollbarWidth = _rackPanel.VerticalScroll.Visible
+                ? SystemInformation.VerticalScrollBarWidth
+                : 0;
             int availableWidth = _rackPanel.ClientSize.Width -
                 _rackPanel.Padding.Horizontal -
-                SystemInformation.VerticalScrollBarWidth -
-                8;
+                verticalScrollbarWidth -
+                2;
             int targetWidth = Math.Max(520, availableWidth);
+            int targetHeight = _rackPanel.Controls.Count == 1
+                ? Math.Max(180, _rackPanel.ClientSize.Height - _rackPanel.Padding.Vertical - 4)
+                : 270;
             foreach (Control control in _rackPanel.Controls)
             {
                 control.Width = targetWidth;
+                control.Height = targetHeight;
                 if (control.Controls.Count > 0 && control.Controls[0] is ListView listView)
+                    ApplyRackListViewColumnLayout(listView);
+            }
+        }
+
+        private void ApplyRackListViewColumnLayout(ListView listView)
+        {
+            _isApplyingColumnWidths = true;
+            try
+            {
+                if (_rackColumnWidths.Count > 0)
+                    ApplyListViewColumnWidths(listView, _rackColumnWidths);
+                else
                     ResizeRackListViewColumns(listView);
             }
+            finally
+            {
+                _isApplyingColumnWidths = false;
+            }
+        }
+
+        private static void ApplyListViewColumnWidths(ListView listView, IReadOnlyDictionary<string, int> columnWidths)
+        {
+            foreach (ColumnHeader column in listView.Columns)
+            {
+                if (columnWidths.TryGetValue(column.Text, out int width) && width > 0)
+                    column.Width = width;
+            }
+        }
+
+        private static void ApplyGridColumnWidths(DataGridView grid, IReadOnlyDictionary<string, int> columnWidths)
+        {
+            foreach (DataGridViewColumn column in grid.Columns)
+            {
+                if (columnWidths.TryGetValue(column.Name, out int width) && width > 0)
+                    column.Width = width;
+            }
+        }
+
+        private static Dictionary<string, int> GetListViewColumnWidths(ListView listView)
+        {
+            var widths = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (ColumnHeader column in listView.Columns)
+            {
+                if (!string.IsNullOrWhiteSpace(column.Text) && column.Width > 0)
+                    widths[column.Text] = column.Width;
+            }
+
+            return widths;
+        }
+
+        private static Dictionary<string, int> GetGridColumnWidths(DataGridView grid)
+        {
+            var widths = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (DataGridViewColumn column in grid.Columns)
+            {
+                if (column.Visible && !string.IsNullOrWhiteSpace(column.Name) && column.Width > 0)
+                    widths[column.Name] = column.Width;
+            }
+
+            return widths;
+        }
+
+        private static Dictionary<string, int> NormalizeColumnWidths(IReadOnlyDictionary<string, int>? columnWidths)
+        {
+            var normalized = new Dictionary<string, int>(StringComparer.Ordinal);
+            if (columnWidths == null)
+                return normalized;
+
+            foreach (var pair in columnWidths)
+            {
+                string columnName = pair.Key?.Trim() ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(columnName) && pair.Value > 0)
+                    normalized[columnName] = pair.Value;
+            }
+
+            return normalized;
         }
 
         private static void ResizeRackListViewColumns(ListView listView)
         {
-            if (listView.Columns.Count < 5)
+            if (listView.Columns.Count < 6)
                 return;
 
             int availableWidth = Math.Max(520, listView.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 8);
             const int slotWidth = 56;
             const int roleWidth = 96;
             const int typeWidth = 150;
+            const int notesWidth = 240;
             const int checkWidth = 300;
-            int moduleWidth = Math.Max(220, availableWidth - slotWidth - roleWidth - typeWidth - checkWidth);
+            int moduleWidth = Math.Max(220, availableWidth - slotWidth - roleWidth - typeWidth - notesWidth - checkWidth);
 
             listView.Columns[0].Width = slotWidth;
             listView.Columns[1].Width = roleWidth;
             listView.Columns[2].Width = moduleWidth;
             listView.Columns[3].Width = typeWidth;
-            listView.Columns[4].Width = checkWidth;
+            listView.Columns[4].Width = notesWidth;
+            listView.Columns[5].Width = checkWidth;
         }
 
         private static Label CreateEmptyStateLabel(string text) =>

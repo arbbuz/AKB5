@@ -25,9 +25,9 @@ namespace AsutpKnowledgeBase
         private TextBox _txtComment = null!;
         private TextBox _txtInterfaceRows = null!;
         private TextBox _txtIpAddress = null!;
-        private DateTimePicker _dtpLastCalibration = null!;
-        private DateTimePicker _dtpNextCalibration = null!;
         private TextBox _txtNotes = null!;
+        private readonly DateTime? _existingLastCalibrationAt;
+        private readonly DateTime? _existingNextCalibrationAt;
 
         public KnowledgeBaseCompositionEntryDialog(
             string title,
@@ -36,6 +36,8 @@ namespace AsutpKnowledgeBase
         {
             _entryId = existingEntry?.EntryId?.Trim() ?? string.Empty;
             _catalogItems = catalogItems ?? Array.Empty<KbEquipmentCatalogItem>();
+            _existingLastCalibrationAt = existingEntry?.LastCalibrationAt;
+            _existingNextCalibrationAt = existingEntry?.NextCalibrationAt;
 
             Text = title;
             StartPosition = FormStartPosition.CenterParent;
@@ -43,7 +45,7 @@ namespace AsutpKnowledgeBase
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(700, 700);
+            ClientSize = new Size(700, 640);
             AppIconProvider.Apply(this);
 
             var layout = new TableLayoutPanel
@@ -51,11 +53,11 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Padding = new Padding(12),
                 ColumnCount = 2,
-                RowCount = 19
+                RowCount = 17
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            for (int rowIndex = 0; rowIndex < 18; rowIndex++)
+            for (int rowIndex = 0; rowIndex < 16; rowIndex++)
                 layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
@@ -197,14 +199,6 @@ namespace AsutpKnowledgeBase
             layout.Controls.Add(CreateLabel("IP-адрес"), 0, 15);
             layout.Controls.Add(_txtIpAddress, 1, 15);
 
-            _dtpLastCalibration = CreateDatePicker(existingEntry?.LastCalibrationAt);
-            layout.Controls.Add(CreateLabel("Последняя калибровка"), 0, 16);
-            layout.Controls.Add(_dtpLastCalibration, 1, 16);
-
-            _dtpNextCalibration = CreateDatePicker(existingEntry?.NextCalibrationAt);
-            layout.Controls.Add(CreateLabel("Следующая калибровка"), 0, 17);
-            layout.Controls.Add(_dtpNextCalibration, 1, 17);
-
             _txtNotes = new TextBox
             {
                 Dock = DockStyle.Fill,
@@ -213,8 +207,8 @@ namespace AsutpKnowledgeBase
                 Height = 120,
                 Text = existingEntry?.Notes ?? string.Empty
             };
-            layout.Controls.Add(CreateLabel("Примечание"), 0, 18);
-            layout.Controls.Add(_txtNotes, 1, 18);
+            layout.Controls.Add(CreateLabel("Примечание"), 0, 16);
+            layout.Controls.Add(_txtNotes, 1, 16);
 
             var buttonsPanel = new FlowLayoutPanel
             {
@@ -303,8 +297,8 @@ namespace AsutpKnowledgeBase
                 Comment = _txtComment.Text.Trim(),
                 InterfaceRows = _txtInterfaceRows.Text.Trim(),
                 IpAddress = _txtIpAddress.Text.Trim(),
-                LastCalibrationAt = _dtpLastCalibration.Checked ? _dtpLastCalibration.Value.Date : null,
-                NextCalibrationAt = _dtpNextCalibration.Checked ? _dtpNextCalibration.Value.Date : null,
+                LastCalibrationAt = _existingLastCalibrationAt,
+                NextCalibrationAt = _existingNextCalibrationAt,
                 Notes = _txtNotes.Text.Trim()
             };
 
@@ -392,29 +386,5 @@ namespace AsutpKnowledgeBase
                 Value = Math.Min(maximum, Math.Max(minimum, value))
             };
 
-        private static DateTimePicker CreateDatePicker(DateTime? value)
-        {
-            var picker = new DateTimePicker
-            {
-                Dock = DockStyle.Left,
-                Width = 160,
-                Format = DateTimePickerFormat.Custom,
-                CustomFormat = "yyyy-MM-dd",
-                ShowCheckBox = true
-            };
-
-            if (value.HasValue)
-            {
-                picker.Value = value.Value.Date;
-                picker.Checked = true;
-            }
-            else
-            {
-                picker.Value = DateTime.Today;
-                picker.Checked = false;
-            }
-
-            return picker;
-        }
     }
 }

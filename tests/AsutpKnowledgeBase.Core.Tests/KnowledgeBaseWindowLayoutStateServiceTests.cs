@@ -335,6 +335,87 @@ public class KnowledgeBaseWindowLayoutStateServiceTests
     }
 
     [Fact]
+    public void SaveAndLoad_RoundTripsColumnWidthsByView()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "window-layout-state.json");
+            var service = new KnowledgeBaseWindowLayoutStateService(path);
+
+            service.SaveColumnWidths(
+                "composition.rack-details",
+                new Dictionary<string, int>
+                {
+                    ["Slot"] = 70,
+                    ["Role"] = 90,
+                    ["Module"] = 260
+                });
+
+            Dictionary<string, int> widths = service.LoadColumnWidths("composition.rack-details");
+
+            Assert.Equal(70, widths["Slot"]);
+            Assert.Equal(90, widths["Role"]);
+            Assert.Equal(260, widths["Module"]);
+
+            using JsonDocument document = JsonDocument.Parse(File.ReadAllText(path));
+            JsonElement storedWidths = document.RootElement
+                .GetProperty("ColumnWidthsByView")
+                .GetProperty("composition.rack-details");
+            Assert.Equal(70, storedWidths.GetProperty("Slot").GetInt32());
+            Assert.Equal(90, storedWidths.GetProperty("Role").GetInt32());
+            Assert.Equal(260, storedWidths.GetProperty("Module").GetInt32());
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void SaveColumnWidths_PreservesExistingLayoutState()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "window-layout-state.json");
+            var service = new KnowledgeBaseWindowLayoutStateService(path);
+
+            service.SaveWindowPlacement(
+                new KnowledgeBaseWindowPlacement
+                {
+                    Left = 10,
+                    Top = 20,
+                    Width = 1024,
+                    Height = 768
+                });
+            service.SaveCompositionRackDetailsHeight(280);
+
+            service.SaveColumnWidths(
+                "composition.rack-slots",
+                new Dictionary<string, int>
+                {
+                    ["Slot"] = 64
+                });
+
+            var placement = service.LoadWindowPlacement();
+            Assert.NotNull(placement);
+            Assert.Equal(10, placement!.Left);
+            Assert.Equal(20, placement.Top);
+            Assert.Equal(1024, placement.Width);
+            Assert.Equal(768, placement.Height);
+            Assert.Equal(280, service.LoadCompositionRackDetailsHeight());
+            Assert.Equal(64, service.LoadColumnWidths("composition.rack-slots")["Slot"]);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void SaveEquipmentCatalogLayout_PreservesSelectionCatalogLayout()
     {
         string tempDirectory = CreateTempDirectory();
