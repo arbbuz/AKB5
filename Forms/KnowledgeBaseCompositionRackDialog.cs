@@ -12,15 +12,17 @@ namespace AsutpKnowledgeBase
         private NumericUpDown _numRackNumber = null!;
         private TextBox _txtRackType = null!;
         private TextBox _txtLabel = null!;
-        private TextBox _txtNetworkLink = null!;
-        private TextBox _txtNotes = null!;
         private Label _lblPreview = null!;
+        private readonly string _existingNetworkLink;
+        private readonly string _existingNotes;
 
         public KnowledgeBaseCompositionRackDialog(string title, KbCompositionRack draftRack)
         {
             _rackId = draftRack.RackId?.Trim() ?? string.Empty;
             _parentNodeId = draftRack.ParentNodeId?.Trim() ?? string.Empty;
             _sortOrder = draftRack.SortOrder;
+            _existingNetworkLink = draftRack.NetworkLink?.Trim() ?? string.Empty;
+            _existingNotes = draftRack.Notes?.Trim() ?? string.Empty;
 
             Text = title;
             StartPosition = FormStartPosition.CenterParent;
@@ -28,7 +30,7 @@ namespace AsutpKnowledgeBase
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(560, 330);
+            ClientSize = new Size(560, 210);
             AppIconProvider.Apply(this);
 
             var layout = new TableLayoutPanel
@@ -36,13 +38,12 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Padding = new Padding(12),
                 ColumnCount = 2,
-                RowCount = 6
+                RowCount = 4
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            for (int rowIndex = 0; rowIndex < 5; rowIndex++)
+            for (int rowIndex = 0; rowIndex < 4; rowIndex++)
                 layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
             _numRackNumber = new NumericUpDown
             {
@@ -66,10 +67,6 @@ namespace AsutpKnowledgeBase
             layout.Controls.Add(CreateLabel("Подпись"), 0, 2);
             layout.Controls.Add(_txtLabel, 1, 2);
 
-            _txtNetworkLink = CreateSingleLineTextBox(draftRack.NetworkLink);
-            layout.Controls.Add(CreateLabel("Сетевая связь"), 0, 3);
-            layout.Controls.Add(_txtNetworkLink, 1, 3);
-
             _lblPreview = new Label
             {
                 AutoSize = true,
@@ -77,18 +74,8 @@ namespace AsutpKnowledgeBase
                 ForeColor = Color.DimGray,
                 Margin = new Padding(0, 0, 0, 8)
             };
-            layout.Controls.Add(CreateLabel("Заголовок"), 0, 4);
-            layout.Controls.Add(_lblPreview, 1, 4);
-
-            _txtNotes = new TextBox
-            {
-                Dock = DockStyle.Fill,
-                Multiline = true,
-                ScrollBars = ScrollBars.Vertical,
-                Text = draftRack.Notes?.Trim() ?? string.Empty
-            };
-            layout.Controls.Add(CreateLabel("Примечание"), 0, 5);
-            layout.Controls.Add(_txtNotes, 1, 5);
+            layout.Controls.Add(CreateLabel("Заголовок"), 0, 3);
+            layout.Controls.Add(_lblPreview, 1, 3);
 
             var buttonsPanel = new FlowLayoutPanel
             {
@@ -145,8 +132,8 @@ namespace AsutpKnowledgeBase
                 SortOrder = _sortOrder,
                 RackType = rackType,
                 Label = _txtLabel.Text.Trim(),
-                NetworkLink = _txtNetworkLink.Text.Trim(),
-                Notes = _txtNotes.Text.Trim()
+                NetworkLink = _existingNetworkLink,
+                Notes = _existingNotes
             };
 
             DialogResult = DialogResult.OK;

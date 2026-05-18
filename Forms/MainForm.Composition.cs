@@ -99,7 +99,7 @@ namespace AsutpKnowledgeBase
                         selectedNodeCompositionScreen.SelectedSlotNumber),
                     PositionOrder = 0
                 },
-                "Добавить слот состава",
+                "Добавить слот",
                 "Позиция в слоте добавлена.");
         }
 

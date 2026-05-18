@@ -22,12 +22,12 @@ namespace AsutpKnowledgeBase
         private TextBox _txtMpiDpPnAddress = null!;
         private TextBox _txtInputAddress = null!;
         private TextBox _txtOutputAddress = null!;
-        private TextBox _txtComment = null!;
-        private TextBox _txtInterfaceRows = null!;
         private TextBox _txtIpAddress = null!;
-        private TextBox _txtNotes = null!;
         private readonly DateTime? _existingLastCalibrationAt;
         private readonly DateTime? _existingNextCalibrationAt;
+        private readonly string _existingComment;
+        private readonly string _existingInterfaceRows;
+        private readonly string _existingNotes;
 
         public KnowledgeBaseCompositionEntryDialog(
             string title,
@@ -38,6 +38,9 @@ namespace AsutpKnowledgeBase
             _catalogItems = catalogItems ?? Array.Empty<KbEquipmentCatalogItem>();
             _existingLastCalibrationAt = existingEntry?.LastCalibrationAt;
             _existingNextCalibrationAt = existingEntry?.NextCalibrationAt;
+            _existingComment = existingEntry?.Comment ?? string.Empty;
+            _existingInterfaceRows = existingEntry?.InterfaceRows ?? string.Empty;
+            _existingNotes = existingEntry?.Notes ?? string.Empty;
 
             Text = title;
             StartPosition = FormStartPosition.CenterParent;
@@ -45,7 +48,7 @@ namespace AsutpKnowledgeBase
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(700, 640);
+            ClientSize = new Size(700, 500);
             AppIconProvider.Apply(this);
 
             var layout = new TableLayoutPanel
@@ -53,13 +56,12 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Padding = new Padding(12),
                 ColumnCount = 2,
-                RowCount = 17
+                RowCount = 14
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            for (int rowIndex = 0; rowIndex < 16; rowIndex++)
+            for (int rowIndex = 0; rowIndex < 14; rowIndex++)
                 layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
             _cmbEntryKind = new ComboBox
             {
@@ -175,40 +177,13 @@ namespace AsutpKnowledgeBase
             layout.Controls.Add(CreateLabel("Q address"), 0, 12);
             layout.Controls.Add(_txtOutputAddress, 1, 12);
 
-            _txtComment = new TextBox
-            {
-                Dock = DockStyle.Fill,
-                Text = existingEntry?.Comment ?? string.Empty
-            };
-            layout.Controls.Add(CreateLabel("Comment"), 0, 13);
-            layout.Controls.Add(_txtComment, 1, 13);
-
-            _txtInterfaceRows = new TextBox
-            {
-                Dock = DockStyle.Fill,
-                Text = existingEntry?.InterfaceRows ?? string.Empty
-            };
-            layout.Controls.Add(CreateLabel("Интерфейсы"), 0, 14);
-            layout.Controls.Add(_txtInterfaceRows, 1, 14);
-
             _txtIpAddress = new TextBox
             {
                 Dock = DockStyle.Fill,
                 Text = existingEntry?.IpAddress ?? string.Empty
             };
-            layout.Controls.Add(CreateLabel("IP-адрес"), 0, 15);
-            layout.Controls.Add(_txtIpAddress, 1, 15);
-
-            _txtNotes = new TextBox
-            {
-                Dock = DockStyle.Fill,
-                Multiline = true,
-                ScrollBars = ScrollBars.Vertical,
-                Height = 120,
-                Text = existingEntry?.Notes ?? string.Empty
-            };
-            layout.Controls.Add(CreateLabel("Примечание"), 0, 16);
-            layout.Controls.Add(_txtNotes, 1, 16);
+            layout.Controls.Add(CreateLabel("IP-адрес"), 0, 13);
+            layout.Controls.Add(_txtIpAddress, 1, 13);
 
             var buttonsPanel = new FlowLayoutPanel
             {
@@ -260,10 +235,6 @@ namespace AsutpKnowledgeBase
             _txtComponentType.Text = item.EquipmentKind;
             _txtModel.Text = FormatCatalogModel(item);
             _txtOrderNumber.Text = item.Model?.Trim() ?? string.Empty;
-
-            string note = item.Description?.Trim() ?? string.Empty;
-            if (!string.IsNullOrWhiteSpace(note))
-                _txtNotes.Text = note;
         }
 
         private void BtnOk_Click(object? sender, EventArgs e)
@@ -294,12 +265,12 @@ namespace AsutpKnowledgeBase
                 MpiDpPnAddress = _txtMpiDpPnAddress.Text.Trim(),
                 InputAddress = _txtInputAddress.Text.Trim(),
                 OutputAddress = _txtOutputAddress.Text.Trim(),
-                Comment = _txtComment.Text.Trim(),
-                InterfaceRows = _txtInterfaceRows.Text.Trim(),
+                Comment = _existingComment,
+                InterfaceRows = _existingInterfaceRows,
                 IpAddress = _txtIpAddress.Text.Trim(),
                 LastCalibrationAt = _existingLastCalibrationAt,
                 NextCalibrationAt = _existingNextCalibrationAt,
-                Notes = _txtNotes.Text.Trim()
+                Notes = _existingNotes
             };
 
             DialogResult = DialogResult.OK;
