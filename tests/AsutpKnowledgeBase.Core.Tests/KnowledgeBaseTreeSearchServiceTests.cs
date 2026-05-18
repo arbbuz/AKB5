@@ -123,7 +123,7 @@ public class KnowledgeBaseTreeSearchServiceTests
         var matches = _service.FindMatches(
             fixture.Roots,
             CreateConfig(),
-            "2026-04-27",
+            "27.04.2026",
             KnowledgeBaseSearchScope.DocsAndSoftware,
             fixture.CompositionEntries,
             fixture.DocumentLinks,
@@ -133,7 +133,7 @@ public class KnowledgeBaseTreeSearchServiceTests
         Assert.Equal(KnowledgeBaseSearchDomain.DocsAndSoftware, match.Domain);
         Assert.Equal(KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware, match.PreferredTabKind);
         Assert.Equal("дата добавления ПО", match.MatchFieldLabel);
-        Assert.Equal("2026-04-27", match.MatchValue);
+        Assert.Equal("27.04.2026", match.MatchValue);
         Assert.Equal("Шкаф АВР", match.Node.Name);
     }
 

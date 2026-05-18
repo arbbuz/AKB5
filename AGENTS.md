@@ -100,7 +100,6 @@ Publish:
 ## Git branch workflow
 
 - `main` is the stable branch. Do not use it as the default working branch for ordinary task implementation.
-- `to` is the current active integration branch for the typed-workspace and maintenance-planning roadmap work tracked in `docs/codex-handoff.md` and `Roadmap.md`.
 - For tasks that continue the current roadmap stream, stay on `to` unless the user explicitly redirects the work to another branch.
 - Only when the user explicitly asks to "push to main" should Codex prepare a PR or handoff from the active working branch to `main`.
 - Do not push task branches directly to `main` unless the user explicitly overrides this workflow.

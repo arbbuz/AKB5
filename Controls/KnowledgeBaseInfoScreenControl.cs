@@ -255,7 +255,7 @@ namespace AsutpKnowledgeBase
                 WrapContents = false,
                 Margin = new Padding(0)
             };
-            _btnBrowsePhoto = new Button { Text = "Выбрать фото...", AutoSize = true };
+            _btnBrowsePhoto = new Button { Text = "Выбрать фото", AutoSize = true };
             _btnBrowsePhoto.Click += (_, _) => BrowsePhotoRequested?.Invoke(this, EventArgs.Empty);
             _btnOpenPhoto = new Button { Text = "Открыть фото", AutoSize = true, Enabled = false };
             _btnOpenPhoto.Click += (_, _) => OpenPhotoRequested?.Invoke(this, EventArgs.Empty);

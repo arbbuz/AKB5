@@ -81,15 +81,15 @@ namespace AsutpKnowledgeBase
                 Margin = new Padding(0, 0, 0, 12)
             };
 
-            _btnAddScheme = CreateActionButton("Добавить схему...");
+            _btnAddScheme = CreateActionButton("Добавить схему");
             _btnAddScheme.Click += (_, _) => AddSchemeRequested?.Invoke(this, EventArgs.Empty);
-            _btnAddDocument = CreateActionButton("Добавить инструкцию...");
+            _btnAddDocument = CreateActionButton("Добавить инструкцию");
             _btnAddDocument.Click += (_, _) => AddDocumentRequested?.Invoke(this, EventArgs.Empty);
-            _btnAddSoftware = CreateActionButton("Добавить ПО...");
+            _btnAddSoftware = CreateActionButton("Добавить ПО");
             _btnAddSoftware.Click += (_, _) => AddSoftwareRequested?.Invoke(this, EventArgs.Empty);
             _btnOpenSelected = CreateActionButton("Открыть");
             _btnOpenSelected.Click += (_, _) => OpenSelectedRequested?.Invoke(this, EventArgs.Empty);
-            _btnEditSelected = CreateActionButton("Изменить...");
+            _btnEditSelected = CreateActionButton("Изменить");
             _btnEditSelected.Click += (_, _) => EditSelectedRequested?.Invoke(this, EventArgs.Empty);
             _btnDeleteSelected = CreateActionButton("Удалить");
             _btnDeleteSelected.Click += (_, _) => DeleteSelectedRequested?.Invoke(this, EventArgs.Empty);

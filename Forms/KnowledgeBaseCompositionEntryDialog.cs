@@ -75,7 +75,7 @@ namespace AsutpKnowledgeBase
 
             var btnSelectFromCatalog = new Button
             {
-                Text = "Выбрать из каталога...",
+                Text = "Выбрать из каталога",
                 AutoSize = true,
                 Enabled = _catalogItems.Count > 0,
                 Margin = new Padding(0, 0, 0, 8)

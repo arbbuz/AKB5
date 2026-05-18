@@ -79,7 +79,7 @@ public class KnowledgeBaseDocsAndSoftwareMutationServiceTests
         Assert.Equal("software-1", record.SoftwareId);
         Assert.Equal("PLC Backup v2", record.Title);
         Assert.Equal("\\\\srv\\backup\\plc-new.zip", record.Path);
-        Assert.Equal(new DateTime(2026, 4, 1), record.AddedAt);
+        Assert.Equal(new DateTime(2026, 4, 25), record.AddedAt);
         Assert.Equal(new DateTime(2026, 4, 10), record.LastChangedAt);
         Assert.Equal(new DateTime(2026, 4, 11), record.LastBackupAt);
         Assert.Equal("nightly", record.Notes);

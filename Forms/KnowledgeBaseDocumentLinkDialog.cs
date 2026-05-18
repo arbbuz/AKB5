@@ -25,8 +25,17 @@ namespace AsutpKnowledgeBase
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(620, 210);
+            ClientSize = new Size(660, 220);
             AppIconProvider.Apply(this);
+
+            var rootLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2
+            };
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             var layout = new TableLayoutPanel
             {
@@ -54,8 +63,31 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Text = existingLink?.Path ?? string.Empty
             };
+            var pathPanel = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 2,
+                RowCount = 1,
+                Margin = new Padding(0, 0, 0, 8)
+            };
+            pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            pathPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            pathPanel.Controls.Add(_txtPath, 0, 0);
+
+            var btnBrowse = new Button
+            {
+                Text = "Выбрать файл",
+                AutoSize = true,
+                Margin = new Padding(8, 0, 0, 0)
+            };
+            btnBrowse.Click += BtnBrowse_Click;
+            pathPanel.Controls.Add(btnBrowse, 1, 0);
+
             layout.Controls.Add(CreateLabel("Ссылка / путь"), 0, 1);
-            layout.Controls.Add(_txtPath, 1, 1);
+            layout.Controls.Add(pathPanel, 1, 1);
 
             _dtpUpdatedAt = CreateDatePicker(existingLink?.UpdatedAt);
             layout.Controls.Add(CreateLabel("Дата обновления"), 0, 2);
@@ -86,14 +118,34 @@ namespace AsutpKnowledgeBase
             buttonsPanel.Controls.Add(btnCancel);
             buttonsPanel.Controls.Add(btnOk);
 
-            Controls.Add(layout);
-            Controls.Add(buttonsPanel);
+            rootLayout.Controls.Add(layout, 0, 0);
+            rootLayout.Controls.Add(buttonsPanel, 0, 1);
+            Controls.Add(rootLayout);
 
             AcceptButton = btnOk;
             CancelButton = btnCancel;
         }
 
         public KbDocumentLink Result { get; private set; } = new();
+
+        private void BtnBrowse_Click(object? sender, EventArgs e)
+        {
+            using var dialog = new OpenFileDialog
+            {
+                Title = _kind == KbDocumentKind.SchemeLink
+                    ? "Выберите файл схемы"
+                    : "Выберите файл инструкции",
+                CheckFileExists = true,
+                Filter = "Все файлы (*.*)|*.*"
+            };
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            _txtPath.Text = dialog.FileName;
+            if (string.IsNullOrWhiteSpace(_txtTitle.Text))
+                _txtTitle.Text = System.IO.Path.GetFileNameWithoutExtension(dialog.FileName);
+        }
 
         private void BtnOk_Click(object? sender, EventArgs e)
         {
@@ -127,7 +179,7 @@ namespace AsutpKnowledgeBase
                 Kind = _kind,
                 Title = title,
                 Path = path,
-                UpdatedAt = _dtpUpdatedAt.Checked ? _dtpUpdatedAt.Value.Date : null
+                UpdatedAt = _dtpUpdatedAt.Value.Date
             };
 
             DialogResult = DialogResult.OK;
@@ -148,22 +200,16 @@ namespace AsutpKnowledgeBase
             var picker = new DateTimePicker
             {
                 Dock = DockStyle.Left,
-                Width = 160,
+                Width = 120,
                 Format = DateTimePickerFormat.Custom,
-                CustomFormat = "yyyy-MM-dd",
-                ShowCheckBox = true
+                CustomFormat = "dd.MM.yyyy",
+                Margin = new Padding(0, 0, 0, 8)
             };
 
             if (value.HasValue)
-            {
                 picker.Value = value.Value.Date;
-                picker.Checked = true;
-            }
             else
-            {
                 picker.Value = DateTime.Today;
-                picker.Checked = false;
-            }
 
             return picker;
         }

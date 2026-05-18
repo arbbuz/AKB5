@@ -52,13 +52,13 @@ namespace AsutpKnowledgeBase
             _btnAddRack = CreateSquareActionButton("+");
             _toolTip.SetToolTip(_btnAddRack, "Добавить Rack");
             _btnAddRack.Click += (_, _) => AddRackRequested?.Invoke(this, EventArgs.Empty);
-            _btnEditRack = CreateActionButton("Изменить Rack...");
+            _btnEditRack = CreateActionButton("Изменить Rack");
             _btnEditRack.Click += (_, _) => EditRackRequested?.Invoke(this, EventArgs.Empty);
             _btnDeleteRack = CreateActionButton("Удалить Rack");
             _btnDeleteRack.Click += (_, _) => DeleteRackRequested?.Invoke(this, EventArgs.Empty);
-            _btnAddSlotted = CreateActionButton("Добавить слот...");
+            _btnAddSlotted = CreateActionButton("Добавить слот");
             _btnAddSlotted.Click += (_, _) => AddSlottedRequested?.Invoke(this, EventArgs.Empty);
-            _btnCopyFromExisting = CreateActionButton("Копировать из объекта...");
+            _btnCopyFromExisting = CreateActionButton("Копировать из объекта");
             _btnCopyFromExisting.Click += (_, _) => CopyFromExistingRequested?.Invoke(this, EventArgs.Empty);
 
             actionsPanel.Controls.Add(_btnAddRack);

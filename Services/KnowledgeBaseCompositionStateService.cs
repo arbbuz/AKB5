@@ -494,7 +494,7 @@ namespace AsutpKnowledgeBase.Services
 
         private static string FormatDate(DateTime? value) =>
             value.HasValue
-                ? value.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+                ? value.Value.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture)
                 : "-";
     }
 }

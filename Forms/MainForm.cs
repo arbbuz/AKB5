@@ -752,11 +752,11 @@ namespace AsutpKnowledgeBase
                 return;
 
             ctxCreateObjectFromTemplate = new ToolStripMenuItem(
-                "Создать объект из шаблона...",
+                "Создать объект из шаблона",
                 null,
                 (s, e) => CreateObjectFromTemplate());
             ctxSaveObjectAsTemplate = new ToolStripMenuItem(
-                "Сохранить как шаблон объекта...",
+                "Сохранить как шаблон объекта",
                 null,
                 (s, e) => SaveObjectAsTemplate());
             ctxTemplates.DropDownItems.AddRange(new ToolStripItem[]

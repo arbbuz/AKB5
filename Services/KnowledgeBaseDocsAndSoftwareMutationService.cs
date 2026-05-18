@@ -135,7 +135,7 @@ namespace AsutpKnowledgeBase.Services
                 OwnerNodeId = ownerNodeId,
                 Title = title,
                 Path = path,
-                AddedAt = existingRecord?.AddedAt?.Date ?? draftRecord.AddedAt?.Date ?? DateTime.Today.Date,
+                AddedAt = draftRecord.AddedAt?.Date ?? existingRecord?.AddedAt?.Date ?? DateTime.Today.Date,
                 LastChangedAt = existingRecord?.LastChangedAt?.Date ?? draftRecord.LastChangedAt?.Date,
                 LastBackupAt = existingRecord?.LastBackupAt?.Date ?? draftRecord.LastBackupAt?.Date,
                 Notes = existingRecord?.Notes ?? draftRecord.Notes?.Trim() ?? string.Empty

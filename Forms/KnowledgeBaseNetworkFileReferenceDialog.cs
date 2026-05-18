@@ -26,6 +26,15 @@ namespace AsutpKnowledgeBase
             ClientSize = new Size(720, 220);
             AppIconProvider.Apply(this);
 
+            var rootLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2
+            };
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
             var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -50,12 +59,15 @@ namespace AsutpKnowledgeBase
             var pathPanel = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 ColumnCount = 2,
                 RowCount = 1,
                 Margin = new Padding(0)
             };
             pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            pathPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             _txtPath = new TextBox
             {
@@ -67,7 +79,7 @@ namespace AsutpKnowledgeBase
 
             var btnBrowse = new Button
             {
-                Text = "Выбрать файл...",
+                Text = "Выбрать файл",
                 AutoSize = true,
                 Margin = new Padding(8, 0, 0, 0)
             };
@@ -112,8 +124,9 @@ namespace AsutpKnowledgeBase
             buttonsPanel.Controls.Add(btnCancel);
             buttonsPanel.Controls.Add(btnOk);
 
-            Controls.Add(layout);
-            Controls.Add(buttonsPanel);
+            rootLayout.Controls.Add(layout, 0, 0);
+            rootLayout.Controls.Add(buttonsPanel, 0, 1);
+            Controls.Add(rootLayout);
 
             AcceptButton = btnOk;
             CancelButton = btnCancel;

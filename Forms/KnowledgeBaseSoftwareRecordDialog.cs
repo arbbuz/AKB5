@@ -1,4 +1,3 @@
-using System.Globalization;
 using AsutpKnowledgeBase.Models;
 
 namespace AsutpKnowledgeBase
@@ -6,16 +5,13 @@ namespace AsutpKnowledgeBase
     public sealed class KnowledgeBaseSoftwareRecordDialog : Form
     {
         private readonly string _softwareId;
-        private readonly DateTime _addedAt;
-
         private TextBox _txtTitle = null!;
         private TextBox _txtPath = null!;
-        private TextBox _txtAddedAt = null!;
+        private DateTimePicker _dtpAddedAt = null!;
 
         public KnowledgeBaseSoftwareRecordDialog(string title, KbSoftwareRecord? existingRecord = null)
         {
             _softwareId = existingRecord?.SoftwareId?.Trim() ?? string.Empty;
-            _addedAt = (existingRecord?.AddedAt ?? DateTime.Today).Date;
 
             Text = title;
             StartPosition = FormStartPosition.CenterParent;
@@ -23,8 +19,17 @@ namespace AsutpKnowledgeBase
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(620, 210);
+            ClientSize = new Size(660, 220);
             AppIconProvider.Apply(this);
+
+            var rootLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2
+            };
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             var layout = new TableLayoutPanel
             {
@@ -52,19 +57,35 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Text = existingRecord?.Path ?? string.Empty
             };
-            layout.Controls.Add(CreateLabel("Ссылка / путь к папке"), 0, 1);
-            layout.Controls.Add(_txtPath, 1, 1);
-
-            _txtAddedAt = new TextBox
+            var pathPanel = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                ReadOnly = true,
-                BorderStyle = BorderStyle.FixedSingle,
-                BackColor = Color.White,
-                Text = _addedAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 2,
+                RowCount = 1,
+                Margin = new Padding(0, 0, 0, 8)
             };
+            pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            pathPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            pathPanel.Controls.Add(_txtPath, 0, 0);
+
+            var btnBrowse = new Button
+            {
+                Text = "Выбрать папку",
+                AutoSize = true,
+                Margin = new Padding(8, 0, 0, 0)
+            };
+            btnBrowse.Click += BtnBrowse_Click;
+            pathPanel.Controls.Add(btnBrowse, 1, 0);
+
+            layout.Controls.Add(CreateLabel("Ссылка / путь к папке"), 0, 1);
+            layout.Controls.Add(pathPanel, 1, 1);
+
+            _dtpAddedAt = CreateDatePicker(existingRecord?.AddedAt);
             layout.Controls.Add(CreateLabel("Дата добавления"), 0, 2);
-            layout.Controls.Add(_txtAddedAt, 1, 2);
+            layout.Controls.Add(_dtpAddedAt, 1, 2);
 
             var buttonsPanel = new FlowLayoutPanel
             {
@@ -91,14 +112,31 @@ namespace AsutpKnowledgeBase
             buttonsPanel.Controls.Add(btnCancel);
             buttonsPanel.Controls.Add(btnOk);
 
-            Controls.Add(layout);
-            Controls.Add(buttonsPanel);
+            rootLayout.Controls.Add(layout, 0, 0);
+            rootLayout.Controls.Add(buttonsPanel, 0, 1);
+            Controls.Add(rootLayout);
 
             AcceptButton = btnOk;
             CancelButton = btnCancel;
         }
 
         public KbSoftwareRecord Result { get; private set; } = new();
+
+        private void BtnBrowse_Click(object? sender, EventArgs e)
+        {
+            using var dialog = new FolderBrowserDialog
+            {
+                Description = "Выберите папку с ПО",
+                SelectedPath = Directory.Exists(_txtPath.Text.Trim()) ? _txtPath.Text.Trim() : string.Empty
+            };
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            _txtPath.Text = dialog.SelectedPath;
+            if (string.IsNullOrWhiteSpace(_txtTitle.Text))
+                _txtTitle.Text = new DirectoryInfo(dialog.SelectedPath).Name;
+        }
 
         private void BtnOk_Click(object? sender, EventArgs e)
         {
@@ -131,7 +169,7 @@ namespace AsutpKnowledgeBase
                 SoftwareId = _softwareId,
                 Title = title,
                 Path = path,
-                AddedAt = _addedAt
+                AddedAt = _dtpAddedAt.Value.Date
             };
 
             DialogResult = DialogResult.OK;
@@ -146,5 +184,20 @@ namespace AsutpKnowledgeBase
                 TextAlign = ContentAlignment.MiddleLeft,
                 Margin = new Padding(0, 0, 8, 8)
             };
+
+        private static DateTimePicker CreateDatePicker(DateTime? value)
+        {
+            var picker = new DateTimePicker
+            {
+                Dock = DockStyle.Left,
+                Width = 120,
+                Format = DateTimePickerFormat.Custom,
+                CustomFormat = "dd.MM.yyyy",
+                Margin = new Padding(0, 0, 0, 8)
+            };
+
+            picker.Value = (value ?? DateTime.Today).Date;
+            return picker;
+        }
     }
 }

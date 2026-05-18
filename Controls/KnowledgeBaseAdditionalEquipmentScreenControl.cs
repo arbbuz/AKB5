@@ -60,9 +60,9 @@ namespace AsutpKnowledgeBase
                 Margin = new Padding(0, 0, 0, 12)
             };
 
-            _btnAdd = CreateActionButton("Добавить доп. оборудование...");
+            _btnAdd = CreateActionButton("Добавить доп. оборудование");
             _btnAdd.Click += (_, _) => AddRequested?.Invoke(this, EventArgs.Empty);
-            _btnEditSelected = CreateActionButton("Изменить...");
+            _btnEditSelected = CreateActionButton("Изменить");
             _btnEditSelected.Click += (_, _) => EditSelectedRequested?.Invoke(this, EventArgs.Empty);
             _btnDeleteSelected = CreateActionButton("Удалить");
             _btnDeleteSelected.Click += (_, _) => DeleteSelectedRequested?.Invoke(this, EventArgs.Empty);

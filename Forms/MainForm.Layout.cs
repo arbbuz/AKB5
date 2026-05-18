@@ -44,32 +44,32 @@ namespace AsutpKnowledgeBase
             menuNewWorkshop = new ToolStripMenuItem("🏭 Новый цех", null, BtnAddWorkshop_Click);
             menuDeleteWorkshop = new ToolStripMenuItem("🗑 Удалить цех", null, BtnDeleteWorkshop_Click);
             menuRenameWorkshop = new ToolStripMenuItem("✏️ Переименовать цех", null, BtnRenameWorkshop_Click);
-            menuEditEquipmentCatalog = new ToolStripMenuItem("📚 Каталог оборудования...", null, EditEquipmentCatalog);
-            menuExportCatalogTemplates = new ToolStripMenuItem("📤 Экспорт справочников и шаблонов...", null, ExportCatalogTemplates);
-            menuImportCatalogTemplates = new ToolStripMenuItem("📥 Импорт справочников и шаблонов...", null, ImportCatalogTemplates);
-            menuExportDatabaseJson = new ToolStripMenuItem("📤 Экспорт текущей базы в JSON...", null, ExportDatabaseJson);
-            menuImportDatabaseJson = new ToolStripMenuItem("📥 Заменить текущую базу из JSON...", null, ImportDatabaseJson);
-            var menuOpenDb = new ToolStripMenuItem("📂 Открыть базу...", null, BtnOpen_Click);
-            var menuReloadDb = new ToolStripMenuItem("🔄 Перезагрузить текущую базу из файла...", null, BtnLoad_Click);
-            var menuSaveAs = new ToolStripMenuItem("💾 Сохранить как...", null, BtnSaveAs_Click);
-            menuCreateSnapshot = new ToolStripMenuItem("Создать снимок базы...", null, BtnCreateSnapshot_Click);
-            menuBrowseSnapshots = new ToolStripMenuItem("Просмотреть снимки базы...", null, BtnBrowseSnapshots_Click);
-            menuRestoreSnapshot = new ToolStripMenuItem("Восстановить из снимка...", null, BtnRestoreSnapshot_Click);
-            menuCompareSnapshots = new ToolStripMenuItem("Сравнить снимки...", null, BtnCompareSnapshots_Click);
-            menuBrowseChangeHistory = new ToolStripMenuItem("История изменений...", null, BtnBrowseChangeHistory_Click);
-            menuSnapshotsAndHistory = new ToolStripMenuItem("Снимки и история базы...", null, BtnBrowseSnapshotsAndHistory_Click);
-            menuImportMaintenanceNorms = new ToolStripMenuItem("📥 Импорт норм ТО...", null, ImportMaintenanceScheduleNorms);
-            menuExportMaintenanceYearScheduleSource = new ToolStripMenuItem("📤 Экспорт плана ТО по месяцам...", null, ExportMaintenanceYearScheduleSource);
-            menuImportMaintenanceYearScheduleSource = new ToolStripMenuItem("📥 Импорт плана ТО по месяцам...", null, ImportMaintenanceYearScheduleSource);
-            menuEditProductionCalendar = new ToolStripMenuItem("🗓 Производственный календарь...", null, EditProductionCalendar);
-            menuImportProductionCalendarPdf = new ToolStripMenuItem("📥 Импорт производственного календаря PDF...", null, ImportProductionCalendarPdf);
-            menuImportProductionCalendar = new ToolStripMenuItem("📥 Импорт производственного календаря JSON...", null, ImportProductionCalendar);
-            menuExportMaintenanceMonthWorkbook = new ToolStripMenuItem("🗓 Сформировать график ТО на месяц...", null, ExportMaintenanceMonthWorkbook);
-            menuExportMaintenanceYearWorkbook = new ToolStripMenuItem("🗓 Сформировать годовой график ТО...", null, ExportMaintenanceYearWorkbook);
-            menuExportMaintenanceYearMonthlyWorkbook = new ToolStripMenuItem("🗓 Сформировать график ТО помесячно...", null, ExportMaintenanceYearMonthlyWorkbook);
-            menuRecalculateMaintenanceYearWorkbook = new ToolStripMenuItem("🗓 Пересчитать график ТО до конца года...", null, RecalculateMaintenanceYearWorkbookToDecember);
+            menuEditEquipmentCatalog = new ToolStripMenuItem("📚 Каталог оборудования", null, EditEquipmentCatalog);
+            menuExportCatalogTemplates = new ToolStripMenuItem("📤 Экспорт справочников и шаблонов", null, ExportCatalogTemplates);
+            menuImportCatalogTemplates = new ToolStripMenuItem("📥 Импорт справочников и шаблонов", null, ImportCatalogTemplates);
+            menuExportDatabaseJson = new ToolStripMenuItem("📤 Экспорт текущей базы в JSON", null, ExportDatabaseJson);
+            menuImportDatabaseJson = new ToolStripMenuItem("📥 Заменить текущую базу из JSON", null, ImportDatabaseJson);
+            var menuOpenDb = new ToolStripMenuItem("📂 Открыть базу", null, BtnOpen_Click);
+            var menuReloadDb = new ToolStripMenuItem("🔄 Перезагрузить текущую базу из файла", null, BtnLoad_Click);
+            var menuSaveAs = new ToolStripMenuItem("💾 Сохранить как", null, BtnSaveAs_Click);
+            menuCreateSnapshot = new ToolStripMenuItem("Создать снимок базы", null, BtnCreateSnapshot_Click);
+            menuBrowseSnapshots = new ToolStripMenuItem("Просмотреть снимки базы", null, BtnBrowseSnapshots_Click);
+            menuRestoreSnapshot = new ToolStripMenuItem("Восстановить из снимка", null, BtnRestoreSnapshot_Click);
+            menuCompareSnapshots = new ToolStripMenuItem("Сравнить снимки", null, BtnCompareSnapshots_Click);
+            menuBrowseChangeHistory = new ToolStripMenuItem("История изменений", null, BtnBrowseChangeHistory_Click);
+            menuSnapshotsAndHistory = new ToolStripMenuItem("Снимки и история базы", null, BtnBrowseSnapshotsAndHistory_Click);
+            menuImportMaintenanceNorms = new ToolStripMenuItem("📥 Импорт норм ТО", null, ImportMaintenanceScheduleNorms);
+            menuExportMaintenanceYearScheduleSource = new ToolStripMenuItem("📤 Экспорт плана ТО по месяцам", null, ExportMaintenanceYearScheduleSource);
+            menuImportMaintenanceYearScheduleSource = new ToolStripMenuItem("📥 Импорт плана ТО по месяцам", null, ImportMaintenanceYearScheduleSource);
+            menuEditProductionCalendar = new ToolStripMenuItem("🗓 Производственный календарь", null, EditProductionCalendar);
+            menuImportProductionCalendarPdf = new ToolStripMenuItem("📥 Импорт производственного календаря PDF", null, ImportProductionCalendarPdf);
+            menuImportProductionCalendar = new ToolStripMenuItem("📥 Импорт производственного календаря JSON", null, ImportProductionCalendar);
+            menuExportMaintenanceMonthWorkbook = new ToolStripMenuItem("🗓 Сформировать график ТО на месяц", null, ExportMaintenanceMonthWorkbook);
+            menuExportMaintenanceYearWorkbook = new ToolStripMenuItem("🗓 Сформировать годовой график ТО", null, ExportMaintenanceYearWorkbook);
+            menuExportMaintenanceYearMonthlyWorkbook = new ToolStripMenuItem("🗓 Сформировать график ТО помесячно", null, ExportMaintenanceYearMonthlyWorkbook);
+            menuRecalculateMaintenanceYearWorkbook = new ToolStripMenuItem("🗓 Пересчитать график ТО до конца года", null, RecalculateMaintenanceYearWorkbookToDecember);
 
-            menuEditMaintenanceYearScheduleSource = new ToolStripMenuItem("✏️ План ТО по месяцам...", null, EditMaintenanceYearScheduleSource);
+            menuEditMaintenanceYearScheduleSource = new ToolStripMenuItem("✏️ План ТО по месяцам", null, EditMaintenanceYearScheduleSource);
 
             menuFile.DropDownItems.AddRange(new ToolStripItem[]
             {
@@ -491,16 +491,16 @@ namespace AsutpKnowledgeBase
 
             ctxAdd = new ToolStripMenuItem("➕ Добавить отдел", null, (s, e) => AddNode());
             ctxCreateObjectFromCatalogAtRoot = new ToolStripMenuItem(
-                "Создать объект из каталога...",
+                "Создать объект из каталога",
                 null,
                 (s, e) => CreateObjectFromCatalog());
             ctxCreateObjectFromTemplateAtRoot = new ToolStripMenuItem(
-                "Создать объект из шаблона...",
+                "Создать объект из шаблона",
                 null,
                 (s, e) => CreateObjectFromTemplate());
             ctxAddChild = new ToolStripMenuItem("↳ Добавить сюда", null, (s, e) => AddChildNode());
             ctxCreateObjectFromCatalog = new ToolStripMenuItem(
-                "Создать объект из каталога...",
+                "Создать объект из каталога",
                 null,
                 (s, e) => CreateObjectFromCatalog());
             ctxTemplates = new ToolStripMenuItem("Шаблоны");

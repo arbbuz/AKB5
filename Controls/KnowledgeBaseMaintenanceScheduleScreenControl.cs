@@ -61,7 +61,7 @@ namespace AsutpKnowledgeBase
                 Margin = new Padding(0, 0, 0, 12)
             };
 
-            _btnConfigure = CreateActionButton("Настроить...");
+            _btnConfigure = CreateActionButton("Настроить");
             _btnConfigure.Click += (_, _) => ConfigureRequested?.Invoke(this, EventArgs.Empty);
 
             _btnDelete = CreateActionButton("Удалить профиль");
