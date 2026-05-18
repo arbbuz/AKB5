@@ -43,6 +43,38 @@ public class KnowledgeBaseMaintenanceYearScheduleSourceServiceTests
     }
 
     [Fact]
+    public void BuildRows_OrdersSystemsByMaintenanceWorkbookTemplateAndAppendsNewSystems()
+    {
+        var roots = new[]
+        {
+            new KbNode
+            {
+                NodeId = "department-1",
+                Name = "Цех",
+                NodeType = KbNodeType.Department,
+                Children =
+                {
+                    CreateSystem("new-system", "Новая система дозирования", "NEW-001", "new-device"),
+                    CreateSystem("system-24", "АСУ упаковочной машины FFS ITB3P-500 CHMM", "75840", "last-device"),
+                    CreateSystem("system-1", "Система контроля и регулирования технологических параметров АКТ", "65526", "first-device")
+                }
+            }
+        };
+
+        List<KnowledgeBaseMaintenanceYearScheduleSourceRow> rows = _service.BuildRows(
+            roots,
+            new[]
+            {
+                new KbMaintenanceScheduleProfile { OwnerNodeId = "new-device", IsIncludedInSchedule = true },
+                new KbMaintenanceScheduleProfile { OwnerNodeId = "last-device", IsIncludedInSchedule = true },
+                new KbMaintenanceScheduleProfile { OwnerNodeId = "first-device", IsIncludedInSchedule = true }
+            });
+
+        Assert.Equal(new[] { "first-device", "last-device", "new-device" }, rows.Select(static row => row.OwnerNodeId).ToArray());
+        Assert.Equal(new[] { 1, 24, 25 }, rows.Select(static row => row.SequenceNumber).ToArray());
+    }
+
+    [Fact]
     public void ApplyRows_UpdatesOnlyYearScheduleEntriesAndPreservesOtherProfileData()
     {
         KnowledgeBaseMaintenanceYearScheduleSourceApplyResult result = _service.ApplyRows(
@@ -232,4 +264,22 @@ public class KnowledgeBaseMaintenanceYearScheduleSourceServiceTests
             }
         };
     }
+
+    private static KbNode CreateSystem(string nodeId, string name, string inventoryNumber, string childNodeId) =>
+        new()
+        {
+            NodeId = nodeId,
+            Name = name,
+            NodeType = KbNodeType.System,
+            Details = new KbNodeDetails { InventoryNumber = inventoryNumber },
+            Children =
+            {
+                new KbNode
+                {
+                    NodeId = childNodeId,
+                    Name = $"Шкаф {name}",
+                    NodeType = KbNodeType.Cabinet
+                }
+            }
+        };
 }

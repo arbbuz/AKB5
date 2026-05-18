@@ -12,6 +12,16 @@ namespace AsutpKnowledgeBase.Services
 
         public string InventoryNumber { get; init; } = string.Empty;
 
+        public int SequenceNumber { get; init; }
+
+        public string SystemNodeId { get; init; } = string.Empty;
+
+        public string SystemName { get; init; } = string.Empty;
+
+        public string SystemInventoryNumber { get; init; } = string.Empty;
+
+        public int SystemTreeOrder { get; init; }
+
         public bool IsIncludedInSchedule { get; init; }
 
         public List<KbMaintenanceYearScheduleEntry> YearScheduleEntries { get; init; } = new();
@@ -44,6 +54,14 @@ namespace AsutpKnowledgeBase.Services
 
     public sealed class KnowledgeBaseMaintenanceYearScheduleSourceService
     {
+        private readonly KnowledgeBaseMaintenanceSystemOrderService _systemOrderService;
+
+        public KnowledgeBaseMaintenanceYearScheduleSourceService(
+            KnowledgeBaseMaintenanceSystemOrderService? systemOrderService = null)
+        {
+            _systemOrderService = systemOrderService ?? new KnowledgeBaseMaintenanceSystemOrderService();
+        }
+
         public List<KnowledgeBaseMaintenanceYearScheduleSourceRow> BuildRows(
             IReadOnlyList<KbNode>? roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
@@ -76,13 +94,17 @@ namespace AsutpKnowledgeBase.Services
                     Path = context.Path,
                     NodeName = context.NodeName,
                     InventoryNumber = context.InventoryNumber,
+                    SystemNodeId = context.SystemNodeId,
+                    SystemName = context.SystemName,
+                    SystemInventoryNumber = context.SystemInventoryNumber,
+                    SystemTreeOrder = context.SystemTreeOrder,
                     IsIncludedInSchedule = profile.IsIncludedInSchedule,
                     YearScheduleEntries = CloneYearScheduleEntries(profile.YearScheduleEntries),
                     TreeOrder = context.TreeOrder
                 });
             }
 
-            return rows;
+            return OrderRowsByMaintenanceSystem(rows);
         }
 
         public KnowledgeBaseMaintenanceYearScheduleSourceApplyResult ApplyRows(
@@ -270,12 +292,92 @@ namespace AsutpKnowledgeBase.Services
             return true;
         }
 
+        private List<KnowledgeBaseMaintenanceYearScheduleSourceRow> OrderRowsByMaintenanceSystem(
+            IReadOnlyList<KnowledgeBaseMaintenanceYearScheduleSourceRow> rows)
+        {
+            if (rows.Count == 0)
+                return new List<KnowledgeBaseMaintenanceYearScheduleSourceRow>();
+
+            IReadOnlyList<KnowledgeBaseMaintenanceSystemOrderEntry> templateOrder = _systemOrderService.GetAnnualTemplateOrder();
+            int nextAppendedSequenceNumber = _systemOrderService.GetNextAppendedSequenceNumber(templateOrder);
+            var appendedSequenceBySystemKey = new Dictionary<string, int>(StringComparer.Ordinal);
+
+            foreach (KnowledgeBaseMaintenanceYearScheduleSourceRow row in rows
+                         .OrderBy(static row => row.SystemTreeOrder)
+                         .ThenBy(static row => row.TreeOrder))
+            {
+                if (ResolveTemplateSystemEntry(templateOrder, row) != null)
+                    continue;
+
+                string systemKey = BuildRowSystemKey(row);
+                if (!appendedSequenceBySystemKey.ContainsKey(systemKey))
+                    appendedSequenceBySystemKey.Add(systemKey, nextAppendedSequenceNumber++);
+            }
+
+            return rows
+                .Select((row, index) =>
+                {
+                    KnowledgeBaseMaintenanceSystemOrderEntry? templateEntry = ResolveTemplateSystemEntry(templateOrder, row);
+                    int sequenceNumber = templateEntry?.SequenceNumber ?? appendedSequenceBySystemKey[BuildRowSystemKey(row)];
+                    int rank = templateEntry?.Rank ?? int.MaxValue;
+                    return new
+                    {
+                        Row = CloneRowWithSequenceNumber(row, sequenceNumber),
+                        Rank = rank,
+                        SequenceNumber = sequenceNumber,
+                        OriginalIndex = index
+                    };
+                })
+                .OrderBy(static item => item.Rank)
+                .ThenBy(static item => item.SequenceNumber)
+                .ThenBy(static item => item.Row.SystemTreeOrder)
+                .ThenBy(static item => item.Row.TreeOrder)
+                .ThenBy(static item => item.OriginalIndex)
+                .Select(static item => item.Row)
+                .ToList();
+        }
+
+        private KnowledgeBaseMaintenanceSystemOrderEntry? ResolveTemplateSystemEntry(
+            IReadOnlyList<KnowledgeBaseMaintenanceSystemOrderEntry> templateOrder,
+            KnowledgeBaseMaintenanceYearScheduleSourceRow row) =>
+            _systemOrderService.ResolveTemplateEntry(templateOrder, row.SystemName, row.SystemInventoryNumber);
+
+        private string BuildRowSystemKey(KnowledgeBaseMaintenanceYearScheduleSourceRow row) =>
+            _systemOrderService.BuildSystemKey(row.SystemNodeId, row.SystemName, row.SystemInventoryNumber);
+
+        private static KnowledgeBaseMaintenanceYearScheduleSourceRow CloneRowWithSequenceNumber(
+            KnowledgeBaseMaintenanceYearScheduleSourceRow row,
+            int sequenceNumber) =>
+            new()
+            {
+                OwnerNodeId = row.OwnerNodeId,
+                Path = row.Path,
+                NodeName = row.NodeName,
+                InventoryNumber = row.InventoryNumber,
+                SequenceNumber = sequenceNumber,
+                SystemNodeId = row.SystemNodeId,
+                SystemName = row.SystemName,
+                SystemInventoryNumber = row.SystemInventoryNumber,
+                SystemTreeOrder = row.SystemTreeOrder,
+                IsIncludedInSchedule = row.IsIncludedInSchedule,
+                YearScheduleEntries = CloneYearScheduleEntries(row.YearScheduleEntries),
+                TreeOrder = row.TreeOrder,
+                SourceRowNumber = row.SourceRowNumber
+            };
+
         private static List<OwnerNodeContext> BuildOwnerNodeContexts(IReadOnlyList<KbNode>? roots)
         {
             var contexts = new List<OwnerNodeContext>();
             int treeOrder = 0;
             foreach (KbNode root in roots ?? Array.Empty<KbNode>())
-                CollectOwnerNodeContexts(contexts, root, visibleLevel: 1, parentPath: string.Empty, ref treeOrder);
+                CollectOwnerNodeContexts(
+                    contexts,
+                    root,
+                    visibleLevel: 1,
+                    parentPath: string.Empty,
+                    level2Ancestor: null,
+                    level2TreeOrder: -1,
+                    ref treeOrder);
 
             return contexts;
         }
@@ -285,9 +387,20 @@ namespace AsutpKnowledgeBase.Services
             KbNode node,
             int visibleLevel,
             string parentPath,
+            KbNode? level2Ancestor,
+            int level2TreeOrder,
             ref int treeOrder)
         {
+            int currentTreeOrder = treeOrder;
             int currentVisibleLevel = GetEffectiveVisibleLevel(node, visibleLevel);
+            KbNode? currentLevel2Ancestor = level2Ancestor;
+            int currentLevel2TreeOrder = level2TreeOrder;
+            if (currentVisibleLevel == 2)
+            {
+                currentLevel2Ancestor = node;
+                currentLevel2TreeOrder = currentTreeOrder;
+            }
+
             string nodeName = node.Name?.Trim() ?? string.Empty;
             string path = string.IsNullOrWhiteSpace(parentPath)
                 ? nodeName
@@ -300,12 +413,25 @@ namespace AsutpKnowledgeBase.Services
                     NodeName: nodeName,
                     InventoryNumber: node.Details?.InventoryNumber?.Trim() ?? string.Empty,
                     Path: path,
-                    TreeOrder: treeOrder));
+                    TreeOrder: currentTreeOrder,
+                    SystemNodeId: currentLevel2Ancestor?.NodeId?.Trim() ?? string.Empty,
+                    SystemName: currentLevel2Ancestor?.Name?.Trim() ?? string.Empty,
+                    SystemInventoryNumber: currentLevel2Ancestor?.Details?.InventoryNumber?.Trim() ?? string.Empty,
+                    SystemTreeOrder: currentLevel2TreeOrder >= 0 ? currentLevel2TreeOrder : currentTreeOrder));
             }
 
             treeOrder++;
             foreach (KbNode child in node.Children ?? Enumerable.Empty<KbNode>())
-                CollectOwnerNodeContexts(contexts, child, currentVisibleLevel + 1, path, ref treeOrder);
+            {
+                CollectOwnerNodeContexts(
+                    contexts,
+                    child,
+                    currentVisibleLevel + 1,
+                    path,
+                    currentLevel2Ancestor,
+                    currentLevel2TreeOrder,
+                    ref treeOrder);
+            }
         }
 
         private static int GetEffectiveVisibleLevel(KbNode node, int visibleLevel)
@@ -333,6 +459,10 @@ namespace AsutpKnowledgeBase.Services
             string NodeName,
             string InventoryNumber,
             string Path,
-            int TreeOrder);
+            int TreeOrder,
+            string SystemNodeId,
+            string SystemName,
+            string SystemInventoryNumber,
+            int SystemTreeOrder);
     }
 }

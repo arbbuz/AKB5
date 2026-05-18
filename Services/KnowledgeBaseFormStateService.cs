@@ -214,7 +214,7 @@ namespace AsutpKnowledgeBase.Services
             int visibleLevel = _nodePresentationService.GetVisibleLevel(currentRoots, selectedNode);
             bool supportsTechnicalFields = false;
             bool supportsInventoryNumber = KnowledgeBaseNodeMetadataService.SupportsInventoryNumber(visibleLevel);
-            bool supportsLocation = KnowledgeBaseNodeMetadataService.SupportsLocation(visibleLevel);
+            bool supportsLocation = visibleLevel > 3 && KnowledgeBaseNodeMetadataService.SupportsLocation(visibleLevel);
             bool supportsPhoto = false;
 
             return new KnowledgeBaseSelectedNodeState

@@ -1,3 +1,4 @@
+using System.Globalization;
 using AsutpKnowledgeBase.Models;
 using AsutpKnowledgeBase.Services;
 
@@ -6,16 +7,18 @@ namespace AsutpKnowledgeBase
     public sealed class KnowledgeBaseMaintenanceYearScheduleSourceDialog : Form
     {
         private const string OwnerNodeIdColumnName = "OwnerNodeId";
+        private const string SequenceNumberColumnName = "SequenceNumber";
         private const string PathColumnName = "Path";
         private const string NodeNameColumnName = "NodeName";
         private const string InventoryNumberColumnName = "InventoryNumber";
         private const string IncludedColumnName = "Included";
         private const string SourceColumnName = "Source";
+        private const int MonthColumnWidth = 88;
 
         private static readonly string[] WorkKindValues = { string.Empty, "ТО1", "ТО2", "ТО3" };
 
         private readonly List<KnowledgeBaseMaintenanceYearScheduleSourceRow> _rows;
-        private readonly DataGridView _grid = new();
+        private readonly DataGridView _grid = new BufferedDataGridView();
 
         public KnowledgeBaseMaintenanceYearScheduleSourceDialog(
             string workshopName,
@@ -33,6 +36,7 @@ namespace AsutpKnowledgeBase
             ShowInTaskbar = false;
             Size = new Size(1180, 650);
             MinimumSize = new Size(920, 520);
+            WindowState = FormWindowState.Maximized;
 
             Controls.Add(CreateLayout());
 
@@ -122,8 +126,10 @@ namespace AsutpKnowledgeBase
             _grid.MultiSelect = true;
             _grid.RowHeadersVisible = false;
             _grid.SelectionMode = DataGridViewSelectionMode.CellSelect;
+            _grid.RowTemplate.Height = 24;
 
             _grid.Columns.Add(CreateTextColumn(OwnerNodeIdColumnName, "OwnerNodeId", 120, readOnly: true, visible: false));
+            _grid.Columns.Add(CreateTextColumn(SequenceNumberColumnName, "№ п.п.", 58, readOnly: true));
             _grid.Columns.Add(CreateTextColumn(PathColumnName, "Путь", 330, readOnly: true));
             _grid.Columns.Add(CreateTextColumn(NodeNameColumnName, "Узел", 170, readOnly: true));
             _grid.Columns.Add(CreateTextColumn(InventoryNumberColumnName, "Инв. №", 95, readOnly: true));
@@ -148,17 +154,22 @@ namespace AsutpKnowledgeBase
 
         private void BindRows()
         {
+            _grid.SuspendLayout();
+            _grid.Rows.Clear();
+            var gridRows = new List<DataGridViewRow>(_rows.Count);
+
             foreach (KnowledgeBaseMaintenanceYearScheduleSourceRow sourceRow in _rows)
             {
-                int rowIndex = _grid.Rows.Add();
-                DataGridViewRow gridRow = _grid.Rows[rowIndex];
+                var gridRow = new DataGridViewRow();
+                gridRow.CreateCells(_grid);
                 gridRow.Tag = sourceRow;
-                gridRow.Cells[OwnerNodeIdColumnName].Value = sourceRow.OwnerNodeId;
-                gridRow.Cells[PathColumnName].Value = sourceRow.Path;
-                gridRow.Cells[NodeNameColumnName].Value = sourceRow.NodeName;
-                gridRow.Cells[InventoryNumberColumnName].Value = sourceRow.InventoryNumber;
-                gridRow.Cells[IncludedColumnName].Value = sourceRow.IsIncludedInSchedule ? "Да" : "Нет";
-                gridRow.Cells[SourceColumnName].Value = sourceRow.HasManualSchedule ? "Ручной" : "Авто";
+                SetBufferedCellValue(gridRow, OwnerNodeIdColumnName, sourceRow.OwnerNodeId);
+                SetBufferedCellValue(gridRow, SequenceNumberColumnName, sourceRow.SequenceNumber > 0 ? sourceRow.SequenceNumber.ToString(CultureInfo.InvariantCulture) : string.Empty);
+                SetBufferedCellValue(gridRow, PathColumnName, sourceRow.Path);
+                SetBufferedCellValue(gridRow, NodeNameColumnName, sourceRow.NodeName);
+                SetBufferedCellValue(gridRow, InventoryNumberColumnName, sourceRow.InventoryNumber);
+                SetBufferedCellValue(gridRow, IncludedColumnName, sourceRow.IsIncludedInSchedule ? "Да" : "Нет");
+                SetBufferedCellValue(gridRow, SourceColumnName, sourceRow.HasManualSchedule ? "Ручной" : "Авто");
 
                 Dictionary<int, KbMaintenanceWorkKind> entriesByMonth = sourceRow.YearScheduleEntries
                     .Where(static entry => entry.Month is >= 1 and <= 12)
@@ -169,12 +180,27 @@ namespace AsutpKnowledgeBase
 
                 for (int month = 1; month <= 12; month++)
                 {
-                    gridRow.Cells[GetMonthColumnName(month)].Value =
+                    SetBufferedCellValue(
+                        gridRow,
+                        GetMonthColumnName(month),
                         entriesByMonth.TryGetValue(month, out KbMaintenanceWorkKind workKind)
                             ? FormatWorkKind(workKind)
-                            : string.Empty;
+                            : string.Empty);
                 }
+
+                gridRows.Add(gridRow);
             }
+
+            if (gridRows.Count > 0)
+                _grid.Rows.AddRange(gridRows.ToArray());
+
+            _grid.ResumeLayout();
+        }
+
+        private void SetBufferedCellValue(DataGridViewRow gridRow, string columnName, object? value)
+        {
+            int columnIndex = _grid.Columns[columnName].Index;
+            gridRow.Cells[columnIndex].Value = value;
         }
 
         private void Submit()
@@ -272,8 +298,11 @@ namespace AsutpKnowledgeBase
             {
                 Name = GetMonthColumnName(month),
                 HeaderText = GetMonthHeader(month),
-                Width = 58,
-                DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox,
+                Width = MonthColumnWidth,
+                MinimumWidth = MonthColumnWidth,
+                DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton,
+                DisplayStyleForCurrentCellOnly = true,
+                DropDownWidth = MonthColumnWidth,
                 FlatStyle = FlatStyle.Flat,
                 SortMode = DataGridViewColumnSortMode.NotSortable
             };
@@ -314,6 +343,11 @@ namespace AsutpKnowledgeBase
                 Path = row.Path,
                 NodeName = row.NodeName,
                 InventoryNumber = row.InventoryNumber,
+                SequenceNumber = row.SequenceNumber,
+                SystemNodeId = row.SystemNodeId,
+                SystemName = row.SystemName,
+                SystemInventoryNumber = row.SystemInventoryNumber,
+                SystemTreeOrder = row.SystemTreeOrder,
                 IsIncludedInSchedule = row.IsIncludedInSchedule,
                 TreeOrder = row.TreeOrder,
                 SourceRowNumber = row.SourceRowNumber,
@@ -339,6 +373,15 @@ namespace AsutpKnowledgeBase
             };
 
             return value.Trim().ToUpperInvariant() is "ТО1" or "ТО2" or "ТО3";
+        }
+
+        private sealed class BufferedDataGridView : DataGridView
+        {
+            public BufferedDataGridView()
+            {
+                DoubleBuffered = true;
+                SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
+            }
         }
     }
 }

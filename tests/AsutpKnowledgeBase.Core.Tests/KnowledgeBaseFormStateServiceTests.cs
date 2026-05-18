@@ -107,12 +107,12 @@ public class KnowledgeBaseFormStateServiceTests
         Assert.Equal("Есть несохраненные изменения", state.SaveStateText);
         Assert.Equal("Отделение 1 / Линия 1 / Насос", state.SelectedNode.FullPath);
         Assert.Equal("Основной насос", state.SelectedNode.Description);
-        Assert.Equal("Участок 4", state.SelectedNode.Location);
+        Assert.Equal(string.Empty, state.SelectedNode.Location);
         Assert.Equal(string.Empty, state.SelectedNode.PhotoPath);
         Assert.Equal(string.Empty, state.SelectedNode.IpAddress);
         Assert.Equal(string.Empty, state.SelectedNode.SchemaLink);
         Assert.False(state.SelectedNode.ShowTechnicalFields);
-        Assert.True(state.SelectedNode.ShowLocation);
+        Assert.False(state.SelectedNode.ShowLocation);
         Assert.False(state.SelectedNode.ShowPhoto);
         Assert.True(state.SelectedNode.Workspace.UseTabHost);
     }
