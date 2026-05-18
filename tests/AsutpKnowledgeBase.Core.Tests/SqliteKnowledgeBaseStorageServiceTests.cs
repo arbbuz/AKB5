@@ -41,6 +41,15 @@ public class SqliteKnowledgeBaseStorageServiceTests
             Assert.Contains("change_log", tables);
             Assert.Contains("object_templates", tables);
             Assert.Contains("object_template_nodes", tables);
+
+            var compositionColumns = ReadColumnNames(connection, "composition_entries");
+            Assert.Contains("order_number", compositionColumns);
+            Assert.Contains("firmware", compositionColumns);
+            Assert.Contains("mpi_dp_pn_address", compositionColumns);
+            Assert.Contains("input_address", compositionColumns);
+            Assert.Contains("output_address", compositionColumns);
+            Assert.Contains("comment_text", compositionColumns);
+            Assert.Contains("interface_rows", compositionColumns);
         }
         finally
         {
@@ -130,6 +139,13 @@ public class SqliteKnowledgeBaseStorageServiceTests
             var entry = Assert.Single(loadResult.Data!.CompositionEntries);
             Assert.Equal(0, entry.RackNumber);
             Assert.Equal(2, entry.SlotNumber);
+            Assert.Equal(string.Empty, entry.OrderNumber);
+            Assert.Equal(string.Empty, entry.Firmware);
+            Assert.Equal(string.Empty, entry.MpiDpPnAddress);
+            Assert.Equal(string.Empty, entry.InputAddress);
+            Assert.Equal(string.Empty, entry.OutputAddress);
+            Assert.Equal(string.Empty, entry.Comment);
+            Assert.Equal(string.Empty, entry.InterfaceRows);
         }
         finally
         {
@@ -501,6 +517,13 @@ public class SqliteKnowledgeBaseStorageServiceTests
                     PositionOrder = 2,
                     ComponentType = "ПЛК",
                     Model = "CPU 1214C",
+                    OrderNumber = "6ES7 214-1AG40-0XB0",
+                    Firmware = "V4.5",
+                    MpiDpPnAddress = "PN/IE 10.0.0.10",
+                    InputAddress = "I 0.0",
+                    OutputAddress = "Q 4.0",
+                    Comment = "Central rack",
+                    InterfaceRows = "X1, Port 1",
                     IpAddress = "10.0.0.10",
                     LastCalibrationAt = new DateTime(2026, 5, 1, 12, 30, 0, DateTimeKind.Utc),
                     NextCalibrationAt = new DateTime(2027, 5, 1, 12, 30, 0, DateTimeKind.Utc),
@@ -617,6 +640,13 @@ public class SqliteKnowledgeBaseStorageServiceTests
                             PositionOrder = 1,
                             ComponentType = "ПЛК",
                             Model = "CPU 1214C",
+                            OrderNumber = "6ES7 214-1AG40-0XB0",
+                            Firmware = "V4.5",
+                            MpiDpPnAddress = "PN/IE 10.0.0.20",
+                            InputAddress = "I 8.0",
+                            OutputAddress = "Q 12.0",
+                            Comment = "Template central rack",
+                            InterfaceRows = "X2, Port 2",
                             IpAddress = "10.0.0.20",
                             LastCalibrationAt = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc),
                             NextCalibrationAt = new DateTime(2027, 5, 1, 0, 0, 0, DateTimeKind.Utc),
@@ -707,6 +737,19 @@ public class SqliteKnowledgeBaseStorageServiceTests
             tables.Add(reader.GetString(0));
 
         return tables;
+    }
+
+    private static HashSet<string> ReadColumnNames(SqliteConnection connection, string tableName)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = $"PRAGMA table_info({tableName});";
+
+        using var reader = command.ExecuteReader();
+        var columns = new HashSet<string>(StringComparer.Ordinal);
+        while (reader.Read())
+            columns.Add(reader.GetString(1));
+
+        return columns;
     }
 
     private static int CountRows(SqliteConnection connection, string tableName)

@@ -452,6 +452,13 @@ namespace AsutpKnowledgeBase.Services
                     PositionOrder = templateEntry.PositionOrder,
                     ComponentType = templateEntry.ComponentType,
                     Model = templateEntry.Model,
+                    OrderNumber = templateEntry.OrderNumber,
+                    Firmware = templateEntry.Firmware,
+                    MpiDpPnAddress = templateEntry.MpiDpPnAddress,
+                    InputAddress = templateEntry.InputAddress,
+                    OutputAddress = templateEntry.OutputAddress,
+                    Comment = templateEntry.Comment,
+                    InterfaceRows = templateEntry.InterfaceRows,
                     IpAddress = templateEntry.IpAddress,
                     LastCalibrationAt = templateEntry.LastCalibrationAt,
                     NextCalibrationAt = templateEntry.NextCalibrationAt,
@@ -902,6 +909,13 @@ namespace AsutpKnowledgeBase.Services
             first.PositionOrder == second.PositionOrder &&
             TextEqual(first.ComponentType, second.ComponentType) &&
             TextEqual(first.Model, second.Model) &&
+            TextEqual(first.OrderNumber, second.OrderNumber) &&
+            TextEqual(first.Firmware, second.Firmware) &&
+            TextEqual(first.MpiDpPnAddress, second.MpiDpPnAddress) &&
+            TextEqual(first.InputAddress, second.InputAddress) &&
+            TextEqual(first.OutputAddress, second.OutputAddress) &&
+            TextEqual(first.Comment, second.Comment) &&
+            TextEqual(first.InterfaceRows, second.InterfaceRows) &&
             TextEqual(first.IpAddress, second.IpAddress) &&
             first.LastCalibrationAt == second.LastCalibrationAt &&
             first.NextCalibrationAt == second.NextCalibrationAt &&
@@ -956,6 +970,13 @@ namespace AsutpKnowledgeBase.Services
                     PositionOrder = entry.PositionOrder,
                     ComponentType = entry.ComponentType,
                     Model = entry.Model,
+                    OrderNumber = entry.OrderNumber,
+                    Firmware = entry.Firmware,
+                    MpiDpPnAddress = entry.MpiDpPnAddress,
+                    InputAddress = entry.InputAddress,
+                    OutputAddress = entry.OutputAddress,
+                    Comment = entry.Comment,
+                    InterfaceRows = entry.InterfaceRows,
                     IpAddress = entry.IpAddress,
                     LastCalibrationAt = entry.LastCalibrationAt,
                     NextCalibrationAt = entry.NextCalibrationAt,
@@ -1137,6 +1158,13 @@ namespace AsutpKnowledgeBase.Services
                     PositionOrder = entry.PositionOrder,
                     ComponentType = entry.ComponentType,
                     Model = entry.Model,
+                    OrderNumber = entry.OrderNumber,
+                    Firmware = entry.Firmware,
+                    MpiDpPnAddress = entry.MpiDpPnAddress,
+                    InputAddress = entry.InputAddress,
+                    OutputAddress = entry.OutputAddress,
+                    Comment = entry.Comment,
+                    InterfaceRows = entry.InterfaceRows,
                     IpAddress = entry.IpAddress,
                     LastCalibrationAt = entry.LastCalibrationAt,
                     NextCalibrationAt = entry.NextCalibrationAt,

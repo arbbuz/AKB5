@@ -118,7 +118,14 @@ public class KnowledgeBaseObjectTemplateServiceTests
                     SlotNumber = 1,
                     PositionOrder = 2,
                     ComponentType = "CPU",
-                    Model = "S7"
+                    Model = "S7",
+                    OrderNumber = "6ES7",
+                    Firmware = "V2.6",
+                    MpiDpPnAddress = "3",
+                    InputAddress = "I 0.0",
+                    OutputAddress = "Q 4.0",
+                    Comment = "Template CPU",
+                    InterfaceRows = "X1, Port 1"
                 },
                 new KbCompositionEntry { ParentNodeId = "outside-node", ComponentType = "Skip" }
             },
@@ -198,6 +205,13 @@ public class KnowledgeBaseObjectTemplateServiceTests
         KbObjectTemplateCompositionEntry composition = Assert.Single(template.CompositionEntries);
         Assert.Equal(cabinetTemplateNodeId, composition.ParentTemplateNodeId);
         Assert.Equal("CPU", composition.ComponentType);
+        Assert.Equal("6ES7", composition.OrderNumber);
+        Assert.Equal("V2.6", composition.Firmware);
+        Assert.Equal("3", composition.MpiDpPnAddress);
+        Assert.Equal("I 0.0", composition.InputAddress);
+        Assert.Equal("Q 4.0", composition.OutputAddress);
+        Assert.Equal("Template CPU", composition.Comment);
+        Assert.Equal("X1, Port 1", composition.InterfaceRows);
 
         KbObjectTemplateDocumentLink document = Assert.Single(template.DocumentLinks);
         Assert.Equal(controllerTemplateNodeId, document.OwnerTemplateNodeId);

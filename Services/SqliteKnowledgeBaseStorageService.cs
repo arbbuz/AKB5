@@ -9,7 +9,7 @@ namespace AsutpKnowledgeBase.Services
 {
     public sealed class SqliteKnowledgeBaseStorageService : IKnowledgeBaseStorageService
     {
-        public const int CurrentDatabaseSchemaVersion = 6;
+        public const int CurrentDatabaseSchemaVersion = 7;
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -569,6 +569,7 @@ namespace AsutpKnowledgeBase.Services
                 ExecuteNonQuery(connection, transaction, statement);
 
             EnsureCompositionEntriesRackNumberColumn(connection, transaction);
+            EnsureCompositionEntriesHardwareColumns(connection, transaction);
             EnsureObjectTemplatesCompositionRacksColumn(connection, transaction);
             EnsureMaintenanceYearScheduleHoursColumn(connection, transaction);
             ExecuteNonQuery(connection, transaction, $"PRAGMA user_version={CurrentDatabaseSchemaVersion};");
@@ -585,6 +586,33 @@ namespace AsutpKnowledgeBase.Services
                 connection,
                 transaction,
                 "ALTER TABLE composition_entries ADD COLUMN rack_number INTEGER NOT NULL DEFAULT 0;");
+        }
+
+        private static void EnsureCompositionEntriesHardwareColumns(
+            SqliteConnection connection,
+            SqliteTransaction? transaction)
+        {
+            (string ColumnName, string Definition)[] columns =
+            [
+                ("order_number", "order_number TEXT NOT NULL DEFAULT ''"),
+                ("firmware", "firmware TEXT NOT NULL DEFAULT ''"),
+                ("mpi_dp_pn_address", "mpi_dp_pn_address TEXT NOT NULL DEFAULT ''"),
+                ("input_address", "input_address TEXT NOT NULL DEFAULT ''"),
+                ("output_address", "output_address TEXT NOT NULL DEFAULT ''"),
+                ("comment_text", "comment_text TEXT NOT NULL DEFAULT ''"),
+                ("interface_rows", "interface_rows TEXT NOT NULL DEFAULT ''")
+            ];
+
+            foreach ((string columnName, string definition) in columns)
+            {
+                if (ColumnExists(connection, transaction, "composition_entries", columnName))
+                    continue;
+
+                ExecuteNonQuery(
+                    connection,
+                    transaction,
+                    $"ALTER TABLE composition_entries ADD COLUMN {definition};");
+            }
         }
 
         private static void EnsureObjectTemplatesCompositionRacksColumn(
@@ -1032,9 +1060,11 @@ namespace AsutpKnowledgeBase.Services
                     """
                     INSERT INTO composition_entries (
                         entry_id, entry_order, parent_node_id, rack_number, slot_number, position_order, component_type, model,
+                        order_number, firmware, mpi_dp_pn_address, input_address, output_address, comment_text, interface_rows,
                         ip_address, last_calibration_at, next_calibration_at, notes)
                     VALUES (
                         @entry_id, @entry_order, @parent_node_id, @rack_number, @slot_number, @position_order, @component_type, @model,
+                        @order_number, @firmware, @mpi_dp_pn_address, @input_address, @output_address, @comment_text, @interface_rows,
                         @ip_address, @last_calibration_at, @next_calibration_at, @notes);
                     """,
                     ("@entry_id", entry.EntryId),
@@ -1045,6 +1075,13 @@ namespace AsutpKnowledgeBase.Services
                     ("@position_order", entry.PositionOrder),
                     ("@component_type", entry.ComponentType),
                     ("@model", entry.Model),
+                    ("@order_number", entry.OrderNumber),
+                    ("@firmware", entry.Firmware),
+                    ("@mpi_dp_pn_address", entry.MpiDpPnAddress),
+                    ("@input_address", entry.InputAddress),
+                    ("@output_address", entry.OutputAddress),
+                    ("@comment_text", entry.Comment),
+                    ("@interface_rows", entry.InterfaceRows),
                     ("@ip_address", entry.IpAddress),
                     ("@last_calibration_at", FormatDateTime(entry.LastCalibrationAt)),
                     ("@next_calibration_at", FormatDateTime(entry.NextCalibrationAt)),
@@ -1065,6 +1102,13 @@ namespace AsutpKnowledgeBase.Services
                     PositionOrder = GetInt(reader, "position_order"),
                     ComponentType = GetString(reader, "component_type"),
                     Model = GetString(reader, "model"),
+                    OrderNumber = GetString(reader, "order_number"),
+                    Firmware = GetString(reader, "firmware"),
+                    MpiDpPnAddress = GetString(reader, "mpi_dp_pn_address"),
+                    InputAddress = GetString(reader, "input_address"),
+                    OutputAddress = GetString(reader, "output_address"),
+                    Comment = GetString(reader, "comment_text"),
+                    InterfaceRows = GetString(reader, "interface_rows"),
                     IpAddress = GetString(reader, "ip_address"),
                     LastCalibrationAt = GetNullableDateTime(reader, "last_calibration_at"),
                     NextCalibrationAt = GetNullableDateTime(reader, "next_calibration_at"),
@@ -1953,6 +1997,13 @@ namespace AsutpKnowledgeBase.Services
                 position_order INTEGER NOT NULL,
                 component_type TEXT NOT NULL,
                 model TEXT NOT NULL,
+                order_number TEXT NOT NULL,
+                firmware TEXT NOT NULL,
+                mpi_dp_pn_address TEXT NOT NULL,
+                input_address TEXT NOT NULL,
+                output_address TEXT NOT NULL,
+                comment_text TEXT NOT NULL,
+                interface_rows TEXT NOT NULL,
                 ip_address TEXT NOT NULL,
                 last_calibration_at TEXT NULL,
                 next_calibration_at TEXT NULL,

@@ -27,6 +27,13 @@ public class KnowledgeBaseCompositionMutationServiceTests
                 PositionOrder = 0,
                 ComponentType = " CPU ",
                 Model = " PLC-1 ",
+                OrderNumber = " 6ES7 315-2AG10-0AB0 ",
+                Firmware = " V2.6 ",
+                MpiDpPnAddress = " 2 ",
+                InputAddress = " I 0.0 ",
+                OutputAddress = " Q 4.0 ",
+                Comment = " Main CPU ",
+                InterfaceRows = " X1, Port 1 ",
                 IpAddress = " 10.0.0.1 "
             });
 
@@ -37,6 +44,13 @@ public class KnowledgeBaseCompositionMutationServiceTests
         Assert.Equal(1, entry.SlotNumber);
         Assert.Equal("CPU", entry.ComponentType);
         Assert.Equal("PLC-1", entry.Model);
+        Assert.Equal("6ES7 315-2AG10-0AB0", entry.OrderNumber);
+        Assert.Equal("V2.6", entry.Firmware);
+        Assert.Equal("2", entry.MpiDpPnAddress);
+        Assert.Equal("I 0.0", entry.InputAddress);
+        Assert.Equal("Q 4.0", entry.OutputAddress);
+        Assert.Equal("Main CPU", entry.Comment);
+        Assert.Equal("X1, Port 1", entry.InterfaceRows);
         Assert.Equal("10.0.0.1", entry.IpAddress);
     }
 

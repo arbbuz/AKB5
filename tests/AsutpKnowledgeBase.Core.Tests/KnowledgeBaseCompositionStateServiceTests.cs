@@ -46,7 +46,14 @@ public class KnowledgeBaseCompositionStateServiceTests
                     SlotNumber = 1,
                     PositionOrder = 30,
                     ComponentType = "CPU",
-                    Model = "S7-1500"
+                    Model = "S7-1500",
+                    OrderNumber = "6ES7 511-1AK02-0AB0",
+                    Firmware = "V2.9",
+                    MpiDpPnAddress = "PN/IE 192.168.0.10",
+                    InputAddress = "I 0.0",
+                    OutputAddress = "Q 4.0",
+                    Comment = "Main rack CPU",
+                    InterfaceRows = "X1, Port 1"
                 }
             });
 
@@ -60,6 +67,13 @@ public class KnowledgeBaseCompositionStateServiceTests
         Assert.Equal(2, state.SlottedEntries);
         Assert.Equal(1, state.AuxiliaryEntries);
         Assert.Equal(2, state.SlottedEntryStates.Count);
+        Assert.Equal("6ES7 511-1AK02-0AB0", state.Entries[0].OrderNumberText);
+        Assert.Equal("V2.9", state.Entries[0].FirmwareText);
+        Assert.Equal("PN/IE 192.168.0.10", state.Entries[0].MpiDpPnAddressText);
+        Assert.Equal("I 0.0", state.Entries[0].InputAddressText);
+        Assert.Equal("Q 4.0", state.Entries[0].OutputAddressText);
+        Assert.Equal("Main rack CPU", state.Entries[0].CommentText);
+        Assert.Equal("X1, Port 1", state.Entries[0].InterfaceRowsText);
         Assert.Single(state.AuxiliaryEntryStates);
         Assert.Equal(new[] { "(0) UR / Rack0", "(1) UR / Rack1" }, state.RackStates.Select(rack => rack.Title));
         Assert.Equal(11, state.RackStates[0].SlotRows.Count);

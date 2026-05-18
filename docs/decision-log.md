@@ -1,6 +1,12 @@
 # Decision Log
 
-Last updated: `2026-05-17`
+Last updated: `2026-05-18`
+
+## 2026-05-18
+
+- Stage 3 of the `Lvl3` `Состав` rack layout is locally complete on `card`: Rack is a separate persisted model, empty Rack rows are supported without fake components, and the UI exposes add/edit/delete-empty Rack operations.
+- Stage 4 is locally implemented as composition-entry hardware detail fields in the right-panel `Состав` table/dialog: order number, firmware, MPI/DP/PN, I/Q address, comment, and interface labels such as `X1`, `X2`, `Port 1`, `Port 2`. These fields stay attached to hardware composition rows; future network topology remains a separate `Сеть` concern.
+- Manual review accepted rack-layout stages 1-4 on `card`; commit these changes as the accepted baseline for further `Состав` work.
 
 ## 2026-05-17
 

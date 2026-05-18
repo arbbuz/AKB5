@@ -35,6 +35,20 @@ namespace AsutpKnowledgeBase.Services
 
         public string ComponentText { get; init; } = string.Empty;
 
+        public string OrderNumberText { get; init; } = string.Empty;
+
+        public string FirmwareText { get; init; } = string.Empty;
+
+        public string MpiDpPnAddressText { get; init; } = string.Empty;
+
+        public string InputAddressText { get; init; } = string.Empty;
+
+        public string OutputAddressText { get; init; } = string.Empty;
+
+        public string CommentText { get; init; } = string.Empty;
+
+        public string InterfaceRowsText { get; init; } = string.Empty;
+
         public string IpAddressText { get; init; } = string.Empty;
 
         public string LastCalibrationText { get; init; } = string.Empty;
@@ -265,6 +279,13 @@ namespace AsutpKnowledgeBase.Services
                     SlotRoleText = "-",
                     ComponentTypeText = child.NodeType.ToString(),
                     ComponentText = GetDisplayText(child.Name),
+                    OrderNumberText = "-",
+                    FirmwareText = "-",
+                    MpiDpPnAddressText = "-",
+                    InputAddressText = "-",
+                    OutputAddressText = "-",
+                    CommentText = "-",
+                    InterfaceRowsText = "-",
                     IpAddressText = GetDisplayText(child.Details?.IpAddress),
                     LastCalibrationText = "-",
                     NextCalibrationText = "-",
@@ -328,6 +349,13 @@ namespace AsutpKnowledgeBase.Services
                 HasSlotHint = slotAdvisory.HasHint,
                 ComponentTypeText = GetDisplayText(entry.ComponentType),
                 ComponentText = GetDisplayText(entry.Model),
+                OrderNumberText = GetDisplayText(entry.OrderNumber),
+                FirmwareText = GetDisplayText(entry.Firmware),
+                MpiDpPnAddressText = GetDisplayText(entry.MpiDpPnAddress),
+                InputAddressText = GetDisplayText(entry.InputAddress),
+                OutputAddressText = GetDisplayText(entry.OutputAddress),
+                CommentText = GetDisplayText(entry.Comment),
+                InterfaceRowsText = GetDisplayText(entry.InterfaceRows),
                 IpAddressText = GetDisplayText(entry.IpAddress),
                 LastCalibrationText = FormatDate(entry.LastCalibrationAt),
                 NextCalibrationText = FormatDate(entry.NextCalibrationAt),
@@ -442,6 +470,13 @@ namespace AsutpKnowledgeBase.Services
                     HasSlotHint = slotAdvisory.HasHint,
                     ComponentTypeText = "-",
                     ComponentText = "-",
+                    OrderNumberText = "-",
+                    FirmwareText = "-",
+                    MpiDpPnAddressText = "-",
+                    InputAddressText = "-",
+                    OutputAddressText = "-",
+                    CommentText = "-",
+                    InterfaceRowsText = "-",
                     IpAddressText = "-",
                     LastCalibrationText = "-",
                     NextCalibrationText = "-",

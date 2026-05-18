@@ -17,6 +17,13 @@ namespace AsutpKnowledgeBase
         private NumericUpDown _numPositionOrder = null!;
         private TextBox _txtComponentType = null!;
         private TextBox _txtModel = null!;
+        private TextBox _txtOrderNumber = null!;
+        private TextBox _txtFirmware = null!;
+        private TextBox _txtMpiDpPnAddress = null!;
+        private TextBox _txtInputAddress = null!;
+        private TextBox _txtOutputAddress = null!;
+        private TextBox _txtComment = null!;
+        private TextBox _txtInterfaceRows = null!;
         private TextBox _txtIpAddress = null!;
         private DateTimePicker _dtpLastCalibration = null!;
         private DateTimePicker _dtpNextCalibration = null!;
@@ -36,7 +43,7 @@ namespace AsutpKnowledgeBase
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(620, 530);
+            ClientSize = new Size(700, 700);
             AppIconProvider.Apply(this);
 
             var layout = new TableLayoutPanel
@@ -44,11 +51,11 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Padding = new Padding(12),
                 ColumnCount = 2,
-                RowCount = 12
+                RowCount = 19
             };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            for (int rowIndex = 0; rowIndex < 11; rowIndex++)
+            for (int rowIndex = 0; rowIndex < 18; rowIndex++)
                 layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
@@ -126,21 +133,77 @@ namespace AsutpKnowledgeBase
             layout.Controls.Add(CreateLabel("Модель"), 0, 7);
             layout.Controls.Add(_txtModel, 1, 7);
 
+            _txtOrderNumber = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Text = existingEntry?.OrderNumber ?? string.Empty
+            };
+            layout.Controls.Add(CreateLabel("Заказной номер"), 0, 8);
+            layout.Controls.Add(_txtOrderNumber, 1, 8);
+
+            _txtFirmware = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Text = existingEntry?.Firmware ?? string.Empty
+            };
+            layout.Controls.Add(CreateLabel("Firmware"), 0, 9);
+            layout.Controls.Add(_txtFirmware, 1, 9);
+
+            _txtMpiDpPnAddress = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Text = existingEntry?.MpiDpPnAddress ?? string.Empty
+            };
+            layout.Controls.Add(CreateLabel("MPI/DP/PN"), 0, 10);
+            layout.Controls.Add(_txtMpiDpPnAddress, 1, 10);
+
+            _txtInputAddress = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Text = existingEntry?.InputAddress ?? string.Empty
+            };
+            layout.Controls.Add(CreateLabel("I address"), 0, 11);
+            layout.Controls.Add(_txtInputAddress, 1, 11);
+
+            _txtOutputAddress = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Text = existingEntry?.OutputAddress ?? string.Empty
+            };
+            layout.Controls.Add(CreateLabel("Q address"), 0, 12);
+            layout.Controls.Add(_txtOutputAddress, 1, 12);
+
+            _txtComment = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Text = existingEntry?.Comment ?? string.Empty
+            };
+            layout.Controls.Add(CreateLabel("Comment"), 0, 13);
+            layout.Controls.Add(_txtComment, 1, 13);
+
+            _txtInterfaceRows = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Text = existingEntry?.InterfaceRows ?? string.Empty
+            };
+            layout.Controls.Add(CreateLabel("Интерфейсы"), 0, 14);
+            layout.Controls.Add(_txtInterfaceRows, 1, 14);
+
             _txtIpAddress = new TextBox
             {
                 Dock = DockStyle.Fill,
                 Text = existingEntry?.IpAddress ?? string.Empty
             };
-            layout.Controls.Add(CreateLabel("IP-адрес"), 0, 8);
-            layout.Controls.Add(_txtIpAddress, 1, 8);
+            layout.Controls.Add(CreateLabel("IP-адрес"), 0, 15);
+            layout.Controls.Add(_txtIpAddress, 1, 15);
 
             _dtpLastCalibration = CreateDatePicker(existingEntry?.LastCalibrationAt);
-            layout.Controls.Add(CreateLabel("Последняя калибровка"), 0, 9);
-            layout.Controls.Add(_dtpLastCalibration, 1, 9);
+            layout.Controls.Add(CreateLabel("Последняя калибровка"), 0, 16);
+            layout.Controls.Add(_dtpLastCalibration, 1, 16);
 
             _dtpNextCalibration = CreateDatePicker(existingEntry?.NextCalibrationAt);
-            layout.Controls.Add(CreateLabel("Следующая калибровка"), 0, 10);
-            layout.Controls.Add(_dtpNextCalibration, 1, 10);
+            layout.Controls.Add(CreateLabel("Следующая калибровка"), 0, 17);
+            layout.Controls.Add(_dtpNextCalibration, 1, 17);
 
             _txtNotes = new TextBox
             {
@@ -150,8 +213,8 @@ namespace AsutpKnowledgeBase
                 Height = 120,
                 Text = existingEntry?.Notes ?? string.Empty
             };
-            layout.Controls.Add(CreateLabel("Примечание"), 0, 11);
-            layout.Controls.Add(_txtNotes, 1, 11);
+            layout.Controls.Add(CreateLabel("Примечание"), 0, 18);
+            layout.Controls.Add(_txtNotes, 1, 18);
 
             var buttonsPanel = new FlowLayoutPanel
             {
@@ -202,6 +265,7 @@ namespace AsutpKnowledgeBase
             KbEquipmentCatalogItem item = dialog.SelectedItem;
             _txtComponentType.Text = item.EquipmentKind;
             _txtModel.Text = FormatCatalogModel(item);
+            _txtOrderNumber.Text = item.Model?.Trim() ?? string.Empty;
 
             string note = item.Description?.Trim() ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(note))
@@ -231,6 +295,13 @@ namespace AsutpKnowledgeBase
                 PositionOrder = (int)_numPositionOrder.Value - 1,
                 ComponentType = componentType,
                 Model = model,
+                OrderNumber = _txtOrderNumber.Text.Trim(),
+                Firmware = _txtFirmware.Text.Trim(),
+                MpiDpPnAddress = _txtMpiDpPnAddress.Text.Trim(),
+                InputAddress = _txtInputAddress.Text.Trim(),
+                OutputAddress = _txtOutputAddress.Text.Trim(),
+                Comment = _txtComment.Text.Trim(),
+                InterfaceRows = _txtInterfaceRows.Text.Trim(),
                 IpAddress = _txtIpAddress.Text.Trim(),
                 LastCalibrationAt = _dtpLastCalibration.Checked ? _dtpLastCalibration.Value.Date : null,
                 NextCalibrationAt = _dtpNextCalibration.Checked ? _dtpNextCalibration.Value.Date : null,

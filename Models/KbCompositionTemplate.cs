@@ -46,6 +46,20 @@ namespace AsutpKnowledgeBase.Models
 
         public string Model { get; init; } = string.Empty;
 
+        public string OrderNumber { get; init; } = string.Empty;
+
+        public string Firmware { get; init; } = string.Empty;
+
+        public string MpiDpPnAddress { get; init; } = string.Empty;
+
+        public string InputAddress { get; init; } = string.Empty;
+
+        public string OutputAddress { get; init; } = string.Empty;
+
+        public string Comment { get; init; } = string.Empty;
+
+        public string InterfaceRows { get; init; } = string.Empty;
+
         public string IpAddress { get; init; } = string.Empty;
 
         public DateTime? LastCalibrationAt { get; init; }

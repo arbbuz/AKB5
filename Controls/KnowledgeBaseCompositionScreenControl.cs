@@ -341,6 +341,13 @@ namespace AsutpKnowledgeBase
                     entry.SlotRoleText,
                     entry.ComponentTypeText,
                     entry.ComponentText,
+                    entry.OrderNumberText,
+                    entry.FirmwareText,
+                    entry.MpiDpPnAddressText,
+                    entry.InputAddressText,
+                    entry.OutputAddressText,
+                    entry.CommentText,
+                    entry.InterfaceRowsText,
                     entry.IpAddressText,
                     entry.LastCalibrationText,
                     entry.NextCalibrationText,
@@ -468,7 +475,7 @@ namespace AsutpKnowledgeBase
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
                 AllowUserToResizeRows = false,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
                 BackgroundColor = SystemColors.Window,
                 BorderStyle = BorderStyle.Fixed3D,
                 EditMode = DataGridViewEditMode.EditProgrammatically,
@@ -483,6 +490,13 @@ namespace AsutpKnowledgeBase
             grid.Columns.Add(CreateGridColumn("Role", "Роль", 80));
             grid.Columns.Add(CreateGridColumn("Type", "Тип", 120));
             grid.Columns.Add(CreateGridColumn("Module", "Модуль", 220));
+            grid.Columns.Add(CreateGridColumn("OrderNumber", "Заказной номер", 150));
+            grid.Columns.Add(CreateGridColumn("Firmware", "Firmware", 100));
+            grid.Columns.Add(CreateGridColumn("MpiDpPnAddress", "MPI/DP/PN", 110));
+            grid.Columns.Add(CreateGridColumn("InputAddress", "I address", 100));
+            grid.Columns.Add(CreateGridColumn("OutputAddress", "Q address", 100));
+            grid.Columns.Add(CreateGridColumn("Comment", "Comment", 180));
+            grid.Columns.Add(CreateGridColumn("InterfaceRows", "Интерфейсы", 180));
             grid.Columns.Add(CreateGridColumn("IpAddress", "IP-адрес", 120));
             grid.Columns.Add(CreateGridColumn("LastCalibration", "Последняя калибровка", 140));
             grid.Columns.Add(CreateGridColumn("NextCalibration", "Следующая калибровка", 140));
@@ -533,6 +547,8 @@ namespace AsutpKnowledgeBase
             {
                 Name = name,
                 HeaderText = headerText,
+                Width = fillWeight,
+                MinimumWidth = Math.Min(80, fillWeight),
                 FillWeight = fillWeight
             };
 

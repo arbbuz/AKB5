@@ -6,7 +6,7 @@ Last updated: `2026-05-17`
 
 - Treat branch `card` as the active branch for the accepted `Lvl3` composition rack-layout work.
 - Implement the accepted staged hybrid for `Состав`: group components by Siemens-style `Rack0+` on the right panel, keep cabinet/board contents out of `Lvl4`, and keep the first stage compatible with existing `CompositionEntries`.
-- Current local rack-layout scope is tracked in `docs/composition-rack-roadmap-2026-05-17.md`: Stage 1 compatible `RackNumber` storage/UI plus Stage 2 `SIMATIC S7-300` advisory warnings and `IM 360/361/365` hints are implemented locally and awaiting manual review.
+- Current local rack-layout scope is tracked in `docs/composition-rack-roadmap-2026-05-17.md`: Stage 1 compatible `RackNumber` storage/UI, Stage 2 `SIMATIC S7-300` advisory warnings and `IM 360/361/365` hints, Stage 3 persisted Rack model with empty-rack operations, and Stage 4 hardware detail fields are accepted after manual review on `card`.
 - Treat `Phase 7A`, `Phase 7B`, `Phase 7C`, and `Phase 7D` on branch `to` as the current working baseline
 - Treat the full `Phase 7D follow-up` yearly orchestration as completed on `to`
 - Treat the first `Phase 7E` slice as completed on `to`: manual per-profile annual `ТО1` / `ТО2` / `ТО3` placement stored in JSON
@@ -51,7 +51,7 @@ Last updated: `2026-05-17`
 
 ## Near-term follow-up
 
-- Manual review the new `Состав` rack UI and S7-300 advisory warnings on `Lvl3` cabinets/boards before committing or pushing.
+- Rack-layout stages 1-4 on `card` are accepted after manual review; next work should start from the accepted `Состав` rack UI, advisory warnings, persisted Rack model, and hardware detail fields.
 - Template cleanup: the obsolete `Состав -> Применить шаблон...` button and tree menu commands `Применить шаблон к объекту...` / `Шаблоны -> Добавить из шаблона состава...` are removed from the current UI.
 - Remaining optional template task: add a user-managed workflow to create/edit/delete composition or object templates, preferably backed by real catalog-selected equipment.
 - Review and accept portable-first storage: `akb5.settings.json` beside `asutpKB.exe`, default `database\knowledge-base.akb`, first-launch folder choice, remembered open/save-as path, old AppData `.akb` copy prompt, and external backups in `backups\yyyy-MM-dd\`.

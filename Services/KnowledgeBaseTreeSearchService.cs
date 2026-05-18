@@ -262,6 +262,69 @@ namespace AsutpKnowledgeBase.Services
                     node,
                     KnowledgeBaseSearchDomain.Composition,
                     searchText,
+                    "заказной номер",
+                    entry.OrderNumber,
+                    nodePath,
+                    preferredTabKind);
+                AddMatchIfContains(
+                    matches,
+                    node,
+                    KnowledgeBaseSearchDomain.Composition,
+                    searchText,
+                    "firmware",
+                    entry.Firmware,
+                    nodePath,
+                    preferredTabKind);
+                AddMatchIfContains(
+                    matches,
+                    node,
+                    KnowledgeBaseSearchDomain.Composition,
+                    searchText,
+                    "MPI/DP/PN",
+                    entry.MpiDpPnAddress,
+                    nodePath,
+                    preferredTabKind);
+                AddMatchIfContains(
+                    matches,
+                    node,
+                    KnowledgeBaseSearchDomain.Composition,
+                    searchText,
+                    "I address",
+                    entry.InputAddress,
+                    nodePath,
+                    preferredTabKind);
+                AddMatchIfContains(
+                    matches,
+                    node,
+                    KnowledgeBaseSearchDomain.Composition,
+                    searchText,
+                    "Q address",
+                    entry.OutputAddress,
+                    nodePath,
+                    preferredTabKind);
+                AddMatchIfContains(
+                    matches,
+                    node,
+                    KnowledgeBaseSearchDomain.Composition,
+                    searchText,
+                    "comment",
+                    entry.Comment,
+                    nodePath,
+                    preferredTabKind);
+                AddMatchIfContains(
+                    matches,
+                    node,
+                    KnowledgeBaseSearchDomain.Composition,
+                    searchText,
+                    "интерфейсы",
+                    entry.InterfaceRows,
+                    nodePath,
+                    preferredTabKind);
+                AddMatchIfContains(
+                    matches,
+                    node,
+                    KnowledgeBaseSearchDomain.Composition,
+                    searchText,
                     "IP-адрес",
                     entry.IpAddress,
                     nodePath,
