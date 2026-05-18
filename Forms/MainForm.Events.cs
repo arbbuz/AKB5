@@ -327,6 +327,7 @@ namespace AsutpKnowledgeBase
                 return;
 
             SaveCurrentSplitterDistance();
+            SaveCompositionRackDetailsHeight(selectedNodeCompositionScreen, EventArgs.Empty);
             SaveCurrentWindowLayout();
         }
     }

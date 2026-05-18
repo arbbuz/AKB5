@@ -12,15 +12,18 @@ namespace AsutpKnowledgeBase
         private Button _btnDeleteRack = null!;
         private Button _btnAddSlotted = null!;
         private Button _btnCopyFromExisting = null!;
-        private FlowLayoutPanel _rackPanel = null!;
+        private FlowLayoutPanel _rackSelectorPanel = null!;
+        private Panel _rackPanel = null!;
         private SplitContainer _splitRackDetails = null!;
         private DataGridView _dgvRackDetails = null!;
+        private ToolTip _toolTip = null!;
 
         private KnowledgeBaseCompositionState _currentState = new();
         private bool _isSynchronizingSelection;
         private bool _isApplyingDetailsPanelHeight;
         private bool _isApplyingColumnWidths;
-        private int? _pendingDetailsPanelHeight;
+        private bool _isSplitterMoving;
+        private int? _desiredDetailsPanelHeight;
         private Dictionary<string, int> _rackColumnWidths = new(StringComparer.Ordinal);
         private Dictionary<string, int> _rackDetailsColumnWidths = new(StringComparer.Ordinal);
 
@@ -65,13 +68,27 @@ namespace AsutpKnowledgeBase
             actionsPanel.Controls.Add(_btnAddSlotted);
             actionsPanel.Controls.Add(_btnCopyFromExisting);
 
-            _rackPanel = new FlowLayoutPanel
+            _toolTip = new ToolTip
+            {
+                ShowAlways = true
+            };
+
+            _rackSelectorPanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = true,
+                Margin = new Padding(0),
+                Padding = new Padding(0, 0, 0, 4)
+            };
+
+            _rackPanel = new Panel
             {
                 Dock = DockStyle.Fill,
-                AutoScroll = true,
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
-                Padding = new Padding(2, 2, 2, 0)
+                Margin = new Padding(0),
+                Padding = new Padding(0)
             };
             _rackPanel.SizeChanged += (_, _) => UpdateRackCardWidths();
 
@@ -88,7 +105,7 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Fill,
                 Orientation = Orientation.Horizontal,
-                FixedPanel = FixedPanel.None,
+                FixedPanel = FixedPanel.Panel2,
                 Panel1MinSize = 240,
                 Panel2MinSize = 130,
                 SplitterWidth = 3,
@@ -99,21 +116,29 @@ namespace AsutpKnowledgeBase
             _splitRackDetails.Panel2.BackColor = SystemColors.Control;
             _splitRackDetails.Panel1.Controls.Add(CreateRacksGroup());
             _splitRackDetails.Panel2.Controls.Add(CreateDetailsGroup("Детали выбранного Rack", _dgvRackDetails));
+            _splitRackDetails.SplitterMoving += (_, _) =>
+            {
+                _isSplitterMoving = true;
+            };
             _splitRackDetails.SplitterMoved += (_, _) =>
             {
-                if (!_isApplyingDetailsPanelHeight)
+                bool wasUserMove = _isSplitterMoving;
+                _isSplitterMoving = false;
+                if (wasUserMove && !_isApplyingDetailsPanelHeight)
                 {
-                    _pendingDetailsPanelHeight = DetailsPanelHeight;
+                    _desiredDetailsPanelHeight = DetailsPanelHeight;
                     _splitRackDetails.Invalidate();
                     DetailsPanelHeightChanged?.Invoke(this, EventArgs.Empty);
                 }
             };
             _splitRackDetails.SizeChanged += (_, _) =>
             {
-                ApplyPendingDetailsPanelHeight();
+                ApplyDesiredDetailsPanelHeight();
                 _splitRackDetails.Invalidate();
             };
             _splitRackDetails.Paint += (_, e) => PaintRackDetailsSplitter(e.Graphics);
+            _splitRackDetails.VisibleChanged += (_, _) => ApplyDesiredDetailsPanelHeight();
+            _splitRackDetails.Layout += (_, _) => ApplyDesiredDetailsPanelHeight();
 
             layout.Controls.Add(actionsPanel, 0, 0);
             layout.Controls.Add(_splitRackDetails, 0, 1);
@@ -162,13 +187,14 @@ namespace AsutpKnowledgeBase
 
             PopulateRacks(previouslySelectedEntryId, previouslySelectedRack, previouslySelectedSlot);
             ResolveSelectionAfterPopulate(previouslySelectedEntryId, previouslySelectedRack, previouslySelectedSlot);
+            ApplyDesiredDetailsPanelHeight();
             UpdateButtonStates();
         }
 
         public void ApplyDetailsPanelHeight(int? detailsPanelHeight)
         {
-            _pendingDetailsPanelHeight = detailsPanelHeight;
-            ApplyPendingDetailsPanelHeight();
+            _desiredDetailsPanelHeight = detailsPanelHeight;
+            ApplyDesiredDetailsPanelHeight();
         }
 
         public void ApplyColumnWidths(
@@ -198,9 +224,10 @@ namespace AsutpKnowledgeBase
         public Dictionary<string, int> GetRackDetailsColumnWidths() =>
             new(_rackDetailsColumnWidths, StringComparer.Ordinal);
 
-        private void ApplyPendingDetailsPanelHeight()
+        private void ApplyDesiredDetailsPanelHeight()
         {
-            if (!_pendingDetailsPanelHeight.HasValue ||
+            if (!_desiredDetailsPanelHeight.HasValue ||
+                _isSplitterMoving ||
                 _splitRackDetails == null ||
                 _splitRackDetails.IsDisposed ||
                 _splitRackDetails.Height <= 0)
@@ -214,7 +241,7 @@ namespace AsutpKnowledgeBase
 
             int maximumDetailsHeight = availableHeight - _splitRackDetails.Panel1MinSize;
             int detailsHeight = Math.Clamp(
-                _pendingDetailsPanelHeight.Value,
+                _desiredDetailsPanelHeight.Value,
                 _splitRackDetails.Panel2MinSize,
                 maximumDetailsHeight);
             int splitterDistance = availableHeight - detailsHeight;
@@ -224,16 +251,12 @@ namespace AsutpKnowledgeBase
                 availableHeight - _splitRackDetails.Panel2MinSize);
 
             if (_splitRackDetails.SplitterDistance == splitterDistance)
-            {
-                _pendingDetailsPanelHeight = null;
                 return;
-            }
 
             _isApplyingDetailsPanelHeight = true;
             try
             {
                 _splitRackDetails.SplitterDistance = splitterDistance;
-                _pendingDetailsPanelHeight = null;
             }
             finally
             {
@@ -249,7 +272,21 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Padding = new Padding(8, 8, 8, 4)
             };
-            groupBox.Controls.Add(_rackPanel);
+            var content = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2,
+                Margin = new Padding(0),
+                Padding = new Padding(0)
+            };
+            content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            content.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            content.Controls.Add(_rackSelectorPanel, 0, 0);
+            content.Controls.Add(_rackPanel, 0, 1);
+
+            groupBox.Controls.Add(content);
             return groupBox;
         }
 
@@ -259,58 +296,171 @@ namespace AsutpKnowledgeBase
             int? preferredSlotNumber)
         {
             _isSynchronizingSelection = true;
+            _rackSelectorPanel.SuspendLayout();
             _rackPanel.SuspendLayout();
             try
             {
+                SelectedRackNumber = ResolvePreferredRackNumber(preferredSelectedEntryId, preferredRackNumber);
+                PopulateRackSelectors();
+
                 _rackPanel.Controls.Clear();
                 _rackListViews.Clear();
 
-                foreach (var rack in _currentState.RackStates)
-                {
-                    var listView = CreateRackListView();
-                    listView.Tag = rack;
-                    listView.SelectedIndexChanged += (_, _) => HandleRackSelectionChanged(listView);
-                    listView.DoubleClick += (_, _) =>
-                    {
-                        if (!string.IsNullOrWhiteSpace(SelectedEntryId))
-                            EditSelectedRequested?.Invoke(this, EventArgs.Empty);
-                    };
-
-                    foreach (var entry in rack.SlotRows)
-                    {
-                        var item = new ListViewItem(
-                        [
-                            entry.SlotText,
-                            entry.SlotRoleText,
-                            entry.ComponentText,
-                            entry.ComponentTypeText,
-                            entry.NotesText,
-                            entry.SlotAdvisoryText
-                        ])
-                        {
-                            Tag = entry,
-                            ToolTipText = entry.SlotAdvisoryText == "-"
-                                ? entry.SlotRoleText
-                                : entry.SlotAdvisoryText
-                        };
-                        ApplyListViewItemStyle(item, entry);
-
-                        listView.Items.Add(item);
-                        if (ShouldSelectEntry(entry, preferredSelectedEntryId, preferredRackNumber, preferredSlotNumber))
-                            item.Selected = true;
-                    }
-
-                    _rackListViews[rack.RackNumber] = listView;
-                    _rackPanel.Controls.Add(CreateRackGroup(rack, listView));
-                }
+                var rack = _currentState.RackStates.FirstOrDefault(state => state.RackNumber == SelectedRackNumber);
+                if (rack != null)
+                    PopulateSelectedRack(rack, preferredSelectedEntryId, preferredSlotNumber);
 
                 UpdateRackCardWidths();
             }
             finally
             {
                 _rackPanel.ResumeLayout();
+                _rackSelectorPanel.ResumeLayout();
                 _isSynchronizingSelection = false;
             }
+        }
+
+        private void PopulateRackSelectors()
+        {
+            _rackSelectorPanel.Controls.Clear();
+
+            foreach (var rack in _currentState.RackStates)
+            {
+                var selector = CreateRackSelector(rack);
+                _rackSelectorPanel.Controls.Add(selector);
+            }
+
+            if (_currentState.SupportsEditing)
+                _rackSelectorPanel.Controls.Add(CreateAddRackSelectorButton());
+        }
+
+        private void PopulateSelectedRack(
+            KnowledgeBaseCompositionRackState rack,
+            string preferredSelectedEntryId,
+            int? preferredSlotNumber)
+        {
+            var listView = CreateRackListView();
+            listView.Tag = rack;
+            listView.SelectedIndexChanged += (_, _) => HandleRackSelectionChanged(listView);
+            listView.DoubleClick += (_, _) =>
+            {
+                if (!string.IsNullOrWhiteSpace(SelectedEntryId))
+                    EditSelectedRequested?.Invoke(this, EventArgs.Empty);
+            };
+
+            foreach (var entry in rack.SlotRows)
+            {
+                var item = new ListViewItem(
+                [
+                    entry.SlotText,
+                    entry.SlotRoleText,
+                    entry.ComponentText,
+                    entry.ComponentTypeText,
+                    entry.NotesText,
+                    entry.SlotAdvisoryText
+                ])
+                {
+                    Tag = entry,
+                    ToolTipText = entry.SlotAdvisoryText == "-"
+                        ? entry.SlotRoleText
+                        : entry.SlotAdvisoryText
+                };
+                ApplyListViewItemStyle(item, entry);
+
+                listView.Items.Add(item);
+                if (ShouldSelectEntry(entry, preferredSelectedEntryId, rack.RackNumber, preferredSlotNumber))
+                    item.Selected = true;
+            }
+
+            _rackListViews[rack.RackNumber] = listView;
+            _rackPanel.Controls.Add(CreateRackGroup(rack, listView));
+        }
+
+        private RadioButton CreateRackSelector(KnowledgeBaseCompositionRackState rack)
+        {
+            var selector = new RadioButton
+            {
+                Appearance = Appearance.Button,
+                AutoSize = true,
+                Checked = rack.RackNumber == SelectedRackNumber,
+                Margin = new Padding(0, 0, 4, 4),
+                MinimumSize = new Size(80, 28),
+                Padding = new Padding(8, 2, 8, 2),
+                Tag = rack,
+                Text = BuildRackSelectorText(rack),
+                TextAlign = ContentAlignment.MiddleCenter,
+                UseVisualStyleBackColor = true
+            };
+            _toolTip.SetToolTip(selector, rack.Title);
+            selector.CheckedChanged += HandleRackSelectorCheckedChanged;
+            return selector;
+        }
+
+        private Button CreateAddRackSelectorButton()
+        {
+            var button = new Button
+            {
+                Text = "+",
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Margin = new Padding(4, 0, 0, 4),
+                MinimumSize = new Size(32, 28),
+                Padding = new Padding(8, 2, 8, 2)
+            };
+            _toolTip.SetToolTip(button, "Добавить Rack");
+            button.Click += (_, _) => AddRackRequested?.Invoke(this, EventArgs.Empty);
+            return button;
+        }
+
+        private void HandleRackSelectorCheckedChanged(object? sender, EventArgs e)
+        {
+            if (_isSynchronizingSelection ||
+                sender is not RadioButton { Checked: true, Tag: KnowledgeBaseCompositionRackState rack })
+            {
+                return;
+            }
+
+            SelectRack(rack.RackNumber);
+        }
+
+        private void SelectRack(int rackNumber)
+        {
+            string preferredSelectedEntryId = SelectedRackNumber == rackNumber
+                ? SelectedEntryId
+                : string.Empty;
+            int? preferredSlotNumber = SelectedRackNumber == rackNumber
+                ? SelectedSlotNumber
+                : null;
+
+            PopulateRacks(preferredSelectedEntryId, rackNumber, preferredSlotNumber);
+            ResolveSelectionAfterPopulate(preferredSelectedEntryId, rackNumber, preferredSlotNumber);
+            UpdateButtonStates();
+        }
+
+        private int ResolvePreferredRackNumber(string preferredSelectedEntryId, int preferredRackNumber)
+        {
+            if (!string.IsNullOrWhiteSpace(preferredSelectedEntryId))
+            {
+                var preferredEntry = _currentState.SlottedEntryStates.FirstOrDefault(entry =>
+                    string.Equals(entry.EntryId, preferredSelectedEntryId, StringComparison.Ordinal));
+                if (preferredEntry != null)
+                    return preferredEntry.RackNumber;
+            }
+
+            if (_currentState.RackStates.Any(rack => rack.RackNumber == preferredRackNumber))
+                return preferredRackNumber;
+
+            return _currentState.RackStates.Count > 0
+                ? _currentState.RackStates[0].RackNumber
+                : 0;
+        }
+
+        private static string BuildRackSelectorText(KnowledgeBaseCompositionRackState rack)
+        {
+            string warningText = rack.WarningCount > 0
+                ? $" !{rack.WarningCount}"
+                : string.Empty;
+            return $"{KnowledgeBaseCompositionRackSlotRulesService.FormatRackText(rack.RackNumber)} ({rack.FilledSlots}/{rack.TotalSlots}){warningText}";
         }
 
         private void ResolveSelectionAfterPopulate(
@@ -328,7 +478,9 @@ namespace AsutpKnowledgeBase
             SelectedEntryId = string.Empty;
             SelectedRackNumber = _currentState.RackStates.Any(rack => rack.RackNumber == preferredRackNumber)
                 ? preferredRackNumber
-                : _currentState.RackStates.FirstOrDefault()?.RackNumber ?? 0;
+                : _currentState.RackStates.Count > 0
+                    ? _currentState.RackStates[0].RackNumber
+                    : 0;
             SelectedSlotNumber = preferredSlotNumber;
             PopulateRackDetails(SelectedRackNumber, preferredSelectedEntryId, preferredSlotNumber);
         }
@@ -369,8 +521,17 @@ namespace AsutpKnowledgeBase
             if (state == null)
                 return;
 
-            ApplySelectedEntryState(state);
-            ClearOtherRackSelections(null);
+            _isSynchronizingSelection = true;
+            try
+            {
+                ApplySelectedEntryState(state);
+                SelectRackListEntry(state);
+            }
+            finally
+            {
+                _isSynchronizingSelection = false;
+            }
+
             UpdateButtonStates();
         }
 
@@ -408,8 +569,9 @@ namespace AsutpKnowledgeBase
 
         private void PopulateRackDetails(int rackNumber, string preferredSelectedEntryId, int? preferredSlotNumber)
         {
-            var rack = _currentState.RackStates.FirstOrDefault(state => state.RackNumber == rackNumber) ??
-                _currentState.RackStates.FirstOrDefault();
+            var rack = _currentState.RackStates.FirstOrDefault(state => state.RackNumber == rackNumber);
+            if (rack == null && _currentState.RackStates.Count > 0)
+                rack = _currentState.RackStates[0];
 
             _dgvRackDetails.Rows.Clear();
             if (rack == null)
@@ -472,6 +634,23 @@ namespace AsutpKnowledgeBase
                     continue;
 
                 listView.SelectedItems.Clear();
+            }
+        }
+
+        private void SelectRackListEntry(KnowledgeBaseCompositionEntryState state)
+        {
+            if (!_rackListViews.TryGetValue(state.RackNumber, out var listView))
+                return;
+
+            foreach (ListViewItem item in listView.Items)
+            {
+                if (ReferenceEquals(item.Tag, state))
+                {
+                    item.Selected = true;
+                    item.Focused = true;
+                    item.EnsureVisible();
+                    return;
+                }
             }
         }
 
