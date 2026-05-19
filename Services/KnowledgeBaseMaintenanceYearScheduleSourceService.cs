@@ -93,7 +93,9 @@ namespace AsutpKnowledgeBase.Services
                     OwnerNodeId = context.OwnerNodeId,
                     Path = context.Path,
                     NodeName = context.NodeName,
-                    InventoryNumber = context.InventoryNumber,
+                    InventoryNumber = string.IsNullOrWhiteSpace(context.SystemInventoryNumber)
+                        ? context.InventoryNumber
+                        : context.SystemInventoryNumber,
                     SystemNodeId = context.SystemNodeId,
                     SystemName = context.SystemName,
                     SystemInventoryNumber = context.SystemInventoryNumber,

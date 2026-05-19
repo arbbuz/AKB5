@@ -36,7 +36,7 @@ public class KnowledgeBaseMaintenanceYearScheduleSourceServiceTests
             });
 
         Assert.Equal(new[] { "device-1", "device-2" }, rows.Select(static row => row.OwnerNodeId).ToArray());
-        Assert.Equal("INV-001", rows[0].InventoryNumber);
+        Assert.Equal("SYS-001", rows[0].InventoryNumber);
         Assert.False(rows[0].IsIncludedInSchedule);
         Assert.True(rows[0].HasManualSchedule);
         Assert.False(rows[1].HasManualSchedule);
@@ -242,6 +242,7 @@ public class KnowledgeBaseMaintenanceYearScheduleSourceServiceTests
                         NodeId = "system-1",
                         Name = "АСУ установки",
                         NodeType = KbNodeType.System,
+                        Details = new KbNodeDetails { InventoryNumber = "SYS-001" },
                         Children =
                         {
                             new KbNode
