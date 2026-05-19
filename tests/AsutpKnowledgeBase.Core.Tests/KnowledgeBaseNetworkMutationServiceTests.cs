@@ -35,6 +35,33 @@ public class KnowledgeBaseNetworkMutationServiceTests
     }
 
     [Fact]
+    public void UpsertNetworkFileReference_AddsNewPdfReference_ForSupportedNode()
+    {
+        var ownerNode = new KbNode
+        {
+            NodeId = "system-1",
+            Name = "System 1",
+            NodeType = KbNodeType.System
+        };
+
+        var result = _service.UpsertNetworkFileReference(
+            ownerNode,
+            Array.Empty<KbNetworkFileReference>(),
+            new KbNetworkFileReference
+            {
+                Title = " Source scheme ",
+                Path = " \\\\srv\\network\\scheme.pdf "
+            },
+            visibleLevel: 2);
+
+        Assert.True(result.IsSuccess);
+        var reference = Assert.Single(result.NetworkFileReferences);
+        Assert.Equal("Source scheme", reference.Title);
+        Assert.Equal("\\\\srv\\network\\scheme.pdf", reference.Path);
+        Assert.Equal(KbNetworkPreviewKind.Pdf, reference.PreviewKind);
+    }
+
+    [Fact]
     public void UpsertNetworkFileReference_UpdatesExistingReference_ForSameOwner()
     {
         var ownerNode = new KbNode

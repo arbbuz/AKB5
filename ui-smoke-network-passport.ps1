@@ -54,6 +54,8 @@ $interfaceB = 'X2'
 $ipA = '10.250.0.10'
 $ipB = '10.250.0.11'
 $cableLabel = 'codex-net-w1'
+$networkPdfTitle = 'codex-net-scheme-pdf'
+$networkPdfPath = Join-Path ([IO.Path]::GetTempPath()) 'akb5-codex-net-scheme.pdf'
 $mainWindow = $null
 
 Set-Content -LiteralPath $LogPath -Encoding UTF8 -Value ''
@@ -187,6 +189,23 @@ function Set-ElementValue {
     }
 
     $pattern.SetValue($Value)
+}
+
+function Assert-ElementValue {
+    param(
+        [System.Windows.Automation.AutomationElement]$Element,
+        [string]$ExpectedValue
+    )
+
+    $pattern = $null
+    if (-not $Element.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$pattern) -or
+        $pattern -eq $null) {
+        throw "Element '$($Element.Current.Name)' does not support ValuePattern."
+    }
+
+    if (-not [string]::Equals($pattern.Current.Value, $ExpectedValue, [StringComparison]::Ordinal)) {
+        throw "Element '$($Element.Current.Name)' value was '$($pattern.Current.Value)', expected '$ExpectedValue'."
+    }
 }
 
 function Set-ComboBoxValue {
@@ -541,8 +560,32 @@ function Get-PassportTabName {
     return New-UiText @(0x041F, 0x0430, 0x0441, 0x043F, 0x043E, 0x0440, 0x0442)
 }
 
+function Get-FilesTabName {
+    return New-UiText @(0x0424, 0x0430, 0x0439, 0x043B, 0x044B)
+}
+
 function Get-PassportFilterFieldName {
     return New-UiText @(0x0424, 0x0438, 0x043B, 0x044C, 0x0442, 0x0440, 0x0020, 0x043F, 0x0430, 0x0441, 0x043F, 0x043E, 0x0440, 0x0442, 0x0430)
+}
+
+function Get-AddFileButtonName {
+    return New-UiText @(0x0414, 0x043E, 0x0431, 0x0430, 0x0432, 0x0438, 0x0442, 0x044C, 0x0020, 0x0444, 0x0430, 0x0439, 0x043B)
+}
+
+function Get-AddNetworkFileDialogName {
+    return New-UiText @(0x0414, 0x043E, 0x0431, 0x0430, 0x0432, 0x0438, 0x0442, 0x044C, 0x0020, 0x0444, 0x0430, 0x0439, 0x043B, 0x0020, 0x0441, 0x0435, 0x0442, 0x0438)
+}
+
+function Get-TitleFieldName {
+    return New-UiText @(0x041D, 0x0430, 0x0438, 0x043C, 0x0435, 0x043D, 0x043E, 0x0432, 0x0430, 0x043D, 0x0438, 0x0435)
+}
+
+function Get-PathFieldName {
+    return New-UiText @(0x041F, 0x0443, 0x0442, 0x044C, 0x0020, 0x002F, 0x0020, 0x0441, 0x0441, 0x044B, 0x043B, 0x043A, 0x0430)
+}
+
+function Get-PreviewKindFieldName {
+    return New-UiText @(0x0422, 0x0438, 0x043F, 0x0020, 0x043F, 0x0440, 0x0435, 0x0434, 0x043F, 0x0440, 0x043E, 0x0441, 0x043C, 0x043E, 0x0442, 0x0440, 0x0430)
 }
 
 function Get-AddDeviceButtonName {
@@ -657,6 +700,8 @@ if (-not (Test-Path -LiteralPath $dataPath)) {
     throw "Knowledge base file was not found at '$dataPath'."
 }
 
+Set-Content -LiteralPath $networkPdfPath -Encoding ASCII -Value '%PDF-1.4 smoke placeholder'
+
 $searchText = Get-SearchSystemName -DataPath $dataPath
 Write-Log "Prepared Lvl2 search target: $searchText"
 
@@ -698,6 +743,34 @@ try {
         -ControlType ([System.Windows.Automation.ControlType]::TabItem) `
         -NamePattern (Get-PassportTabName) `
         -TimeoutSeconds 10
+    Invoke-Element -Element $passportTab
+    Start-Sleep -Milliseconds 300
+
+    Write-Log 'Adding PDF network file reference.'
+    $filesTab = Find-Element `
+        -Root $mainWindow `
+        -ControlType ([System.Windows.Automation.ControlType]::TabItem) `
+        -NamePattern (Get-FilesTabName) `
+        -TimeoutSeconds 10
+    Invoke-Element -Element $filesTab
+    Start-Sleep -Milliseconds 300
+    $addFileButton = Find-Element -Root $mainWindow -ControlType ([System.Windows.Automation.ControlType]::Button) -NamePattern (Get-AddFileButtonName)
+    Press-Element -Element $addFileButton -ProcessId $process.Id
+    $fileDialogName = Get-AddNetworkFileDialogName
+    $fileDialog = Wait-ForNamedWindow -ProcessId $process.Id -Name $fileDialogName
+    Set-ElementValue `
+        -Element (Find-Element -Root $fileDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-TitleFieldName)) `
+        -Value $networkPdfTitle
+    Set-ElementValue `
+        -Element (Find-Element -Root $fileDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-PathFieldName)) `
+        -Value $networkPdfPath
+    $previewKindField = Find-Element -Root $fileDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-PreviewKindFieldName) -TimeoutSeconds 5
+    Assert-ElementValue -Element $previewKindField -ExpectedValue 'PDF'
+    Click-SaveButton -Dialog $fileDialog -ProcessId $process.Id
+    Wait-ForDialogToClose -ProcessId $process.Id -Name $fileDialogName
+    Start-Sleep -Milliseconds 500
+    $null = Find-Element -Root $mainWindow -ControlType ([System.Windows.Automation.ControlType]::ListItem) -NamePattern "*$networkPdfTitle*" -TimeoutSeconds 10
+
     Invoke-Element -Element $passportTab
     Start-Sleep -Milliseconds 300
 
@@ -845,6 +918,7 @@ try {
     $summary = [pscustomobject]@{
         SearchNode = $searchText
         DataPath = $dataPath
+        PdfFileSeen = Test-FileContainsUtf8Text -Path $dataPath -Text $networkPdfTitle
         DeviceSeen = Test-FileContainsUtf8Text -Path $dataPath -Text $deviceName
         InterfaceSeen = Test-FileContainsUtf8Text -Path $dataPath -Text $ipA
         ConnectionSeen = Test-FileContainsUtf8Text -Path $dataPath -Text $cableLabel
@@ -879,6 +953,10 @@ finally {
     if (Test-Path -LiteralPath $backupPath) {
         Copy-Item -LiteralPath $backupPath -Destination $dataPath -Force
         Remove-Item -LiteralPath $backupPath -Force
+    }
+
+    if (Test-Path -LiteralPath $networkPdfPath) {
+        Remove-Item -LiteralPath $networkPdfPath -Force
     }
 
     Write-Log "Smoke log written to $LogPath"

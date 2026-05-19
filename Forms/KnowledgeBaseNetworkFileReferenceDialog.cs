@@ -51,6 +51,7 @@ namespace AsutpKnowledgeBase
             _txtTitle = new TextBox
             {
                 Dock = DockStyle.Fill,
+                AccessibleName = "Наименование",
                 Text = existingReference?.Title ?? string.Empty
             };
             layout.Controls.Add(CreateLabel("Наименование"), 0, 0);
@@ -72,6 +73,7 @@ namespace AsutpKnowledgeBase
             _txtPath = new TextBox
             {
                 Dock = DockStyle.Fill,
+                AccessibleName = "Путь / ссылка",
                 Text = existingReference?.Path ?? string.Empty
             };
             _txtPath.TextChanged += (_, _) => UpdatePreviewKind();
@@ -96,6 +98,7 @@ namespace AsutpKnowledgeBase
                 BorderStyle = BorderStyle.FixedSingle,
                 BackColor = Color.White
             };
+            _txtPreviewKind.AccessibleName = "Тип предпросмотра";
             layout.Controls.Add(CreateLabel("Тип предпросмотра"), 0, 2);
             layout.Controls.Add(_txtPreviewKind, 1, 2);
 
@@ -143,7 +146,7 @@ namespace AsutpKnowledgeBase
                 Title = "Выберите файл сети",
                 CheckFileExists = true,
                 Filter =
-                    "Поддерживаемые изображения (*.jpg;*.jpeg;*.png;*.bmp;*.gif)|*.jpg;*.jpeg;*.png;*.bmp;*.gif|Все файлы (*.*)|*.*"
+                    "Схемы сети (*.pdf;*.jpg;*.jpeg;*.png;*.bmp;*.gif)|*.pdf;*.jpg;*.jpeg;*.png;*.bmp;*.gif|PDF-файлы (*.pdf)|*.pdf|Изображения (*.jpg;*.jpeg;*.png;*.bmp;*.gif)|*.jpg;*.jpeg;*.png;*.bmp;*.gif|Все файлы (*.*)|*.*"
             };
 
             if (dialog.ShowDialog(this) == DialogResult.OK)

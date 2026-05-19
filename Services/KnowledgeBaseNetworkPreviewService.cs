@@ -7,6 +7,8 @@ namespace AsutpKnowledgeBase.Services
         public static KbNetworkPreviewKind ResolvePreviewKind(string? path) =>
             IsPreviewableImagePath(path)
                 ? KbNetworkPreviewKind.Image
+                : IsPdfPath(path)
+                ? KbNetworkPreviewKind.Pdf
                 : KbNetworkPreviewKind.MetadataOnly;
 
         public static bool CanPreviewInForm(KbNetworkPreviewKind previewKind) =>
@@ -15,6 +17,7 @@ namespace AsutpKnowledgeBase.Services
         public static string GetPreviewKindText(KbNetworkPreviewKind previewKind) => previewKind switch
         {
             KbNetworkPreviewKind.Image => "Изображение",
+            KbNetworkPreviewKind.Pdf => "PDF",
             _ => "Без встроенного предпросмотра"
         };
 
@@ -30,6 +33,15 @@ namespace AsutpKnowledgeBase.Services
                    extension.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
                    extension.Equals(".bmp", StringComparison.OrdinalIgnoreCase) ||
                    extension.Equals(".gif", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool IsPdfPath(string? path)
+        {
+            string normalizedPath = path?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(normalizedPath))
+                return false;
+
+            return Path.GetExtension(normalizedPath).Equals(".pdf", StringComparison.OrdinalIgnoreCase);
         }
     }
 }
