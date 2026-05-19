@@ -189,6 +189,30 @@ function Set-ElementValue {
     $pattern.SetValue($Value)
 }
 
+function Set-ComboBoxValue {
+    param(
+        [System.Windows.Automation.AutomationElement]$Element,
+        [string]$Value
+    )
+
+    $pattern = $null
+    if ($Element.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$pattern) -and
+        $pattern -ne $null) {
+        $pattern.SetValue($Value)
+        return
+    }
+
+    foreach ($child in Get-Descendants -Root $Element) {
+        if ($child.Current.ControlType -eq [System.Windows.Automation.ControlType]::Edit -and
+            $child.Current.IsKeyboardFocusable) {
+            Set-ElementValue -Element $child -Value $Value
+            return
+        }
+    }
+
+    throw "Combo box '$($Element.Current.Name)' does not support editable value input."
+}
+
 function Invoke-Element {
     param([System.Windows.Automation.AutomationElement]$Element)
 
@@ -521,6 +545,30 @@ function Get-AddConnectionDialogName {
     return New-UiText @(0x0414, 0x043E, 0x0431, 0x0430, 0x0432, 0x0438, 0x0442, 0x044C, 0x0020, 0x0441, 0x0435, 0x0442, 0x0435, 0x0432, 0x043E, 0x0435, 0x0020, 0x0441, 0x043E, 0x0435, 0x0434, 0x0438, 0x043D, 0x0435, 0x043D, 0x0438, 0x0435)
 }
 
+function Get-CableLabelFieldName {
+    return New-UiText @(0x041A, 0x0430, 0x0431, 0x0435, 0x043B, 0x044C)
+}
+
+function Get-CableTypeFieldName {
+    return New-UiText @(0x0422, 0x0438, 0x043F, 0x0020, 0x043A, 0x0430, 0x0431, 0x0435, 0x043B, 0x044F)
+}
+
+function Get-ProtocolFieldName {
+    return New-UiText @(0x041F, 0x0440, 0x043E, 0x0442, 0x043E, 0x043A, 0x043E, 0x043B)
+}
+
+function Get-MediumFieldName {
+    return New-UiText @(0x0421, 0x0440, 0x0435, 0x0434, 0x0430)
+}
+
+function Get-RouteFieldName {
+    return New-UiText @(0x0422, 0x0440, 0x0430, 0x0441, 0x0441, 0x0430, 0x0020, 0x002F, 0x0020, 0x043C, 0x0435, 0x0441, 0x0442, 0x043E)
+}
+
+function Get-StatusFieldName {
+    return New-UiText @(0x0421, 0x0442, 0x0430, 0x0442, 0x0443, 0x0441)
+}
+
 function Click-SaveButton {
     param(
         [System.Windows.Automation.AutomationElement]$Dialog,
@@ -634,13 +682,24 @@ try {
     Press-Element -Element $addConnectionButton -ProcessId $process.Id
     $connectionDialogName = Get-AddConnectionDialogName
     $connectionDialog = Wait-ForNamedWindow -ProcessId $process.Id -Name $connectionDialogName
-    $connectionEdits = Find-Edits -Root $connectionDialog
-    Set-ElementValue -Element $connectionEdits[0] -Value $cableLabel
-    Set-ElementValue -Element $connectionEdits[1] -Value 'PN cable'
-    Set-ElementValue -Element $connectionEdits[2] -Value 'PROFINET'
-    Set-ElementValue -Element $connectionEdits[3] -Value 'copper'
-    Set-ElementValue -Element $connectionEdits[5] -Value '+7.0'
-    Set-ElementValue -Element $connectionEdits[6] -Value 'active'
+    Set-ElementValue `
+        -Element (Find-Element -Root $connectionDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-CableLabelFieldName)) `
+        -Value $cableLabel
+    Set-ElementValue `
+        -Element (Find-Element -Root $connectionDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-CableTypeFieldName)) `
+        -Value 'PN cable'
+    Set-ComboBoxValue `
+        -Element (Find-Element -Root $connectionDialog -ControlType ([System.Windows.Automation.ControlType]::ComboBox) -NamePattern (Get-ProtocolFieldName)) `
+        -Value 'PROFINET'
+    Set-ComboBoxValue `
+        -Element (Find-Element -Root $connectionDialog -ControlType ([System.Windows.Automation.ControlType]::ComboBox) -NamePattern (Get-MediumFieldName)) `
+        -Value 'Медь'
+    Set-ElementValue `
+        -Element (Find-Element -Root $connectionDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-RouteFieldName)) `
+        -Value '+7.0'
+    Set-ElementValue `
+        -Element (Find-Element -Root $connectionDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-StatusFieldName)) `
+        -Value 'active'
     Click-SaveButton -Dialog $connectionDialog -ProcessId $process.Id
     Wait-ForDialogToClose -ProcessId $process.Id -Name $connectionDialogName
     Start-Sleep -Milliseconds 700
