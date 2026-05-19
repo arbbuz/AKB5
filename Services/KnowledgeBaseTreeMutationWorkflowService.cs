@@ -636,11 +636,7 @@ namespace AsutpKnowledgeBase.Services
             if (remainingSoftwareRecords.Count != _session.SoftwareRecords.Count)
                 _session.ReplaceSoftwareRecords(remainingSoftwareRecords);
 
-            var remainingNetworkFileReferences = _session.NetworkFileReferences
-                .Where(reference => !removedNodeIds.Contains(reference.OwnerNodeId))
-                .ToList();
-            if (remainingNetworkFileReferences.Count != _session.NetworkFileReferences.Count)
-                _session.ReplaceNetworkFileReferences(remainingNetworkFileReferences);
+            DeleteNetworkDataForNodeIds(removedNodeIds);
 
             var remainingMaintenanceScheduleProfiles = _session.MaintenanceScheduleProfiles
                 .Where(profile => !removedNodeIds.Contains(profile.OwnerNodeId))
@@ -724,6 +720,44 @@ namespace AsutpKnowledgeBase.Services
                 .ToList();
             if (remainingNetworkFileReferences.Count != _session.NetworkFileReferences.Count)
                 _session.ReplaceNetworkFileReferences(remainingNetworkFileReferences);
+
+            var removedNetworkDeviceIds = _session.NetworkDevices
+                .Where(device =>
+                    removedNodeIds.Contains(device.OwnerNodeId) ||
+                    removedNodeIds.Contains(device.LinkedNodeId))
+                .Select(device => device.NetworkDeviceId)
+                .ToHashSet(StringComparer.Ordinal);
+
+            if (removedNetworkDeviceIds.Count == 0)
+                return;
+
+            var remainingNetworkDevices = _session.NetworkDevices
+                .Where(device => !removedNetworkDeviceIds.Contains(device.NetworkDeviceId))
+                .ToList();
+            if (remainingNetworkDevices.Count != _session.NetworkDevices.Count)
+                _session.ReplaceNetworkDevices(remainingNetworkDevices);
+
+            var removedNetworkInterfaceIds = _session.NetworkInterfaces
+                .Where(networkInterface => removedNetworkDeviceIds.Contains(networkInterface.NetworkDeviceId))
+                .Select(networkInterface => networkInterface.NetworkInterfaceId)
+                .ToHashSet(StringComparer.Ordinal);
+
+            var remainingNetworkInterfaces = _session.NetworkInterfaces
+                .Where(networkInterface => !removedNetworkDeviceIds.Contains(networkInterface.NetworkDeviceId))
+                .ToList();
+            if (remainingNetworkInterfaces.Count != _session.NetworkInterfaces.Count)
+                _session.ReplaceNetworkInterfaces(remainingNetworkInterfaces);
+
+            if (removedNetworkInterfaceIds.Count == 0)
+                return;
+
+            var remainingNetworkConnections = _session.NetworkConnections
+                .Where(connection =>
+                    !removedNetworkInterfaceIds.Contains(connection.EndpointAInterfaceId) &&
+                    !removedNetworkInterfaceIds.Contains(connection.EndpointBInterfaceId))
+                .ToList();
+            if (remainingNetworkConnections.Count != _session.NetworkConnections.Count)
+                _session.ReplaceNetworkConnections(remainingNetworkConnections);
         }
 
         private void DeleteMaintenanceDataForNodeIds(ISet<string> removedNodeIds)

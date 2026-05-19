@@ -75,6 +75,21 @@ namespace AsutpKnowledgeBase.Services
                     normalizedRight.NetworkFileReferences,
                     static reference => reference.NetworkAssetId),
                 CompareKeyed(
+                    "Сетевые устройства",
+                    normalizedLeft.NetworkDevices,
+                    normalizedRight.NetworkDevices,
+                    static device => device.NetworkDeviceId),
+                CompareKeyed(
+                    "Сетевые интерфейсы",
+                    normalizedLeft.NetworkInterfaces,
+                    normalizedRight.NetworkInterfaces,
+                    static networkInterface => networkInterface.NetworkInterfaceId),
+                CompareKeyed(
+                    "Сетевые соединения",
+                    normalizedLeft.NetworkConnections,
+                    normalizedRight.NetworkConnections,
+                    static connection => connection.NetworkConnectionId),
+                CompareKeyed(
                     "Графики ТО",
                     normalizedLeft.MaintenanceScheduleProfiles,
                     normalizedRight.MaintenanceScheduleProfiles,

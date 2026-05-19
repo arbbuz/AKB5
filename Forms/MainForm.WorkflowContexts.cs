@@ -143,6 +143,16 @@ namespace AsutpKnowledgeBase
         {
             var nodeIds = new HashSet<string>(StringComparer.Ordinal);
             CollectNodeIds(node, nodeIds);
+            var networkDeviceIds = _session.NetworkDevices
+                .Where(device =>
+                    nodeIds.Contains(device.OwnerNodeId) ||
+                    nodeIds.Contains(device.LinkedNodeId))
+                .Select(device => device.NetworkDeviceId)
+                .ToHashSet(StringComparer.Ordinal);
+            var networkInterfaceIds = _session.NetworkInterfaces
+                .Where(networkInterface => networkDeviceIds.Contains(networkInterface.NetworkDeviceId))
+                .Select(networkInterface => networkInterface.NetworkInterfaceId)
+                .ToHashSet(StringComparer.Ordinal);
 
             return new KnowledgeBaseTreeDeleteImpact
             {
@@ -153,6 +163,12 @@ namespace AsutpKnowledgeBase
                 DocumentLinkCount = _session.DocumentLinks.Count(link => nodeIds.Contains(link.OwnerNodeId)),
                 SoftwareRecordCount = _session.SoftwareRecords.Count(record => nodeIds.Contains(record.OwnerNodeId)),
                 NetworkFileReferenceCount = _session.NetworkFileReferences.Count(reference => nodeIds.Contains(reference.OwnerNodeId)),
+                NetworkTopologyRecordCount =
+                    networkDeviceIds.Count +
+                    networkInterfaceIds.Count +
+                    _session.NetworkConnections.Count(connection =>
+                        networkInterfaceIds.Contains(connection.EndpointAInterfaceId) ||
+                        networkInterfaceIds.Contains(connection.EndpointBInterfaceId)),
                 MaintenanceProfileCount = _session.MaintenanceScheduleProfiles.Count(profile => nodeIds.Contains(profile.OwnerNodeId))
             };
         }

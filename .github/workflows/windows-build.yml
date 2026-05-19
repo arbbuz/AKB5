@@ -5,10 +5,12 @@ on:
     branches:
       - to
       - card
+      - Net
   pull_request:
     branches:
       - to
       - card
+      - Net
   workflow_dispatch:
 
 permissions:

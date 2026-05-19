@@ -33,6 +33,9 @@ public class SqliteKnowledgeBaseStorageServiceTests
             Assert.Contains("document_links", tables);
             Assert.Contains("software_records", tables);
             Assert.Contains("network_file_references", tables);
+            Assert.Contains("network_devices", tables);
+            Assert.Contains("network_interfaces", tables);
+            Assert.Contains("network_connections", tables);
             Assert.Contains("maintenance_schedule_profiles", tables);
             Assert.Contains("maintenance_year_schedule_entries", tables);
             Assert.Contains("equipment_catalog_items", tables);
@@ -84,6 +87,9 @@ public class SqliteKnowledgeBaseStorageServiceTests
             Assert.Equal(1, CountRows(connection, "document_links"));
             Assert.Equal(1, CountRows(connection, "software_records"));
             Assert.Equal(1, CountRows(connection, "network_file_references"));
+            Assert.Equal(2, CountRows(connection, "network_devices"));
+            Assert.Equal(2, CountRows(connection, "network_interfaces"));
+            Assert.Equal(1, CountRows(connection, "network_connections"));
             Assert.Equal(1, CountRows(connection, "maintenance_schedule_profiles"));
             Assert.Equal(2, CountRows(connection, "maintenance_year_schedule_entries"));
             Assert.Equal(1, CountRows(connection, "equipment_catalog_items"));
@@ -565,6 +571,88 @@ public class SqliteKnowledgeBaseStorageServiceTests
                     Title = "Топология",
                     Path = @"C:\network\topology.png",
                     PreviewKind = KbNetworkPreviewKind.Image
+                }
+            },
+            NetworkDevices = new List<KbNetworkDevice>
+            {
+                new()
+                {
+                    NetworkDeviceId = "network-device-1",
+                    OwnerNodeId = childId,
+                    LinkedNodeId = childId,
+                    Name = "PLC-1",
+                    Role = "Controller",
+                    Vendor = "Siemens",
+                    Model = "CPU 1214C",
+                    OrderNumber = "6ES7 214-1AG40-0XB0",
+                    SerialNumber = "S123",
+                    Firmware = "V4.5",
+                    ProfinetName = "plc-1",
+                    MacAddress = "00-11-22-33-44-55",
+                    LocationText = "Line 1",
+                    CabinetText = "Cabinet 1",
+                    Notes = "Main controller"
+                },
+                new()
+                {
+                    NetworkDeviceId = "network-device-2",
+                    OwnerNodeId = childId,
+                    Name = "HMI-1",
+                    Role = "Operator panel",
+                    Vendor = "Siemens",
+                    Model = "KTP700",
+                    ProfinetName = "hmi-1",
+                    MacAddress = "00-11-22-33-44-66",
+                    CabinetText = "Cabinet 1"
+                }
+            },
+            NetworkInterfaces = new List<KbNetworkInterface>
+            {
+                new()
+                {
+                    NetworkInterfaceId = "network-interface-1",
+                    NetworkDeviceId = "network-device-1",
+                    InterfaceName = "X1",
+                    PortNumber = "1",
+                    MacAddress = "00-11-22-33-44-55",
+                    IpAddress = "10.0.0.10",
+                    SubnetMask = "255.255.255.0",
+                    Gateway = "10.0.0.1",
+                    Vlan = "10",
+                    Protocol = "Profinet",
+                    MpiDpPnAddress = "PN/IE",
+                    Speed = "100 Mbit/s",
+                    Medium = "Copper",
+                    Notes = "Controller PN port"
+                },
+                new()
+                {
+                    NetworkInterfaceId = "network-interface-2",
+                    NetworkDeviceId = "network-device-2",
+                    InterfaceName = "X1",
+                    PortNumber = "1",
+                    MacAddress = "00-11-22-33-44-66",
+                    IpAddress = "10.0.0.20",
+                    SubnetMask = "255.255.255.0",
+                    Gateway = "10.0.0.1",
+                    Protocol = "Profinet",
+                    Speed = "100 Mbit/s",
+                    Medium = "Copper",
+                    Notes = "Panel PN port"
+                }
+            },
+            NetworkConnections = new List<KbNetworkConnection>
+            {
+                new()
+                {
+                    NetworkConnectionId = "network-connection-1",
+                    EndpointAInterfaceId = "network-interface-1",
+                    EndpointBInterfaceId = "network-interface-2",
+                    CableLabel = "W1",
+                    CableType = "Profinet",
+                    Length = "12 m",
+                    Status = "Active",
+                    Notes = "PLC to HMI"
                 }
             },
             MaintenanceScheduleProfiles = new List<KbMaintenanceScheduleProfile>

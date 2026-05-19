@@ -9,7 +9,7 @@ namespace AsutpKnowledgeBase.Services
 {
     public sealed class SqliteKnowledgeBaseStorageService : IKnowledgeBaseStorageService
     {
-        public const int CurrentDatabaseSchemaVersion = 7;
+        public const int CurrentDatabaseSchemaVersion = 8;
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -696,6 +696,9 @@ namespace AsutpKnowledgeBase.Services
             InsertDocumentLinks(connection, transaction, data.DocumentLinks);
             InsertSoftwareRecords(connection, transaction, data.SoftwareRecords);
             InsertNetworkFileReferences(connection, transaction, data.NetworkFileReferences);
+            InsertNetworkDevices(connection, transaction, data.NetworkDevices);
+            InsertNetworkInterfaces(connection, transaction, data.NetworkInterfaces);
+            InsertNetworkConnections(connection, transaction, data.NetworkConnections);
             InsertMaintenanceScheduleProfiles(connection, transaction, data.MaintenanceScheduleProfiles);
             InsertEquipmentCatalogItems(connection, transaction, data.EquipmentCatalogItems);
             InsertObjectTemplates(connection, transaction, data.ObjectTemplates);
@@ -718,6 +721,9 @@ namespace AsutpKnowledgeBase.Services
                 DocumentLinks = LoadDocumentLinks(connection),
                 SoftwareRecords = LoadSoftwareRecords(connection),
                 NetworkFileReferences = LoadNetworkFileReferences(connection),
+                NetworkDevices = LoadNetworkDevices(connection),
+                NetworkInterfaces = LoadNetworkInterfaces(connection),
+                NetworkConnections = LoadNetworkConnections(connection),
                 MaintenanceScheduleProfiles = LoadMaintenanceScheduleProfiles(connection),
                 EquipmentCatalogItems = LoadEquipmentCatalogItems(connection),
                 ObjectTemplates = LoadObjectTemplates(connection),
@@ -1234,6 +1240,177 @@ namespace AsutpKnowledgeBase.Services
                     Title = GetString(reader, "title"),
                     Path = GetString(reader, "path"),
                     PreviewKind = ToEnum(GetInt(reader, "preview_kind"), KbNetworkPreviewKind.MetadataOnly)
+                }).ToList();
+
+        private static void InsertNetworkDevices(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            IReadOnlyList<KbNetworkDevice> devices)
+        {
+            for (int i = 0; i < devices.Count; i++)
+            {
+                KbNetworkDevice device = devices[i];
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO network_devices (
+                        network_device_id, entry_order, owner_node_id, linked_node_id, name, role, vendor, model,
+                        order_number, serial_number, firmware, profinet_name, mac_address, location_text,
+                        cabinet_text, notes)
+                    VALUES (
+                        @network_device_id, @entry_order, @owner_node_id, @linked_node_id, @name, @role, @vendor, @model,
+                        @order_number, @serial_number, @firmware, @profinet_name, @mac_address, @location_text,
+                        @cabinet_text, @notes);
+                    """,
+                    ("@network_device_id", device.NetworkDeviceId),
+                    ("@entry_order", i),
+                    ("@owner_node_id", device.OwnerNodeId),
+                    ("@linked_node_id", device.LinkedNodeId),
+                    ("@name", device.Name),
+                    ("@role", device.Role),
+                    ("@vendor", device.Vendor),
+                    ("@model", device.Model),
+                    ("@order_number", device.OrderNumber),
+                    ("@serial_number", device.SerialNumber),
+                    ("@firmware", device.Firmware),
+                    ("@profinet_name", device.ProfinetName),
+                    ("@mac_address", device.MacAddress),
+                    ("@location_text", device.LocationText),
+                    ("@cabinet_text", device.CabinetText),
+                    ("@notes", device.Notes));
+            }
+        }
+
+        private static List<KbNetworkDevice> LoadNetworkDevices(SqliteConnection connection) =>
+            Query(
+                connection,
+                "SELECT * FROM network_devices ORDER BY entry_order;",
+                static reader => new KbNetworkDevice
+                {
+                    NetworkDeviceId = GetString(reader, "network_device_id"),
+                    OwnerNodeId = GetString(reader, "owner_node_id"),
+                    LinkedNodeId = GetString(reader, "linked_node_id"),
+                    Name = GetString(reader, "name"),
+                    Role = GetString(reader, "role"),
+                    Vendor = GetString(reader, "vendor"),
+                    Model = GetString(reader, "model"),
+                    OrderNumber = GetString(reader, "order_number"),
+                    SerialNumber = GetString(reader, "serial_number"),
+                    Firmware = GetString(reader, "firmware"),
+                    ProfinetName = GetString(reader, "profinet_name"),
+                    MacAddress = GetString(reader, "mac_address"),
+                    LocationText = GetString(reader, "location_text"),
+                    CabinetText = GetString(reader, "cabinet_text"),
+                    Notes = GetString(reader, "notes")
+                }).ToList();
+
+        private static void InsertNetworkInterfaces(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            IReadOnlyList<KbNetworkInterface> interfaces)
+        {
+            for (int i = 0; i < interfaces.Count; i++)
+            {
+                KbNetworkInterface networkInterface = interfaces[i];
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO network_interfaces (
+                        network_interface_id, entry_order, network_device_id, interface_name, port_number,
+                        mac_address, ip_address, subnet_mask, gateway, vlan, protocol, mpi_dp_pn_address,
+                        speed, medium, notes)
+                    VALUES (
+                        @network_interface_id, @entry_order, @network_device_id, @interface_name, @port_number,
+                        @mac_address, @ip_address, @subnet_mask, @gateway, @vlan, @protocol, @mpi_dp_pn_address,
+                        @speed, @medium, @notes);
+                    """,
+                    ("@network_interface_id", networkInterface.NetworkInterfaceId),
+                    ("@entry_order", i),
+                    ("@network_device_id", networkInterface.NetworkDeviceId),
+                    ("@interface_name", networkInterface.InterfaceName),
+                    ("@port_number", networkInterface.PortNumber),
+                    ("@mac_address", networkInterface.MacAddress),
+                    ("@ip_address", networkInterface.IpAddress),
+                    ("@subnet_mask", networkInterface.SubnetMask),
+                    ("@gateway", networkInterface.Gateway),
+                    ("@vlan", networkInterface.Vlan),
+                    ("@protocol", networkInterface.Protocol),
+                    ("@mpi_dp_pn_address", networkInterface.MpiDpPnAddress),
+                    ("@speed", networkInterface.Speed),
+                    ("@medium", networkInterface.Medium),
+                    ("@notes", networkInterface.Notes));
+            }
+        }
+
+        private static List<KbNetworkInterface> LoadNetworkInterfaces(SqliteConnection connection) =>
+            Query(
+                connection,
+                "SELECT * FROM network_interfaces ORDER BY entry_order;",
+                static reader => new KbNetworkInterface
+                {
+                    NetworkInterfaceId = GetString(reader, "network_interface_id"),
+                    NetworkDeviceId = GetString(reader, "network_device_id"),
+                    InterfaceName = GetString(reader, "interface_name"),
+                    PortNumber = GetString(reader, "port_number"),
+                    MacAddress = GetString(reader, "mac_address"),
+                    IpAddress = GetString(reader, "ip_address"),
+                    SubnetMask = GetString(reader, "subnet_mask"),
+                    Gateway = GetString(reader, "gateway"),
+                    Vlan = GetString(reader, "vlan"),
+                    Protocol = GetString(reader, "protocol"),
+                    MpiDpPnAddress = GetString(reader, "mpi_dp_pn_address"),
+                    Speed = GetString(reader, "speed"),
+                    Medium = GetString(reader, "medium"),
+                    Notes = GetString(reader, "notes")
+                }).ToList();
+
+        private static void InsertNetworkConnections(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            IReadOnlyList<KbNetworkConnection> connections)
+        {
+            for (int i = 0; i < connections.Count; i++)
+            {
+                KbNetworkConnection connectionRecord = connections[i];
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO network_connections (
+                        network_connection_id, entry_order, endpoint_a_interface_id, endpoint_b_interface_id,
+                        cable_label, cable_type, length, status, notes)
+                    VALUES (
+                        @network_connection_id, @entry_order, @endpoint_a_interface_id, @endpoint_b_interface_id,
+                        @cable_label, @cable_type, @length, @status, @notes);
+                    """,
+                    ("@network_connection_id", connectionRecord.NetworkConnectionId),
+                    ("@entry_order", i),
+                    ("@endpoint_a_interface_id", connectionRecord.EndpointAInterfaceId),
+                    ("@endpoint_b_interface_id", connectionRecord.EndpointBInterfaceId),
+                    ("@cable_label", connectionRecord.CableLabel),
+                    ("@cable_type", connectionRecord.CableType),
+                    ("@length", connectionRecord.Length),
+                    ("@status", connectionRecord.Status),
+                    ("@notes", connectionRecord.Notes));
+            }
+        }
+
+        private static List<KbNetworkConnection> LoadNetworkConnections(SqliteConnection connection) =>
+            Query(
+                connection,
+                "SELECT * FROM network_connections ORDER BY entry_order;",
+                static reader => new KbNetworkConnection
+                {
+                    NetworkConnectionId = GetString(reader, "network_connection_id"),
+                    EndpointAInterfaceId = GetString(reader, "endpoint_a_interface_id"),
+                    EndpointBInterfaceId = GetString(reader, "endpoint_b_interface_id"),
+                    CableLabel = GetString(reader, "cable_label"),
+                    CableType = GetString(reader, "cable_type"),
+                    Length = GetString(reader, "length"),
+                    Status = GetString(reader, "status"),
+                    Notes = GetString(reader, "notes")
                 }).ToList();
 
         private static void InsertMaintenanceScheduleProfiles(
@@ -1899,6 +2076,9 @@ namespace AsutpKnowledgeBase.Services
             "equipment_catalog_items",
             "maintenance_year_schedule_entries",
             "maintenance_schedule_profiles",
+            "network_connections",
+            "network_interfaces",
+            "network_devices",
             "network_file_references",
             "software_records",
             "document_links",
@@ -2042,6 +2222,58 @@ namespace AsutpKnowledgeBase.Services
                 title TEXT NOT NULL,
                 path TEXT NOT NULL,
                 preview_kind INTEGER NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS network_devices (
+                network_device_id TEXT PRIMARY KEY,
+                entry_order INTEGER NOT NULL,
+                owner_node_id TEXT NOT NULL,
+                linked_node_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                role TEXT NOT NULL,
+                vendor TEXT NOT NULL,
+                model TEXT NOT NULL,
+                order_number TEXT NOT NULL,
+                serial_number TEXT NOT NULL,
+                firmware TEXT NOT NULL,
+                profinet_name TEXT NOT NULL,
+                mac_address TEXT NOT NULL,
+                location_text TEXT NOT NULL,
+                cabinet_text TEXT NOT NULL,
+                notes TEXT NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS network_interfaces (
+                network_interface_id TEXT PRIMARY KEY,
+                entry_order INTEGER NOT NULL,
+                network_device_id TEXT NOT NULL,
+                interface_name TEXT NOT NULL,
+                port_number TEXT NOT NULL,
+                mac_address TEXT NOT NULL,
+                ip_address TEXT NOT NULL,
+                subnet_mask TEXT NOT NULL,
+                gateway TEXT NOT NULL,
+                vlan TEXT NOT NULL,
+                protocol TEXT NOT NULL,
+                mpi_dp_pn_address TEXT NOT NULL,
+                speed TEXT NOT NULL,
+                medium TEXT NOT NULL,
+                notes TEXT NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS network_connections (
+                network_connection_id TEXT PRIMARY KEY,
+                entry_order INTEGER NOT NULL,
+                endpoint_a_interface_id TEXT NOT NULL,
+                endpoint_b_interface_id TEXT NOT NULL,
+                cable_label TEXT NOT NULL,
+                cable_type TEXT NOT NULL,
+                length TEXT NOT NULL,
+                status TEXT NOT NULL,
+                notes TEXT NOT NULL
             );
             """,
             """

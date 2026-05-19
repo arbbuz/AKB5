@@ -36,6 +36,9 @@ namespace AsutpKnowledgeBase.Services
                 DocumentLinks = new List<KbDocumentLink>(),
                 SoftwareRecords = new List<KbSoftwareRecord>(),
                 NetworkFileReferences = new List<KbNetworkFileReference>(),
+                NetworkDevices = new List<KbNetworkDevice>(),
+                NetworkInterfaces = new List<KbNetworkInterface>(),
+                NetworkConnections = new List<KbNetworkConnection>(),
                 MaintenanceScheduleProfiles = new List<KbMaintenanceScheduleProfile>(),
                 EquipmentCatalogItems = new List<KbEquipmentCatalogItem>(),
                 ObjectTemplates = new List<KbObjectTemplate>(),
@@ -55,6 +58,17 @@ namespace AsutpKnowledgeBase.Services
             var normalizedNetworkFileReferences = NormalizeNetworkFileReferences(
                 source.NetworkFileReferences,
                 nodeOwnershipIndex);
+            var normalizedNetworkDevices = NormalizeNetworkDevices(
+                source.NetworkDevices,
+                nodeOwnershipIndex,
+                out var networkDeviceIdMap);
+            var normalizedNetworkInterfaces = NormalizeNetworkInterfaces(
+                source.NetworkInterfaces,
+                networkDeviceIdMap,
+                out var networkInterfaceIdMap);
+            var normalizedNetworkConnections = NormalizeNetworkConnections(
+                source.NetworkConnections,
+                networkInterfaceIdMap);
             var normalizedMaintenanceScheduleProfiles = NormalizeMaintenanceScheduleProfiles(source.MaintenanceScheduleProfiles);
             var normalizedEquipmentCatalogItems = NormalizeEquipmentCatalogItems(source.EquipmentCatalogItems);
             var normalizedObjectTemplates = NormalizeObjectTemplates(source.ObjectTemplates);
@@ -76,6 +90,9 @@ namespace AsutpKnowledgeBase.Services
                 DocumentLinks = normalizedDocumentLinks,
                 SoftwareRecords = normalizedSoftwareRecords,
                 NetworkFileReferences = normalizedNetworkFileReferences,
+                NetworkDevices = normalizedNetworkDevices,
+                NetworkInterfaces = normalizedNetworkInterfaces,
+                NetworkConnections = normalizedNetworkConnections,
                 MaintenanceScheduleProfiles = normalizedMaintenanceScheduleProfiles,
                 EquipmentCatalogItems = normalizedEquipmentCatalogItems,
                 ObjectTemplates = normalizedObjectTemplates,
@@ -384,7 +401,10 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbEquipmentCatalogItem>? equipmentCatalogItems,
             IReadOnlyList<KbObjectTemplate>? objectTemplates,
             string currentWorkshop,
-            bool includeCurrentWorkshop)
+            bool includeCurrentWorkshop,
+            IReadOnlyList<KbNetworkDevice>? networkDevices = null,
+            IReadOnlyList<KbNetworkInterface>? networkInterfaces = null,
+            IReadOnlyList<KbNetworkConnection>? networkConnections = null)
         {
             var data = new SavedData
             {
@@ -396,6 +416,9 @@ namespace AsutpKnowledgeBase.Services
                 DocumentLinks = documentLinks?.ToList() ?? new List<KbDocumentLink>(),
                 SoftwareRecords = softwareRecords?.ToList() ?? new List<KbSoftwareRecord>(),
                 NetworkFileReferences = networkFileReferences?.ToList() ?? new List<KbNetworkFileReference>(),
+                NetworkDevices = networkDevices?.ToList() ?? new List<KbNetworkDevice>(),
+                NetworkInterfaces = networkInterfaces?.ToList() ?? new List<KbNetworkInterface>(),
+                NetworkConnections = networkConnections?.ToList() ?? new List<KbNetworkConnection>(),
                 MaintenanceScheduleProfiles = maintenanceScheduleProfiles?.ToList() ?? new List<KbMaintenanceScheduleProfile>(),
                 EquipmentCatalogItems = equipmentCatalogItems?.ToList() ?? new List<KbEquipmentCatalogItem>(),
                 ObjectTemplates = objectTemplates?.ToList() ?? new List<KbObjectTemplate>(),
@@ -789,6 +812,206 @@ namespace AsutpKnowledgeBase.Services
             }
 
             return normalized;
+        }
+
+        private static List<KbNetworkDevice> NormalizeNetworkDevices(
+            IEnumerable<KbNetworkDevice>? devices,
+            IReadOnlyDictionary<string, NodeOwnershipState>? nodeOwnershipIndex,
+            out Dictionary<string, string> networkDeviceIdMap)
+        {
+            networkDeviceIdMap = new Dictionary<string, string>(StringComparer.Ordinal);
+            var normalized = new List<KbNetworkDevice>();
+            if (devices == null)
+                return normalized;
+
+            var usedNetworkDeviceIds = new HashSet<string>(StringComparer.Ordinal);
+            int normalizedIndex = 0;
+
+            foreach (KbNetworkDevice? device in devices)
+            {
+                if (device == null)
+                    continue;
+
+                string ownerNodeId = ResolveLevel2EngineeringOwnerNodeId(
+                    device.OwnerNodeId?.Trim() ?? string.Empty,
+                    nodeOwnershipIndex);
+                if (string.IsNullOrWhiteSpace(ownerNodeId))
+                    continue;
+
+                string linkedNodeId = NormalizeLinkedNodeId(device.LinkedNodeId, nodeOwnershipIndex);
+                string originalDeviceId = device.NetworkDeviceId?.Trim() ?? string.Empty;
+                string normalizedDeviceId = NormalizeOwnedRecordId(
+                    originalDeviceId,
+                    "network-device",
+                    ownerNodeId,
+                    normalizedIndex.ToString(),
+                    usedNetworkDeviceIds);
+
+                AddRecordIdMap(networkDeviceIdMap, originalDeviceId, normalizedDeviceId);
+                AddRecordIdMap(networkDeviceIdMap, normalizedDeviceId, normalizedDeviceId);
+
+                normalized.Add(new KbNetworkDevice
+                {
+                    NetworkDeviceId = normalizedDeviceId,
+                    OwnerNodeId = ownerNodeId,
+                    LinkedNodeId = linkedNodeId,
+                    Name = device.Name?.Trim() ?? string.Empty,
+                    Role = device.Role?.Trim() ?? string.Empty,
+                    Vendor = device.Vendor?.Trim() ?? string.Empty,
+                    Model = device.Model?.Trim() ?? string.Empty,
+                    OrderNumber = device.OrderNumber?.Trim() ?? string.Empty,
+                    SerialNumber = device.SerialNumber?.Trim() ?? string.Empty,
+                    Firmware = device.Firmware?.Trim() ?? string.Empty,
+                    ProfinetName = device.ProfinetName?.Trim() ?? string.Empty,
+                    MacAddress = device.MacAddress?.Trim() ?? string.Empty,
+                    LocationText = device.LocationText?.Trim() ?? string.Empty,
+                    CabinetText = device.CabinetText?.Trim() ?? string.Empty,
+                    Notes = device.Notes?.Trim() ?? string.Empty
+                });
+
+                normalizedIndex++;
+            }
+
+            return normalized;
+        }
+
+        private static List<KbNetworkInterface> NormalizeNetworkInterfaces(
+            IEnumerable<KbNetworkInterface>? interfaces,
+            IReadOnlyDictionary<string, string> networkDeviceIdMap,
+            out Dictionary<string, string> networkInterfaceIdMap)
+        {
+            networkInterfaceIdMap = new Dictionary<string, string>(StringComparer.Ordinal);
+            var normalized = new List<KbNetworkInterface>();
+            if (interfaces == null)
+                return normalized;
+
+            var usedNetworkInterfaceIds = new HashSet<string>(StringComparer.Ordinal);
+            int normalizedIndex = 0;
+
+            foreach (KbNetworkInterface? networkInterface in interfaces)
+            {
+                if (networkInterface == null)
+                    continue;
+
+                string originalDeviceId = networkInterface.NetworkDeviceId?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(originalDeviceId) ||
+                    !networkDeviceIdMap.TryGetValue(originalDeviceId, out string? normalizedDeviceId) ||
+                    string.IsNullOrWhiteSpace(normalizedDeviceId))
+                {
+                    continue;
+                }
+
+                string originalInterfaceId = networkInterface.NetworkInterfaceId?.Trim() ?? string.Empty;
+                string normalizedInterfaceId = NormalizeOwnedRecordId(
+                    originalInterfaceId,
+                    "network-interface",
+                    normalizedDeviceId,
+                    normalizedIndex.ToString(),
+                    usedNetworkInterfaceIds);
+
+                AddRecordIdMap(networkInterfaceIdMap, originalInterfaceId, normalizedInterfaceId);
+                AddRecordIdMap(networkInterfaceIdMap, normalizedInterfaceId, normalizedInterfaceId);
+
+                normalized.Add(new KbNetworkInterface
+                {
+                    NetworkInterfaceId = normalizedInterfaceId,
+                    NetworkDeviceId = normalizedDeviceId,
+                    InterfaceName = networkInterface.InterfaceName?.Trim() ?? string.Empty,
+                    PortNumber = networkInterface.PortNumber?.Trim() ?? string.Empty,
+                    MacAddress = networkInterface.MacAddress?.Trim() ?? string.Empty,
+                    IpAddress = networkInterface.IpAddress?.Trim() ?? string.Empty,
+                    SubnetMask = networkInterface.SubnetMask?.Trim() ?? string.Empty,
+                    Gateway = networkInterface.Gateway?.Trim() ?? string.Empty,
+                    Vlan = networkInterface.Vlan?.Trim() ?? string.Empty,
+                    Protocol = networkInterface.Protocol?.Trim() ?? string.Empty,
+                    MpiDpPnAddress = networkInterface.MpiDpPnAddress?.Trim() ?? string.Empty,
+                    Speed = networkInterface.Speed?.Trim() ?? string.Empty,
+                    Medium = networkInterface.Medium?.Trim() ?? string.Empty,
+                    Notes = networkInterface.Notes?.Trim() ?? string.Empty
+                });
+
+                normalizedIndex++;
+            }
+
+            return normalized;
+        }
+
+        private static List<KbNetworkConnection> NormalizeNetworkConnections(
+            IEnumerable<KbNetworkConnection>? connections,
+            IReadOnlyDictionary<string, string> networkInterfaceIdMap)
+        {
+            var normalized = new List<KbNetworkConnection>();
+            if (connections == null)
+                return normalized;
+
+            var usedNetworkConnectionIds = new HashSet<string>(StringComparer.Ordinal);
+            int normalizedIndex = 0;
+
+            foreach (KbNetworkConnection? connection in connections)
+            {
+                if (connection == null)
+                    continue;
+
+                string originalEndpointAInterfaceId = connection.EndpointAInterfaceId?.Trim() ?? string.Empty;
+                string originalEndpointBInterfaceId = connection.EndpointBInterfaceId?.Trim() ?? string.Empty;
+                if (!networkInterfaceIdMap.TryGetValue(originalEndpointAInterfaceId, out string? endpointAInterfaceId) ||
+                    !networkInterfaceIdMap.TryGetValue(originalEndpointBInterfaceId, out string? endpointBInterfaceId) ||
+                    string.IsNullOrWhiteSpace(endpointAInterfaceId) ||
+                    string.IsNullOrWhiteSpace(endpointBInterfaceId) ||
+                    string.Equals(endpointAInterfaceId, endpointBInterfaceId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                normalized.Add(new KbNetworkConnection
+                {
+                    NetworkConnectionId = NormalizeOwnedRecordId(
+                        connection.NetworkConnectionId,
+                        "network-connection",
+                        endpointAInterfaceId,
+                        $"{endpointBInterfaceId}-{normalizedIndex}",
+                        usedNetworkConnectionIds),
+                    EndpointAInterfaceId = endpointAInterfaceId,
+                    EndpointBInterfaceId = endpointBInterfaceId,
+                    CableLabel = connection.CableLabel?.Trim() ?? string.Empty,
+                    CableType = connection.CableType?.Trim() ?? string.Empty,
+                    Length = connection.Length?.Trim() ?? string.Empty,
+                    Status = connection.Status?.Trim() ?? string.Empty,
+                    Notes = connection.Notes?.Trim() ?? string.Empty
+                });
+
+                normalizedIndex++;
+            }
+
+            return normalized;
+        }
+
+        private static string NormalizeLinkedNodeId(
+            string? linkedNodeId,
+            IReadOnlyDictionary<string, NodeOwnershipState>? nodeOwnershipIndex)
+        {
+            string normalizedLinkedNodeId = linkedNodeId?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(normalizedLinkedNodeId))
+                return string.Empty;
+
+            return nodeOwnershipIndex == null || nodeOwnershipIndex.ContainsKey(normalizedLinkedNodeId)
+                ? normalizedLinkedNodeId
+                : string.Empty;
+        }
+
+        private static void AddRecordIdMap(
+            IDictionary<string, string> recordIdMap,
+            string originalId,
+            string normalizedId)
+        {
+            if (string.IsNullOrWhiteSpace(originalId) ||
+                string.IsNullOrWhiteSpace(normalizedId) ||
+                recordIdMap.ContainsKey(originalId))
+            {
+                return;
+            }
+
+            recordIdMap.Add(originalId, normalizedId);
         }
 
         private static List<KbMaintenanceScheduleProfile> NormalizeMaintenanceScheduleProfiles(
