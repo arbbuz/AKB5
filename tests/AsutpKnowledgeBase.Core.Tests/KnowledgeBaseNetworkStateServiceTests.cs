@@ -72,7 +72,13 @@ public class KnowledgeBaseNetworkStateServiceTests
                     NetworkConnectionId = "connection-1",
                     EndpointAInterfaceId = "iface-1",
                     EndpointBInterfaceId = "iface-2",
-                    CableLabel = "W1"
+                    CableLabel = "W1",
+                    CableType = "PN cable",
+                    Protocol = "PROFINET",
+                    Medium = "copper",
+                    RouteText = "Operator room +7.0",
+                    Status = "active",
+                    Notes = "scheme source"
                 },
                 new KbNetworkConnection
                 {
@@ -101,6 +107,9 @@ public class KnowledgeBaseNetworkStateServiceTests
         Assert.Equal("X1", firstInterface.InterfaceNameText);
         Assert.Equal("PLC-1 / X1 / 10.0.0.10", state.ConnectionStates[0].EndpointAText);
         Assert.Equal("PLC-1 / Порт 2 / 10.0.0.11", state.ConnectionStates[0].EndpointBText);
+        Assert.Equal("PROFINET", state.ConnectionStates[0].ProtocolText);
+        Assert.Equal("copper", state.ConnectionStates[0].MediumText);
+        Assert.Equal("Operator room +7.0", state.ConnectionStates[0].RouteText);
     }
 
     [Fact]

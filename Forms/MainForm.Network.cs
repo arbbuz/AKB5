@@ -680,7 +680,10 @@ namespace AsutpKnowledgeBase
                 EndpointBInterfaceId = connection.EndpointBInterfaceId,
                 CableLabel = connection.CableLabel,
                 CableType = connection.CableType,
+                Protocol = connection.Protocol,
+                Medium = connection.Medium,
                 Length = connection.Length,
+                RouteText = connection.RouteText,
                 Status = connection.Status,
                 Notes = connection.Notes
             };

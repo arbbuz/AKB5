@@ -975,7 +975,10 @@ namespace AsutpKnowledgeBase.Services
                     EndpointBInterfaceId = endpointBInterfaceId,
                     CableLabel = connection.CableLabel?.Trim() ?? string.Empty,
                     CableType = connection.CableType?.Trim() ?? string.Empty,
+                    Protocol = connection.Protocol?.Trim() ?? string.Empty,
+                    Medium = connection.Medium?.Trim() ?? string.Empty,
                     Length = connection.Length?.Trim() ?? string.Empty,
+                    RouteText = connection.RouteText?.Trim() ?? string.Empty,
                     Status = connection.Status?.Trim() ?? string.Empty,
                     Notes = connection.Notes?.Trim() ?? string.Empty
                 });

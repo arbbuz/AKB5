@@ -724,7 +724,10 @@ public class KnowledgeBaseDataServiceTests
                         EndpointBInterfaceId = " iface-b ",
                         CableLabel = " W1 ",
                         CableType = " Profinet ",
+                        Protocol = " PROFINET ",
+                        Medium = " Copper ",
                         Length = " 12 m ",
+                        RouteText = " Operator room +7.0 ",
                         Status = " Active ",
                         Notes = " Link "
                     },
@@ -781,7 +784,10 @@ public class KnowledgeBaseDataServiceTests
         Assert.Equal("iface-b", connection.EndpointBInterfaceId);
         Assert.Equal("W1", connection.CableLabel);
         Assert.Equal("Profinet", connection.CableType);
+        Assert.Equal("PROFINET", connection.Protocol);
+        Assert.Equal("Copper", connection.Medium);
         Assert.Equal("12 m", connection.Length);
+        Assert.Equal("Operator room +7.0", connection.RouteText);
         Assert.Equal("Active", connection.Status);
         Assert.Equal("Link", connection.Notes);
     }

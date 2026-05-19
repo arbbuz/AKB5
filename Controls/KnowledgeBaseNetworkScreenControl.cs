@@ -533,6 +533,9 @@ namespace AsutpKnowledgeBase
                         entry.EndpointBText,
                         entry.CableLabelText,
                         entry.CableTypeText,
+                        entry.ProtocolText,
+                        entry.MediumText,
+                        entry.RouteText,
                         entry.StatusText,
                         entry.NotesText
                     ])
@@ -927,6 +930,9 @@ namespace AsutpKnowledgeBase
             listView.Columns.Add("Интерфейс B", 230);
             listView.Columns.Add("Кабель", 120);
             listView.Columns.Add("Тип", 110);
+            listView.Columns.Add("Протокол", 110);
+            listView.Columns.Add("Среда", 100);
+            listView.Columns.Add("Трасса / место", 160);
             listView.Columns.Add("Статус", 100);
             listView.Columns.Add("Примечание", 220);
             return listView;

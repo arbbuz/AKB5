@@ -9,7 +9,7 @@ namespace AsutpKnowledgeBase.Services
 {
     public sealed class SqliteKnowledgeBaseStorageService : IKnowledgeBaseStorageService
     {
-        public const int CurrentDatabaseSchemaVersion = 8;
+        public const int CurrentDatabaseSchemaVersion = 9;
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -572,6 +572,7 @@ namespace AsutpKnowledgeBase.Services
             EnsureCompositionEntriesHardwareColumns(connection, transaction);
             EnsureObjectTemplatesCompositionRacksColumn(connection, transaction);
             EnsureMaintenanceYearScheduleHoursColumn(connection, transaction);
+            EnsureNetworkConnectionSchemeColumns(connection, transaction);
             ExecuteNonQuery(connection, transaction, $"PRAGMA user_version={CurrentDatabaseSchemaVersion};");
         }
 
@@ -639,6 +640,29 @@ namespace AsutpKnowledgeBase.Services
                 connection,
                 transaction,
                 "ALTER TABLE maintenance_year_schedule_entries ADD COLUMN hours INTEGER NOT NULL DEFAULT 0;");
+        }
+
+        private static void EnsureNetworkConnectionSchemeColumns(
+            SqliteConnection connection,
+            SqliteTransaction? transaction)
+        {
+            (string ColumnName, string Definition)[] columns =
+            [
+                ("protocol", "protocol TEXT NOT NULL DEFAULT ''"),
+                ("medium", "medium TEXT NOT NULL DEFAULT ''"),
+                ("route_text", "route_text TEXT NOT NULL DEFAULT ''")
+            ];
+
+            foreach ((string columnName, string definition) in columns)
+            {
+                if (ColumnExists(connection, transaction, "network_connections", columnName))
+                    continue;
+
+                ExecuteNonQuery(
+                    connection,
+                    transaction,
+                    $"ALTER TABLE network_connections ADD COLUMN {definition};");
+            }
         }
 
         private static bool ColumnExists(
@@ -1380,10 +1404,10 @@ namespace AsutpKnowledgeBase.Services
                     """
                     INSERT INTO network_connections (
                         network_connection_id, entry_order, endpoint_a_interface_id, endpoint_b_interface_id,
-                        cable_label, cable_type, length, status, notes)
+                        cable_label, cable_type, protocol, medium, length, route_text, status, notes)
                     VALUES (
                         @network_connection_id, @entry_order, @endpoint_a_interface_id, @endpoint_b_interface_id,
-                        @cable_label, @cable_type, @length, @status, @notes);
+                        @cable_label, @cable_type, @protocol, @medium, @length, @route_text, @status, @notes);
                     """,
                     ("@network_connection_id", connectionRecord.NetworkConnectionId),
                     ("@entry_order", i),
@@ -1391,7 +1415,10 @@ namespace AsutpKnowledgeBase.Services
                     ("@endpoint_b_interface_id", connectionRecord.EndpointBInterfaceId),
                     ("@cable_label", connectionRecord.CableLabel),
                     ("@cable_type", connectionRecord.CableType),
+                    ("@protocol", connectionRecord.Protocol),
+                    ("@medium", connectionRecord.Medium),
                     ("@length", connectionRecord.Length),
+                    ("@route_text", connectionRecord.RouteText),
                     ("@status", connectionRecord.Status),
                     ("@notes", connectionRecord.Notes));
             }
@@ -1408,7 +1435,10 @@ namespace AsutpKnowledgeBase.Services
                     EndpointBInterfaceId = GetString(reader, "endpoint_b_interface_id"),
                     CableLabel = GetString(reader, "cable_label"),
                     CableType = GetString(reader, "cable_type"),
+                    Protocol = GetString(reader, "protocol"),
+                    Medium = GetString(reader, "medium"),
                     Length = GetString(reader, "length"),
+                    RouteText = GetString(reader, "route_text"),
                     Status = GetString(reader, "status"),
                     Notes = GetString(reader, "notes")
                 }).ToList();
@@ -2271,7 +2301,10 @@ namespace AsutpKnowledgeBase.Services
                 endpoint_b_interface_id TEXT NOT NULL,
                 cable_label TEXT NOT NULL,
                 cable_type TEXT NOT NULL,
+                protocol TEXT NOT NULL DEFAULT '',
+                medium TEXT NOT NULL DEFAULT '',
                 length TEXT NOT NULL,
+                route_text TEXT NOT NULL DEFAULT '',
                 status TEXT NOT NULL,
                 notes TEXT NOT NULL
             );

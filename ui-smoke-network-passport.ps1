@@ -636,8 +636,11 @@ try {
     $connectionDialog = Wait-ForNamedWindow -ProcessId $process.Id -Name $connectionDialogName
     $connectionEdits = Find-Edits -Root $connectionDialog
     Set-ElementValue -Element $connectionEdits[0] -Value $cableLabel
-    Set-ElementValue -Element $connectionEdits[1] -Value 'PROFINET'
-    Set-ElementValue -Element $connectionEdits[3] -Value 'active'
+    Set-ElementValue -Element $connectionEdits[1] -Value 'PN cable'
+    Set-ElementValue -Element $connectionEdits[2] -Value 'PROFINET'
+    Set-ElementValue -Element $connectionEdits[3] -Value 'copper'
+    Set-ElementValue -Element $connectionEdits[5] -Value '+7.0'
+    Set-ElementValue -Element $connectionEdits[6] -Value 'active'
     Click-SaveButton -Dialog $connectionDialog -ProcessId $process.Id
     Wait-ForDialogToClose -ProcessId $process.Id -Name $connectionDialogName
     Start-Sleep -Milliseconds 700

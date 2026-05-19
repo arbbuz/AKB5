@@ -109,7 +109,13 @@ namespace AsutpKnowledgeBase.Services
 
         public string CableTypeText { get; init; } = string.Empty;
 
+        public string ProtocolText { get; init; } = string.Empty;
+
+        public string MediumText { get; init; } = string.Empty;
+
         public string LengthText { get; init; } = string.Empty;
+
+        public string RouteText { get; init; } = string.Empty;
 
         public string StatusText { get; init; } = string.Empty;
 
@@ -420,7 +426,10 @@ namespace AsutpKnowledgeBase.Services
                         EndpointBText = GetEndpointText(endpointB, endpointBDevice),
                         CableLabelText = GetDisplayText(connection.CableLabel),
                         CableTypeText = GetDisplayText(connection.CableType),
+                        ProtocolText = GetDisplayText(connection.Protocol),
+                        MediumText = GetDisplayText(connection.Medium),
                         LengthText = GetDisplayText(connection.Length),
+                        RouteText = GetDisplayText(connection.RouteText),
                         StatusText = GetDisplayText(connection.Status),
                         NotesText = GetDisplayText(connection.Notes)
                     };

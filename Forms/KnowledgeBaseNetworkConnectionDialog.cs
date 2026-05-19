@@ -19,7 +19,10 @@ namespace AsutpKnowledgeBase
         private ComboBox _cmbEndpointB = null!;
         private TextBox _txtCableLabel = null!;
         private TextBox _txtCableType = null!;
+        private TextBox _txtProtocol = null!;
+        private TextBox _txtMedium = null!;
         private TextBox _txtLength = null!;
+        private TextBox _txtRouteText = null!;
         private TextBox _txtStatus = null!;
         private TextBox _txtNotes = null!;
 
@@ -37,7 +40,7 @@ namespace AsutpKnowledgeBase
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(760, 320);
+            ClientSize = new Size(760, 430);
             AppIconProvider.Apply(this);
 
             var rootLayout = new TableLayoutPanel
@@ -54,11 +57,11 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Padding = new Padding(12),
                 ColumnCount = 2,
-                RowCount = 7
+                RowCount = 10
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            for (int rowIndex = 0; rowIndex < 7; rowIndex++)
+            for (int rowIndex = 0; rowIndex < 10; rowIndex++)
                 layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             _cmbEndpointA = CreateInterfaceComboBox();
@@ -72,8 +75,11 @@ namespace AsutpKnowledgeBase
 
             _txtCableLabel = AddTextBox(layout, "Кабель", 2, existingConnection?.CableLabel);
             _txtCableType = AddTextBox(layout, "Тип кабеля", 3, existingConnection?.CableType);
-            _txtLength = AddTextBox(layout, "Длина", 4, existingConnection?.Length);
-            _txtStatus = AddTextBox(layout, "Статус", 5, existingConnection?.Status);
+            _txtProtocol = AddTextBox(layout, "Протокол", 4, existingConnection?.Protocol);
+            _txtMedium = AddTextBox(layout, "Среда", 5, existingConnection?.Medium);
+            _txtLength = AddTextBox(layout, "Длина", 6, existingConnection?.Length);
+            _txtRouteText = AddTextBox(layout, "Трасса / место", 7, existingConnection?.RouteText);
+            _txtStatus = AddTextBox(layout, "Статус", 8, existingConnection?.Status);
 
             _txtNotes = new TextBox
             {
@@ -84,8 +90,8 @@ namespace AsutpKnowledgeBase
                 Text = existingConnection?.Notes ?? string.Empty,
                 Margin = new Padding(0, 0, 0, 8)
             };
-            layout.Controls.Add(CreateLabel("Примечание"), 0, 6);
-            layout.Controls.Add(_txtNotes, 1, 6);
+            layout.Controls.Add(CreateLabel("Примечание"), 0, 9);
+            layout.Controls.Add(_txtNotes, 1, 9);
 
             rootLayout.Controls.Add(layout, 0, 0);
             rootLayout.Controls.Add(CreateButtonsPanel(), 0, 1);
@@ -236,7 +242,10 @@ namespace AsutpKnowledgeBase
                 EndpointBInterfaceId = endpointB.NetworkInterfaceId,
                 CableLabel = _txtCableLabel.Text.Trim(),
                 CableType = _txtCableType.Text.Trim(),
+                Protocol = _txtProtocol.Text.Trim(),
+                Medium = _txtMedium.Text.Trim(),
                 Length = _txtLength.Text.Trim(),
+                RouteText = _txtRouteText.Text.Trim(),
                 Status = _txtStatus.Text.Trim(),
                 Notes = _txtNotes.Text.Trim()
             };

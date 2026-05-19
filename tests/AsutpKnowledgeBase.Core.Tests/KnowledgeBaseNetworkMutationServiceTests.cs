@@ -329,7 +329,13 @@ public class KnowledgeBaseNetworkMutationServiceTests
                 EndpointAInterfaceId = "iface-1",
                 EndpointBInterfaceId = "iface-2",
                 CableLabel = " W1 ",
-                CableType = " Profinet "
+                CableType = " Profinet ",
+                Protocol = " PROFINET ",
+                Medium = " copper ",
+                Length = " 12 m ",
+                RouteText = " Operator room +7.0 ",
+                Status = " active ",
+                Notes = " scheme row "
             },
             visibleLevel: 2);
 
@@ -339,6 +345,12 @@ public class KnowledgeBaseNetworkMutationServiceTests
         Assert.Equal("iface-2", connection.EndpointBInterfaceId);
         Assert.Equal("W1", connection.CableLabel);
         Assert.Equal("Profinet", connection.CableType);
+        Assert.Equal("PROFINET", connection.Protocol);
+        Assert.Equal("copper", connection.Medium);
+        Assert.Equal("12 m", connection.Length);
+        Assert.Equal("Operator room +7.0", connection.RouteText);
+        Assert.Equal("active", connection.Status);
+        Assert.Equal("scheme row", connection.Notes);
     }
 
     [Fact]
@@ -477,7 +489,10 @@ public class KnowledgeBaseNetworkMutationServiceTests
             NetworkConnectionId = "connection-1",
             EndpointAInterfaceId = "iface-1",
             EndpointBInterfaceId = "iface-2",
-            CableLabel = "W1"
+            CableLabel = "W1",
+            Protocol = "PROFINET",
+            Medium = "copper",
+            RouteText = "Operator room +7.0"
         }
     ];
 }

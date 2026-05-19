@@ -12,7 +12,13 @@ namespace AsutpKnowledgeBase.Models
 
         public string CableType { get; set; } = string.Empty;
 
+        public string Protocol { get; set; } = string.Empty;
+
+        public string Medium { get; set; } = string.Empty;
+
         public string Length { get; set; } = string.Empty;
+
+        public string RouteText { get; set; } = string.Empty;
 
         public string Status { get; set; } = string.Empty;
 

@@ -365,7 +365,10 @@ namespace AsutpKnowledgeBase.Services
                 EndpointBInterfaceId = endpointBInterfaceId,
                 CableLabel = draftConnection.CableLabel?.Trim() ?? string.Empty,
                 CableType = draftConnection.CableType?.Trim() ?? string.Empty,
+                Protocol = draftConnection.Protocol?.Trim() ?? string.Empty,
+                Medium = draftConnection.Medium?.Trim() ?? string.Empty,
                 Length = draftConnection.Length?.Trim() ?? string.Empty,
+                RouteText = draftConnection.RouteText?.Trim() ?? string.Empty,
                 Status = draftConnection.Status?.Trim() ?? string.Empty,
                 Notes = draftConnection.Notes?.Trim() ?? string.Empty
             };
@@ -666,7 +669,10 @@ namespace AsutpKnowledgeBase.Services
                     EndpointBInterfaceId = connection.EndpointBInterfaceId,
                     CableLabel = connection.CableLabel,
                     CableType = connection.CableType,
+                    Protocol = connection.Protocol,
+                    Medium = connection.Medium,
                     Length = connection.Length,
+                    RouteText = connection.RouteText,
                     Status = connection.Status,
                     Notes = connection.Notes
                 });

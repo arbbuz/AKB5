@@ -53,6 +53,11 @@ public class SqliteKnowledgeBaseStorageServiceTests
             Assert.Contains("output_address", compositionColumns);
             Assert.Contains("comment_text", compositionColumns);
             Assert.Contains("interface_rows", compositionColumns);
+
+            var connectionColumns = ReadColumnNames(connection, "network_connections");
+            Assert.Contains("protocol", connectionColumns);
+            Assert.Contains("medium", connectionColumns);
+            Assert.Contains("route_text", connectionColumns);
         }
         finally
         {
@@ -650,7 +655,10 @@ public class SqliteKnowledgeBaseStorageServiceTests
                     EndpointBInterfaceId = "network-interface-2",
                     CableLabel = "W1",
                     CableType = "Profinet",
+                    Protocol = "PROFINET",
+                    Medium = "Copper",
                     Length = "12 m",
+                    RouteText = "Operator room +7.0",
                     Status = "Active",
                     Notes = "PLC to HMI"
                 }
