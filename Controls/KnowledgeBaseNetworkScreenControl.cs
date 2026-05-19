@@ -580,6 +580,8 @@ namespace AsutpKnowledgeBase
                         entry.SubnetMaskText,
                         entry.GatewayText,
                         entry.ProtocolText,
+                        entry.MpiDpPnAddressText,
+                        entry.MediumText,
                         entry.VlanText,
                         entry.MacAddressText
                     ])
@@ -1120,6 +1122,8 @@ namespace AsutpKnowledgeBase
             listView.Columns.Add("Маска", 120);
             listView.Columns.Add("Шлюз", 120);
             listView.Columns.Add("Протокол", 110);
+            listView.Columns.Add("MPI/DP/PN", 100);
+            listView.Columns.Add("Среда", 95);
             listView.Columns.Add("VLAN", 70);
             listView.Columns.Add("MAC", 145);
             return listView;

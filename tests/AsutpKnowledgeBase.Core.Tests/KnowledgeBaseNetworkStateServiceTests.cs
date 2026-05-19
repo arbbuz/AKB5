@@ -50,7 +50,9 @@ public class KnowledgeBaseNetworkStateServiceTests
                     NetworkInterfaceId = "iface-1",
                     NetworkDeviceId = "device-1",
                     InterfaceName = "X1",
-                    IpAddress = "10.0.0.10"
+                    IpAddress = "10.0.0.10",
+                    MpiDpPnAddress = "PN/IE",
+                    Medium = "Медь"
                 },
                 new KbNetworkInterface
                 {
@@ -109,6 +111,8 @@ public class KnowledgeBaseNetworkStateServiceTests
 
         var firstInterface = state.InterfaceStates.Single(item => item.NetworkInterfaceId == "iface-1");
         Assert.Equal("X1", firstInterface.InterfaceNameText);
+        Assert.Equal("PN/IE", firstInterface.MpiDpPnAddressText);
+        Assert.Equal("Медь", firstInterface.MediumText);
         Assert.Equal("PLC-1 / X1 / 10.0.0.10", state.ConnectionStates[0].EndpointAText);
         Assert.Equal("PLC-1 / Порт 2 / 10.0.0.11", state.ConnectionStates[0].EndpointBText);
         Assert.Equal("PROFINET", state.ConnectionStates[0].ProtocolText);
