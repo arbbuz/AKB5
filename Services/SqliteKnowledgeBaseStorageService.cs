@@ -9,7 +9,7 @@ namespace AsutpKnowledgeBase.Services
 {
     public sealed class SqliteKnowledgeBaseStorageService : IKnowledgeBaseStorageService
     {
-        public const int CurrentDatabaseSchemaVersion = 9;
+        public const int CurrentDatabaseSchemaVersion = 10;
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -572,6 +572,7 @@ namespace AsutpKnowledgeBase.Services
             EnsureCompositionEntriesHardwareColumns(connection, transaction);
             EnsureObjectTemplatesCompositionRacksColumn(connection, transaction);
             EnsureMaintenanceYearScheduleHoursColumn(connection, transaction);
+            EnsureNetworkFileReferenceSourceNoteColumn(connection, transaction);
             EnsureNetworkConnectionSchemeColumns(connection, transaction);
             ExecuteNonQuery(connection, transaction, $"PRAGMA user_version={CurrentDatabaseSchemaVersion};");
         }
@@ -640,6 +641,19 @@ namespace AsutpKnowledgeBase.Services
                 connection,
                 transaction,
                 "ALTER TABLE maintenance_year_schedule_entries ADD COLUMN hours INTEGER NOT NULL DEFAULT 0;");
+        }
+
+        private static void EnsureNetworkFileReferenceSourceNoteColumn(
+            SqliteConnection connection,
+            SqliteTransaction? transaction)
+        {
+            if (ColumnExists(connection, transaction, "network_file_references", "source_note"))
+                return;
+
+            ExecuteNonQuery(
+                connection,
+                transaction,
+                "ALTER TABLE network_file_references ADD COLUMN source_note TEXT NOT NULL DEFAULT '';");
         }
 
         private static void EnsureNetworkConnectionSchemeColumns(
@@ -1241,14 +1255,15 @@ namespace AsutpKnowledgeBase.Services
                     connection,
                     transaction,
                     """
-                    INSERT INTO network_file_references (network_asset_id, entry_order, owner_node_id, title, path, preview_kind)
-                    VALUES (@network_asset_id, @entry_order, @owner_node_id, @title, @path, @preview_kind);
+                    INSERT INTO network_file_references (network_asset_id, entry_order, owner_node_id, title, path, source_note, preview_kind)
+                    VALUES (@network_asset_id, @entry_order, @owner_node_id, @title, @path, @source_note, @preview_kind);
                     """,
                     ("@network_asset_id", reference.NetworkAssetId),
                     ("@entry_order", i),
                     ("@owner_node_id", reference.OwnerNodeId),
                     ("@title", reference.Title),
                     ("@path", reference.Path),
+                    ("@source_note", reference.SourceNote),
                     ("@preview_kind", (int)reference.PreviewKind));
             }
         }
@@ -1263,6 +1278,7 @@ namespace AsutpKnowledgeBase.Services
                     OwnerNodeId = GetString(reader, "owner_node_id"),
                     Title = GetString(reader, "title"),
                     Path = GetString(reader, "path"),
+                    SourceNote = GetString(reader, "source_note"),
                     PreviewKind = ToEnum(GetInt(reader, "preview_kind"), KbNetworkPreviewKind.MetadataOnly)
                 }).ToList();
 
@@ -2251,6 +2267,7 @@ namespace AsutpKnowledgeBase.Services
                 owner_node_id TEXT NOT NULL,
                 title TEXT NOT NULL,
                 path TEXT NOT NULL,
+                source_note TEXT NOT NULL DEFAULT '',
                 preview_kind INTEGER NOT NULL
             );
             """,

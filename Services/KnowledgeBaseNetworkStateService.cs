@@ -10,6 +10,8 @@ namespace AsutpKnowledgeBase.Services
 
         public string PathText { get; init; } = string.Empty;
 
+        public string SourceNoteText { get; init; } = string.Empty;
+
         public KbNetworkPreviewKind PreviewKind { get; init; }
 
         public string PreviewKindText { get; init; } = string.Empty;
@@ -444,6 +446,7 @@ namespace AsutpKnowledgeBase.Services
                 NetworkAssetId = reference.NetworkAssetId,
                 TitleText = GetDisplayTitle(reference.Title, reference.Path),
                 PathText = GetDisplayText(reference.Path),
+                SourceNoteText = GetDisplayText(reference.SourceNote),
                 PreviewKind = reference.PreviewKind,
                 PreviewKindText = KnowledgeBaseNetworkPreviewService.GetPreviewKindText(reference.PreviewKind),
                 CanPreviewInForm = KnowledgeBaseNetworkPreviewService.CanPreviewInForm(reference.PreviewKind)

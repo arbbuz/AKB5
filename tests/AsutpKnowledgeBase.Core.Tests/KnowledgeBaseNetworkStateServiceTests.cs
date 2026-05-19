@@ -22,6 +22,7 @@ public class KnowledgeBaseNetworkStateServiceTests
                     OwnerNodeId = "system-1",
                     Title = "Topology",
                     Path = "\\\\srv\\net\\topology.png",
+                    SourceNote = "Sheet 1, lower-left fragment",
                     PreviewKind = KbNetworkPreviewKind.Image
                 }
             },
@@ -96,6 +97,9 @@ public class KnowledgeBaseNetworkStateServiceTests
         Assert.Equal(2, state.InterfaceCount);
         Assert.Equal(1, state.ConnectionCount);
         Assert.Equal(1, state.FileReferencesCount);
+
+        var fileReference = Assert.Single(state.FileReferenceStates);
+        Assert.Equal("Sheet 1, lower-left fragment", fileReference.SourceNoteText);
 
         var device = Assert.Single(state.DeviceStates);
         Assert.Equal("PLC-1", device.NameText);

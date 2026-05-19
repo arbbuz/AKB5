@@ -9,6 +9,7 @@ namespace AsutpKnowledgeBase
 
         private TextBox _txtTitle = null!;
         private TextBox _txtPath = null!;
+        private TextBox _txtSourceNote = null!;
         private TextBox _txtPreviewKind = null!;
 
         public KnowledgeBaseNetworkFileReferenceDialog(
@@ -23,7 +24,7 @@ namespace AsutpKnowledgeBase
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(720, 220);
+            ClientSize = new Size(720, 315);
             AppIconProvider.Apply(this);
 
             var rootLayout = new TableLayoutPanel
@@ -40,10 +41,11 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Padding = new Padding(12),
                 ColumnCount = 2,
-                RowCount = 3
+                RowCount = 4
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -101,6 +103,18 @@ namespace AsutpKnowledgeBase
             _txtPreviewKind.AccessibleName = "Тип предпросмотра";
             layout.Controls.Add(CreateLabel("Тип предпросмотра"), 0, 2);
             layout.Controls.Add(_txtPreviewKind, 1, 2);
+
+            _txtSourceNote = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                AccessibleName = "Фрагмент / комментарий",
+                Text = existingReference?.SourceNote ?? string.Empty,
+                Multiline = true,
+                Height = 70,
+                ScrollBars = ScrollBars.Vertical
+            };
+            layout.Controls.Add(CreateLabel("Фрагмент / комментарий"), 0, 3);
+            layout.Controls.Add(_txtSourceNote, 1, 3);
 
             var buttonsPanel = new FlowLayoutPanel
             {
@@ -184,6 +198,7 @@ namespace AsutpKnowledgeBase
                 NetworkAssetId = _networkAssetId,
                 Title = title,
                 Path = path,
+                SourceNote = _txtSourceNote.Text.Trim(),
                 PreviewKind = KnowledgeBaseNetworkPreviewService.ResolvePreviewKind(path)
             };
 

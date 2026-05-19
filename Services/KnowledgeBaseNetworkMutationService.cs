@@ -64,6 +64,7 @@ namespace AsutpKnowledgeBase.Services
                 OwnerNodeId = ownerNodeId,
                 Title = title,
                 Path = path,
+                SourceNote = draftReference.SourceNote?.Trim() ?? string.Empty,
                 PreviewKind = KnowledgeBaseNetworkPreviewService.ResolvePreviewKind(path)
             };
 
@@ -584,6 +585,7 @@ namespace AsutpKnowledgeBase.Services
                     OwnerNodeId = reference.OwnerNodeId,
                     Title = reference.Title,
                     Path = reference.Path,
+                    SourceNote = reference.SourceNote,
                     PreviewKind = reference.PreviewKind
                 });
             }

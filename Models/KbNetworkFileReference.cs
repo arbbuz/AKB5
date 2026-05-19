@@ -10,6 +10,8 @@ namespace AsutpKnowledgeBase.Models
 
         public string Path { get; set; } = string.Empty;
 
+        public string SourceNote { get; set; } = string.Empty;
+
         public KbNetworkPreviewKind PreviewKind { get; set; } = KbNetworkPreviewKind.MetadataOnly;
     }
 }

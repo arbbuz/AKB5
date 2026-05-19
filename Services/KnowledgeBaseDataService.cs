@@ -805,6 +805,7 @@ namespace AsutpKnowledgeBase.Services
                     OwnerNodeId = ownerNodeId,
                     Title = reference.Title?.Trim() ?? string.Empty,
                     Path = path,
+                    SourceNote = reference.SourceNote?.Trim() ?? string.Empty,
                     PreviewKind = KnowledgeBaseNetworkPreviewService.ResolvePreviewKind(path)
                 });
 

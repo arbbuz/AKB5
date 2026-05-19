@@ -54,6 +54,7 @@ namespace AsutpKnowledgeBase
         private Label _lblFilesEmptyState = null!;
         private Label _lblPreviewTitleValue = null!;
         private TextBox _txtPreviewPath = null!;
+        private TextBox _txtPreviewSourceNote = null!;
         private Label _lblPreviewKindValue = null!;
         private Label _lblPreviewStatus = null!;
         private PictureBox _picPreview = null!;
@@ -412,10 +413,11 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 2,
-                RowCount = 5
+                RowCount = 6
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 135F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -444,6 +446,20 @@ namespace AsutpKnowledgeBase
             _lblPreviewKindValue = CreateReadOnlyValueLabel();
             layout.Controls.Add(_lblPreviewKindValue, 1, 2);
 
+            layout.Controls.Add(CreateValueLabel("Фрагмент / комментарий"), 0, 3);
+            _txtPreviewSourceNote = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                ReadOnly = true,
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.White,
+                Multiline = true,
+                Height = 44,
+                ScrollBars = ScrollBars.Vertical,
+                TabStop = false
+            };
+            layout.Controls.Add(_txtPreviewSourceNote, 1, 3);
+
             _lblPreviewStatus = new Label
             {
                 Dock = DockStyle.Fill,
@@ -451,7 +467,7 @@ namespace AsutpKnowledgeBase
                 ForeColor = Color.DimGray,
                 Margin = new Padding(0, 6, 0, 10)
             };
-            layout.Controls.Add(_lblPreviewStatus, 0, 3);
+            layout.Controls.Add(_lblPreviewStatus, 0, 4);
             layout.SetColumnSpan(_lblPreviewStatus, 2);
 
             var previewHost = new Panel
@@ -470,7 +486,7 @@ namespace AsutpKnowledgeBase
             previewHost.Controls.Add(_picPreview);
             previewHost.Controls.Add(_lblPreviewEmptyState);
 
-            layout.Controls.Add(previewHost, 0, 4);
+            layout.Controls.Add(previewHost, 0, 5);
             layout.SetColumnSpan(previewHost, 2);
 
             return layout;
@@ -665,6 +681,7 @@ namespace AsutpKnowledgeBase
                     [
                         entry.TitleText,
                         entry.PreviewKindText,
+                        entry.SourceNoteText,
                         entry.PathText
                     ])
                     {
@@ -914,6 +931,7 @@ namespace AsutpKnowledgeBase
                 _lblPreviewTitleValue.Text = "-";
                 _txtPreviewPath.Text = string.Empty;
                 _lblPreviewKindValue.Text = "-";
+                _txtPreviewSourceNote.Text = string.Empty;
                 ShowPreviewMessage("Выберите файл сети для предпросмотра.");
                 return;
             }
@@ -925,6 +943,9 @@ namespace AsutpKnowledgeBase
             _lblPreviewTitleValue.Text = selectedState.TitleText;
             _txtPreviewPath.Text = path;
             _lblPreviewKindValue.Text = selectedState.PreviewKindText;
+            _txtPreviewSourceNote.Text = string.Equals(selectedState.SourceNoteText, "-", StringComparison.Ordinal)
+                ? string.Empty
+                : selectedState.SourceNoteText;
 
             if (string.IsNullOrWhiteSpace(path))
             {
@@ -999,7 +1020,7 @@ namespace AsutpKnowledgeBase
 
         private void ResizeFilesColumns()
         {
-            if (_lvFiles.Columns.Count != 3)
+            if (_lvFiles.Columns.Count != 4)
                 return;
 
             int clientWidth = _lvFiles.ClientSize.Width;
@@ -1007,12 +1028,14 @@ namespace AsutpKnowledgeBase
                 return;
 
             int previewWidth = 170;
-            int titleWidth = Math.Max(220, (int)(clientWidth * 0.28f));
-            int pathWidth = Math.Max(280, clientWidth - titleWidth - previewWidth - 8);
+            int sourceWidth = Math.Max(180, (int)(clientWidth * 0.24f));
+            int titleWidth = Math.Max(200, (int)(clientWidth * 0.24f));
+            int pathWidth = Math.Max(240, clientWidth - titleWidth - previewWidth - sourceWidth - 8);
 
             _lvFiles.Columns[0].Width = titleWidth;
             _lvFiles.Columns[1].Width = previewWidth;
-            _lvFiles.Columns[2].Width = pathWidth;
+            _lvFiles.Columns[2].Width = sourceWidth;
+            _lvFiles.Columns[3].Width = pathWidth;
         }
 
         private static bool TryGetSelectedTag(ListView listView, out ListItemTag tag)
@@ -1122,6 +1145,7 @@ namespace AsutpKnowledgeBase
             var listView = CreateBaseListView();
             listView.Columns.Add("Наименование", 220);
             listView.Columns.Add("Предпросмотр", 170);
+            listView.Columns.Add("Фрагмент / комментарий", 220);
             listView.Columns.Add("Путь", 360);
             return listView;
         }

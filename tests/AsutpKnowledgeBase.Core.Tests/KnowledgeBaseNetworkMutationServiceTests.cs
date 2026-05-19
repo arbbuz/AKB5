@@ -23,7 +23,8 @@ public class KnowledgeBaseNetworkMutationServiceTests
             new KbNetworkFileReference
             {
                 Title = " Network scheme ",
-                Path = " \\\\srv\\network\\scheme.png "
+                Path = " \\\\srv\\network\\scheme.png ",
+                SourceNote = "  Sheet 1 / cabinet row  "
             });
 
         Assert.True(result.IsSuccess);
@@ -31,6 +32,7 @@ public class KnowledgeBaseNetworkMutationServiceTests
         Assert.Equal("cabinet-1", reference.OwnerNodeId);
         Assert.Equal("Network scheme", reference.Title);
         Assert.Equal("\\\\srv\\network\\scheme.png", reference.Path);
+        Assert.Equal("Sheet 1 / cabinet row", reference.SourceNote);
         Assert.Equal(KbNetworkPreviewKind.Image, reference.PreviewKind);
     }
 
@@ -81,6 +83,7 @@ public class KnowledgeBaseNetworkMutationServiceTests
                     OwnerNodeId = "controller-1",
                     Title = "Old topology",
                     Path = "\\\\srv\\network\\topology.pdf",
+                    SourceNote = "Old source",
                     PreviewKind = KbNetworkPreviewKind.MetadataOnly
                 }
             },
@@ -88,7 +91,8 @@ public class KnowledgeBaseNetworkMutationServiceTests
             {
                 NetworkAssetId = "network-1",
                 Title = "Updated topology",
-                Path = "\\\\srv\\network\\topology.jpg"
+                Path = "\\\\srv\\network\\topology.jpg",
+                SourceNote = "Sheet 2"
             });
 
         Assert.True(result.IsSuccess);
@@ -96,6 +100,7 @@ public class KnowledgeBaseNetworkMutationServiceTests
         Assert.Equal("network-1", reference.NetworkAssetId);
         Assert.Equal("Updated topology", reference.Title);
         Assert.Equal("\\\\srv\\network\\topology.jpg", reference.Path);
+        Assert.Equal("Sheet 2", reference.SourceNote);
         Assert.Equal(KbNetworkPreviewKind.Image, reference.PreviewKind);
     }
 

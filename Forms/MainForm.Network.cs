@@ -630,6 +630,7 @@ namespace AsutpKnowledgeBase
                 OwnerNodeId = reference.OwnerNodeId,
                 Title = reference.Title,
                 Path = reference.Path,
+                SourceNote = reference.SourceNote,
                 PreviewKind = reference.PreviewKind
             };
 

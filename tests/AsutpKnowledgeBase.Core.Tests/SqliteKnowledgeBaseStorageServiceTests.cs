@@ -58,6 +58,9 @@ public class SqliteKnowledgeBaseStorageServiceTests
             Assert.Contains("protocol", connectionColumns);
             Assert.Contains("medium", connectionColumns);
             Assert.Contains("route_text", connectionColumns);
+
+            var fileReferenceColumns = ReadColumnNames(connection, "network_file_references");
+            Assert.Contains("source_note", fileReferenceColumns);
         }
         finally
         {
@@ -157,6 +160,53 @@ public class SqliteKnowledgeBaseStorageServiceTests
             Assert.Equal(string.Empty, entry.OutputAddress);
             Assert.Equal(string.Empty, entry.Comment);
             Assert.Equal(string.Empty, entry.InterfaceRows);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Load_WhenNetworkFileReferencesHaveLegacySchema_AddsSourceNoteColumn()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "legacy-network.akb");
+            using (var connection = new SqliteConnection($"Data Source={path};Pooling=False"))
+            {
+                connection.Open();
+                using var command = connection.CreateCommand();
+                command.CommandText =
+                    """
+                    CREATE TABLE network_file_references (
+                        network_asset_id TEXT PRIMARY KEY,
+                        entry_order INTEGER NOT NULL,
+                        owner_node_id TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        path TEXT NOT NULL,
+                        preview_kind INTEGER NOT NULL
+                    );
+                    INSERT INTO network_file_references (
+                        network_asset_id, entry_order, owner_node_id, title, path, preview_kind)
+                    VALUES ('network-file-1', 0, 'system-1', 'Topology', 'C:\network\topology.pdf', 2);
+                    """;
+                command.ExecuteNonQuery();
+            }
+
+            var service = new SqliteKnowledgeBaseStorageService(path);
+            KnowledgeBaseStorageLoadResult loadResult = service.Load();
+
+            Assert.True(loadResult.IsSuccess, loadResult.ErrorMessage);
+            var reference = Assert.Single(loadResult.Data!.NetworkFileReferences);
+            Assert.Equal("Topology", reference.Title);
+            Assert.Equal(string.Empty, reference.SourceNote);
+
+            using var verifyConnection = new SqliteConnection($"Data Source={path};Pooling=False");
+            verifyConnection.Open();
+            Assert.Contains("source_note", ReadColumnNames(verifyConnection, "network_file_references"));
         }
         finally
         {
@@ -575,6 +625,7 @@ public class SqliteKnowledgeBaseStorageServiceTests
                     OwnerNodeId = childId,
                     Title = "Топология",
                     Path = @"C:\network\topology.png",
+                    SourceNote = "Лист 1, шкаф PLC-1",
                     PreviewKind = KbNetworkPreviewKind.Image
                 }
             },
