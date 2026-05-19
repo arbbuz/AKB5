@@ -27,7 +27,7 @@ Implemented on `to`, with active `Net` branch follow-ups noted where relevant:
 - `Phase 4` - typed `Documentation and Software`
 - `Phase 5` - scoped search across `Tree`, `Card`, `Composition`, and `Docs/Software`
 - `Phase 6` - file-based `Network` tab with image preview and `Open original`
-- `Net` branch follow-up (2026-05-19) - network passport CRUD for devices, interfaces, and connections; manual scheme-entry fields; editable protocol/medium presets; passport filtering; robust network dialog layouts; and PDF network scheme references as metadata/`Open original` sources. OCR/PDF auto-import, PRONETA/CSV, live scan, plan/fact comparison, data-quality issue panels, and AKB5-driven IP/PROFINET assignment remain intentionally out of scope.
+- `Net` branch follow-up (2026-05-19) - network passport CRUD for devices, interfaces, and connections; manual scheme-entry fields; editable protocol/medium presets; passport filtering; robust network dialog layouts; PDF network scheme references as metadata/`Open original` sources; source-note comments for scheme references; interface passport columns for stored `MPI/DP/PN` and medium values; and validation for manual interface IP/mask/gateway entry. OCR/PDF auto-import, PRONETA/CSV, live scan, plan/fact comparison, data-quality issue panels, and AKB5-driven IP/PROFINET assignment remain intentionally out of scope.
 - `Phase 7A` - maintenance-planning domain foundation, inventory number support, `График ТО` profiles
 - `Phase 7B` - Russian `5/2` production-calendar workday calculation
 - `Phase 7C` - monthly maintenance planning engine with monthly workshop budget validation
@@ -180,7 +180,7 @@ dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.cs
 
 If a local app instance is running, `dotnet build` into the default `Release` output may fail because `asutpKB.exe` locks DLLs. In that case either close the app or use an isolated output path for verification.
 
-For WinForms `Network` UI changes, also run `scripts/ui-smoke-network-passport.ps1` against the affected executable. If the default `Release` output is locked, build to an isolated output path and copy `akb5.settings.json` plus `database\knowledge-base.akb` beside it before running the smoke.
+For WinForms `Network` UI changes, also run layout-smoke coverage against the affected windows/tabs. Prefer a non-invasive in-process layout smoke when an interactive app run would disturb manual work; `scripts/ui-smoke-network-passport.ps1` remains available for explicit executable-level checks. If the default `Release` output is locked, build to an isolated output path and copy `akb5.settings.json` plus `database\knowledge-base.akb` beside it before running executable-level smoke.
 
 ## Publish
 

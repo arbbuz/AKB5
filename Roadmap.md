@@ -458,6 +458,9 @@ Acceptance:
 - interface and connection dialogs provide editable presets for protocol (`PROFINET`, `PROFIBUS`, `MPI`) and medium (`Медь`, `Оптика`)
 - passport filtering covers visible network fields such as device names, interfaces, IP data, endpoints, protocol, medium, cable, and notes
 - network device/interface/connection dialogs use scroll-safe layouts and have layout-smoke coverage for visible fields/buttons
+- network scheme file references can store a manual source-note/comment for the exact visual fragment used from a scheme
+- the interface passport grid shows stored `MPI/DP/PN` and medium values so manual scheme data is visible without reopening the edit dialog
+- the interface dialog validates manually entered IP address, mask, and gateway values before saving while still allowing blank unknown fields
 - PDF network scheme references are accepted as `PDF` metadata/`Open original` sources; embedded PDF preview and OCR/import remain outside the current scope
 
 ### Phase 7. Maintenance schedule generation
