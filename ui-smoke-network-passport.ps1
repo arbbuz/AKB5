@@ -549,6 +549,26 @@ function Get-AddConnectionDialogName {
     return New-UiText @(0x0414, 0x043E, 0x0431, 0x0430, 0x0432, 0x0438, 0x0442, 0x044C, 0x0020, 0x0441, 0x0435, 0x0442, 0x0435, 0x0432, 0x043E, 0x0435, 0x0020, 0x0441, 0x043E, 0x0435, 0x0434, 0x0438, 0x043D, 0x0435, 0x043D, 0x0438, 0x0435)
 }
 
+function Get-InterfaceNameFieldName {
+    return New-UiText @(0x0418, 0x043D, 0x0442, 0x0435, 0x0440, 0x0444, 0x0435, 0x0439, 0x0441)
+}
+
+function Get-PortFieldName {
+    return New-UiText @(0x041F, 0x043E, 0x0440, 0x0442)
+}
+
+function Get-MacFieldName {
+    return 'MAC'
+}
+
+function Get-IpAddressFieldName {
+    return New-UiText @(0x0049, 0x0050, 0x002D, 0x0430, 0x0434, 0x0440, 0x0435, 0x0441)
+}
+
+function Get-SubnetMaskFieldName {
+    return New-UiText @(0x041C, 0x0430, 0x0441, 0x043A, 0x0430)
+}
+
 function Get-CableLabelFieldName {
     return New-UiText @(0x041A, 0x0430, 0x0431, 0x0435, 0x043B, 0x044C)
 }
@@ -656,13 +676,27 @@ try {
     Press-Element -Element $addInterfaceButton -ProcessId $process.Id
     $interfaceDialogName = Get-AddInterfaceDialogName
     $interfaceDialog = Wait-ForNamedWindow -ProcessId $process.Id -Name $interfaceDialogName
-    $interfaceEdits = Find-Edits -Root $interfaceDialog
-    Set-ElementValue -Element $interfaceEdits[0] -Value $interfaceA
-    Set-ElementValue -Element $interfaceEdits[1] -Value '1'
-    Set-ElementValue -Element $interfaceEdits[2] -Value '00-00-00-25-00-11'
-    Set-ElementValue -Element $interfaceEdits[3] -Value $ipA
-    Set-ElementValue -Element $interfaceEdits[4] -Value '255.255.255.0'
-    Set-ElementValue -Element $interfaceEdits[7] -Value 'PROFINET'
+    Set-ElementValue `
+        -Element (Find-Element -Root $interfaceDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-InterfaceNameFieldName)) `
+        -Value $interfaceA
+    Set-ElementValue `
+        -Element (Find-Element -Root $interfaceDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-PortFieldName)) `
+        -Value '1'
+    Set-ElementValue `
+        -Element (Find-Element -Root $interfaceDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-MacFieldName)) `
+        -Value '00-00-00-25-00-11'
+    Set-ElementValue `
+        -Element (Find-Element -Root $interfaceDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-IpAddressFieldName)) `
+        -Value $ipA
+    Set-ElementValue `
+        -Element (Find-Element -Root $interfaceDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-SubnetMaskFieldName)) `
+        -Value '255.255.255.0'
+    Set-ComboBoxValue `
+        -Element (Find-Element -Root $interfaceDialog -ControlType ([System.Windows.Automation.ControlType]::ComboBox) -NamePattern (Get-ProtocolFieldName)) `
+        -Value 'PROFINET'
+    Set-ComboBoxValue `
+        -Element (Find-Element -Root $interfaceDialog -ControlType ([System.Windows.Automation.ControlType]::ComboBox) -NamePattern (Get-MediumFieldName)) `
+        -Value 'Медь'
     Click-SaveButton -Dialog $interfaceDialog -ProcessId $process.Id
     Wait-ForDialogToClose -ProcessId $process.Id -Name $interfaceDialogName
     Start-Sleep -Milliseconds 500
@@ -670,13 +704,27 @@ try {
     Write-Log 'Adding second interface.'
     Press-Element -Element $addInterfaceButton -ProcessId $process.Id
     $interfaceDialog = Wait-ForNamedWindow -ProcessId $process.Id -Name $interfaceDialogName
-    $interfaceEdits = Find-Edits -Root $interfaceDialog
-    Set-ElementValue -Element $interfaceEdits[0] -Value $interfaceB
-    Set-ElementValue -Element $interfaceEdits[1] -Value '2'
-    Set-ElementValue -Element $interfaceEdits[2] -Value '00-00-00-25-00-12'
-    Set-ElementValue -Element $interfaceEdits[3] -Value $ipB
-    Set-ElementValue -Element $interfaceEdits[4] -Value '255.255.255.0'
-    Set-ElementValue -Element $interfaceEdits[7] -Value 'PROFINET'
+    Set-ElementValue `
+        -Element (Find-Element -Root $interfaceDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-InterfaceNameFieldName)) `
+        -Value $interfaceB
+    Set-ElementValue `
+        -Element (Find-Element -Root $interfaceDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-PortFieldName)) `
+        -Value '2'
+    Set-ElementValue `
+        -Element (Find-Element -Root $interfaceDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-MacFieldName)) `
+        -Value '00-00-00-25-00-12'
+    Set-ElementValue `
+        -Element (Find-Element -Root $interfaceDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-IpAddressFieldName)) `
+        -Value $ipB
+    Set-ElementValue `
+        -Element (Find-Element -Root $interfaceDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-SubnetMaskFieldName)) `
+        -Value '255.255.255.0'
+    Set-ComboBoxValue `
+        -Element (Find-Element -Root $interfaceDialog -ControlType ([System.Windows.Automation.ControlType]::ComboBox) -NamePattern (Get-ProtocolFieldName)) `
+        -Value 'PROFINET'
+    Set-ComboBoxValue `
+        -Element (Find-Element -Root $interfaceDialog -ControlType ([System.Windows.Automation.ControlType]::ComboBox) -NamePattern (Get-MediumFieldName)) `
+        -Value 'Медь'
     Click-SaveButton -Dialog $interfaceDialog -ProcessId $process.Id
     Wait-ForDialogToClose -ProcessId $process.Id -Name $interfaceDialogName
     Start-Sleep -Milliseconds 500

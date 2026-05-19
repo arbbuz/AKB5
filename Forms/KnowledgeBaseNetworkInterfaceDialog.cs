@@ -23,10 +23,10 @@ namespace AsutpKnowledgeBase
         private TextBox _txtSubnetMask = null!;
         private TextBox _txtGateway = null!;
         private TextBox _txtVlan = null!;
-        private TextBox _txtProtocol = null!;
+        private ComboBox _cmbProtocol = null!;
         private TextBox _txtMpiDpPnAddress = null!;
         private TextBox _txtSpeed = null!;
-        private TextBox _txtMedium = null!;
+        private ComboBox _cmbMedium = null!;
         private TextBox _txtNotes = null!;
 
         public KnowledgeBaseNetworkInterfaceDialog(
@@ -83,10 +83,20 @@ namespace AsutpKnowledgeBase
             _txtSubnetMask = AddTextBox(layout, "Маска", 5, existingInterface?.SubnetMask);
             _txtGateway = AddTextBox(layout, "Шлюз", 6, existingInterface?.Gateway);
             _txtVlan = AddTextBox(layout, "VLAN", 7, existingInterface?.Vlan);
-            _txtProtocol = AddTextBox(layout, "Протокол", 8, existingInterface?.Protocol);
+            _cmbProtocol = AddPresetComboBox(
+                layout,
+                "Протокол",
+                8,
+                existingInterface?.Protocol,
+                ["PROFINET", "PROFIBUS", "MPI"]);
             _txtMpiDpPnAddress = AddTextBox(layout, "MPI/DP/PN", 9, existingInterface?.MpiDpPnAddress);
             _txtSpeed = AddTextBox(layout, "Скорость", 10, existingInterface?.Speed);
-            _txtMedium = AddTextBox(layout, "Среда", 11, existingInterface?.Medium);
+            _cmbMedium = AddPresetComboBox(
+                layout,
+                "Среда",
+                11,
+                existingInterface?.Medium,
+                ["Медь", "Оптика"]);
 
             _txtNotes = new TextBox
             {
@@ -94,6 +104,7 @@ namespace AsutpKnowledgeBase
                 Multiline = true,
                 Height = 64,
                 ScrollBars = ScrollBars.Vertical,
+                AccessibleName = "Примечание",
                 Text = existingInterface?.Notes ?? string.Empty,
                 Margin = new Padding(0, 0, 0, 8)
             };
@@ -149,11 +160,35 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Fill,
                 Text = value ?? string.Empty,
+                AccessibleName = label,
                 Margin = new Padding(0, 0, 0, 8)
             };
             layout.Controls.Add(CreateLabel(label), 0, row);
             layout.Controls.Add(textBox, 1, row);
             return textBox;
+        }
+
+        private ComboBox AddPresetComboBox(
+            TableLayoutPanel layout,
+            string label,
+            int row,
+            string? value,
+            IReadOnlyList<string> presets)
+        {
+            var comboBox = new ComboBox
+            {
+                Dock = DockStyle.Fill,
+                DropDownStyle = ComboBoxStyle.DropDown,
+                AutoCompleteMode = AutoCompleteMode.SuggestAppend,
+                AutoCompleteSource = AutoCompleteSource.ListItems,
+                AccessibleName = label,
+                Text = value ?? string.Empty,
+                Margin = new Padding(0, 0, 0, 8)
+            };
+            comboBox.Items.AddRange(presets.Cast<object>().ToArray());
+            layout.Controls.Add(CreateLabel(label), 0, row);
+            layout.Controls.Add(comboBox, 1, row);
+            return comboBox;
         }
 
         private Control CreateButtonsPanel()
@@ -226,10 +261,10 @@ namespace AsutpKnowledgeBase
                 SubnetMask = _txtSubnetMask.Text.Trim(),
                 Gateway = _txtGateway.Text.Trim(),
                 Vlan = _txtVlan.Text.Trim(),
-                Protocol = _txtProtocol.Text.Trim(),
+                Protocol = _cmbProtocol.Text.Trim(),
                 MpiDpPnAddress = _txtMpiDpPnAddress.Text.Trim(),
                 Speed = _txtSpeed.Text.Trim(),
-                Medium = _txtMedium.Text.Trim(),
+                Medium = _cmbMedium.Text.Trim(),
                 Notes = _txtNotes.Text.Trim()
             };
 
