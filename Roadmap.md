@@ -58,6 +58,8 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - User-facing interface text on `to` is now normalized to Russian; new UI work should keep Russian-only labels, prompts, and status text.
 - `Phase 6` is complete on `to`: `Network` now uses typed file references, image preview inside the form, and `Open original` for server/file paths.
 - The `Phase 6` `Network` screen uses separate `Файлы` and `Предпросмотр` tabs; node load returns to `Файлы`, and automatic switching to `Предпросмотр` is not part of the accepted UX.
+- On 2026-05-19, branch `Net` extends the network work with typed topology/passport storage, CRUD for devices/interfaces/connections on `Сеть -> Паспорт`, manual scheme-entry fields, editable protocol presets (`PROFINET`, `PROFIBUS`, `MPI`), editable medium presets (`Медь`, `Оптика`), local passport filtering, scroll-safe network add/edit dialogs, and PDF network scheme references classified as `PDF` with metadata/`Open original` behavior.
+- The current `Net` scope deliberately excludes OCR/PDF auto-import, PRONETA/CSV import, live scan, plan/fact comparison, data-quality issue panels, and AKB5-driven IP/PROFINET-name assignment.
 - On 2026-04-28, the current `Phase 6` worktree passed verification build, passed `dotnet test` (`177/177`), and `asutpKB.exe` startup was rechecked after the final `Network` UX fixes.
 - Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition, but further workbook modernization is no longer the preferred next phase.
 - Current CI workflow also verifies `dotnet format --verify-no-changes` for the app project, core project, and tests before `build` / `test`.
@@ -448,6 +450,15 @@ Acceptance:
 
 - the user can preview an image-based network scheme directly in the right panel
 - the original file can always be opened via shell
+
+`Net` branch follow-up accepted on 2026-05-19:
+
+- typed network topology/passport storage exists for devices, interfaces, and connections
+- `Сеть -> Паспорт` supports manual CRUD for devices, interfaces, and connections without changing the first file-reference workflow
+- interface and connection dialogs provide editable presets for protocol (`PROFINET`, `PROFIBUS`, `MPI`) and medium (`Медь`, `Оптика`)
+- passport filtering covers visible network fields such as device names, interfaces, IP data, endpoints, protocol, medium, cable, and notes
+- network device/interface/connection dialogs use scroll-safe layouts and have layout-smoke coverage for visible fields/buttons
+- PDF network scheme references are accepted as `PDF` metadata/`Open original` sources; embedded PDF preview and OCR/import remain outside the current scope
 
 ### Phase 7. Maintenance schedule generation
 
