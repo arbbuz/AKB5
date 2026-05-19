@@ -521,6 +521,10 @@ function Get-PassportTabName {
     return New-UiText @(0x041F, 0x0430, 0x0441, 0x043F, 0x043E, 0x0440, 0x0442)
 }
 
+function Get-PassportFilterFieldName {
+    return New-UiText @(0x0424, 0x0438, 0x043B, 0x044C, 0x0442, 0x0440, 0x0020, 0x043F, 0x0430, 0x0441, 0x043F, 0x043E, 0x0440, 0x0442, 0x0430)
+}
+
 function Get-AddDeviceButtonName {
     return New-UiText @(0x0414, 0x043E, 0x0431, 0x0430, 0x0432, 0x0438, 0x0442, 0x044C, 0x0020, 0x0443, 0x0441, 0x0442, 0x0440, 0x043E, 0x0439, 0x0441, 0x0442, 0x0432, 0x043E)
 }
@@ -704,6 +708,14 @@ try {
     Wait-ForDialogToClose -ProcessId $process.Id -Name $connectionDialogName
     Start-Sleep -Milliseconds 700
     $null = Close-OptionalMessageBox -ProcessId $process.Id -Name (Get-NetworkTabName)
+
+    Write-Log 'Checking network passport filter.'
+    $passportFilter = Find-Element -Root $mainWindow -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-PassportFilterFieldName)
+    Set-ElementValue -Element $passportFilter -Value 'PROFINET'
+    Start-Sleep -Milliseconds 400
+    $null = Find-Element -Root $mainWindow -ControlType ([System.Windows.Automation.ControlType]::Text) -NamePattern "*$cableLabel*" -TimeoutSeconds 10
+    Set-ElementValue -Element $passportFilter -Value ''
+    Start-Sleep -Milliseconds 400
 
     $null = Find-Element -Root $mainWindow -ControlType ([System.Windows.Automation.ControlType]::ListItem) -NamePattern "*$deviceName*" -TimeoutSeconds 10
     $null = Find-Element -Root $mainWindow -ControlType ([System.Windows.Automation.ControlType]::Text) -NamePattern "*$ipA*" -TimeoutSeconds 10

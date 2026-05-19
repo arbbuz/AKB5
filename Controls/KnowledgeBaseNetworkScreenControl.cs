@@ -33,6 +33,9 @@ namespace AsutpKnowledgeBase
         private Button _btnAddConnection = null!;
         private Button _btnEditConnection = null!;
         private Button _btnDeleteConnection = null!;
+        private TextBox _txtPassportFilter = null!;
+        private Button _btnClearPassportFilter = null!;
+        private Label _lblPassportFilterStatus = null!;
         private Button _btnAdd = null!;
         private Button _btnOpenSelected = null!;
         private Button _btnEditSelected = null!;
@@ -151,9 +154,7 @@ namespace AsutpKnowledgeBase
                 ? $"Устройств: {_currentState.DeviceCount} | Интерфейсов: {_currentState.InterfaceCount} | Соединений: {_currentState.ConnectionCount} | Файлов: {_currentState.FileReferencesCount}"
                 : _currentState.EmptyStateText;
 
-            PopulateDeviceEntries(previousDeviceId);
-            PopulateInterfaceEntries(previousInterfaceId);
-            PopulateConnectionEntries(previousConnectionId);
+            RefreshPassportEntries(previousDeviceId, previousInterfaceId, previousConnectionId);
             PopulateFileEntries(previousFileReferenceId);
             EnsureFileSelection();
 
@@ -200,9 +201,10 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Padding = new Padding(12),
                 ColumnCount = 1,
-                RowCount = 3
+                RowCount = 4
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 34F));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 33F));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 33F));
@@ -219,6 +221,7 @@ namespace AsutpKnowledgeBase
             WirePassportSelectionEvents(_lvInterfaces, _lvDevices, _lvConnections);
             WirePassportSelectionEvents(_lvConnections, _lvDevices, _lvInterfaces);
 
+            layout.Controls.Add(CreatePassportFilterPanel(), 0, 0);
             layout.Controls.Add(
                 CreatePassportGroup(
                     "Устройства",
@@ -226,7 +229,7 @@ namespace AsutpKnowledgeBase
                     _lvDevices,
                     _lblDevicesEmptyState),
                 0,
-                0);
+                1);
             layout.Controls.Add(
                 CreatePassportGroup(
                     "Интерфейсы / IP",
@@ -234,7 +237,7 @@ namespace AsutpKnowledgeBase
                     _lvInterfaces,
                     _lblInterfacesEmptyState),
                 0,
-                1);
+                2);
             layout.Controls.Add(
                 CreatePassportGroup(
                     "Соединения",
@@ -242,7 +245,51 @@ namespace AsutpKnowledgeBase
                     _lvConnections,
                     _lblConnectionsEmptyState),
                 0,
-                2);
+                3);
+
+            return layout;
+        }
+
+        private Control CreatePassportFilterPanel()
+        {
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                ColumnCount = 4,
+                RowCount = 1,
+                Margin = new Padding(0, 0, 0, 10)
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 210F));
+
+            layout.Controls.Add(CreateValueLabel("Фильтр"), 0, 0);
+
+            _txtPassportFilter = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                AccessibleName = "Фильтр паспорта",
+                PlaceholderText = "IP / протокол / среда / кабель",
+                Margin = new Padding(0, 0, 8, 8)
+            };
+            _txtPassportFilter.TextChanged += (_, _) => HandlePassportFilterChanged();
+            layout.Controls.Add(_txtPassportFilter, 1, 0);
+
+            _btnClearPassportFilter = CreateActionButton("Сбросить");
+            _btnClearPassportFilter.Click += (_, _) => _txtPassportFilter.Clear();
+            layout.Controls.Add(_btnClearPassportFilter, 2, 0);
+
+            _lblPassportFilterStatus = new Label
+            {
+                Dock = DockStyle.Fill,
+                AutoEllipsis = true,
+                ForeColor = Color.DimGray,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Margin = new Padding(0, 3, 0, 8)
+            };
+            layout.Controls.Add(_lblPassportFilterStatus, 3, 0);
 
             return layout;
         }
@@ -429,14 +476,31 @@ namespace AsutpKnowledgeBase
             return layout;
         }
 
-        private void PopulateDeviceEntries(string preferredSelectionId)
+        private void RefreshPassportEntries(
+            string preferredDeviceId,
+            string preferredInterfaceId,
+            string preferredConnectionId)
         {
+            int visibleDeviceCount = PopulateDeviceEntries(preferredDeviceId);
+            int visibleInterfaceCount = PopulateInterfaceEntries(preferredInterfaceId);
+            int visibleConnectionCount = PopulateConnectionEntries(preferredConnectionId);
+            UpdatePassportFilterStatus(visibleDeviceCount, visibleInterfaceCount, visibleConnectionCount);
+        }
+
+        private int PopulateDeviceEntries(string preferredSelectionId)
+        {
+            string filterText = GetPassportFilterText();
+            int visibleCount = 0;
+
             _lvDevices.BeginUpdate();
             try
             {
                 _lvDevices.Items.Clear();
                 foreach (var entry in _currentState.DeviceStates)
                 {
+                    if (!DeviceMatchesFilter(entry, filterText))
+                        continue;
+
                     var item = new ListViewItem(
                     [
                         entry.NameText,
@@ -457,6 +521,7 @@ namespace AsutpKnowledgeBase
                     };
 
                     _lvDevices.Items.Add(item);
+                    visibleCount++;
                     if (string.Equals(entry.NetworkDeviceId, preferredSelectionId, StringComparison.Ordinal))
                         item.Selected = true;
                 }
@@ -466,22 +531,31 @@ namespace AsutpKnowledgeBase
                 _lvDevices.EndUpdate();
             }
 
-            bool hasEntries = _currentState.DeviceStates.Count > 0;
+            bool hasEntries = visibleCount > 0;
             _lvDevices.Visible = hasEntries;
             _lblDevicesEmptyState.Visible = !hasEntries;
-            _lblDevicesEmptyState.Text = _currentState.SupportsPassportEditing
+            _lblDevicesEmptyState.Text = HasPassportFilter && _currentState.DeviceStates.Count > 0
+                ? "По фильтру ничего не найдено."
+                : _currentState.SupportsPassportEditing
                 ? "Устройства сетевого паспорта пока не добавлены."
                 : "Сетевой паспорт доступен только для системы уровня 2.";
+            return visibleCount;
         }
 
-        private void PopulateInterfaceEntries(string preferredSelectionId)
+        private int PopulateInterfaceEntries(string preferredSelectionId)
         {
+            string filterText = GetPassportFilterText();
+            int visibleCount = 0;
+
             _lvInterfaces.BeginUpdate();
             try
             {
                 _lvInterfaces.Items.Clear();
                 foreach (var entry in _currentState.InterfaceStates)
                 {
+                    if (!InterfaceMatchesFilter(entry, filterText))
+                        continue;
+
                     var item = new ListViewItem(
                     [
                         entry.DeviceNameText,
@@ -502,6 +576,7 @@ namespace AsutpKnowledgeBase
                     };
 
                     _lvInterfaces.Items.Add(item);
+                    visibleCount++;
                     if (string.Equals(entry.NetworkInterfaceId, preferredSelectionId, StringComparison.Ordinal))
                         item.Selected = true;
                 }
@@ -511,22 +586,31 @@ namespace AsutpKnowledgeBase
                 _lvInterfaces.EndUpdate();
             }
 
-            bool hasEntries = _currentState.InterfaceStates.Count > 0;
+            bool hasEntries = visibleCount > 0;
             _lvInterfaces.Visible = hasEntries;
             _lblInterfacesEmptyState.Visible = !hasEntries;
-            _lblInterfacesEmptyState.Text = _currentState.DeviceCount > 0
+            _lblInterfacesEmptyState.Text = HasPassportFilter && _currentState.InterfaceStates.Count > 0
+                ? "По фильтру ничего не найдено."
+                : _currentState.DeviceCount > 0
                 ? "Интерфейсы и IP-адреса пока не добавлены."
                 : "Сначала добавьте устройство сетевого паспорта.";
+            return visibleCount;
         }
 
-        private void PopulateConnectionEntries(string preferredSelectionId)
+        private int PopulateConnectionEntries(string preferredSelectionId)
         {
+            string filterText = GetPassportFilterText();
+            int visibleCount = 0;
+
             _lvConnections.BeginUpdate();
             try
             {
                 _lvConnections.Items.Clear();
                 foreach (var entry in _currentState.ConnectionStates)
                 {
+                    if (!ConnectionMatchesFilter(entry, filterText))
+                        continue;
+
                     var item = new ListViewItem(
                     [
                         entry.EndpointAText,
@@ -548,6 +632,7 @@ namespace AsutpKnowledgeBase
                     };
 
                     _lvConnections.Items.Add(item);
+                    visibleCount++;
                     if (string.Equals(entry.NetworkConnectionId, preferredSelectionId, StringComparison.Ordinal))
                         item.Selected = true;
                 }
@@ -557,12 +642,15 @@ namespace AsutpKnowledgeBase
                 _lvConnections.EndUpdate();
             }
 
-            bool hasEntries = _currentState.ConnectionStates.Count > 0;
+            bool hasEntries = visibleCount > 0;
             _lvConnections.Visible = hasEntries;
             _lblConnectionsEmptyState.Visible = !hasEntries;
-            _lblConnectionsEmptyState.Text = _currentState.InterfaceCount >= 2
+            _lblConnectionsEmptyState.Text = HasPassportFilter && _currentState.ConnectionStates.Count > 0
+                ? "По фильтру ничего не найдено."
+                : _currentState.InterfaceCount >= 2
                 ? "Соединения между интерфейсами пока не добавлены."
                 : "Для соединения нужны минимум два интерфейса.";
+            return visibleCount;
         }
 
         private void PopulateFileEntries(string preferredSelectionId)
@@ -604,6 +692,97 @@ namespace AsutpKnowledgeBase
                 ? "Для этого узла пока нет файлов сети."
                 : _currentState.EmptyStateText;
             ResizeFilesColumns();
+        }
+
+        private void HandlePassportFilterChanged()
+        {
+            RefreshPassportEntries(SelectedDeviceId, SelectedInterfaceId, SelectedConnectionId);
+            ResolvePassportSelection();
+            UpdateButtonStates();
+        }
+
+        private bool HasPassportFilter => !string.IsNullOrWhiteSpace(GetPassportFilterText());
+
+        private string GetPassportFilterText() => _txtPassportFilter.Text.Trim();
+
+        private void UpdatePassportFilterStatus(
+            int visibleDeviceCount,
+            int visibleInterfaceCount,
+            int visibleConnectionCount)
+        {
+            _btnClearPassportFilter.Enabled = HasPassportFilter;
+            _lblPassportFilterStatus.Text = HasPassportFilter
+                ? $"Найдено: {visibleDeviceCount}/{_currentState.DeviceStates.Count} | {visibleInterfaceCount}/{_currentState.InterfaceStates.Count} | {visibleConnectionCount}/{_currentState.ConnectionStates.Count}"
+                : string.Empty;
+        }
+
+        private static bool DeviceMatchesFilter(KnowledgeBaseNetworkDeviceState entry, string filterText) =>
+            MatchesFilter(
+                filterText,
+                entry.NameText,
+                entry.RoleText,
+                entry.VendorText,
+                entry.ModelText,
+                entry.OrderNumberText,
+                entry.SerialNumberText,
+                entry.FirmwareText,
+                entry.ProfinetNameText,
+                entry.MacAddressText,
+                entry.LocationText,
+                entry.CabinetText,
+                entry.LinkedNodeText,
+                entry.NotesText);
+
+        private static bool InterfaceMatchesFilter(KnowledgeBaseNetworkInterfaceState entry, string filterText) =>
+            MatchesFilter(
+                filterText,
+                entry.DeviceNameText,
+                entry.DeviceRoleText,
+                entry.InterfaceNameText,
+                entry.PortNumberText,
+                entry.MacAddressText,
+                entry.IpAddressText,
+                entry.SubnetMaskText,
+                entry.GatewayText,
+                entry.VlanText,
+                entry.ProtocolText,
+                entry.MpiDpPnAddressText,
+                entry.SpeedText,
+                entry.MediumText,
+                entry.NotesText);
+
+        private static bool ConnectionMatchesFilter(KnowledgeBaseNetworkConnectionState entry, string filterText) =>
+            MatchesFilter(
+                filterText,
+                entry.EndpointAText,
+                entry.EndpointBText,
+                entry.CableLabelText,
+                entry.CableTypeText,
+                entry.ProtocolText,
+                entry.MediumText,
+                entry.LengthText,
+                entry.RouteText,
+                entry.StatusText,
+                entry.NotesText);
+
+        private static bool MatchesFilter(string filterText, params string[] values)
+        {
+            if (string.IsNullOrWhiteSpace(filterText))
+                return true;
+
+            foreach (string value in values)
+            {
+                if (string.IsNullOrWhiteSpace(value) ||
+                    string.Equals(value, "-", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (value.Contains(filterText, StringComparison.CurrentCultureIgnoreCase))
+                    return true;
+            }
+
+            return false;
         }
 
         private void EnsureFileSelection()
