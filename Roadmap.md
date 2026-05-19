@@ -461,6 +461,7 @@ Acceptance:
 - network scheme file references can store a manual source-note/comment for the exact visual fragment used from a scheme
 - the interface passport grid shows stored `MPI/DP/PN` and medium values so manual scheme data is visible without reopening the edit dialog
 - the interface dialog validates manually entered IP address, mask, and gateway values before saving while still allowing blank unknown fields
+- the connection dialog validates manually entered cable length while still allowing blank unknown length
 - PDF network scheme references are accepted as `PDF` metadata/`Open original` sources; embedded PDF preview and OCR/import remain outside the current scope
 
 ### Phase 7. Maintenance schedule generation

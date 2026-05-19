@@ -73,4 +73,32 @@ public class KnowledgeBaseNetworkFieldValidationServiceTests
         Assert.Equal(KbNetworkInterfaceAddressField.Gateway, result.Field);
         Assert.Contains("Шлюз", result.ErrorMessage, StringComparison.Ordinal);
     }
+
+    [Theory]
+    [InlineData("12")]
+    [InlineData("12 m")]
+    [InlineData("12,5 м")]
+    [InlineData("0.5m")]
+    [InlineData("")]
+    public void ValidateConnectionFields_ForValidLength_ReturnsSuccess(string length)
+    {
+        var result = KnowledgeBaseNetworkFieldValidationService.ValidateConnectionFields(length);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(KbNetworkConnectionField.None, result.Field);
+    }
+
+    [Theory]
+    [InlineData("0 m")]
+    [InlineData("-1 m")]
+    [InlineData("12 mm")]
+    [InlineData("about 12 m")]
+    public void ValidateConnectionFields_ForInvalidLength_ReturnsLengthFailure(string length)
+    {
+        var result = KnowledgeBaseNetworkFieldValidationService.ValidateConnectionFields(length);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(KbNetworkConnectionField.Length, result.Field);
+        Assert.Contains("Длина", result.ErrorMessage, StringComparison.Ordinal);
+    }
 }

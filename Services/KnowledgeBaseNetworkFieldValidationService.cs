@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
+
 namespace AsutpKnowledgeBase.Services
 {
     public enum KbNetworkInterfaceAddressField
@@ -8,11 +11,26 @@ namespace AsutpKnowledgeBase.Services
         Gateway = 3
     }
 
+    public enum KbNetworkConnectionField
+    {
+        None = 0,
+        Length = 1
+    }
+
     public sealed class KnowledgeBaseNetworkFieldValidationResult
     {
         public bool IsSuccess { get; init; }
 
         public KbNetworkInterfaceAddressField Field { get; init; }
+
+        public string ErrorMessage { get; init; } = string.Empty;
+    }
+
+    public sealed class KnowledgeBaseNetworkConnectionFieldValidationResult
+    {
+        public bool IsSuccess { get; init; }
+
+        public KbNetworkConnectionField Field { get; init; }
 
         public string ErrorMessage { get; init; } = string.Empty;
     }
@@ -48,6 +66,18 @@ namespace AsutpKnowledgeBase.Services
             return new KnowledgeBaseNetworkFieldValidationResult { IsSuccess = true };
         }
 
+        public static KnowledgeBaseNetworkConnectionFieldValidationResult ValidateConnectionFields(string? length)
+        {
+            if (!IsBlankOrCableLength(length))
+            {
+                return ConnectionFailure(
+                    KbNetworkConnectionField.Length,
+                    "Поле \"Длина\" должно содержать положительное число, например 12, 12 m или 12,5 м.");
+            }
+
+            return new KnowledgeBaseNetworkConnectionFieldValidationResult { IsSuccess = true };
+        }
+
         private static KnowledgeBaseNetworkFieldValidationResult Failure(
             KbNetworkInterfaceAddressField field,
             string errorMessage) =>
@@ -58,8 +88,40 @@ namespace AsutpKnowledgeBase.Services
                 ErrorMessage = errorMessage
             };
 
+        private static KnowledgeBaseNetworkConnectionFieldValidationResult ConnectionFailure(
+            KbNetworkConnectionField field,
+            string errorMessage) =>
+            new()
+            {
+                IsSuccess = false,
+                Field = field,
+                ErrorMessage = errorMessage
+            };
+
         private static bool IsBlankOrIpv4Address(string? value) =>
             string.IsNullOrWhiteSpace(value) || IsIpv4Address(value.Trim());
+
+        private static bool IsBlankOrCableLength(string? value)
+        {
+            string normalized = (value ?? string.Empty).Trim().Replace('\u00A0', ' ');
+            if (string.IsNullOrWhiteSpace(normalized))
+                return true;
+
+            Match match = Regex.Match(
+                normalized,
+                @"^(?<value>\d+(?:[,.]\d+)?)\s*(?<unit>m|м|meter|meters|метр|метра|метров)?$",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (!match.Success)
+                return false;
+
+            string numericText = match.Groups["value"].Value.Replace(',', '.');
+            return decimal.TryParse(
+                    numericText,
+                    NumberStyles.Number,
+                    CultureInfo.InvariantCulture,
+                    out decimal parsedLength) &&
+                parsedLength > 0M;
+        }
 
         private static bool IsBlankOrSubnetMask(string? value)
         {

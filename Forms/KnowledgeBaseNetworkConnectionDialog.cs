@@ -1,4 +1,5 @@
 using AsutpKnowledgeBase.Models;
+using AsutpKnowledgeBase.Services;
 
 namespace AsutpKnowledgeBase
 {
@@ -283,6 +284,19 @@ namespace AsutpKnowledgeBase
                 return;
             }
 
+            var fieldValidation = KnowledgeBaseNetworkFieldValidationService.ValidateConnectionFields(_txtLength.Text);
+            if (!fieldValidation.IsSuccess)
+            {
+                MessageBox.Show(
+                    this,
+                    fieldValidation.ErrorMessage,
+                    "Сеть",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                FocusConnectionField(fieldValidation.Field);
+                return;
+            }
+
             Result = new KbNetworkConnection
             {
                 NetworkConnectionId = _networkConnectionId,
@@ -300,6 +314,17 @@ namespace AsutpKnowledgeBase
 
             DialogResult = DialogResult.OK;
             Close();
+        }
+
+        private void FocusConnectionField(KbNetworkConnectionField field)
+        {
+            TextBox? textBox = field switch
+            {
+                KbNetworkConnectionField.Length => _txtLength,
+                _ => null
+            };
+            textBox?.Focus();
+            textBox?.SelectAll();
         }
 
         private static Label CreateLabel(string text) =>
