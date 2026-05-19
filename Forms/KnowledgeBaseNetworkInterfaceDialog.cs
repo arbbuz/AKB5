@@ -1,4 +1,5 @@
 using AsutpKnowledgeBase.Models;
+using AsutpKnowledgeBase.Services;
 
 namespace AsutpKnowledgeBase
 {
@@ -263,6 +264,22 @@ namespace AsutpKnowledgeBase
                 return;
             }
 
+            var addressValidation = KnowledgeBaseNetworkFieldValidationService.ValidateInterfaceAddressFields(
+                _txtIpAddress.Text,
+                _txtSubnetMask.Text,
+                _txtGateway.Text);
+            if (!addressValidation.IsSuccess)
+            {
+                MessageBox.Show(
+                    this,
+                    addressValidation.ErrorMessage,
+                    "Сеть",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                FocusAddressField(addressValidation.Field);
+                return;
+            }
+
             Result = new KbNetworkInterface
             {
                 NetworkInterfaceId = _networkInterfaceId,
@@ -283,6 +300,19 @@ namespace AsutpKnowledgeBase
 
             DialogResult = DialogResult.OK;
             Close();
+        }
+
+        private void FocusAddressField(KbNetworkInterfaceAddressField field)
+        {
+            TextBox? textBox = field switch
+            {
+                KbNetworkInterfaceAddressField.IpAddress => _txtIpAddress,
+                KbNetworkInterfaceAddressField.SubnetMask => _txtSubnetMask,
+                KbNetworkInterfaceAddressField.Gateway => _txtGateway,
+                _ => null
+            };
+            textBox?.Focus();
+            textBox?.SelectAll();
         }
 
         private static Label CreateLabel(string text) =>
