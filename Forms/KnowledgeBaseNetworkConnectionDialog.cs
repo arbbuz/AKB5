@@ -40,7 +40,7 @@ namespace AsutpKnowledgeBase
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(760, 430);
+            ClientSize = new Size(780, 560);
             AppIconProvider.Apply(this);
 
             var rootLayout = new TableLayoutPanel
@@ -54,7 +54,9 @@ namespace AsutpKnowledgeBase
 
             var layout = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 Padding = new Padding(12),
                 ColumnCount = 2,
                 RowCount = 10
@@ -104,7 +106,7 @@ namespace AsutpKnowledgeBase
             layout.Controls.Add(CreateLabel("Примечание"), 0, 9);
             layout.Controls.Add(_txtNotes, 1, 9);
 
-            rootLayout.Controls.Add(layout, 0, 0);
+            rootLayout.Controls.Add(CreateBodyPanel(layout), 0, 0);
             rootLayout.Controls.Add(CreateButtonsPanel(), 0, 1);
             Controls.Add(rootLayout);
         }
@@ -211,6 +213,17 @@ namespace AsutpKnowledgeBase
             layout.Controls.Add(CreateLabel(label), 0, row);
             layout.Controls.Add(comboBox, 1, row);
             return comboBox;
+        }
+
+        private static Control CreateBodyPanel(Control content)
+        {
+            var panel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                AutoScroll = true
+            };
+            panel.Controls.Add(content);
+            return panel;
         }
 
         private Control CreateButtonsPanel()

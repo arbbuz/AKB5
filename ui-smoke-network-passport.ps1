@@ -239,6 +239,26 @@ function Invoke-Element {
     throw "Element '$($Element.Current.Name)' does not support InvokePattern or SelectionItemPattern."
 }
 
+function Assert-ElementVisibleInWindow {
+    param(
+        [System.Windows.Automation.AutomationElement]$Window,
+        [System.Windows.Automation.AutomationElement]$Element,
+        [string]$Description
+    )
+
+    $windowRect = $Window.Current.BoundingRectangle
+    $elementRect = $Element.Current.BoundingRectangle
+    if ($Element.Current.IsOffscreen -or
+        $elementRect.Width -le 0 -or
+        $elementRect.Height -le 0 -or
+        $elementRect.Left -lt $windowRect.Left -or
+        $elementRect.Right -gt $windowRect.Right -or
+        $elementRect.Top -lt $windowRect.Top -or
+        $elementRect.Bottom -gt $windowRect.Bottom) {
+        throw "$Description is not fully visible inside '$($Window.Current.Name)'."
+    }
+}
+
 function Wait-ForNamedWindow {
     param(
         [int]$ProcessId,
@@ -593,6 +613,31 @@ function Get-StatusFieldName {
     return New-UiText @(0x0421, 0x0442, 0x0430, 0x0442, 0x0443, 0x0441)
 }
 
+function Get-NotesFieldName {
+    return New-UiText @(0x041F, 0x0440, 0x0438, 0x043C, 0x0435, 0x0447, 0x0430, 0x043D, 0x0438, 0x0435)
+}
+
+function Assert-NetworkDialogLayout {
+    param(
+        [System.Windows.Automation.AutomationElement]$Dialog,
+        [int]$ProcessId
+    )
+
+    $notesField = Find-Element `
+        -Root $Dialog `
+        -ControlType ([System.Windows.Automation.ControlType]::Edit) `
+        -NamePattern (Get-NotesFieldName) `
+        -TimeoutSeconds 5
+    Assert-ElementVisibleInWindow -Window $Dialog -Element $notesField -Description 'Notes field'
+
+    $saveButton = Find-Element `
+        -Root $Dialog `
+        -ControlType ([System.Windows.Automation.ControlType]::Button) `
+        -NamePattern (Get-SaveButtonName) `
+        -TimeoutSeconds 5
+    Assert-ElementVisibleInWindow -Window $Dialog -Element $saveButton -Description 'Save button'
+}
+
 function Click-SaveButton {
     param(
         [System.Windows.Automation.AutomationElement]$Dialog,
@@ -661,6 +706,7 @@ try {
     Press-Element -Element $addDeviceButton -ProcessId $process.Id
     $deviceDialogName = Get-AddDeviceDialogName
     $deviceDialog = Wait-ForNamedWindow -ProcessId $process.Id -Name $deviceDialogName
+    Assert-NetworkDialogLayout -Dialog $deviceDialog -ProcessId $process.Id
     $deviceEdits = Find-Edits -Root $deviceDialog
     Set-ElementValue -Element $deviceEdits[0] -Value $deviceName
     Set-ElementValue -Element $deviceEdits[1] -Value 'Controller'
@@ -676,6 +722,7 @@ try {
     Press-Element -Element $addInterfaceButton -ProcessId $process.Id
     $interfaceDialogName = Get-AddInterfaceDialogName
     $interfaceDialog = Wait-ForNamedWindow -ProcessId $process.Id -Name $interfaceDialogName
+    Assert-NetworkDialogLayout -Dialog $interfaceDialog -ProcessId $process.Id
     Set-ElementValue `
         -Element (Find-Element -Root $interfaceDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-InterfaceNameFieldName)) `
         -Value $interfaceA
@@ -704,6 +751,7 @@ try {
     Write-Log 'Adding second interface.'
     Press-Element -Element $addInterfaceButton -ProcessId $process.Id
     $interfaceDialog = Wait-ForNamedWindow -ProcessId $process.Id -Name $interfaceDialogName
+    Assert-NetworkDialogLayout -Dialog $interfaceDialog -ProcessId $process.Id
     Set-ElementValue `
         -Element (Find-Element -Root $interfaceDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-InterfaceNameFieldName)) `
         -Value $interfaceB
@@ -734,6 +782,7 @@ try {
     Press-Element -Element $addConnectionButton -ProcessId $process.Id
     $connectionDialogName = Get-AddConnectionDialogName
     $connectionDialog = Wait-ForNamedWindow -ProcessId $process.Id -Name $connectionDialogName
+    Assert-NetworkDialogLayout -Dialog $connectionDialog -ProcessId $process.Id
     Set-ElementValue `
         -Element (Find-Element -Root $connectionDialog -ControlType ([System.Windows.Automation.ControlType]::Edit) -NamePattern (Get-CableLabelFieldName)) `
         -Value $cableLabel
