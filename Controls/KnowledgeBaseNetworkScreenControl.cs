@@ -2,25 +2,52 @@ using AsutpKnowledgeBase.Services;
 
 namespace AsutpKnowledgeBase
 {
+    public enum KnowledgeBaseNetworkSelectionKind
+    {
+        None = 0,
+        Device = 1,
+        Interface = 2,
+        Connection = 3,
+        FileReference = 4
+    }
+
     public sealed class KnowledgeBaseNetworkScreenControl : UserControl
     {
         private sealed class ListItemTag
         {
-            public string NetworkAssetId { get; init; } = string.Empty;
+            public KnowledgeBaseNetworkSelectionKind SelectionKind { get; init; }
+
+            public string ItemId { get; init; } = string.Empty;
         }
 
         private readonly KnowledgeBaseNetworkState _emptyState = new();
 
         private Label _lblSource = null!;
         private Label _lblSummary = null!;
+        private Button _btnAddDevice = null!;
+        private Button _btnEditDevice = null!;
+        private Button _btnDeleteDevice = null!;
+        private Button _btnAddInterface = null!;
+        private Button _btnEditInterface = null!;
+        private Button _btnDeleteInterface = null!;
+        private Button _btnAddConnection = null!;
+        private Button _btnEditConnection = null!;
+        private Button _btnDeleteConnection = null!;
         private Button _btnAdd = null!;
         private Button _btnOpenSelected = null!;
         private Button _btnEditSelected = null!;
         private Button _btnDeleteSelected = null!;
         private TabControl _contentTabs = null!;
+        private TabPage _passportPage = null!;
         private TabPage _filesPage = null!;
         private TabPage _previewPage = null!;
+        private ListView _lvDevices = null!;
+        private ListView _lvInterfaces = null!;
+        private ListView _lvConnections = null!;
         private ListView _lvFiles = null!;
+        private Label _lblDevicesEmptyState = null!;
+        private Label _lblInterfacesEmptyState = null!;
+        private Label _lblConnectionsEmptyState = null!;
         private Label _lblFilesEmptyState = null!;
         private Label _lblPreviewTitleValue = null!;
         private TextBox _txtPreviewPath = null!;
@@ -74,6 +101,24 @@ namespace AsutpKnowledgeBase
             ApplyState(_emptyState);
         }
 
+        public event EventHandler? AddDeviceRequested;
+
+        public event EventHandler? EditDeviceRequested;
+
+        public event EventHandler? DeleteDeviceRequested;
+
+        public event EventHandler? AddInterfaceRequested;
+
+        public event EventHandler? EditInterfaceRequested;
+
+        public event EventHandler? DeleteInterfaceRequested;
+
+        public event EventHandler? AddConnectionRequested;
+
+        public event EventHandler? EditConnectionRequested;
+
+        public event EventHandler? DeleteConnectionRequested;
+
         public event EventHandler? AddRequested;
 
         public event EventHandler? OpenSelectedRequested;
@@ -82,24 +127,38 @@ namespace AsutpKnowledgeBase
 
         public event EventHandler? DeleteSelectedRequested;
 
+        public string SelectedDeviceId { get; private set; } = string.Empty;
+
+        public string SelectedInterfaceId { get; private set; } = string.Empty;
+
+        public string SelectedConnectionId { get; private set; } = string.Empty;
+
         public string SelectedItemId { get; private set; } = string.Empty;
 
         public void ApplyState(KnowledgeBaseNetworkState state)
         {
             _currentState = state ?? _emptyState;
-            string previousSelectionId = SelectedItemId;
+            string previousDeviceId = SelectedDeviceId;
+            string previousInterfaceId = SelectedInterfaceId;
+            string previousConnectionId = SelectedConnectionId;
+            string previousFileReferenceId = SelectedItemId;
 
-            if (_contentTabs.SelectedTab != _filesPage)
+            if (_contentTabs.SelectedTab == _previewPage)
                 _contentTabs.SelectedTab = _filesPage;
 
             _lblSource.Text = _currentState.SourceText;
-            _lblSummary.Text = _currentState.HasEntries
-                ? $"Файлов сети: {_currentState.FileReferencesCount}"
+            _lblSummary.Text = _currentState.HasPassportRows || _currentState.HasEntries
+                ? $"Устройств: {_currentState.DeviceCount} | Интерфейсов: {_currentState.InterfaceCount} | Соединений: {_currentState.ConnectionCount} | Файлов: {_currentState.FileReferencesCount}"
                 : _currentState.EmptyStateText;
 
-            PopulateEntries(previousSelectionId);
-            EnsureSelection();
-            SelectedItemId = ResolveSelectedItemId();
+            PopulateDeviceEntries(previousDeviceId);
+            PopulateInterfaceEntries(previousInterfaceId);
+            PopulateConnectionEntries(previousConnectionId);
+            PopulateFileEntries(previousFileReferenceId);
+            EnsureFileSelection();
+
+            ResolvePassportSelection();
+            SelectedItemId = ResolveSelectedFileReferenceId();
             UpdateButtonStates();
             UpdatePreview();
         }
@@ -119,15 +178,73 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill
             };
 
+            _passportPage = new TabPage("Паспорт");
+            _passportPage.Controls.Add(CreatePassportPageLayout());
+
             _filesPage = new TabPage("Файлы");
             _filesPage.Controls.Add(CreateFilesPageLayout());
 
             _previewPage = new TabPage("Предпросмотр");
             _previewPage.Controls.Add(CreatePreviewPageLayout());
 
+            _contentTabs.TabPages.Add(_passportPage);
             _contentTabs.TabPages.Add(_filesPage);
             _contentTabs.TabPages.Add(_previewPage);
             return _contentTabs;
+        }
+
+        private Control CreatePassportPageLayout()
+        {
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(12),
+                ColumnCount = 1,
+                RowCount = 3
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 34F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 33F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 33F));
+
+            _lvDevices = CreateDevicesListView();
+            _lvInterfaces = CreateInterfacesListView();
+            _lvConnections = CreateConnectionsListView();
+
+            _lblDevicesEmptyState = CreateEmptyStateLabel("Устройства сетевого паспорта пока не добавлены.");
+            _lblInterfacesEmptyState = CreateEmptyStateLabel("Интерфейсы и IP-адреса пока не добавлены.");
+            _lblConnectionsEmptyState = CreateEmptyStateLabel("Соединения между интерфейсами пока не добавлены.");
+
+            WirePassportSelectionEvents(_lvDevices, _lvInterfaces, _lvConnections);
+            WirePassportSelectionEvents(_lvInterfaces, _lvDevices, _lvConnections);
+            WirePassportSelectionEvents(_lvConnections, _lvDevices, _lvInterfaces);
+
+            layout.Controls.Add(
+                CreatePassportGroup(
+                    "Устройства",
+                    CreateDeviceActionsPanel(),
+                    _lvDevices,
+                    _lblDevicesEmptyState),
+                0,
+                0);
+            layout.Controls.Add(
+                CreatePassportGroup(
+                    "Интерфейсы / IP",
+                    CreateInterfaceActionsPanel(),
+                    _lvInterfaces,
+                    _lblInterfacesEmptyState),
+                0,
+                1);
+            layout.Controls.Add(
+                CreatePassportGroup(
+                    "Соединения",
+                    CreateConnectionActionsPanel(),
+                    _lvConnections,
+                    _lblConnectionsEmptyState),
+                0,
+                2);
+
+            return layout;
         }
 
         private Control CreateFilesPageLayout()
@@ -168,7 +285,7 @@ namespace AsutpKnowledgeBase
 
             _lvFiles = CreateFilesListView();
             _lvFiles.SizeChanged += (_, _) => ResizeFilesColumns();
-            _lvFiles.SelectedIndexChanged += (_, _) => HandleSelectionChanged();
+            _lvFiles.SelectedIndexChanged += (_, _) => HandleFileSelectionChanged();
             _lvFiles.ItemActivate += (_, _) => OpenSelectedRequested?.Invoke(this, EventArgs.Empty);
 
             _lblFilesEmptyState = CreateEmptyStateLabel("Для этого узла пока нет файлов сети.");
@@ -184,6 +301,51 @@ namespace AsutpKnowledgeBase
             layout.Controls.Add(actionsPanel, 0, 0);
             layout.Controls.Add(listHost, 0, 1);
             return layout;
+        }
+
+        private FlowLayoutPanel CreateDeviceActionsPanel()
+        {
+            var panel = CreateActionsPanel();
+            _btnAddDevice = CreateActionButton("Добавить устройство");
+            _btnAddDevice.Click += (_, _) => AddDeviceRequested?.Invoke(this, EventArgs.Empty);
+            _btnEditDevice = CreateActionButton("Изменить");
+            _btnEditDevice.Click += (_, _) => EditDeviceRequested?.Invoke(this, EventArgs.Empty);
+            _btnDeleteDevice = CreateActionButton("Удалить");
+            _btnDeleteDevice.Click += (_, _) => DeleteDeviceRequested?.Invoke(this, EventArgs.Empty);
+            panel.Controls.Add(_btnAddDevice);
+            panel.Controls.Add(_btnEditDevice);
+            panel.Controls.Add(_btnDeleteDevice);
+            return panel;
+        }
+
+        private FlowLayoutPanel CreateInterfaceActionsPanel()
+        {
+            var panel = CreateActionsPanel();
+            _btnAddInterface = CreateActionButton("Добавить интерфейс");
+            _btnAddInterface.Click += (_, _) => AddInterfaceRequested?.Invoke(this, EventArgs.Empty);
+            _btnEditInterface = CreateActionButton("Изменить");
+            _btnEditInterface.Click += (_, _) => EditInterfaceRequested?.Invoke(this, EventArgs.Empty);
+            _btnDeleteInterface = CreateActionButton("Удалить");
+            _btnDeleteInterface.Click += (_, _) => DeleteInterfaceRequested?.Invoke(this, EventArgs.Empty);
+            panel.Controls.Add(_btnAddInterface);
+            panel.Controls.Add(_btnEditInterface);
+            panel.Controls.Add(_btnDeleteInterface);
+            return panel;
+        }
+
+        private FlowLayoutPanel CreateConnectionActionsPanel()
+        {
+            var panel = CreateActionsPanel();
+            _btnAddConnection = CreateActionButton("Добавить соединение");
+            _btnAddConnection.Click += (_, _) => AddConnectionRequested?.Invoke(this, EventArgs.Empty);
+            _btnEditConnection = CreateActionButton("Изменить");
+            _btnEditConnection.Click += (_, _) => EditConnectionRequested?.Invoke(this, EventArgs.Empty);
+            _btnDeleteConnection = CreateActionButton("Удалить");
+            _btnDeleteConnection.Click += (_, _) => DeleteConnectionRequested?.Invoke(this, EventArgs.Empty);
+            panel.Controls.Add(_btnAddConnection);
+            panel.Controls.Add(_btnEditConnection);
+            panel.Controls.Add(_btnDeleteConnection);
+            return panel;
         }
 
         private Control CreatePreviewPageLayout()
@@ -267,7 +429,140 @@ namespace AsutpKnowledgeBase
             return layout;
         }
 
-        private void PopulateEntries(string preferredSelectionId)
+        private void PopulateDeviceEntries(string preferredSelectionId)
+        {
+            _lvDevices.BeginUpdate();
+            try
+            {
+                _lvDevices.Items.Clear();
+                foreach (var entry in _currentState.DeviceStates)
+                {
+                    var item = new ListViewItem(
+                    [
+                        entry.NameText,
+                        entry.RoleText,
+                        entry.ModelText,
+                        entry.ProfinetNameText,
+                        entry.MacAddressText,
+                        entry.LinkedNodeText,
+                        entry.InterfacesCount.ToString(),
+                        entry.ConnectionsCount.ToString()
+                    ])
+                    {
+                        Tag = new ListItemTag
+                        {
+                            SelectionKind = KnowledgeBaseNetworkSelectionKind.Device,
+                            ItemId = entry.NetworkDeviceId
+                        }
+                    };
+
+                    _lvDevices.Items.Add(item);
+                    if (string.Equals(entry.NetworkDeviceId, preferredSelectionId, StringComparison.Ordinal))
+                        item.Selected = true;
+                }
+            }
+            finally
+            {
+                _lvDevices.EndUpdate();
+            }
+
+            bool hasEntries = _currentState.DeviceStates.Count > 0;
+            _lvDevices.Visible = hasEntries;
+            _lblDevicesEmptyState.Visible = !hasEntries;
+            _lblDevicesEmptyState.Text = _currentState.SupportsPassportEditing
+                ? "Устройства сетевого паспорта пока не добавлены."
+                : "Сетевой паспорт доступен только для системы уровня 2.";
+        }
+
+        private void PopulateInterfaceEntries(string preferredSelectionId)
+        {
+            _lvInterfaces.BeginUpdate();
+            try
+            {
+                _lvInterfaces.Items.Clear();
+                foreach (var entry in _currentState.InterfaceStates)
+                {
+                    var item = new ListViewItem(
+                    [
+                        entry.DeviceNameText,
+                        entry.InterfaceNameText,
+                        entry.IpAddressText,
+                        entry.SubnetMaskText,
+                        entry.GatewayText,
+                        entry.ProtocolText,
+                        entry.VlanText,
+                        entry.MacAddressText
+                    ])
+                    {
+                        Tag = new ListItemTag
+                        {
+                            SelectionKind = KnowledgeBaseNetworkSelectionKind.Interface,
+                            ItemId = entry.NetworkInterfaceId
+                        }
+                    };
+
+                    _lvInterfaces.Items.Add(item);
+                    if (string.Equals(entry.NetworkInterfaceId, preferredSelectionId, StringComparison.Ordinal))
+                        item.Selected = true;
+                }
+            }
+            finally
+            {
+                _lvInterfaces.EndUpdate();
+            }
+
+            bool hasEntries = _currentState.InterfaceStates.Count > 0;
+            _lvInterfaces.Visible = hasEntries;
+            _lblInterfacesEmptyState.Visible = !hasEntries;
+            _lblInterfacesEmptyState.Text = _currentState.DeviceCount > 0
+                ? "Интерфейсы и IP-адреса пока не добавлены."
+                : "Сначала добавьте устройство сетевого паспорта.";
+        }
+
+        private void PopulateConnectionEntries(string preferredSelectionId)
+        {
+            _lvConnections.BeginUpdate();
+            try
+            {
+                _lvConnections.Items.Clear();
+                foreach (var entry in _currentState.ConnectionStates)
+                {
+                    var item = new ListViewItem(
+                    [
+                        entry.EndpointAText,
+                        entry.EndpointBText,
+                        entry.CableLabelText,
+                        entry.CableTypeText,
+                        entry.StatusText,
+                        entry.NotesText
+                    ])
+                    {
+                        Tag = new ListItemTag
+                        {
+                            SelectionKind = KnowledgeBaseNetworkSelectionKind.Connection,
+                            ItemId = entry.NetworkConnectionId
+                        }
+                    };
+
+                    _lvConnections.Items.Add(item);
+                    if (string.Equals(entry.NetworkConnectionId, preferredSelectionId, StringComparison.Ordinal))
+                        item.Selected = true;
+                }
+            }
+            finally
+            {
+                _lvConnections.EndUpdate();
+            }
+
+            bool hasEntries = _currentState.ConnectionStates.Count > 0;
+            _lvConnections.Visible = hasEntries;
+            _lblConnectionsEmptyState.Visible = !hasEntries;
+            _lblConnectionsEmptyState.Text = _currentState.InterfaceCount >= 2
+                ? "Соединения между интерфейсами пока не добавлены."
+                : "Для соединения нужны минимум два интерфейса.";
+        }
+
+        private void PopulateFileEntries(string preferredSelectionId)
         {
             _lvFiles.BeginUpdate();
             try
@@ -284,7 +579,8 @@ namespace AsutpKnowledgeBase
                     {
                         Tag = new ListItemTag
                         {
-                            NetworkAssetId = entry.NetworkAssetId
+                            SelectionKind = KnowledgeBaseNetworkSelectionKind.FileReference,
+                            ItemId = entry.NetworkAssetId
                         }
                     };
 
@@ -301,11 +597,13 @@ namespace AsutpKnowledgeBase
             bool hasEntries = _currentState.FileReferenceStates.Count > 0;
             _lvFiles.Visible = hasEntries;
             _lblFilesEmptyState.Visible = !hasEntries;
-            _lblFilesEmptyState.Text = _currentState.EmptyStateText;
+            _lblFilesEmptyState.Text = _currentState.SupportsEditing
+                ? "Для этого узла пока нет файлов сети."
+                : _currentState.EmptyStateText;
             ResizeFilesColumns();
         }
 
-        private void EnsureSelection()
+        private void EnsureFileSelection()
         {
             if (_lvFiles.SelectedItems.Count > 0 || _lvFiles.Items.Count == 0)
                 return;
@@ -313,7 +611,21 @@ namespace AsutpKnowledgeBase
             _lvFiles.Items[0].Selected = true;
         }
 
-        private void HandleSelectionChanged()
+        private void WirePassportSelectionEvents(ListView source, params ListView[] others)
+        {
+            source.SelectedIndexChanged += (_, _) => HandlePassportSelectionChanged(source, others);
+            source.ItemActivate += (_, _) =>
+            {
+                if (ReferenceEquals(source, _lvDevices))
+                    EditDeviceRequested?.Invoke(this, EventArgs.Empty);
+                else if (ReferenceEquals(source, _lvInterfaces))
+                    EditInterfaceRequested?.Invoke(this, EventArgs.Empty);
+                else if (ReferenceEquals(source, _lvConnections))
+                    EditConnectionRequested?.Invoke(this, EventArgs.Empty);
+            };
+        }
+
+        private void HandlePassportSelectionChanged(ListView source, IReadOnlyList<ListView> others)
         {
             if (_isSynchronizingSelection)
                 return;
@@ -321,7 +633,33 @@ namespace AsutpKnowledgeBase
             _isSynchronizingSelection = true;
             try
             {
-                SelectedItemId = ResolveSelectedItemId();
+                if (source.SelectedItems.Count > 0)
+                {
+                    foreach (var other in others)
+                    {
+                        if (other.SelectedItems.Count > 0)
+                            other.SelectedItems.Clear();
+                    }
+                }
+
+                ResolvePassportSelection();
+                UpdateButtonStates();
+            }
+            finally
+            {
+                _isSynchronizingSelection = false;
+            }
+        }
+
+        private void HandleFileSelectionChanged()
+        {
+            if (_isSynchronizingSelection)
+                return;
+
+            _isSynchronizingSelection = true;
+            try
+            {
+                SelectedItemId = ResolveSelectedFileReferenceId();
                 UpdateButtonStates();
                 UpdatePreview();
             }
@@ -331,15 +669,28 @@ namespace AsutpKnowledgeBase
             }
         }
 
-        private string ResolveSelectedItemId()
+        private void ResolvePassportSelection()
+        {
+            SelectedDeviceId = TryGetSelectedTag(_lvDevices, out var deviceTag)
+                ? deviceTag.ItemId
+                : string.Empty;
+            SelectedInterfaceId = TryGetSelectedTag(_lvInterfaces, out var interfaceTag)
+                ? interfaceTag.ItemId
+                : string.Empty;
+            SelectedConnectionId = TryGetSelectedTag(_lvConnections, out var connectionTag)
+                ? connectionTag.ItemId
+                : string.Empty;
+        }
+
+        private string ResolveSelectedFileReferenceId()
         {
             if (_lvFiles.SelectedItems.Count > 0 && _lvFiles.SelectedItems[0].Tag is ListItemTag tag)
-                return tag.NetworkAssetId;
+                return tag.ItemId;
 
             return string.Empty;
         }
 
-        private KnowledgeBaseNetworkFileReferenceState? FindSelectedState()
+        private KnowledgeBaseNetworkFileReferenceState? FindSelectedFileReferenceState()
         {
             if (string.IsNullOrWhiteSpace(SelectedItemId))
                 return null;
@@ -350,20 +701,31 @@ namespace AsutpKnowledgeBase
 
         private void UpdateButtonStates()
         {
-            bool canEdit = _currentState.SupportsEditing;
-            var selectedState = FindSelectedState();
-            bool hasSelection = selectedState != null;
-            bool hasPath = hasSelection && !string.Equals(selectedState!.PathText, "-", StringComparison.Ordinal);
+            bool canFileEdit = _currentState.SupportsEditing;
+            bool canPassportEdit = _currentState.SupportsEditing && _currentState.SupportsPassportEditing;
+            var selectedFileState = FindSelectedFileReferenceState();
+            bool hasFileSelection = selectedFileState != null;
+            bool hasFilePath = hasFileSelection && !string.Equals(selectedFileState!.PathText, "-", StringComparison.Ordinal);
 
-            _btnAdd.Enabled = canEdit;
-            _btnOpenSelected.Enabled = hasPath;
-            _btnEditSelected.Enabled = canEdit && hasSelection;
-            _btnDeleteSelected.Enabled = canEdit && hasSelection;
+            _btnAddDevice.Enabled = canPassportEdit;
+            _btnEditDevice.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedDeviceId);
+            _btnDeleteDevice.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedDeviceId);
+            _btnAddInterface.Enabled = canPassportEdit && _currentState.DeviceCount > 0;
+            _btnEditInterface.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedInterfaceId);
+            _btnDeleteInterface.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedInterfaceId);
+            _btnAddConnection.Enabled = canPassportEdit && _currentState.InterfaceCount >= 2;
+            _btnEditConnection.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedConnectionId);
+            _btnDeleteConnection.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedConnectionId);
+
+            _btnAdd.Enabled = canFileEdit;
+            _btnOpenSelected.Enabled = hasFilePath;
+            _btnEditSelected.Enabled = canFileEdit && hasFileSelection;
+            _btnDeleteSelected.Enabled = canFileEdit && hasFileSelection;
         }
 
         private void UpdatePreview()
         {
-            var selectedState = FindSelectedState();
+            var selectedState = FindSelectedFileReferenceState();
             if (selectedState == null)
             {
                 ClearPreviewImage();
@@ -471,9 +833,116 @@ namespace AsutpKnowledgeBase
             _lvFiles.Columns[2].Width = pathWidth;
         }
 
+        private static bool TryGetSelectedTag(ListView listView, out ListItemTag tag)
+        {
+            if (listView.SelectedItems.Count > 0 && listView.SelectedItems[0].Tag is ListItemTag selectedTag)
+            {
+                tag = selectedTag;
+                return true;
+            }
+
+            tag = new ListItemTag();
+            return false;
+        }
+
+        private static GroupBox CreatePassportGroup(
+            string title,
+            Control actionsPanel,
+            ListView listView,
+            Label emptyStateLabel)
+        {
+            var groupBox = new GroupBox
+            {
+                Text = title,
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10),
+                Margin = new Padding(0, 0, 0, 10)
+            };
+
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            var container = new Panel
+            {
+                Dock = DockStyle.Fill
+            };
+            container.Controls.Add(listView);
+            container.Controls.Add(emptyStateLabel);
+
+            layout.Controls.Add(actionsPanel, 0, 0);
+            layout.Controls.Add(container, 0, 1);
+            groupBox.Controls.Add(layout);
+            return groupBox;
+        }
+
+        private static FlowLayoutPanel CreateActionsPanel() =>
+            new()
+            {
+                Dock = DockStyle.Top,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = true,
+                AutoSize = true,
+                Margin = new Padding(0, 0, 0, 8)
+            };
+
+        private static ListView CreateDevicesListView()
+        {
+            var listView = CreateBaseListView();
+            listView.Columns.Add("Устройство", 180);
+            listView.Columns.Add("Роль", 120);
+            listView.Columns.Add("Модель", 170);
+            listView.Columns.Add("PROFINET-name", 150);
+            listView.Columns.Add("MAC", 145);
+            listView.Columns.Add("Карточка", 150);
+            listView.Columns.Add("Инт.", 55);
+            listView.Columns.Add("Связи", 55);
+            return listView;
+        }
+
+        private static ListView CreateInterfacesListView()
+        {
+            var listView = CreateBaseListView();
+            listView.Columns.Add("Устройство", 160);
+            listView.Columns.Add("Интерфейс", 130);
+            listView.Columns.Add("IP", 120);
+            listView.Columns.Add("Маска", 120);
+            listView.Columns.Add("Шлюз", 120);
+            listView.Columns.Add("Протокол", 110);
+            listView.Columns.Add("VLAN", 70);
+            listView.Columns.Add("MAC", 145);
+            return listView;
+        }
+
+        private static ListView CreateConnectionsListView()
+        {
+            var listView = CreateBaseListView();
+            listView.Columns.Add("Интерфейс A", 230);
+            listView.Columns.Add("Интерфейс B", 230);
+            listView.Columns.Add("Кабель", 120);
+            listView.Columns.Add("Тип", 110);
+            listView.Columns.Add("Статус", 100);
+            listView.Columns.Add("Примечание", 220);
+            return listView;
+        }
+
         private static ListView CreateFilesListView()
         {
-            var listView = new ListView
+            var listView = CreateBaseListView();
+            listView.Columns.Add("Наименование", 220);
+            listView.Columns.Add("Предпросмотр", 170);
+            listView.Columns.Add("Путь", 360);
+            return listView;
+        }
+
+        private static ListView CreateBaseListView() =>
+            new()
             {
                 Dock = DockStyle.Fill,
                 FullRowSelect = true,
@@ -482,11 +951,6 @@ namespace AsutpKnowledgeBase
                 MultiSelect = false,
                 View = View.Details
             };
-            listView.Columns.Add("Наименование", 220);
-            listView.Columns.Add("Предпросмотр", 170);
-            listView.Columns.Add("Путь", 360);
-            return listView;
-        }
 
         private static Label CreateValueLabel(string text) =>
             new()

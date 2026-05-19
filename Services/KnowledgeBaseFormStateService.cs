@@ -95,7 +95,10 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbSoftwareRecord>? softwareRecords = null,
             IReadOnlyList<KbNetworkFileReference>? networkFileReferences = null,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles = null,
-            IReadOnlyList<KbCompositionRack>? compositionRacks = null)
+            IReadOnlyList<KbCompositionRack>? compositionRacks = null,
+            IReadOnlyList<KbNetworkDevice>? networkDevices = null,
+            IReadOnlyList<KbNetworkInterface>? networkInterfaces = null,
+            IReadOnlyList<KbNetworkConnection>? networkConnections = null)
         {
             bool fileExists = File.Exists(currentDataPath);
             string currentDataFileName = Path.GetFileName(currentDataPath);
@@ -111,7 +114,10 @@ namespace AsutpKnowledgeBase.Services
                 softwareRecords,
                 networkFileReferences,
                 maintenanceScheduleProfiles,
-                compositionRacks);
+                compositionRacks,
+                networkDevices,
+                networkInterfaces,
+                networkConnections);
 
             return new KnowledgeBaseFormState
             {
@@ -197,7 +203,10 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbSoftwareRecord>? softwareRecords,
             IReadOnlyList<KbNetworkFileReference>? networkFileReferences,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
-            IReadOnlyList<KbCompositionRack>? compositionRacks)
+            IReadOnlyList<KbCompositionRack>? compositionRacks,
+            IReadOnlyList<KbNetworkDevice>? networkDevices,
+            IReadOnlyList<KbNetworkInterface>? networkInterfaces,
+            IReadOnlyList<KbNetworkConnection>? networkConnections)
         {
             if (selectedNode == null)
             {
@@ -240,7 +249,13 @@ namespace AsutpKnowledgeBase.Services
                     documentLinks,
                     softwareRecords,
                     visibleLevel),
-                Network = _networkStateService.Build(selectedNode, networkFileReferences, visibleLevel),
+                Network = _networkStateService.Build(
+                    selectedNode,
+                    networkFileReferences,
+                    networkDevices,
+                    networkInterfaces,
+                    networkConnections,
+                    visibleLevel),
                 MaintenanceSchedule = _maintenanceScheduleStateService.Build(selectedNode, maintenanceScheduleProfiles, visibleLevel)
             };
         }

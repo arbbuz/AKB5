@@ -38,6 +38,15 @@ namespace AsutpKnowledgeBase
             selectedNodeDocsAndSoftwareScreen.OpenSelectedRequested += OpenSelectedDocsAndSoftwareItem;
             selectedNodeDocsAndSoftwareScreen.EditSelectedRequested += EditSelectedDocsAndSoftwareItem;
             selectedNodeDocsAndSoftwareScreen.DeleteSelectedRequested += DeleteSelectedDocsAndSoftwareItem;
+            selectedNodeNetworkScreen.AddDeviceRequested += AddNetworkDevice;
+            selectedNodeNetworkScreen.EditDeviceRequested += EditSelectedNetworkDevice;
+            selectedNodeNetworkScreen.DeleteDeviceRequested += DeleteSelectedNetworkDevice;
+            selectedNodeNetworkScreen.AddInterfaceRequested += AddNetworkInterface;
+            selectedNodeNetworkScreen.EditInterfaceRequested += EditSelectedNetworkInterface;
+            selectedNodeNetworkScreen.DeleteInterfaceRequested += DeleteSelectedNetworkInterface;
+            selectedNodeNetworkScreen.AddConnectionRequested += AddNetworkConnection;
+            selectedNodeNetworkScreen.EditConnectionRequested += EditSelectedNetworkConnection;
+            selectedNodeNetworkScreen.DeleteConnectionRequested += DeleteSelectedNetworkConnection;
             selectedNodeNetworkScreen.AddRequested += AddNetworkFileReference;
             selectedNodeNetworkScreen.OpenSelectedRequested += OpenSelectedNetworkFileReference;
             selectedNodeNetworkScreen.EditSelectedRequested += EditSelectedNetworkFileReference;

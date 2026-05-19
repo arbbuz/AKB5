@@ -486,7 +486,10 @@ namespace AsutpKnowledgeBase
                 _session.SoftwareRecords,
                 _session.NetworkFileReferences,
                 _session.MaintenanceScheduleProfiles,
-                _session.CompositionRacks);
+                _session.CompositionRacks,
+                _session.NetworkDevices,
+                _session.NetworkInterfaces,
+                _session.NetworkConnections);
         }
 
         private void ApplyFormState(KnowledgeBaseFormState formState, bool refreshSelectedNodeState)
