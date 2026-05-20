@@ -1,6 +1,16 @@
 # Decision Log
 
-Last updated: `2026-05-18`
+Last updated: `2026-05-20`
+
+## 2026-05-20
+
+- The accepted `Net` branch baseline is `207b6b1 Improve network passport review ergonomics`; it is committed and pushed to `origin/Net` after manual review.
+- Network passport work stays manual-entry / manual-review first. The accepted scope includes typed devices/interfaces/connections, visible review columns, filtering, copy-friendly rows/endpoints/summaries, visible table export, selected-row visibility, and row tooltips.
+- PDF network scheme references are metadata and `Open original` sources only. Embedded PDF preview/rendering remains a separate dependency decision and is not approved.
+- Do not start OCR/PDF auto-import, PRONETA/CSV import, live scan, plan/fact comparison, separate data-quality issue panels, or AKB5-driven IP/PROFINET-name assignment without a new explicit requirement.
+- Future `Net` manual-entry/UI refinements should be bundled into coherent review packages rather than split into tiny micro-stages. Use focused tests while developing and finish a package with full tests/build plus non-invasive/offscreen layout-smoke.
+- Interactive UI-smoke for the Network passport is opt-in only; do not run it unless the user explicitly asks.
+- The next local `Net` package may combine manual-entry speed and narrow inline duplicate hints: add-similar actions are acceptable, and row-level `Проверка` duplicate hints are acceptable as long as they stay inside the manual editing/review workflow and do not become a separate quality-problem panel.
 
 ## 2026-05-18
 
@@ -197,7 +207,7 @@ Last updated: `2026-05-18`
 - The export dialog must show resolved monthly demand before the user confirms the available monthly workshop budget
 - Maintenance norms can be imported from the approved sample workbook and should match by inventory number first, then by normalized names
 - The import workflow must tolerate the source workbook being open in Excel
-- Future implementation work should run in micro-steps: `one step -> verify-step -> stop -> review -> commit/push`
+- Default implementation work should run in small verified steps: `one step -> verify-step -> stop -> review -> commit/push`. The 2026-05-20 `Net` decision refines this for network passport manual-entry/UI work: bundle closely related refinements into one coherent review package instead of forcing tiny micro-stages.
 
 ## 2026-04-28
 

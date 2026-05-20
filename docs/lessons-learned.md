@@ -1,6 +1,6 @@
 # Lessons Learned
 
-Last updated: `2026-05-12`
+Last updated: `2026-05-20`
 
 ## UI and tree behavior
 
@@ -16,6 +16,16 @@ Last updated: `2026-05-12`
 - When catalog data is used inside composition editing, keep the picker behavior aligned with the catalog browser: same visible columns, same local search scope, same sorting expectations, and same remembered layout behavior.
 - Avoid leaving demo-like hardcoded templates under user-facing production commands. If users need real operational templates, make them persisted and manageable from the UI instead of requiring code edits.
 - Distinguish clearly between `composition templates` and `object templates`: composition templates currently fill only `SavedData.CompositionEntries`, while object templates can carry tree substructure plus typed records. Similar menu labels can otherwise lead users to expect one system to manage the other.
+
+## Network passport workflow
+
+- For network passport work, useful manual-review ergonomics can be more valuable than premature automation: visible endpoint context, copy-friendly rows, filtered export, selected-row visibility, and row tooltips help users compare AKB5 against external schemes without importing those schemes.
+- Keep network PDF references as source metadata plus `Open original` until an embedded renderer is explicitly approved. Do not let accepting PDF references imply OCR, parsing, or embedded preview.
+- Treat OCR/PDF auto-import, PRONETA/CSV import, live scan, plan/fact comparison, quality-issue panels, and AKB5-driven IP/PROFINET-name assignment as separate future product decisions, not natural follow-ons from manual passport entry.
+- For WinForms Network UI changes, a source diff and unit tests are not enough; use non-invasive/offscreen layout-smoke to confirm controls remain visible and reachable without disturbing manual app work.
+- When a branch has just moved to a new focused stream such as `Net`, update `docs/codex-handoff.md`, `docs/plans.md`, `AGENTS.md`, and `Roadmap.md` together or later sessions may resume from an old `to`/`card` priority.
+- For manual network-passport entry, prefer add-from-similar drafts that copy stable context fields but leave unique identity/address fields blank; this speeds repeated entry without creating accidental duplicates.
+- Narrow inline duplicate hints belong in the row being reviewed, not in a separate issue panel, while the `Net` stream is still manual-entry/manual-review first.
 
 ## Planner and workbook logic
 
@@ -70,7 +80,7 @@ Last updated: `2026-05-12`
   - durable decisions
 - Keep `summary.md` as a pointer only, not as a second current-state document
 - Replace stale statements instead of appending transcripts
-- For this repo, the default delivery loop is `one step -> scripts/verify-step.ps1 -> stop -> manual review -> commit/push`
+- For this repo, the default delivery loop is `one step -> scripts/verify-step.ps1 -> stop -> manual review -> commit/push`, but approved `Net` manual-entry/UI refinements should be bundled into coherent review packages instead of forced into tiny micro-stages
 - When a branch or roadmap baseline changes, synchronize the handoff/docs promptly or future sessions will continue from the wrong branch and the wrong assumptions
 - Do not treat a user-supplied phase label such as `7G` as approved scope if `Roadmap.md` has no such phase; first define and accept the scope in the roadmap
 - Documentation distillation should include `AGENTS.md` and `README.md` when they contain branch or phase summaries; otherwise stale startup guidance can override the current handoff

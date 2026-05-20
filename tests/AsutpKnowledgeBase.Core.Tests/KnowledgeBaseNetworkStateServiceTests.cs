@@ -160,6 +160,93 @@ public class KnowledgeBaseNetworkStateServiceTests
         Assert.Empty(state.DeviceStates);
     }
 
+    [Fact]
+    public void Build_AddsInlineDuplicateWarnings_ForManualReview()
+    {
+        var ownerNode = CreateOwnerNode();
+
+        var state = _service.Build(
+            ownerNode,
+            networkFileReferences: Array.Empty<KbNetworkFileReference>(),
+            networkDevices: new[]
+            {
+                new KbNetworkDevice
+                {
+                    NetworkDeviceId = "device-1",
+                    OwnerNodeId = "system-1",
+                    Name = "PLC-1",
+                    ProfinetName = "PLC-A",
+                    MacAddress = "00-11-22-33-44-55"
+                },
+                new KbNetworkDevice
+                {
+                    NetworkDeviceId = "device-2",
+                    OwnerNodeId = "system-1",
+                    Name = "PLC-2",
+                    ProfinetName = " plc-a ",
+                    MacAddress = "00-11-22-33-44-55"
+                }
+            },
+            networkInterfaces: new[]
+            {
+                new KbNetworkInterface
+                {
+                    NetworkInterfaceId = "iface-1",
+                    NetworkDeviceId = "device-1",
+                    InterfaceName = "X1",
+                    IpAddress = "10.0.0.10",
+                    MacAddress = "AA-BB-CC-DD-EE-FF"
+                },
+                new KbNetworkInterface
+                {
+                    NetworkInterfaceId = "iface-2",
+                    NetworkDeviceId = "device-1",
+                    InterfaceName = " x1 ",
+                    IpAddress = " 10.0.0.10 ",
+                    MacAddress = "aa-bb-cc-dd-ee-ff"
+                },
+                new KbNetworkInterface
+                {
+                    NetworkInterfaceId = "iface-3",
+                    NetworkDeviceId = "device-2",
+                    InterfaceName = "X1",
+                    IpAddress = "10.0.0.11"
+                }
+            },
+            networkConnections: new[]
+            {
+                new KbNetworkConnection
+                {
+                    NetworkConnectionId = "connection-1",
+                    EndpointAInterfaceId = "iface-1",
+                    EndpointBInterfaceId = "iface-2",
+                    CableLabel = "W1"
+                },
+                new KbNetworkConnection
+                {
+                    NetworkConnectionId = "connection-2",
+                    EndpointAInterfaceId = "iface-2",
+                    EndpointBInterfaceId = "iface-3",
+                    CableLabel = " w1 "
+                }
+            },
+            visibleLevel: 2);
+
+        Assert.All(state.DeviceStates, device =>
+        {
+            Assert.Contains("Повтор PROFINET-name", device.WarningText, StringComparison.Ordinal);
+            Assert.Contains("Повтор MAC", device.WarningText, StringComparison.Ordinal);
+        });
+
+        var firstInterface = state.InterfaceStates.Single(item => item.NetworkInterfaceId == "iface-1");
+        Assert.Contains("Повтор IP", firstInterface.WarningText, StringComparison.Ordinal);
+        Assert.Contains("Повтор MAC", firstInterface.WarningText, StringComparison.Ordinal);
+        Assert.Contains("Повтор порта", firstInterface.WarningText, StringComparison.Ordinal);
+
+        Assert.All(state.ConnectionStates, connection =>
+            Assert.Contains("Повтор кабеля", connection.WarningText, StringComparison.Ordinal));
+    }
+
     private static KbNode CreateOwnerNode()
     {
         var ownerNode = new KbNode

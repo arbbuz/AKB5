@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-05-12
-Branch baseline: `to`
-Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to, phase7e-annual-norm-import accepted, phase7g-annual-norm-hidden-rows committed/pushed on to, Phase 7F production-calendar configuration complete on to, Phase 7F.1 PDF calendar import complete on to, Phase 11A accepted, production-calendar Russian date format accepted, Phase 11B equipment catalog UI complete on to, Phase 11C object template model accepted, Phase 11D create from template accepted, Phase 11E save existing object as template accepted, Phase 11F apply template with preview accepted, Phase 11G template import/export complete on to, Phase 12S0 SQLite storage plan approved, Phase 12S1-S8 storage redesign complete on to, menu rework first iteration committed/pushed on to, portable-first storage follow-up locally verified and awaiting review`
+Last updated: 2026-05-20
+Branch baseline: `to` for completed roadmap history; current active task branch: `Net`
+Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to, phase7e-annual-norm-import accepted, phase7g-annual-norm-hidden-rows committed/pushed on to, Phase 7F production-calendar configuration complete on to, Phase 7F.1 PDF calendar import complete on to, Phase 11A accepted, production-calendar Russian date format accepted, Phase 11B equipment catalog UI complete on to, Phase 11C object template model accepted, Phase 11D create from template accepted, Phase 11E save existing object as template accepted, Phase 11F apply template with preview accepted, Phase 11G template import/export complete on to, Phase 12S0 SQLite storage plan approved, Phase 12S1-S8 storage redesign complete on to, menu rework first iteration committed/pushed on to, portable-first SQLite .akb storage is the current build baseline, Net network passport manual-review ergonomics accepted/committed/pushed as 207b6b1, local Net manual-entry hints package implemented and awaiting manual review`
 
 ## Goal
 
@@ -58,7 +58,9 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - User-facing interface text on `to` is now normalized to Russian; new UI work should keep Russian-only labels, prompts, and status text.
 - `Phase 6` is complete on `to`: `Network` now uses typed file references, image preview inside the form, and `Open original` for server/file paths.
 - The `Phase 6` `Network` screen uses separate `Файлы` and `Предпросмотр` tabs; node load returns to `Файлы`, and automatic switching to `Предпросмотр` is not part of the accepted UX.
-- On 2026-05-19, branch `Net` extends the network work with typed topology/passport storage, CRUD for devices/interfaces/connections on `Сеть -> Паспорт`, manual scheme-entry fields, editable protocol presets (`PROFINET`, `PROFIBUS`, `MPI`), editable medium presets (`Медь`, `Оптика`), local passport filtering, scroll-safe network add/edit dialogs, and PDF network scheme references classified as `PDF` with metadata/`Open original` behavior.
+- On 2026-05-19 and 2026-05-20, branch `Net` extends the network work with typed topology/passport storage, CRUD for devices/interfaces/connections on `Сеть -> Паспорт`, manual scheme-entry fields, editable protocol presets (`PROFINET`, `PROFIBUS`, `MPI`), editable medium presets (`Медь`, `Оптика`), local passport filtering, scroll-safe network add/edit dialogs, PDF network scheme references classified as `PDF` with metadata/`Open original` behavior, visible manual-review columns, copy-friendly row/context-menu actions, filtered visible-table export, persistent selected-row visibility, and row tooltips.
+- The accepted `Net` manual-review ergonomics package is committed and pushed as `207b6b1 Improve network passport review ergonomics`.
+- A local uncommitted `Net` manual-entry hints package adds add-similar actions and inline `Проверка` duplicate hints; it is implemented and verified, but not manually accepted or pushed.
 - The current `Net` scope deliberately excludes OCR/PDF auto-import, PRONETA/CSV import, live scan, plan/fact comparison, data-quality issue panels, and AKB5-driven IP/PROFINET-name assignment.
 - On 2026-04-28, the current `Phase 6` worktree passed verification build, passed `dotnet test` (`177/177`), and `asutpKB.exe` startup was rechecked after the final `Network` UX fixes.
 - Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition, but further workbook modernization is no longer the preferred next phase.
@@ -451,7 +453,7 @@ Acceptance:
 - the user can preview an image-based network scheme directly in the right panel
 - the original file can always be opened via shell
 
-`Net` branch follow-up accepted on 2026-05-19:
+`Net` branch follow-up accepted on 2026-05-19 and 2026-05-20:
 
 - typed network topology/passport storage exists for devices, interfaces, and connections
 - `Сеть -> Паспорт` supports manual CRUD for devices, interfaces, and connections without changing the first file-reference workflow
@@ -889,7 +891,7 @@ Completed on `to`:
 
 Approved next:
 
-1. Review and accept portable-first storage and external `.akb` backups.
+1. Manually review the current local `Net` manual-entry hints package before coding the next direction.
 
 Not active:
 
@@ -908,21 +910,23 @@ Then continue from the next explicitly prioritized task only. If no task is prio
 Recommended prompt for the next AI session:
 
 ```text
-Read AGENTS.md, docs/codex-handoff.md, and Roadmap.md.
-We are on branch to.
-Continue implementation only from the next explicitly prioritized roadmap task.
-If Roadmap.md says no next coding phase is prioritized, stop after reporting the current state.
-Do not redesign the roadmap unless you find a concrete technical contradiction in the codebase.
-Keep JSON import/export and first-launch migration compatibility and treat Excel v3 as a legacy transition layer.
-Phase 12S8 is accepted and committed/pushed on to. phase7e-annual-norm-import is accepted after manual review. phase7g-annual-norm-hidden-rows is committed/pushed on to. Menu rework first iteration is committed/pushed on to. Portable-first storage follow-up is locally verified and awaiting review; do not start another coding phase until it is accepted.
+Read AGENTS.md, docs/codex-handoff.md, docs/plans.md, docs/decision-log.md, docs/lessons-learned.md, and Roadmap.md.
+We are on branch Net. Verify with git status --short --branch and git log --oneline --decorate -5 before planning edits.
+HEAD and origin/Net should be 207b6b1 Improve network passport review ergonomics.
+The latest Net manual-review ergonomics package is accepted, committed, and pushed.
+There is a newer local package awaiting manual review: add-similar actions plus inline duplicate hints.
+Do not commit or push future changes without an explicit current-chat request.
+Do not run interactive UI-smoke unless explicitly asked; use non-invasive/offscreen layout-smoke for Network UI changes.
+Do not start OCR/PDF auto-import, PRONETA/CSV import, live scan, plan/fact comparison, data-quality issue panels, AKB5-driven IP/PROFINET-name assignment, or embedded PDF preview.
+Continue from manual review of the local Net manual-entry hints package before selecting the next direction.
 ```
 
 ## Immediate next step
 
 Continue from the next explicitly prioritized task:
 
-- preserve the completed `Phase 7A` / `7B` / `7C` / `7D` / `7E` / `7F` / `7F.1` workflow as the current baseline
-- review and accept portable-first storage and external `.akb` backups before starting a new roadmap phase
-- treat future-month recalculation as completed `Phase 7D` orchestration/workflow built on top of the existing monthly engine, not as a replacement for it
-- keep workbook `v3` readable as legacy, but do not expand it as the main feature direction
-- keep SQLite single-file storage, JSON import/export and first-launch migration compatibility, and Russian-only UI intact during future work
+- stay on `Net` for the current network passport stream;
+- hand off the current local Net manual-entry hints package for manual review;
+- preserve the completed `Phase 7A` / `7B` / `7C` / `7D` / `7E` / `7F` / `7F.1` workflow as the current baseline;
+- keep workbook `v3` readable as legacy, but do not expand it as the main feature direction;
+- keep SQLite single-file storage, JSON import/export and first-launch migration compatibility, and Russian-only UI intact during future work.

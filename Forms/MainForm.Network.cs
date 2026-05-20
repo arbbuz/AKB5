@@ -21,6 +21,30 @@ namespace AsutpKnowledgeBase
                 "Сетевое устройство добавлено.");
         }
 
+        private void AddSimilarNetworkDevice(object? sender, EventArgs e)
+        {
+            if (!TryGetNetworkPassportOwnerNode(out var ownerNode))
+                return;
+
+            var device = FindSelectedNetworkDevice(ownerNode);
+            if (device == null)
+            {
+                MessageBox.Show(
+                    this,
+                    "Выберите сетевое устройство как образец.",
+                    "Сеть",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            EditNetworkDeviceCore(
+                ownerNode,
+                CreateSimilarNetworkDevice(ownerNode, device),
+                "Добавить похожее сетевое устройство",
+                "Похожее сетевое устройство добавлено.");
+        }
+
         private void EditSelectedNetworkDevice(object? sender, EventArgs e)
         {
             if (!TryGetNetworkPassportOwnerNode(out var ownerNode))
@@ -116,6 +140,31 @@ namespace AsutpKnowledgeBase
                 "Сетевой интерфейс добавлен.");
         }
 
+        private void AddSimilarNetworkInterface(object? sender, EventArgs e)
+        {
+            if (!TryGetNetworkPassportOwnerNode(out var ownerNode))
+                return;
+
+            var networkInterface = FindSelectedNetworkInterface(ownerNode);
+            if (networkInterface == null)
+            {
+                MessageBox.Show(
+                    this,
+                    "Выберите сетевой интерфейс как образец.",
+                    "Сеть",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            EditNetworkInterfaceCore(
+                ownerNode,
+                GetOwnedNetworkDevices(ownerNode),
+                CreateSimilarNetworkInterface(networkInterface),
+                "Добавить похожий сетевой интерфейс",
+                "Похожий сетевой интерфейс добавлен.");
+        }
+
         private void EditSelectedNetworkInterface(object? sender, EventArgs e)
         {
             if (!TryGetNetworkPassportOwnerNode(out var ownerNode))
@@ -206,6 +255,32 @@ namespace AsutpKnowledgeBase
                 },
                 "Добавить сетевое соединение",
                 "Сетевое соединение добавлено.");
+        }
+
+        private void AddSimilarNetworkConnection(object? sender, EventArgs e)
+        {
+            if (!TryGetNetworkPassportOwnerNode(out var ownerNode))
+                return;
+
+            var connection = FindSelectedNetworkConnection(ownerNode);
+            if (connection == null)
+            {
+                MessageBox.Show(
+                    this,
+                    "Выберите сетевое соединение как образец.",
+                    "Сеть",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            EditNetworkConnectionCore(
+                ownerNode,
+                GetOwnedNetworkDevices(ownerNode),
+                GetOwnedNetworkInterfaces(ownerNode),
+                CreateSimilarNetworkConnection(connection),
+                "Добавить похожее сетевое соединение",
+                "Похожее сетевое соединение добавлено.");
         }
 
         private void EditSelectedNetworkConnection(object? sender, EventArgs e)
@@ -634,6 +709,21 @@ namespace AsutpKnowledgeBase
                 PreviewKind = reference.PreviewKind
             };
 
+        private static KbNetworkDevice CreateSimilarNetworkDevice(KbNode ownerNode, KbNetworkDevice device) =>
+            new()
+            {
+                OwnerNodeId = ownerNode.NodeId,
+                LinkedNodeId = device.LinkedNodeId,
+                Role = device.Role,
+                Vendor = device.Vendor,
+                Model = device.Model,
+                OrderNumber = device.OrderNumber,
+                Firmware = device.Firmware,
+                LocationText = device.LocationText,
+                CabinetText = device.CabinetText,
+                Notes = device.Notes
+            };
+
         private static KbNetworkDevice CloneNetworkDevice(KbNetworkDevice device) =>
             new()
             {
@@ -654,6 +744,19 @@ namespace AsutpKnowledgeBase
                 Notes = device.Notes
             };
 
+        private static KbNetworkInterface CreateSimilarNetworkInterface(KbNetworkInterface networkInterface) =>
+            new()
+            {
+                NetworkDeviceId = networkInterface.NetworkDeviceId,
+                SubnetMask = networkInterface.SubnetMask,
+                Gateway = networkInterface.Gateway,
+                Vlan = networkInterface.Vlan,
+                Protocol = networkInterface.Protocol,
+                Speed = networkInterface.Speed,
+                Medium = networkInterface.Medium,
+                Notes = networkInterface.Notes
+            };
+
         private static KbNetworkInterface CloneNetworkInterface(KbNetworkInterface networkInterface) =>
             new()
             {
@@ -671,6 +774,20 @@ namespace AsutpKnowledgeBase
                 Speed = networkInterface.Speed,
                 Medium = networkInterface.Medium,
                 Notes = networkInterface.Notes
+            };
+
+        private static KbNetworkConnection CreateSimilarNetworkConnection(KbNetworkConnection connection) =>
+            new()
+            {
+                EndpointAInterfaceId = connection.EndpointAInterfaceId,
+                EndpointBInterfaceId = connection.EndpointBInterfaceId,
+                CableType = connection.CableType,
+                Protocol = connection.Protocol,
+                Medium = connection.Medium,
+                Length = connection.Length,
+                RouteText = connection.RouteText,
+                Status = connection.Status,
+                Notes = connection.Notes
             };
 
         private static KbNetworkConnection CloneNetworkConnection(KbNetworkConnection connection) =>

@@ -6,10 +6,11 @@
 - Root app project: `asutpKB.csproj` with `TargetFramework=net8.0-windows` and `UseWindowsForms=true`.
 - Entry point: `Program.cs`, which boots `MainForm`.
 - Current engineering mode: pragmatic refactoring and stabilization, not rewrite.
-- The active roadmap implementation branch is currently `to`; `main` remains the stable branch.
+- The active task branch is defined by `docs/codex-handoff.md`; at the 2026-05-20 handoff it is `Net`. `to` remains the completed roadmap/integration history branch, and `main` remains the stable branch.
 - Roadmap phases `0` through `7F.1` are implemented on `to`; the narrow `phase7g-annual-norm-hidden-rows` fix is committed/pushed on `to` as `7a4895d Fix annual maintenance norm import totals`.
 - `Phase 11. Object templates and equipment catalog` is accepted through `Phase 11G`; `Phase 11A. Equipment catalog model` passed manual review, `Phase 11B. Equipment catalog UI` is committed/pushed on `to`, `Phase 11C` / `Phase 11D` are accepted and committed/pushed on `to`, `Phase 11E` / `Phase 11F` are accepted and committed/pushed on `to`, and `Phase 11G. Template import/export` is accepted and committed/pushed on `to`. `Phase 12. Storage redesign, backups, snapshots, and change history` is accepted through `Phase 12S8. Change history` and committed/pushed on `to`.
-- Latest accepted follow-ups: `phase7e-annual-norm-import` supports importing maintenance norms from annual workbooks with the same structure as `456.xlsx`; `phase7g-annual-norm-hidden-rows` skips hidden annual rows for retired equipment; the first menu-rework iteration is committed/pushed on `to` as `8dfffbd Rework menu structure and safety prompts`.
+- Latest accepted follow-ups: `phase7e-annual-norm-import` supports importing maintenance norms from annual workbooks with the same structure as `456.xlsx`; `phase7g-annual-norm-hidden-rows` skips hidden annual rows for retired equipment; the first menu-rework iteration is committed/pushed on `to` as `8dfffbd Rework menu structure and safety prompts`; the `Net` branch network passport manual-review ergonomics package is accepted, committed, and pushed as `207b6b1 Improve network passport review ergonomics`.
+- Current local `Net` follow-up after `207b6b1`: manual-entry hints package with `Добавить похожее` / `Добавить похожий` actions and inline `Проверка` duplicate hints is implemented and verified, but it is not manually accepted, committed, or pushed yet. See `docs/codex-handoff.md` for the review artifact path and validation status.
 - Current builds use portable-first SQLite single-file `.akb` storage: `akb5.settings.json` is stored next to `asutpKB.exe`, the default database is `database\knowledge-base.akb` next to the program, and JSON remains import/export plus first-launch migration compatibility. Excel exchange is a separate import/export layer.
 - Current Excel implementation uses `DocumentFormat.OpenXml` and `WorkbookFormatVersion = 3`. Legacy `v1/v2` import is no longer supported.
 - CI now enforces `dotnet format --verify-no-changes` for the WinForms app, core library, and tests before `build`/`test`.
@@ -41,13 +42,15 @@
 ## Architecture boundaries
 
 - Do not rewrite WinForms into MVP/MVVM unless the task explicitly requires it.
-- Portable-first storage and external `.akb` backups are locally verified and awaiting review; do not start an unrelated coding phase until this follow-up is accepted.
+- Portable-first SQLite `.akb` storage and external backups are the current build baseline. Do not reopen storage behavior unless the active task explicitly asks for it.
 - The SQLite plan is approved with choices `1A, 2B, 3A, 4A`: use `.akb`, confirm first-launch migration, create a post-migration JSON safety export, and do not support simultaneous multi-user editing in the first SQLite version. The later approved storage follow-up makes the app portable-first and creates external timestamped backups under `backups\yyyy-MM-dd\` before overwriting an existing `.akb`.
 - Replace direct `JsonStorageService` dependencies through a storage abstraction before adding SQLite code; do not move Excel logic into storage services.
 - Keep WinForms-specific behavior in `Forms/` and `UiServices/`.
 - Keep testable non-UI logic in `Models/` and `Services/` / core-linked code.
 - Treat `MainForm` as a thin-shell target. Extract behavior gradually with small diffs.
 - Respect the live Excel contract unless the task explicitly changes it: sheets `Meta`, `Levels`, `Workshops`, plus one worksheet of nodes per workshop; `WorkbookFormatId = AKB5.ExcelExchange`; export/import version `3` only.
+- For `Net` branch network passport work, stay in manual-entry / manual-review ergonomics unless the user explicitly approves broader automation. Do not start OCR/PDF auto-import, PRONETA/CSV import, live scan, plan/fact comparison, data-quality issue panels, AKB5-driven IP/PROFINET-name assignment, or embedded PDF preview.
+- For WinForms `Network` UI changes, use focused tests while developing and a non-invasive/offscreen layout-smoke before handoff. Do not run interactive UI-smoke unless the user explicitly asks.
 - Do not claim Open XML SDK or self-contained single-file publish already exists unless you actually add and verify it.
 
 ## Mandatory read order for a new session
@@ -63,16 +66,7 @@
 9. `src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj`
 10. `tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj`
 11. `.github/workflows/windows-build.yml`
-12. Relevant implementation files for the active task:
-   `Forms/MainForm.cs`,
-   `Forms/MainForm.Layout.cs`,
-   `Forms/MainForm.WorkspaceHost.cs`,
-   `Controls/KnowledgeBaseTreeView.cs`,
-   `UiServices/KnowledgeBaseTreeNodeVisuals.cs`,
-   `UiServices/KnowledgeBaseTreeViewService.cs`,
-   `Services/KnowledgeBaseCompositionStateService.cs`,
-   `Services/KnowledgeBaseCompositionMutationService.cs`,
-   plus task-specific files listed in `docs/codex-handoff.md`
+12. Relevant implementation files for the active task, starting from the task-specific list in `docs/codex-handoff.md`. For the current `Net` stream this means the Network screen/dialogs, network models/services, related tests, and Network layout-smoke scripts.
 13. Run `git status --short` before planning edits.
 
 ## Build / test / publish commands
@@ -100,7 +94,7 @@ Publish:
 ## Git branch workflow
 
 - `main` is the stable branch. Do not use it as the default working branch for ordinary task implementation.
-- For tasks that continue the current roadmap stream, stay on `to` unless the user explicitly redirects the work to another branch.
+- For tasks that continue the current documented task stream, stay on the branch named in `docs/codex-handoff.md`; do not fall back to `to` when the handoff names another active branch.
 - Only when the user explicitly asks to "push to main" should Codex prepare a PR or handoff from the active working branch to `main`.
 - Do not push task branches directly to `main` unless the user explicitly overrides this workflow.
 - If another local branch/worktree contains unfinished changes, keep them isolated and do not mix them into `to` without the user's approval.

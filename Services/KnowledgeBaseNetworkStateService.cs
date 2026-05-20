@@ -53,6 +53,8 @@ namespace AsutpKnowledgeBase.Services
 
         public string NotesText { get; init; } = string.Empty;
 
+        public string WarningText { get; init; } = string.Empty;
+
         public int InterfacesCount { get; init; }
 
         public int ConnectionsCount { get; init; }
@@ -94,6 +96,8 @@ namespace AsutpKnowledgeBase.Services
 
         public string NotesText { get; init; } = string.Empty;
 
+        public string WarningText { get; init; } = string.Empty;
+
         public int ConnectionsCount { get; init; }
     }
 
@@ -124,6 +128,8 @@ namespace AsutpKnowledgeBase.Services
         public string StatusText { get; init; } = string.Empty;
 
         public string NotesText { get; init; } = string.Empty;
+
+        public string WarningText { get; init; } = string.Empty;
     }
 
     public sealed class KnowledgeBaseNetworkState
@@ -318,6 +324,8 @@ namespace AsutpKnowledgeBase.Services
             var interfacesByDeviceId = interfaces
                 .GroupBy(static networkInterface => networkInterface.NetworkDeviceId, StringComparer.Ordinal)
                 .ToDictionary(static group => group.Key, static group => group.ToList(), StringComparer.Ordinal);
+            var duplicateProfinetNames = BuildDuplicateKeys(devices, static device => device.ProfinetName);
+            var duplicateMacAddresses = BuildDuplicateKeys(devices, static device => device.MacAddress);
 
             var states = new List<KnowledgeBaseNetworkDeviceState>(devices.Count);
             foreach (var device in devices)
@@ -349,6 +357,13 @@ namespace AsutpKnowledgeBase.Services
                     LocationText = GetDisplayText(device.LocationText),
                     CabinetText = GetDisplayText(device.CabinetText),
                     NotesText = GetDisplayText(device.Notes),
+                    WarningText = BuildWarningText(
+                        duplicateProfinetNames.Contains(NormalizeReviewKey(device.ProfinetName))
+                            ? "Повтор PROFINET-name"
+                            : string.Empty,
+                        duplicateMacAddresses.Contains(NormalizeReviewKey(device.MacAddress))
+                            ? "Повтор MAC"
+                            : string.Empty),
                     InterfacesCount = deviceInterfaces.Count,
                     ConnectionsCount = connections.Count(connection =>
                         interfaceIds.Contains(connection.EndpointAInterfaceId?.Trim() ?? string.Empty) ||
@@ -367,11 +382,15 @@ namespace AsutpKnowledgeBase.Services
             var devicesById = devices
                 .Where(static device => !string.IsNullOrWhiteSpace(device.NetworkDeviceId))
                 .ToDictionary(static device => device.NetworkDeviceId.Trim(), StringComparer.Ordinal);
+            var duplicateIpAddresses = BuildDuplicateKeys(interfaces, static networkInterface => networkInterface.IpAddress);
+            var duplicateMacAddresses = BuildDuplicateKeys(interfaces, static networkInterface => networkInterface.MacAddress);
+            var duplicateInterfaceNames = BuildDuplicateInterfaceNames(interfaces);
             var states = new List<KnowledgeBaseNetworkInterfaceState>(interfaces.Count);
 
             foreach (var networkInterface in interfaces)
             {
                 string interfaceId = networkInterface.NetworkInterfaceId?.Trim() ?? string.Empty;
+                string interfaceNameKey = BuildInterfaceNameKey(networkInterface);
                 devicesById.TryGetValue(networkInterface.NetworkDeviceId?.Trim() ?? string.Empty, out var device);
 
                 states.Add(new KnowledgeBaseNetworkInterfaceState
@@ -393,6 +412,16 @@ namespace AsutpKnowledgeBase.Services
                     SpeedText = GetDisplayText(networkInterface.Speed),
                     MediumText = GetDisplayText(networkInterface.Medium),
                     NotesText = GetDisplayText(networkInterface.Notes),
+                    WarningText = BuildWarningText(
+                        duplicateIpAddresses.Contains(NormalizeReviewKey(networkInterface.IpAddress))
+                            ? "Повтор IP"
+                            : string.Empty,
+                        duplicateMacAddresses.Contains(NormalizeReviewKey(networkInterface.MacAddress))
+                            ? "Повтор MAC"
+                            : string.Empty,
+                        duplicateInterfaceNames.Contains(interfaceNameKey)
+                            ? "Повтор порта"
+                            : string.Empty),
                     ConnectionsCount = connections.Count(connection =>
                         string.Equals(connection.EndpointAInterfaceId, interfaceId, StringComparison.Ordinal) ||
                         string.Equals(connection.EndpointBInterfaceId, interfaceId, StringComparison.Ordinal))
@@ -413,6 +442,7 @@ namespace AsutpKnowledgeBase.Services
             var interfacesById = interfaces
                 .Where(static networkInterface => !string.IsNullOrWhiteSpace(networkInterface.NetworkInterfaceId))
                 .ToDictionary(static networkInterface => networkInterface.NetworkInterfaceId.Trim(), StringComparer.Ordinal);
+            var duplicateCableLabels = BuildDuplicateKeys(connections, static connection => connection.CableLabel);
 
             return connections
                 .Select(connection =>
@@ -436,7 +466,11 @@ namespace AsutpKnowledgeBase.Services
                         LengthText = GetDisplayText(connection.Length),
                         RouteText = GetDisplayText(connection.RouteText),
                         StatusText = GetDisplayText(connection.Status),
-                        NotesText = GetDisplayText(connection.Notes)
+                        NotesText = GetDisplayText(connection.Notes),
+                        WarningText = BuildWarningText(
+                            duplicateCableLabels.Contains(NormalizeReviewKey(connection.CableLabel))
+                                ? "Повтор кабеля"
+                                : string.Empty)
                     };
                 })
                 .ToList();
@@ -455,6 +489,63 @@ namespace AsutpKnowledgeBase.Services
                 CanPreviewInForm = KnowledgeBaseNetworkPreviewService.CanPreviewInForm(reference.PreviewKind)
             })
                 .ToList();
+
+        private static HashSet<string> BuildDuplicateKeys<T>(
+            IEnumerable<T> items,
+            Func<T, string?> keySelector)
+        {
+            var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in items)
+            {
+                string key = NormalizeReviewKey(keySelector(item));
+                if (string.IsNullOrWhiteSpace(key))
+                    continue;
+
+                counts[key] = counts.TryGetValue(key, out int count)
+                    ? count + 1
+                    : 1;
+            }
+
+            return counts
+                .Where(static pair => pair.Value > 1)
+                .Select(static pair => pair.Key)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+
+        private static HashSet<string> BuildDuplicateInterfaceNames(IEnumerable<KbNetworkInterface> interfaces) =>
+            interfaces
+                .Select(BuildInterfaceNameKey)
+                .Where(static key => !string.IsNullOrWhiteSpace(key))
+                .GroupBy(static key => key, StringComparer.OrdinalIgnoreCase)
+                .Where(static group => group.Count() > 1)
+                .Select(static group => group.Key)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        private static string BuildInterfaceNameKey(KbNetworkInterface networkInterface)
+        {
+            string deviceId = NormalizeReviewKey(networkInterface.NetworkDeviceId);
+            string portOrName = NormalizeReviewKey(networkInterface.PortNumber);
+            if (string.IsNullOrWhiteSpace(portOrName))
+                portOrName = NormalizeReviewKey(networkInterface.InterfaceName);
+
+            if (string.IsNullOrWhiteSpace(deviceId) || string.IsNullOrWhiteSpace(portOrName))
+                return string.Empty;
+
+            return deviceId + "\u001F" + portOrName;
+        }
+
+        private static string BuildWarningText(params string[] warnings)
+        {
+            var visibleWarnings = warnings
+                .Where(static warning => !string.IsNullOrWhiteSpace(warning))
+                .ToArray();
+            return visibleWarnings.Length == 0
+                ? "-"
+                : string.Join("; ", visibleWarnings);
+        }
+
+        private static string NormalizeReviewKey(string? value) =>
+            value?.Trim() ?? string.Empty;
 
         private static Dictionary<string, string> BuildNodeNamesById(KbNode selectedNode)
         {

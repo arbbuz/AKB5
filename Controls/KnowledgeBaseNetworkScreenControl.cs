@@ -25,14 +25,17 @@ namespace AsutpKnowledgeBase
         private Label _lblSource = null!;
         private Label _lblSummary = null!;
         private Button _btnAddDevice = null!;
+        private Button _btnAddSimilarDevice = null!;
         private Button _btnEditDevice = null!;
         private Button _btnDeleteDevice = null!;
         private Button _btnCopyDevice = null!;
         private Button _btnAddInterface = null!;
+        private Button _btnAddSimilarInterface = null!;
         private Button _btnEditInterface = null!;
         private Button _btnDeleteInterface = null!;
         private Button _btnCopyInterface = null!;
         private Button _btnAddConnection = null!;
+        private Button _btnAddSimilarConnection = null!;
         private Button _btnEditConnection = null!;
         private Button _btnDeleteConnection = null!;
         private Button _btnCopyConnection = null!;
@@ -111,17 +114,23 @@ namespace AsutpKnowledgeBase
 
         public event EventHandler? AddDeviceRequested;
 
+        public event EventHandler? AddSimilarDeviceRequested;
+
         public event EventHandler? EditDeviceRequested;
 
         public event EventHandler? DeleteDeviceRequested;
 
         public event EventHandler? AddInterfaceRequested;
 
+        public event EventHandler? AddSimilarInterfaceRequested;
+
         public event EventHandler? EditInterfaceRequested;
 
         public event EventHandler? DeleteInterfaceRequested;
 
         public event EventHandler? AddConnectionRequested;
+
+        public event EventHandler? AddSimilarConnectionRequested;
 
         public event EventHandler? EditConnectionRequested;
 
@@ -377,6 +386,8 @@ namespace AsutpKnowledgeBase
             var panel = CreateActionsPanel();
             _btnAddDevice = CreateActionButton("Добавить устройство");
             _btnAddDevice.Click += (_, _) => AddDeviceRequested?.Invoke(this, EventArgs.Empty);
+            _btnAddSimilarDevice = CreateActionButton("Добавить похожее");
+            _btnAddSimilarDevice.Click += (_, _) => AddSimilarDeviceRequested?.Invoke(this, EventArgs.Empty);
             _btnEditDevice = CreateActionButton("Изменить");
             _btnEditDevice.Click += (_, _) => EditDeviceRequested?.Invoke(this, EventArgs.Empty);
             _btnCopyDevice = CreateActionButton("Копировать строку");
@@ -384,6 +395,7 @@ namespace AsutpKnowledgeBase
             _btnDeleteDevice = CreateActionButton("Удалить");
             _btnDeleteDevice.Click += (_, _) => DeleteDeviceRequested?.Invoke(this, EventArgs.Empty);
             panel.Controls.Add(_btnAddDevice);
+            panel.Controls.Add(_btnAddSimilarDevice);
             panel.Controls.Add(_btnEditDevice);
             panel.Controls.Add(_btnCopyDevice);
             panel.Controls.Add(_btnDeleteDevice);
@@ -395,6 +407,8 @@ namespace AsutpKnowledgeBase
             var panel = CreateActionsPanel();
             _btnAddInterface = CreateActionButton("Добавить интерфейс");
             _btnAddInterface.Click += (_, _) => AddInterfaceRequested?.Invoke(this, EventArgs.Empty);
+            _btnAddSimilarInterface = CreateActionButton("Добавить похожий");
+            _btnAddSimilarInterface.Click += (_, _) => AddSimilarInterfaceRequested?.Invoke(this, EventArgs.Empty);
             _btnEditInterface = CreateActionButton("Изменить");
             _btnEditInterface.Click += (_, _) => EditInterfaceRequested?.Invoke(this, EventArgs.Empty);
             _btnCopyInterface = CreateActionButton("Копировать строку");
@@ -402,6 +416,7 @@ namespace AsutpKnowledgeBase
             _btnDeleteInterface = CreateActionButton("Удалить");
             _btnDeleteInterface.Click += (_, _) => DeleteInterfaceRequested?.Invoke(this, EventArgs.Empty);
             panel.Controls.Add(_btnAddInterface);
+            panel.Controls.Add(_btnAddSimilarInterface);
             panel.Controls.Add(_btnEditInterface);
             panel.Controls.Add(_btnCopyInterface);
             panel.Controls.Add(_btnDeleteInterface);
@@ -413,6 +428,8 @@ namespace AsutpKnowledgeBase
             var panel = CreateActionsPanel();
             _btnAddConnection = CreateActionButton("Добавить соединение");
             _btnAddConnection.Click += (_, _) => AddConnectionRequested?.Invoke(this, EventArgs.Empty);
+            _btnAddSimilarConnection = CreateActionButton("Добавить похожее");
+            _btnAddSimilarConnection.Click += (_, _) => AddSimilarConnectionRequested?.Invoke(this, EventArgs.Empty);
             _btnEditConnection = CreateActionButton("Изменить");
             _btnEditConnection.Click += (_, _) => EditConnectionRequested?.Invoke(this, EventArgs.Empty);
             _btnCopyConnection = CreateActionButton("Копировать строку");
@@ -420,6 +437,7 @@ namespace AsutpKnowledgeBase
             _btnDeleteConnection = CreateActionButton("Удалить");
             _btnDeleteConnection.Click += (_, _) => DeleteConnectionRequested?.Invoke(this, EventArgs.Empty);
             panel.Controls.Add(_btnAddConnection);
+            panel.Controls.Add(_btnAddSimilarConnection);
             panel.Controls.Add(_btnEditConnection);
             panel.Controls.Add(_btnCopyConnection);
             panel.Controls.Add(_btnDeleteConnection);
@@ -557,6 +575,7 @@ namespace AsutpKnowledgeBase
                         entry.MacAddressText,
                         entry.LocationText,
                         entry.LinkedNodeText,
+                        entry.WarningText,
                         entry.InterfacesCount.ToString(),
                         entry.ConnectionsCount.ToString()
                     ])
@@ -618,6 +637,7 @@ namespace AsutpKnowledgeBase
                         entry.SpeedText,
                         entry.VlanText,
                         entry.MacAddressText,
+                        entry.WarningText,
                         entry.NotesText
                     ])
                     {
@@ -676,6 +696,7 @@ namespace AsutpKnowledgeBase
                         entry.LengthText,
                         entry.RouteText,
                         entry.StatusText,
+                        entry.WarningText,
                         entry.NotesText
                     ])
                     {
@@ -789,6 +810,7 @@ namespace AsutpKnowledgeBase
                 entry.LocationText,
                 entry.CabinetText,
                 entry.LinkedNodeText,
+                entry.WarningText,
                 entry.NotesText);
 
         private static bool InterfaceMatchesFilter(KnowledgeBaseNetworkInterfaceState entry, string filterText) =>
@@ -807,6 +829,7 @@ namespace AsutpKnowledgeBase
                 entry.MpiDpPnAddressText,
                 entry.SpeedText,
                 entry.MediumText,
+                entry.WarningText,
                 entry.NotesText);
 
         private static bool ConnectionMatchesFilter(KnowledgeBaseNetworkConnectionState entry, string filterText) =>
@@ -821,6 +844,7 @@ namespace AsutpKnowledgeBase
                 entry.LengthText,
                 entry.RouteText,
                 entry.StatusText,
+                entry.WarningText,
                 entry.NotesText);
 
         private static bool MatchesFilter(string filterText, params string[] values)
@@ -883,17 +907,21 @@ namespace AsutpKnowledgeBase
             var copyDevice = new ToolStripMenuItem("Копировать устройство", null, (_, _) => CopySelectedDeviceSummary());
             var copyProfinetName = new ToolStripMenuItem("Копировать PROFINET-name", null, (_, _) => CopySelectedDeviceProfinetName());
             var copyMac = new ToolStripMenuItem("Копировать MAC", null, (_, _) => CopySelectedDeviceMac());
+            var addSimilar = new ToolStripMenuItem("Добавить похожее", null, (_, _) => AddSimilarDeviceRequested?.Invoke(this, EventArgs.Empty));
             var menu = new ContextMenuStrip();
             menu.Opening += (_, _) =>
             {
                 var selectedDevice = FindSelectedDeviceState();
                 bool hasDevice = selectedDevice != null;
+                addSimilar.Enabled = hasDevice && _currentState.SupportsEditing && _currentState.SupportsPassportEditing;
                 copyRow.Enabled = hasDevice;
                 copyVisibleRows.Enabled = _lvDevices.Items.Count > 0;
                 copyDevice.Enabled = hasDevice && CanCopyText(BuildDeviceSummaryText(selectedDevice!));
                 copyProfinetName.Enabled = hasDevice && CanCopyText(selectedDevice!.ProfinetNameText);
                 copyMac.Enabled = hasDevice && CanCopyText(selectedDevice!.MacAddressText);
             };
+            menu.Items.Add(addSimilar);
+            menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(copyRow);
             menu.Items.Add(copyVisibleRows);
             menu.Items.Add(copyDevice);
@@ -920,17 +948,21 @@ namespace AsutpKnowledgeBase
             var copyEndpoint = new ToolStripMenuItem("Копировать интерфейс", null, (_, _) => CopySelectedInterfaceEndpoint());
             var copyIp = new ToolStripMenuItem("Копировать IP", null, (_, _) => CopySelectedInterfaceIp());
             var copyMpiDpPn = new ToolStripMenuItem("Копировать MPI/DP/PN", null, (_, _) => CopySelectedInterfaceMpiDpPn());
+            var addSimilar = new ToolStripMenuItem("Добавить похожее", null, (_, _) => AddSimilarInterfaceRequested?.Invoke(this, EventArgs.Empty));
             var menu = new ContextMenuStrip();
             menu.Opening += (_, _) =>
             {
                 var selectedInterface = FindSelectedInterfaceState();
                 bool hasInterface = selectedInterface != null;
+                addSimilar.Enabled = hasInterface && _currentState.SupportsEditing && _currentState.SupportsPassportEditing;
                 copyRow.Enabled = hasInterface;
                 copyVisibleRows.Enabled = _lvInterfaces.Items.Count > 0;
                 copyEndpoint.Enabled = hasInterface && CanCopyText(selectedInterface!.EndpointText);
                 copyIp.Enabled = hasInterface && CanCopyText(selectedInterface!.IpAddressText);
                 copyMpiDpPn.Enabled = hasInterface && CanCopyText(selectedInterface!.MpiDpPnAddressText);
             };
+            menu.Items.Add(addSimilar);
+            menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(copyRow);
             menu.Items.Add(copyVisibleRows);
             menu.Items.Add(copyEndpoint);
@@ -956,15 +988,19 @@ namespace AsutpKnowledgeBase
             var copyVisibleRows = new ToolStripMenuItem("Копировать видимые строки", null, (_, _) => CopyVisibleConnectionRows());
             var copyEndpointA = new ToolStripMenuItem("Копировать интерфейс A", null, (_, _) => CopySelectedConnectionEndpointA());
             var copyEndpointB = new ToolStripMenuItem("Копировать интерфейс B", null, (_, _) => CopySelectedConnectionEndpointB());
+            var addSimilar = new ToolStripMenuItem("Добавить похожее", null, (_, _) => AddSimilarConnectionRequested?.Invoke(this, EventArgs.Empty));
             var menu = new ContextMenuStrip();
             menu.Opening += (_, _) =>
             {
                 bool hasConnection = FindSelectedConnectionState() != null;
+                addSimilar.Enabled = hasConnection && _currentState.SupportsEditing && _currentState.SupportsPassportEditing;
                 copyRow.Enabled = hasConnection;
                 copyVisibleRows.Enabled = _lvConnections.Items.Count > 0;
                 copyEndpointA.Enabled = hasConnection;
                 copyEndpointB.Enabled = hasConnection;
             };
+            menu.Items.Add(addSimilar);
+            menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(copyRow);
             menu.Items.Add(copyVisibleRows);
             menu.Items.Add(copyEndpointA);
@@ -1297,6 +1333,7 @@ namespace AsutpKnowledgeBase
                     device.MacAddressText,
                     device.LocationText,
                     device.LinkedNodeText,
+                    device.WarningText,
                     device.InterfacesCount.ToString(),
                     device.ConnectionsCount.ToString()
                 });
@@ -1317,6 +1354,7 @@ namespace AsutpKnowledgeBase
                     networkInterface.SpeedText,
                     networkInterface.VlanText,
                     networkInterface.MacAddressText,
+                    networkInterface.WarningText,
                     networkInterface.NotesText
                 });
 
@@ -1334,6 +1372,7 @@ namespace AsutpKnowledgeBase
                     connection.LengthText,
                     connection.RouteText,
                     connection.StatusText,
+                    connection.WarningText,
                     connection.NotesText
                 });
 
@@ -1346,14 +1385,17 @@ namespace AsutpKnowledgeBase
             bool hasFilePath = hasFileSelection && !string.Equals(selectedFileState!.PathText, "-", StringComparison.Ordinal);
 
             _btnAddDevice.Enabled = canPassportEdit;
+            _btnAddSimilarDevice.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedDeviceId);
             _btnEditDevice.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedDeviceId);
             _btnCopyDevice.Enabled = !string.IsNullOrWhiteSpace(SelectedDeviceId);
             _btnDeleteDevice.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedDeviceId);
             _btnAddInterface.Enabled = canPassportEdit && _currentState.DeviceCount > 0;
+            _btnAddSimilarInterface.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedInterfaceId);
             _btnEditInterface.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedInterfaceId);
             _btnCopyInterface.Enabled = !string.IsNullOrWhiteSpace(SelectedInterfaceId);
             _btnDeleteInterface.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedInterfaceId);
             _btnAddConnection.Enabled = canPassportEdit && _currentState.InterfaceCount >= 2;
+            _btnAddSimilarConnection.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedConnectionId);
             _btnEditConnection.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedConnectionId);
             _btnCopyConnection.Enabled = !string.IsNullOrWhiteSpace(SelectedConnectionId);
             _btnDeleteConnection.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedConnectionId);
@@ -1550,6 +1592,7 @@ namespace AsutpKnowledgeBase
             listView.Columns.Add("MAC", 145);
             listView.Columns.Add("Место", 150);
             listView.Columns.Add("Карточка", 150);
+            listView.Columns.Add("Проверка", 150);
             listView.Columns.Add("Инт.", 55);
             listView.Columns.Add("Связи", 55);
             return listView;
@@ -1569,6 +1612,7 @@ namespace AsutpKnowledgeBase
             listView.Columns.Add("Скорость", 90);
             listView.Columns.Add("VLAN", 70);
             listView.Columns.Add("MAC", 145);
+            listView.Columns.Add("Проверка", 150);
             listView.Columns.Add("Примечание", 220);
             return listView;
         }
@@ -1585,6 +1629,7 @@ namespace AsutpKnowledgeBase
             listView.Columns.Add("Длина", 80);
             listView.Columns.Add("Трасса / место", 160);
             listView.Columns.Add("Статус", 100);
+            listView.Columns.Add("Проверка", 150);
             listView.Columns.Add("Примечание", 220);
             return listView;
         }
