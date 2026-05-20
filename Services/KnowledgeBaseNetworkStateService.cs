@@ -2,6 +2,21 @@ using AsutpKnowledgeBase.Models;
 
 namespace AsutpKnowledgeBase.Services
 {
+    public sealed class KnowledgeBaseNetworkObjectState
+    {
+        public string NodeId { get; init; } = string.Empty;
+
+        public string NameText { get; init; } = string.Empty;
+
+        public string TypeText { get; init; } = string.Empty;
+
+        public string ParentText { get; init; } = string.Empty;
+
+        public string ParentNodeId { get; init; } = string.Empty;
+
+        public int ChildCount { get; init; }
+    }
+
     public sealed class KnowledgeBaseNetworkFileReferenceState
     {
         public string NetworkAssetId { get; init; } = string.Empty;
@@ -150,6 +165,11 @@ namespace AsutpKnowledgeBase.Services
 
         public int FileReferencesCount { get; init; }
 
+        public int ObjectCount { get; init; }
+
+        public IReadOnlyList<KnowledgeBaseNetworkObjectState> ObjectStates { get; init; } =
+            Array.Empty<KnowledgeBaseNetworkObjectState>();
+
         public IReadOnlyList<KnowledgeBaseNetworkDeviceState> DeviceStates { get; init; } =
             Array.Empty<KnowledgeBaseNetworkDeviceState>();
 
@@ -215,6 +235,7 @@ namespace AsutpKnowledgeBase.Services
             var interfaceStates = BuildInterfaceStates(nodeDevices, nodeInterfaces, nodeConnections);
             var connectionStates = BuildConnectionStates(nodeDevices, nodeInterfaces, nodeConnections);
             var fileReferenceStates = BuildFileReferenceStates(nodeFileReferences);
+            var objectStates = BuildObjectStates(selectedNode);
 
             return new KnowledgeBaseNetworkState
             {
@@ -230,6 +251,8 @@ namespace AsutpKnowledgeBase.Services
                 InterfaceCount = interfaceStates.Count,
                 ConnectionCount = connectionStates.Count,
                 FileReferencesCount = fileReferenceStates.Count,
+                ObjectCount = objectStates.Count,
+                ObjectStates = objectStates,
                 DeviceStates = deviceStates,
                 InterfaceStates = interfaceStates,
                 ConnectionStates = connectionStates,
@@ -489,6 +512,52 @@ namespace AsutpKnowledgeBase.Services
                 CanPreviewInForm = KnowledgeBaseNetworkPreviewService.CanPreviewInForm(reference.PreviewKind)
             })
                 .ToList();
+
+        private static List<KnowledgeBaseNetworkObjectState> BuildObjectStates(KbNode selectedNode)
+        {
+            var objectStates = new List<KnowledgeBaseNetworkObjectState>();
+            CollectObjectStates(selectedNode, parentName: string.Empty, parentNodeId: string.Empty, objectStates);
+            return objectStates;
+        }
+
+        private static void CollectObjectStates(
+            KbNode node,
+            string parentName,
+            string parentNodeId,
+            ICollection<KnowledgeBaseNetworkObjectState> objectStates)
+        {
+            if (objectStates.Count >= 80)
+                return;
+
+            string nodeId = node.NodeId?.Trim() ?? string.Empty;
+            string nodeName = GetDisplayTitle(node.Name, nodeId);
+            objectStates.Add(new KnowledgeBaseNetworkObjectState
+            {
+                NodeId = nodeId,
+                NameText = nodeName,
+                TypeText = GetNodeTypeText(node),
+                ParentText = string.IsNullOrWhiteSpace(parentName) ? "-" : parentName,
+                ParentNodeId = parentNodeId,
+                ChildCount = node.Children?.Count ?? 0
+            });
+
+            foreach (var child in node.Children ?? new List<KbNode>())
+                CollectObjectStates(child, nodeName, nodeId, objectStates);
+        }
+
+        private static string GetNodeTypeText(KbNode node) =>
+            node.NodeType switch
+            {
+                KbNodeType.WorkshopRoot => "Цех",
+                KbNodeType.Department => "Отделение",
+                KbNodeType.System => "Система",
+                KbNodeType.Cabinet => "Шкаф / узел",
+                KbNodeType.Device => "Устройство",
+                KbNodeType.Controller => "Контроллер",
+                KbNodeType.Module => "Модуль",
+                KbNodeType.DocumentNode => "Документ",
+                _ => node.LevelIndex > 0 ? $"Уровень {node.LevelIndex}" : "Объект"
+            };
 
         private static HashSet<string> BuildDuplicateKeys<T>(
             IEnumerable<T> items,

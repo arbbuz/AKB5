@@ -1,3 +1,4 @@
+using System.Drawing.Drawing2D;
 using AsutpKnowledgeBase.Services;
 
 namespace AsutpKnowledgeBase
@@ -20,6 +21,257 @@ namespace AsutpKnowledgeBase
             public string ItemId { get; init; } = string.Empty;
         }
 
+        private sealed class NetworkTopologyCanvas : Control
+        {
+            private readonly Pen _connectionPen = new(Color.FromArgb(28, 118, 70), 2F);
+            private readonly Pen _objectPen = new(Color.FromArgb(125, 145, 165), 1F);
+            private readonly SolidBrush _deviceBrush = new(Color.FromArgb(238, 247, 242));
+            private readonly SolidBrush _objectBrush = new(Color.FromArgb(246, 248, 250));
+            private readonly SolidBrush _switchBrush = new(Color.FromArgb(232, 241, 252));
+            private readonly SolidBrush _warningBrush = new(Color.FromArgb(255, 248, 229));
+            private readonly StringFormat _centerFormat = new()
+            {
+                Alignment = StringAlignment.Center,
+                LineAlignment = StringAlignment.Center,
+                Trimming = StringTrimming.EllipsisCharacter
+            };
+
+            private KnowledgeBaseNetworkState _state = new();
+
+            public NetworkTopologyCanvas()
+            {
+                DoubleBuffered = true;
+                BackColor = Color.White;
+                Dock = DockStyle.Fill;
+                MinimumSize = new Size(320, 220);
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
+                {
+                    _connectionPen.Dispose();
+                    _objectPen.Dispose();
+                    _deviceBrush.Dispose();
+                    _objectBrush.Dispose();
+                    _switchBrush.Dispose();
+                    _warningBrush.Dispose();
+                    _centerFormat.Dispose();
+                }
+
+                base.Dispose(disposing);
+            }
+
+            public void ApplyState(KnowledgeBaseNetworkState state)
+            {
+                _state = state ?? new KnowledgeBaseNetworkState();
+                Invalidate();
+            }
+
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                base.OnPaint(e);
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                e.Graphics.Clear(Color.White);
+
+                var bounds = ClientRectangle;
+                if (bounds.Width < 20 || bounds.Height < 20)
+                    return;
+
+                if (_state.DeviceStates.Count > 0)
+                {
+                    DrawDeviceTopology(e.Graphics, bounds);
+                    return;
+                }
+
+                if (_state.ObjectStates.Count > 0)
+                {
+                    DrawObjectOverview(e.Graphics, bounds);
+                    return;
+                }
+
+                DrawCenteredText(e.Graphics, "Для выбранного объекта пока нет данных для обзора сети.", bounds);
+            }
+
+            private void DrawDeviceTopology(Graphics graphics, Rectangle bounds)
+            {
+                var devices = _state.DeviceStates.Take(24).ToList();
+                var rectangles = ArrangeItems(bounds, devices.Count);
+                var rectanglesByDeviceId = devices
+                    .Select((device, index) => new { device.NetworkDeviceId, Rectangle = rectangles[index] })
+                    .Where(item => !string.IsNullOrWhiteSpace(item.NetworkDeviceId))
+                    .ToDictionary(item => item.NetworkDeviceId, item => item.Rectangle, StringComparer.Ordinal);
+                var interfacesById = _state.InterfaceStates
+                    .Where(item => !string.IsNullOrWhiteSpace(item.NetworkInterfaceId))
+                    .ToDictionary(item => item.NetworkInterfaceId, item => item, StringComparer.Ordinal);
+
+                using var lineCap = new AdjustableArrowCap(4, 5);
+                _connectionPen.CustomEndCap = lineCap;
+                foreach (var connection in _state.ConnectionStates)
+                {
+                    if (!interfacesById.TryGetValue(connection.EndpointAInterfaceId, out var endpointA) ||
+                        !interfacesById.TryGetValue(connection.EndpointBInterfaceId, out var endpointB) ||
+                        !rectanglesByDeviceId.TryGetValue(endpointA.NetworkDeviceId, out var rectA) ||
+                        !rectanglesByDeviceId.TryGetValue(endpointB.NetworkDeviceId, out var rectB))
+                    {
+                        continue;
+                    }
+
+                    graphics.DrawLine(_connectionPen, CenterOf(rectA), CenterOf(rectB));
+                }
+
+                foreach (var (device, index) in devices.Select((device, index) => (device, index)))
+                {
+                    var rectangle = rectangles[index];
+                    bool hasWarning = !string.IsNullOrWhiteSpace(device.WarningText) &&
+                        !string.Equals(device.WarningText, "-", StringComparison.Ordinal);
+                    DrawNode(
+                        graphics,
+                        rectangle,
+                        device.NameText,
+                        BuildDeviceSubtitle(device),
+                        IsSwitchRole(device.RoleText) ? _switchBrush : hasWarning ? _warningBrush : _deviceBrush);
+                }
+
+                if (_state.DeviceStates.Count > devices.Count)
+                    DrawFooter(graphics, bounds, $"Показаны первые {devices.Count} устройств из {_state.DeviceStates.Count}.");
+            }
+
+            private void DrawObjectOverview(Graphics graphics, Rectangle bounds)
+            {
+                var objects = _state.ObjectStates.Take(24).ToList();
+                var rectangles = ArrangeItems(bounds, objects.Count);
+                var rectanglesByNodeId = objects
+                    .Select((item, index) => new { item.NodeId, Rectangle = rectangles[index] })
+                    .Where(item => !string.IsNullOrWhiteSpace(item.NodeId))
+                    .ToDictionary(item => item.NodeId, item => item.Rectangle, StringComparer.Ordinal);
+
+                using var objectLinePen = new Pen(Color.FromArgb(175, 185, 195), 1F);
+                foreach (var item in objects)
+                {
+                    if (string.IsNullOrWhiteSpace(item.ParentNodeId) ||
+                        !rectanglesByNodeId.TryGetValue(item.ParentNodeId, out var parentRect) ||
+                        !rectanglesByNodeId.TryGetValue(item.NodeId, out var childRect))
+                    {
+                        continue;
+                    }
+
+                    graphics.DrawLine(objectLinePen, CenterOf(parentRect), CenterOf(childRect));
+                }
+
+                foreach (var (item, index) in objects.Select((item, index) => (item, index)))
+                {
+                    DrawNode(
+                        graphics,
+                        rectangles[index],
+                        item.NameText,
+                        item.ChildCount > 0 ? $"{item.TypeText} | объектов: {item.ChildCount}" : item.TypeText,
+                        _objectBrush);
+                }
+
+                if (_state.ObjectStates.Count > objects.Count)
+                    DrawFooter(graphics, bounds, $"Показаны первые {objects.Count} объектов из {_state.ObjectStates.Count}.");
+            }
+
+            private static List<Rectangle> ArrangeItems(Rectangle bounds, int count)
+            {
+                var rectangles = new List<Rectangle>(count);
+                if (count == 0)
+                    return rectangles;
+
+                int columns = Math.Max(1, (int)Math.Ceiling(Math.Sqrt(count)));
+                int rows = Math.Max(1, (int)Math.Ceiling(count / (double)columns));
+                int horizontalGap = 24;
+                int verticalGap = 26;
+                int availableWidth = Math.Max(120, bounds.Width - 48);
+                int availableHeight = Math.Max(100, bounds.Height - 58);
+                int itemWidth = Math.Clamp((availableWidth - horizontalGap * (columns - 1)) / columns, 130, 210);
+                int itemHeight = 64;
+                int gridWidth = itemWidth * columns + horizontalGap * (columns - 1);
+                int gridHeight = itemHeight * rows + verticalGap * (rows - 1);
+                int startX = bounds.Left + Math.Max(16, (bounds.Width - gridWidth) / 2);
+                int startY = bounds.Top + Math.Max(16, (availableHeight - gridHeight) / 2);
+
+                for (int index = 0; index < count; index++)
+                {
+                    int row = index / columns;
+                    int column = index % columns;
+                    rectangles.Add(new Rectangle(
+                        startX + column * (itemWidth + horizontalGap),
+                        startY + row * (itemHeight + verticalGap),
+                        itemWidth,
+                        itemHeight));
+                }
+
+                return rectangles;
+            }
+
+            private static Point CenterOf(Rectangle rectangle) =>
+                new(rectangle.Left + rectangle.Width / 2, rectangle.Top + rectangle.Height / 2);
+
+            private static string BuildDeviceSubtitle(KnowledgeBaseNetworkDeviceState device)
+            {
+                var parts = new[]
+                {
+                    device.RoleText,
+                    device.ProfinetNameText,
+                    device.LinkedNodeText
+                }.Where(CanDrawText).Take(2);
+                return string.Join(" | ", parts);
+            }
+
+            private static bool CanDrawText(string? text) =>
+                !string.IsNullOrWhiteSpace(text) && !string.Equals(text, "-", StringComparison.Ordinal);
+
+            private static bool IsSwitchRole(string roleText) =>
+                roleText.Contains("switch", StringComparison.OrdinalIgnoreCase) ||
+                roleText.Contains("коммут", StringComparison.CurrentCultureIgnoreCase);
+
+            private void DrawNode(
+                Graphics graphics,
+                Rectangle rectangle,
+                string title,
+                string subtitle,
+                Brush fillBrush)
+            {
+                using var path = RoundedRectangle(rectangle, 8);
+                graphics.FillPath(fillBrush, path);
+                graphics.DrawPath(_objectPen, path);
+
+                var titleBounds = new Rectangle(rectangle.Left + 8, rectangle.Top + 8, rectangle.Width - 16, 24);
+                var subtitleBounds = new Rectangle(rectangle.Left + 8, rectangle.Top + 34, rectangle.Width - 16, 20);
+                using var titleFont = new Font(Font, FontStyle.Bold);
+                graphics.DrawString(title, titleFont, Brushes.Black, titleBounds, _centerFormat);
+                graphics.DrawString(subtitle, Font, Brushes.DimGray, subtitleBounds, _centerFormat);
+            }
+
+            private void DrawCenteredText(Graphics graphics, string text, Rectangle bounds) =>
+                graphics.DrawString(text, Font, Brushes.DimGray, bounds, _centerFormat);
+
+            private static void DrawFooter(Graphics graphics, Rectangle bounds, string text)
+            {
+                var footerBounds = new Rectangle(bounds.Left + 8, bounds.Bottom - 26, bounds.Width - 16, 20);
+                using var format = new StringFormat
+                {
+                    Alignment = StringAlignment.Center,
+                    LineAlignment = StringAlignment.Center
+                };
+                graphics.DrawString(text, SystemFonts.MessageBoxFont, Brushes.DimGray, footerBounds, format);
+            }
+
+            private static GraphicsPath RoundedRectangle(Rectangle bounds, int radius)
+            {
+                int diameter = radius * 2;
+                var path = new GraphicsPath();
+                path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90);
+                path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90);
+                path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
+                path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90);
+                path.CloseFigure();
+                return path;
+            }
+        }
+
         private readonly KnowledgeBaseNetworkState _emptyState = new();
 
         private Label _lblSource = null!;
@@ -39,18 +291,21 @@ namespace AsutpKnowledgeBase
         private Button _btnEditConnection = null!;
         private Button _btnDeleteConnection = null!;
         private Button _btnCopyConnection = null!;
-        private TextBox _txtPassportFilter = null!;
-        private Button _btnClearPassportFilter = null!;
-        private Button _btnCopyVisiblePassport = null!;
-        private Label _lblPassportFilterStatus = null!;
+        private TextBox? _txtPassportFilter;
+        private Button? _btnClearPassportFilter;
+        private Button? _btnCopyVisiblePassport;
+        private Label? _lblPassportFilterStatus;
         private Button _btnAdd = null!;
         private Button _btnOpenSelected = null!;
         private Button _btnEditSelected = null!;
         private Button _btnDeleteSelected = null!;
         private TabControl _contentTabs = null!;
+        private TabPage _overviewPage = null!;
         private TabPage _passportPage = null!;
         private TabPage _filesPage = null!;
         private TabPage _previewPage = null!;
+        private ListView _lvOverviewObjects = null!;
+        private NetworkTopologyCanvas _topologyCanvas = null!;
         private ListView _lvDevices = null!;
         private ListView _lvInterfaces = null!;
         private ListView _lvConnections = null!;
@@ -168,6 +423,7 @@ namespace AsutpKnowledgeBase
                 ? $"Устройств: {_currentState.DeviceCount} | Интерфейсов: {_currentState.InterfaceCount} | Соединений: {_currentState.ConnectionCount} | Файлов: {_currentState.FileReferencesCount}"
                 : _currentState.EmptyStateText;
 
+            RefreshOverviewEntries();
             RefreshPassportEntries(previousDeviceId, previousInterfaceId, previousConnectionId);
             PopulateFileEntries(previousFileReferenceId);
             EnsureFileSelection();
@@ -193,6 +449,9 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill
             };
 
+            _overviewPage = new TabPage("Обзор");
+            _overviewPage.Controls.Add(CreateOverviewPageLayout());
+
             _passportPage = new TabPage("Паспорт");
             _passportPage.Controls.Add(CreatePassportPageLayout());
 
@@ -202,10 +461,32 @@ namespace AsutpKnowledgeBase
             _previewPage = new TabPage("Предпросмотр");
             _previewPage.Controls.Add(CreatePreviewPageLayout());
 
+            _contentTabs.TabPages.Add(_overviewPage);
             _contentTabs.TabPages.Add(_passportPage);
             _contentTabs.TabPages.Add(_filesPage);
             _contentTabs.TabPages.Add(_previewPage);
             return _contentTabs;
+        }
+
+        private Control CreateOverviewPageLayout()
+        {
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(12),
+                ColumnCount = 2,
+                RowCount = 1
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 330F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            _lvOverviewObjects = CreateOverviewObjectsListView();
+            _topologyCanvas = new NetworkTopologyCanvas();
+
+            layout.Controls.Add(CreateOverviewGroup("Объекты / устройства", _lvOverviewObjects), 0, 0);
+            layout.Controls.Add(CreateOverviewGroup("Топология", _topologyCanvas), 1, 0);
+            return layout;
         }
 
         private Control CreatePassportPageLayout()
@@ -215,10 +496,9 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Padding = new Padding(12),
                 ColumnCount = 1,
-                RowCount = 4
+                RowCount = 3
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 34F));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 33F));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 33F));
@@ -238,7 +518,6 @@ namespace AsutpKnowledgeBase
             WirePassportSelectionEvents(_lvInterfaces, _lvDevices, _lvConnections);
             WirePassportSelectionEvents(_lvConnections, _lvDevices, _lvInterfaces);
 
-            layout.Controls.Add(CreatePassportFilterPanel(), 0, 0);
             layout.Controls.Add(
                 CreatePassportGroup(
                     "Устройства",
@@ -246,7 +525,7 @@ namespace AsutpKnowledgeBase
                     _lvDevices,
                     _lblDevicesEmptyState),
                 0,
-                1);
+                0);
             layout.Controls.Add(
                 CreatePassportGroup(
                     "Интерфейсы / IP",
@@ -254,7 +533,7 @@ namespace AsutpKnowledgeBase
                     _lvInterfaces,
                     _lblInterfacesEmptyState),
                 0,
-                2);
+                1);
             layout.Controls.Add(
                 CreatePassportGroup(
                     "Соединения",
@@ -262,7 +541,7 @@ namespace AsutpKnowledgeBase
                     _lvConnections,
                     _lblConnectionsEmptyState),
                 0,
-                3);
+                2);
 
             return layout;
         }
@@ -540,6 +819,55 @@ namespace AsutpKnowledgeBase
             return layout;
         }
 
+        private void RefreshOverviewEntries()
+        {
+            _topologyCanvas.ApplyState(_currentState);
+            PopulateOverviewObjects();
+        }
+
+        private void PopulateOverviewObjects()
+        {
+            _lvOverviewObjects.BeginUpdate();
+            try
+            {
+                _lvOverviewObjects.Items.Clear();
+                if (_currentState.DeviceStates.Count > 0)
+                {
+                    foreach (var device in _currentState.DeviceStates)
+                    {
+                        var firstInterface = _currentState.InterfaceStates.FirstOrDefault(item =>
+                            string.Equals(item.NetworkDeviceId, device.NetworkDeviceId, StringComparison.Ordinal));
+                        _lvOverviewObjects.Items.Add(new ListViewItem(
+                        [
+                            device.NameText,
+                            device.RoleText,
+                            firstInterface?.IpAddressText ?? "-",
+                            device.ProfinetNameText,
+                            device.LinkedNodeText
+                        ]));
+                    }
+
+                    return;
+                }
+
+                foreach (var item in _currentState.ObjectStates)
+                {
+                    _lvOverviewObjects.Items.Add(new ListViewItem(
+                    [
+                        item.NameText,
+                        item.TypeText,
+                        "-",
+                        "-",
+                        item.ParentText
+                    ]));
+                }
+            }
+            finally
+            {
+                _lvOverviewObjects.EndUpdate();
+            }
+        }
+
         private void RefreshPassportEntries(
             string preferredDeviceId,
             string preferredInterfaceId,
@@ -781,18 +1109,23 @@ namespace AsutpKnowledgeBase
 
         private bool HasPassportFilter => !string.IsNullOrWhiteSpace(GetPassportFilterText());
 
-        private string GetPassportFilterText() => _txtPassportFilter.Text.Trim();
+        private string GetPassportFilterText() => _txtPassportFilter?.Text.Trim() ?? string.Empty;
 
         private void UpdatePassportFilterStatus(
             int visibleDeviceCount,
             int visibleInterfaceCount,
             int visibleConnectionCount)
         {
-            _btnClearPassportFilter.Enabled = HasPassportFilter;
-            _btnCopyVisiblePassport.Enabled = visibleDeviceCount + visibleInterfaceCount + visibleConnectionCount > 0;
-            _lblPassportFilterStatus.Text = HasPassportFilter
-                ? $"Найдено: {visibleDeviceCount}/{_currentState.DeviceStates.Count} | {visibleInterfaceCount}/{_currentState.InterfaceStates.Count} | {visibleConnectionCount}/{_currentState.ConnectionStates.Count}"
-                : string.Empty;
+            if (_btnClearPassportFilter != null)
+                _btnClearPassportFilter.Enabled = HasPassportFilter;
+            if (_btnCopyVisiblePassport != null)
+                _btnCopyVisiblePassport.Enabled = visibleDeviceCount + visibleInterfaceCount + visibleConnectionCount > 0;
+            if (_lblPassportFilterStatus != null)
+            {
+                _lblPassportFilterStatus.Text = HasPassportFilter
+                    ? $"Найдено: {visibleDeviceCount}/{_currentState.DeviceStates.Count} | {visibleInterfaceCount}/{_currentState.InterfaceStates.Count} | {visibleConnectionCount}/{_currentState.ConnectionStates.Count}"
+                    : string.Empty;
+            }
         }
 
         private static bool DeviceMatchesFilter(KnowledgeBaseNetworkDeviceState entry, string filterText) =>
@@ -1261,7 +1594,8 @@ namespace AsutpKnowledgeBase
                 return;
 
             Clipboard.SetText(text);
-            _lblPassportFilterStatus.Text = $"Скопировано: {copiedPart}.";
+            if (_lblPassportFilterStatus != null)
+                _lblPassportFilterStatus.Text = $"Скопировано: {copiedPart}.";
         }
 
         private static bool CanCopyText(string? text) =>
@@ -1534,6 +1868,19 @@ namespace AsutpKnowledgeBase
             return false;
         }
 
+        private static GroupBox CreateOverviewGroup(string title, Control content)
+        {
+            var groupBox = new GroupBox
+            {
+                Text = title,
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10),
+                Margin = new Padding(0, 0, 10, 10)
+            };
+            groupBox.Controls.Add(content);
+            return groupBox;
+        }
+
         private static GroupBox CreatePassportGroup(
             string title,
             Control actionsPanel,
@@ -1595,6 +1942,17 @@ namespace AsutpKnowledgeBase
             listView.Columns.Add("Проверка", 150);
             listView.Columns.Add("Инт.", 55);
             listView.Columns.Add("Связи", 55);
+            return listView;
+        }
+
+        private static ListView CreateOverviewObjectsListView()
+        {
+            var listView = CreateBaseListView();
+            listView.Columns.Add("Объект / устройство", 150);
+            listView.Columns.Add("Тип / роль", 95);
+            listView.Columns.Add("IP", 95);
+            listView.Columns.Add("PROFINET-name", 120);
+            listView.Columns.Add("Шкаф / узел", 130);
             return listView;
         }
 
