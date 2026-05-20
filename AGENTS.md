@@ -6,11 +6,11 @@
 - Root app project: `asutpKB.csproj` with `TargetFramework=net8.0-windows` and `UseWindowsForms=true`.
 - Entry point: `Program.cs`, which boots `MainForm`.
 - Current engineering mode: pragmatic refactoring and stabilization, not rewrite.
-- The active task branch is defined by `docs/codex-handoff.md`; at the 2026-05-20 handoff it is `Net`. `to` remains the completed roadmap/integration history branch, and `main` remains the stable branch.
+- The active task branch is defined by `docs/codex-handoff.md`; in the design worktree (`C:\Users\Olga\AKB5-design`) it is `design/network-ui-polish`, while the main logic worktree (`C:\Users\Olga\AKB5`) is intended to stay clean on `Net` and must be rechecked before use. `to` remains the completed roadmap/integration history branch, and `main` remains the stable branch.
 - Roadmap phases `0` through `7F.1` are implemented on `to`; the narrow `phase7g-annual-norm-hidden-rows` fix is committed/pushed on `to` as `7a4895d Fix annual maintenance norm import totals`.
 - `Phase 11. Object templates and equipment catalog` is accepted through `Phase 11G`; `Phase 11A. Equipment catalog model` passed manual review, `Phase 11B. Equipment catalog UI` is committed/pushed on `to`, `Phase 11C` / `Phase 11D` are accepted and committed/pushed on `to`, `Phase 11E` / `Phase 11F` are accepted and committed/pushed on `to`, and `Phase 11G. Template import/export` is accepted and committed/pushed on `to`. `Phase 12. Storage redesign, backups, snapshots, and change history` is accepted through `Phase 12S8. Change history` and committed/pushed on `to`.
-- Latest accepted follow-ups: `phase7e-annual-norm-import` supports importing maintenance norms from annual workbooks with the same structure as `456.xlsx`; `phase7g-annual-norm-hidden-rows` skips hidden annual rows for retired equipment; the first menu-rework iteration is committed/pushed on `to` as `8dfffbd Rework menu structure and safety prompts`; the `Net` branch network passport manual-review ergonomics package is accepted, committed, and pushed as `207b6b1 Improve network passport review ergonomics`.
-- Current local `Net` follow-up after `207b6b1`: manual-entry hints package with `Добавить похожее` / `Добавить похожий` actions and inline `Проверка` duplicate hints is implemented and verified, but it is not manually accepted, committed, or pushed yet. See `docs/codex-handoff.md` for the review artifact path and validation status.
+- Relevant completed follow-ups: annual maintenance norm import and hidden-row handling are complete on `to`; the first menu-rework iteration is committed/pushed on `to` as `8dfffbd Rework menu structure and safety prompts`; the `Net` branch network passport manual-review ergonomics package is accepted and pushed as `207b6b1`; the `Net` manual-entry hints package is accepted and pushed as `a89e593`; the `Net` mutation-service validation package is accepted and pushed as `b2ea12e Enforce network passport mutation validation`.
+- Current accepted `Net` baseline is `b2ea12e` on `C:\Users\Olga\AKB5` / `origin/Net`. Current UI/UX polishing continues in `C:\Users\Olga\AKB5-design` on `design/network-ui-polish`, based on `a89e593`; the uncommitted Network review-filter/UI polish package plus enlarged tree icons is validated and waiting for manual review.
 - Current builds use portable-first SQLite single-file `.akb` storage: `akb5.settings.json` is stored next to `asutpKB.exe`, the default database is `database\knowledge-base.akb` next to the program, and JSON remains import/export plus first-launch migration compatibility. Excel exchange is a separate import/export layer.
 - Current Excel implementation uses `DocumentFormat.OpenXml` and `WorkbookFormatVersion = 3`. Legacy `v1/v2` import is no longer supported.
 - CI now enforces `dotnet format --verify-no-changes` for the WinForms app, core library, and tests before `build`/`test`.
@@ -53,21 +53,23 @@
 - For WinForms `Network` UI changes, use focused tests while developing and a non-invasive/offscreen layout-smoke before handoff. Do not run interactive UI-smoke unless the user explicitly asks.
 - Do not claim Open XML SDK or self-contained single-file publish already exists unless you actually add and verify it.
 
-## Mandatory read order for a new session
+## New-session read policy
+
+Start every new AKB5 design session with the light context set only:
 
 1. `AGENTS.md`
 2. `docs/codex-handoff.md`
-3. `docs/decision-log.md`
-4. `docs/plans.md`
-5. `docs/lessons-learned.md`
-6. `Roadmap.md`
-7. `README.md`
-8. `asutpKB.csproj`
-9. `src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj`
-10. `tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj`
-11. `.github/workflows/windows-build.yml`
-12. Relevant implementation files for the active task, starting from the task-specific list in `docs/codex-handoff.md`. For the current `Net` stream this means the Network screen/dialogs, network models/services, related tests, and Network layout-smoke scripts.
-13. Run `git status --short` before planning edits.
+3. `docs/plans.md`
+4. Run `git status --short --branch` before planning edits.
+
+Open the larger reference files only when the task needs them:
+
+- `docs/decision-log.md` for durable decisions or scope questions.
+- `docs/lessons-learned.md` for recurring pitfalls and validation patterns.
+- `Roadmap.md` when choosing or changing a roadmap direction.
+- `README.md`, project files, workflow files, and implementation files when they are directly relevant to the current task.
+
+Do not reread a large file in the same session if its relevant sections were already loaded; use targeted `rg` / section reads instead.
 
 ## Build / test / publish commands
 

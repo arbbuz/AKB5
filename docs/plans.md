@@ -4,25 +4,30 @@ Last updated: `2026-05-20`
 
 ## Active plan
 
-- Treat branch `Net` as the active branch for the current AKB5 network-passport work.
-- Current baseline is `207b6b1 Improve network passport review ergonomics` on `HEAD` and `origin/Net`.
-- The latest Net manual-review ergonomics package was accepted manually, committed, and pushed before this handoff.
-- Do not commit or push future changes unless the user explicitly asks in the current chat.
-- The current uncommitted package is manual-entry speed plus inline duplicate hints: `Добавить похожее` / `Добавить похожий` for devices/interfaces/connections and row-level `Проверка` duplicate hints.
+- Treat `C:\Users\Olga\AKB5-design` on branch `design/network-ui-polish` as the active worktree for current AKB5 Network UI/UX polishing.
+- Keep any `C:\Users\Olga\AKB5` / `Net` logic work isolated from this design package.
+- Current design worktree baseline is `a89e593 Improve network passport manual entry hints`.
+- Current accepted parent `Net` baseline in `C:\Users\Olga\AKB5` / `origin/Net` is `b2ea12e Enforce network passport mutation validation`.
+- Do not commit, push, merge, rebase, delete stash entries, or remove worktrees unless the user explicitly asks in the current chat.
 - Keep future Net packages in manual-entry / manual-review ergonomics unless the user approves a broader scope.
 - Bundle closely related Net manual-entry/UI refinements into one coherent package instead of splitting them into tiny micro-stages.
-- Current package validation passed focused Network tests, full Release tests, app build, format checks, `git diff --check`, and non-invasive/offscreen layout-smoke.
 - Do not run interactive UI-smoke unless the user explicitly asks. Prefer non-invasive/offscreen layout-smoke for Network UI changes.
 - Keep all new user-facing UI strings Russian-only.
 - Follow `docs/codex-operational-rules.md` for every future Codex turn to control silent stalls and context growth.
 
 ## Near-term follow-up
 
-Manual-review the current local package before coding the next Net direction.
+The uncommitted `design/network-ui-polish` Network review-filter/UI package plus tree icon readability polish is ready for manual review in `C:\Users\Olga\AKB5-design`.
 
-- review `C:\Users\Olga\AKB5\artifacts\build-check\network-manual-entry-hints-20260520-132919\asutpKB.exe`;
-- if accepted, wait for explicit current-chat approval before commit/push;
-- if review finds issues, fix them inside this same package before moving on.
+Current handoff state:
+
+- review-only filter/copy, warning counters, filter layout fix, warning-row highlighting, wider `Проверка` columns, and filter/action tooltips are included;
+- object-tree icons for Lvl1/Lvl2/Lvl3 are enlarged from 20px to 30px using Google Material Symbols path data while preserving current colors;
+- focused Network tests, focused tree tests, full Release tests, app format check, `git diff --check`, the non-invasive/offscreen Network layout-smoke, and tree-icon smoke passed;
+- current isolated Release artifact: `C:\Users\Olga\AKB5-design\artifacts\build-check\tree-icons-50pct-20260520-224516\asutpKB.exe`;
+- recheck the main `Net` worktree before using it; it is expected to be clean at `b2ea12e`.
+
+Good next directions should stay within manual passport editing and review comfort. Do not start OCR/PDF auto-import, PRONETA/CSV import, live scan, plan/fact comparison, separate data-quality issue/problem panels, AKB5-driven IP/PROFINET-name assignment, or embedded PDF preview unless the user explicitly changes scope.
 
 ## Not active / out of scope
 

@@ -15,8 +15,8 @@ namespace AsutpKnowledgeBase
             ShowPlusMinus = false;
             ShowRootLines = false;
             HotTracking = false;
-            Indent = 22;
-            ItemHeight = 24;
+            Indent = 34;
+            ItemHeight = 36;
             BackColor = Color.White;
             ForeColor = TextColor;
             StateImageList = KnowledgeBaseTreeNodeVisuals.CreateExpandStateImageList();

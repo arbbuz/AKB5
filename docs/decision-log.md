@@ -4,13 +4,20 @@ Last updated: `2026-05-20`
 
 ## 2026-05-20
 
-- The accepted `Net` branch baseline is `207b6b1 Improve network passport review ergonomics`; it is committed and pushed to `origin/Net` after manual review.
+- The accepted `Net` branch baseline is `b2ea12e Enforce network passport mutation validation`; it is committed and pushed to `origin/Net` after manual review.
+- The previous `Net` manual-review ergonomics baseline remains `207b6b1 Improve network passport review ergonomics`.
 - Network passport work stays manual-entry / manual-review first. The accepted scope includes typed devices/interfaces/connections, visible review columns, filtering, copy-friendly rows/endpoints/summaries, visible table export, selected-row visibility, and row tooltips.
 - PDF network scheme references are metadata and `Open original` sources only. Embedded PDF preview/rendering remains a separate dependency decision and is not approved.
 - Do not start OCR/PDF auto-import, PRONETA/CSV import, live scan, plan/fact comparison, separate data-quality issue panels, or AKB5-driven IP/PROFINET-name assignment without a new explicit requirement.
 - Future `Net` manual-entry/UI refinements should be bundled into coherent review packages rather than split into tiny micro-stages. Use focused tests while developing and finish a package with full tests/build plus non-invasive/offscreen layout-smoke.
 - Interactive UI-smoke for the Network passport is opt-in only; do not run it unless the user explicitly asks.
-- The next local `Net` package may combine manual-entry speed and narrow inline duplicate hints: add-similar actions are acceptable, and row-level `Проверка` duplicate hints are acceptable as long as they stay inside the manual editing/review workflow and do not become a separate quality-problem panel.
+- The accepted `a89e593` package combines manual-entry speed and narrow inline duplicate hints: add-similar actions are acceptable, and row-level `Проверка` duplicate hints are acceptable as long as they stay inside the manual editing/review workflow and do not become a separate quality-problem panel.
+- UI/UX work for the current Network review-filter package is split into a separate local worktree: `C:\Users\Olga\AKB5-design` on `design/network-ui-polish`. Keep any `C:\Users\Olga\AKB5` / `Net` logic work isolated from design work.
+- The design review-filter package may use subtle row highlighting, wider `Проверка` columns, and tooltips to improve manual scanning, but it must remain a table-level review aid rather than a separate issue-management workflow.
+- For the object tree, Lvl1/Lvl2/Lvl3 may use larger 30px icons from a permissively licensed internet SVG source while preserving the existing color palette; the accepted mapping for this design pass is Lvl1 `domain`, Lvl2 `precision_manufacturing`, Lvl3 `dns` from Google Material Symbols.
+- The current design package is intentionally uncommitted until manual review. Do not commit, push, merge back to `Net`, rebase, delete stash entries, or remove worktrees without explicit current-chat approval.
+- Manual-review artifacts for the design branch must be rebuilt from `C:\Users\Olga\AKB5-design`; do not hand off an older exe produced from the main `Net` worktree after the split.
+- If additional design code files become dirty after the last build/smoke artifact, refresh validation before using that artifact for manual review.
 
 ## 2026-05-18
 
@@ -103,32 +110,31 @@ Last updated: `2026-05-20`
 - With `Phase 12S0` approved, the next implementation step is `Phase 12S1. Storage abstraction`; SQLite code should not be added before direct `JsonStorageService` dependencies are moved behind an app-facing storage interface
 - Local `Phase 12S1` introduces `IKnowledgeBaseStorageService`, `KnowledgeBaseStorageLoadResult`, and `KnowledgeBaseStorageServiceFactory`; current JSON persistence remains the implementation behind the abstraction and no SQLite dependency is added in this slice
 - `KnowledgeBaseFileWorkflowService` now depends on `IKnowledgeBaseStorageService`, and `Forms` no longer creates `JsonStorageService` directly
-- On 2026-05-07, targeted storage/file-workflow/snapshot tests passed (`27/27`), app/core/tests format verification passed, and `phase12s1-storage-abstraction` passed verification build and `dotnet test` (`314/314`); pre-acceptance harness state was `WAITING_REVIEW`
+- On 2026-05-07, targeted storage/file-workflow/snapshot tests passed (`27/27`), app/core/tests format verification passed, and `phase12s1-storage-abstraction` passed verification build and `dotnet test` (`314/314`)
 - The user requested starting `Phase 12S2` after local `Phase 12S1` verification
 - Local `Phase 12S2` adds `Microsoft.Data.Sqlite` `8.0.13`, `KnowledgeBaseSqliteConnectionFactory`, and `SqliteKnowledgeBaseStorageService`; it creates SQLite schema version `1` and round-trips normalized `SavedData` through the storage abstraction without switching the UI default away from JSON
 - SQLite schema version `1` stores metadata, config, production calendars, workshops, nodes, typed records, maintenance profiles/year entries, catalog records/properties, object templates, and template nodes in dedicated tables
-- On 2026-05-07, targeted SQLite storage tests passed (`3/3`), targeted storage/file-workflow/snapshot tests passed (`30/30`), app/core/tests format verification passed, and `phase12s2-sqlite-schema-repository` passed verification build and `dotnet test` (`317/317`); pre-acceptance harness state was `WAITING_REVIEW`
+- On 2026-05-07, targeted SQLite storage tests passed (`3/3`), targeted storage/file-workflow/snapshot tests passed (`30/30`), app/core/tests format verification passed, and `phase12s2-sqlite-schema-repository` passed verification build and `dotnet test` (`317/317`)
 - Local `Phase 12S3` adds first-launch migration from legacy `Мои документы\ASUTP_KnowledgeBase.json` to `%LocalAppData%\AKB5\knowledge-base.akb`; migration is offered only when the `.akb` file is missing and legacy JSON exists, requires user confirmation in the UI, leaves the JSON source unchanged, and writes a post-migration JSON safety export next to the `.akb`
-- On 2026-05-07, `phase12s3-first-launch-json-migration` passed verification build and `dotnet test` (`322/322`); pre-acceptance harness state was `WAITING_REVIEW`
+- On 2026-05-07, `phase12s3-first-launch-json-migration` passed verification build and `dotnet test` (`322/322`)
 - Local `Phase 12S4` switches the default live path to `.akb` through `KnowledgeBaseRoutedStorageService`, keeps legacy JSON readable by extension, updates open/save dialogs for `.akb`, and adds full database JSON import/export commands separate from catalog/template JSON exchange
-- On 2026-05-07, `phase12s4-database-file-ux-json-compatibility` passed verification build and `dotnet test` (`325/325`); pre-acceptance harness state was `WAITING_REVIEW`
+- On 2026-05-07, `phase12s4-database-file-ux-json-compatibility` passed verification build and `dotnet test` (`325/325`)
 - Local `Phase 12S5` stores SQLite snapshots inside the `.akb` database instead of `.akb-snapshots` sidecars for SQLite-backed storage; manual snapshots and automatic before-save snapshots write metadata and a normalized `SavedData` payload
-- On 2026-05-07, `phase12s5-sqlite-snapshots` passed verification build and `dotnet test` (`328/328`); pre-acceptance harness state was `WAITING_REVIEW`
+- On 2026-05-07, `phase12s5-sqlite-snapshots` passed verification build and `dotnet test` (`328/328`)
 - Local `Phase 12S6` restores a selected SQLite snapshot only after explicit confirmation, creates a protective `before-restore` snapshot first, reloads the UI from restored data, and leaves failed restores without replacing current data
-- On 2026-05-07, `phase12s6-snapshot-restore` passed verification build and `dotnet test` (`330/330`); pre-acceptance harness state was `WAITING_REVIEW`
+- On 2026-05-07, `phase12s6-snapshot-restore` passed verification build and `dotnet test` (`330/330`)
 - Local `Phase 12S7` adds snapshot comparison at summary level across high-value data areas and exposes it from the snapshot browser / `Файл -> Сравнить снимки...`
-- On 2026-05-07, `phase12s7-snapshot-comparison` passed verification build and `dotnet test` (`332/332`); pre-acceptance harness state was `WAITING_REVIEW`
+- On 2026-05-07, `phase12s7-snapshot-comparison` passed verification build and `dotnet test` (`332/332`)
 - Local `Phase 12S8` adds SQLite change history records for save, migration, manual snapshot, restore, and catalog/template import, plus a read-only `Файл -> История изменений...` view for `.akb` databases; legacy JSON reports that history is unavailable
-- On 2026-05-07, `phase12s8-change-history` passed verification build and `dotnet test` (`333/333`); pre-acceptance harness state was `WAITING_REVIEW`
+- On 2026-05-07, `phase12s8-change-history` passed verification build and `dotnet test` (`333/333`)
 - The user requested committing and pushing all accepted changes; `Phase 11G` was pushed as `268b550 Add catalog template JSON exchange`, and the SQLite storage/change-history stack through `Phase 12S8` was committed/pushed as `27a2aba Add SQLite storage history workflow`
 - The accepted SQLite storage/change-history stack uses database schema version `4`; JSON `SavedData.SchemaVersion` remains separate from the SQLite `PRAGMA user_version`.
 - After the user requested the next stage, the current transition step is to define the next roadmap task before coding further; no next implementation phase is explicitly prioritized yet
-- Local `phase7e-annual-norm-import` adds support for importing maintenance norms directly from annual workbooks with the same structure as `456.xlsx`; the importer detects annual files by workbook contents, still accepts monthly `123.xlsx`, and annual rows also apply `YearScheduleEntries` from the 12 plan columns
-- On 2026-05-07, targeted norm-import tests passed (`10/10`), app/core/tests format verification passed, and `phase7e-annual-norm-import` passed verification build and `dotnet test` (`334/334`); pre-acceptance harness state was `WAITING_REVIEW`
-- On 2026-05-07, the user confirmed manual review passed for `phase7e-annual-norm-import`; the accepted follow-up is the latest completed slice before selecting the next roadmap task
+- `phase7e-annual-norm-import` added annual-workbook norm import for files with the same structure as `456.xlsx`; it passed targeted norm-import tests (`10/10`), app/core/tests format verification, verification build, and `dotnet test` (`334/334`) before manual acceptance.
+- On 2026-05-07, the user confirmed manual review passed for `phase7e-annual-norm-import`.
 - The user clarified that hidden rows in annual plan `456.xlsx` represent retired equipment and must not be included in norm import totals; rows `29`, `30`, and `31` are hidden in that workbook
 - Local `phase7g-annual-norm-hidden-rows` skips hidden rows before parsing annual workbook system headers or equipment rows, so hidden retired equipment cannot create or update maintenance profiles
-- On 2026-05-07, targeted norm-import tests passed (`11/11`), app/core/tests format verification passed, and `phase7g-annual-norm-hidden-rows` passed verification build and `dotnet test` (`335/335`); pre-acceptance harness state was `WAITING_REVIEW`
+- On 2026-05-07, targeted norm-import tests passed (`11/11`), app/core/tests format verification passed, and `phase7g-annual-norm-hidden-rows` passed verification build and `dotnet test` (`335/335`)
 
 ## 2026-05-05
 

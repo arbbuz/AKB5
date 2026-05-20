@@ -5,6 +5,10 @@ namespace AsutpKnowledgeBase
 {
     public partial class MainForm
     {
+        private const int ToolbarItemHeight = 30;
+        private const int ToolbarIconSize = 22;
+        private const int ToolbarHeight = ToolbarItemHeight + 4;
+
         private void InitializeComponent()
         {
             Text = "База знаний АСУТП";
@@ -31,15 +35,19 @@ namespace AsutpKnowledgeBase
         {
             toolStrip = new ToolStrip
             {
+                AutoSize = false,
                 Dock = DockStyle.Top,
                 GripStyle = ToolStripGripStyle.Hidden,
-                ImageScalingSize = new Size(18, 18)
+                Height = ToolbarHeight,
+                ImageScalingSize = new Size(ToolbarIconSize, ToolbarIconSize),
+                Padding = new Padding(4, 2, 4, 2),
+                Renderer = ModernToolbarRenderer.Instance
             };
 
-            menuFile = new ToolStripMenuItem("📃 Файл");
-            menuMaintenance = new ToolStripMenuItem("🗓 ТО");
-            menuReferences = new ToolStripMenuItem("📚 Справочники");
-            menuService = new ToolStripMenuItem("🔧 Сервис");
+            menuFile = CreateTopToolbarMenuButton("Файл");
+            menuMaintenance = CreateTopToolbarMenuButton("ТО");
+            menuReferences = CreateTopToolbarMenuButton("Каталог");
+            menuService = CreateTopToolbarMenuButton("Сервис");
             menuSave = new ToolStripMenuItem("💾 Сохранить", null, BtnSave_Click);
             menuNewWorkshop = new ToolStripMenuItem("🏭 Новый цех", null, BtnAddWorkshop_Click);
             menuDeleteWorkshop = new ToolStripMenuItem("🗑 Удалить цех", null, BtnDeleteWorkshop_Click);
@@ -131,25 +139,25 @@ namespace AsutpKnowledgeBase
                 menuMaintenanceProductionCalendar,
                 menuMaintenanceWorkbookGeneration
             });
-            toolStrip.Items.Add(menuFile);
-            toolStrip.Items.Add(menuMaintenance);
-            toolStrip.Items.Add(menuReferences);
-            toolStrip.Items.Add(menuService);
-            toolStrip.Items.Add(new ToolStripSeparator());
 
-            btnSave = new ToolStripButton("💾 Сохранить") { ToolTipText = "Сохранить базу данных" };
+            btnSave = CreatePrimaryToolbarButton("\ue161", "Сохранить", "Сохранить базу данных");
             btnSave.Click += BtnSave_Click;
             toolStrip.Items.Add(btnSave);
 
             toolStrip.Items.Add(new ToolStripSeparator());
 
-            btnUndo = new ToolStripButton("↩ Отменить") { Enabled = false, ToolTipText = "Отменить (Ctrl+Z)" };
-            btnRedo = new ToolStripButton("↪ Повторить") { Enabled = false, ToolTipText = "Повторить (Ctrl+Y)" };
-            btnCollapseTree = new ToolStripButton("🗂 Свернуть")
-            {
-                ToolTipText = "Свернуть дерево до корневых элементов"
-            };
-            toolStrip.Items.AddRange(new ToolStripItem[] { btnUndo, btnRedo, btnCollapseTree });
+            toolStrip.Items.Add(menuFile);
+            toolStrip.Items.Add(menuMaintenance);
+            toolStrip.Items.Add(menuReferences);
+            toolStrip.Items.Add(menuService);
+
+            toolStrip.Items.Add(new ToolStripSeparator());
+
+            btnUndo = CreateIconOnlyToolbarButton("\ue166", "Отменить (Ctrl+Z)");
+            btnUndo.Enabled = false;
+            btnRedo = CreateIconOnlyToolbarButton("\ue15a", "Повторить (Ctrl+Y)");
+            btnRedo.Enabled = false;
+            toolStrip.Items.AddRange(new ToolStripItem[] { btnUndo, btnRedo });
 
             InitializeSearchToolbarItems();
         }
@@ -180,22 +188,13 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Padding = new Padding(12),
                 ColumnCount = 1,
-                RowCount = 3
+                RowCount = 2
             };
             leftLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             leftLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            leftLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             leftLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-            leftLayout.Controls.Add(CreateSectionLabel("Текущий цех"), 0, 0);
-
-            cmbWorkshops = new ComboBox
-            {
-                Dock = DockStyle.Top,
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Margin = new Padding(0, 0, 0, 12)
-            };
-            leftLayout.Controls.Add(cmbWorkshops, 0, 1);
+            leftLayout.Controls.Add(CreateWorkshopSelectorPanel(), 0, 0);
 
             var grpTree = new GroupBox
             {
@@ -213,9 +212,24 @@ namespace AsutpKnowledgeBase
                 ImageList = KnowledgeBaseTreeNodeVisuals.CreateImageList()
             };
 
+            var treeToolStrip = new ToolStrip
+            {
+                AutoSize = false,
+                Dock = DockStyle.Top,
+                GripStyle = ToolStripGripStyle.Hidden,
+                Height = ToolbarHeight,
+                ImageScalingSize = new Size(ToolbarIconSize, ToolbarIconSize),
+                Padding = new Padding(0, 2, 0, 2),
+                Renderer = ModernToolbarRenderer.Instance
+            };
+            btnCollapseTree = CreateIconOnlyToolbarButton("\ue944", "Свернуть дерево до корневых элементов");
+            btnCollapseTree.Alignment = ToolStripItemAlignment.Right;
+            treeToolStrip.Items.Add(btnCollapseTree);
+
             toolTip.SetToolTip(tvTree, "Перетаскивание для перемещения, правая кнопка мыши для меню");
             grpTree.Controls.Add(tvTree);
-            leftLayout.Controls.Add(grpTree, 0, 2);
+            grpTree.Controls.Add(treeToolStrip);
+            leftLayout.Controls.Add(grpTree, 0, 1);
 
             pnlLeft.Controls.Add(leftLayout);
             splitMain.Panel1.Controls.Add(pnlLeft);
@@ -538,6 +552,53 @@ namespace AsutpKnowledgeBase
                 Margin = new Padding(0, 0, 0, 6)
             };
 
+        private Control CreateWorkshopSelectorPanel()
+        {
+            var panel = new ModernSectionPanel
+            {
+                Dock = DockStyle.Top,
+                Height = 62,
+                Margin = new Padding(0, 0, 0, 10),
+                Padding = new Padding(8, 6, 8, 8)
+            };
+
+            var layout = new TableLayoutPanel
+            {
+                BackColor = Color.Transparent,
+                ColumnCount = 1,
+                Dock = DockStyle.Fill,
+                RowCount = 2
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 18F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            var label = new Label
+            {
+                AutoSize = false,
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(28, 38, 49),
+                Margin = new Padding(0),
+                Text = "Текущий цех",
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            cmbWorkshops = new ComboBox
+            {
+                Dock = DockStyle.Fill,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 9F),
+                Margin = new Padding(0, 3, 0, 0)
+            };
+
+            layout.Controls.Add(label, 0, 0);
+            layout.Controls.Add(cmbWorkshops, 0, 1);
+            panel.Controls.Add(layout);
+            return panel;
+        }
+
         private static Label CreateWorkspacePlaceholderLabel() =>
             new()
             {
@@ -546,6 +607,349 @@ namespace AsutpKnowledgeBase
                 TextAlign = ContentAlignment.MiddleCenter,
                 ForeColor = Color.DimGray
             };
+
+        private static readonly Lazy<System.Drawing.Text.PrivateFontCollection?> MaterialSymbolsFontCollection = new(LoadMaterialSymbolsFontCollection);
+
+        private static ToolStripDropDownButton CreateTopToolbarMenuButton(string text)
+        {
+            var textSize = TextRenderer.MeasureText(text, SystemFonts.MenuFont);
+            return new ToolStripDropDownButton(text)
+            {
+                AutoSize = false,
+                DisplayStyle = ToolStripItemDisplayStyle.Text,
+                Margin = new Padding(0, 1, 1, 1),
+                Padding = new Padding(8, 0, 8, 0),
+                Size = new Size(textSize.Width + 28, ToolbarItemHeight),
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+        }
+
+        private static ToolStripButton CreatePrimaryToolbarButton(string materialSymbolCodePoint, string text, string toolTipText) =>
+            new PressFeedbackToolStripButton(CreateMaterialSymbolIcon(materialSymbolCodePoint))
+            {
+                AutoSize = false,
+                DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+                ImageAlign = ContentAlignment.MiddleLeft,
+                ImageScaling = ToolStripItemImageScaling.None,
+                IsPrimary = true,
+                Margin = new Padding(0, 1, 1, 1),
+                Padding = new Padding(9, 0, 12, 0),
+                Size = new Size(
+                    ToolbarIconSize + TextRenderer.MeasureText(text, SystemFonts.MenuFont).Width + 38,
+                    ToolbarItemHeight),
+                Text = text,
+                TextAlign = ContentAlignment.MiddleRight,
+                TextImageRelation = TextImageRelation.ImageBeforeText,
+                ToolTipText = toolTipText
+            };
+
+        private static ToolStripButton CreateIconOnlyToolbarButton(string materialSymbolCodePoint, string toolTipText) =>
+            new PressFeedbackToolStripButton(CreateMaterialSymbolIcon(materialSymbolCodePoint))
+            {
+                AutoSize = false,
+                DisplayStyle = ToolStripItemDisplayStyle.Image,
+                ImageAlign = ContentAlignment.MiddleCenter,
+                ImageScaling = ToolStripItemImageScaling.None,
+                Margin = new Padding(0, 1, 1, 1),
+                Size = new Size(ToolbarItemHeight, ToolbarItemHeight),
+                Text = toolTipText,
+                ToolTipText = toolTipText
+            };
+
+        private static System.Drawing.Text.PrivateFontCollection? LoadMaterialSymbolsFontCollection()
+        {
+            var fontPath = Path.Combine(AppContext.BaseDirectory, "resources", "fonts", "MaterialSymbolsOutlined.ttf");
+            if (!File.Exists(fontPath))
+            {
+                return null;
+            }
+
+            try
+            {
+                var collection = new System.Drawing.Text.PrivateFontCollection();
+                collection.AddFontFile(fontPath);
+                return collection.Families.Length > 0 ? collection : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static Bitmap CreateMaterialSymbolIcon(string materialSymbolCodePoint)
+        {
+            const int iconSize = ToolbarIconSize;
+            var bitmap = new Bitmap(iconSize, iconSize);
+            using var graphics = Graphics.FromImage(bitmap);
+
+            graphics.Clear(Color.Transparent);
+            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+
+            var fontFamily = MaterialSymbolsFontCollection.Value?.Families.FirstOrDefault();
+            if (fontFamily is null)
+            {
+                return bitmap;
+            }
+
+            using var font = new Font(fontFamily, 22F, FontStyle.Regular, GraphicsUnit.Pixel);
+            using var brush = new SolidBrush(SystemColors.ControlText);
+            using var format = new StringFormat
+            {
+                Alignment = StringAlignment.Center,
+                LineAlignment = StringAlignment.Center
+            };
+
+            graphics.DrawString(materialSymbolCodePoint, font, brush, new RectangleF(0, 1, iconSize, iconSize), format);
+            return bitmap;
+        }
+
+        private sealed class PressFeedbackToolStripButton : ToolStripButton
+        {
+            private readonly Image normalImage;
+            private readonly Image pressedImage;
+            private readonly System.Windows.Forms.Timer feedbackTimer = new() { Interval = 120 };
+
+            public PressFeedbackToolStripButton(Image image)
+            {
+                normalImage = image;
+                pressedImage = CreatePressedImage(image);
+                Image = normalImage;
+                feedbackTimer.Tick += (_, _) =>
+                {
+                    feedbackTimer.Stop();
+                    IsPressFeedbackActive = false;
+                    Image = normalImage;
+                    Invalidate();
+                };
+            }
+
+            public bool IsPressFeedbackActive { get; private set; }
+
+            public bool IsPrimary { get; init; }
+
+            protected override void OnMouseDown(MouseEventArgs e)
+            {
+                base.OnMouseDown(e);
+                if (Enabled && e.Button == MouseButtons.Left)
+                {
+                    SetPressFeedback(true);
+                }
+            }
+
+            protected override void OnMouseUp(MouseEventArgs e)
+            {
+                base.OnMouseUp(e);
+                if (Enabled && e.Button == MouseButtons.Left)
+                {
+                    SetPressFeedback(true);
+                    feedbackTimer.Stop();
+                    feedbackTimer.Start();
+                }
+            }
+
+            protected override void OnMouseLeave(EventArgs e)
+            {
+                base.OnMouseLeave(e);
+                if (!feedbackTimer.Enabled)
+                {
+                    SetPressFeedback(false);
+                }
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
+                {
+                    feedbackTimer.Dispose();
+                    pressedImage.Dispose();
+                }
+
+                base.Dispose(disposing);
+            }
+
+            private void SetPressFeedback(bool active)
+            {
+                IsPressFeedbackActive = active;
+                Image = active ? pressedImage : normalImage;
+                Invalidate();
+            }
+
+            private static Bitmap CreatePressedImage(Image image)
+            {
+                var bitmap = new Bitmap(ToolbarIconSize, ToolbarIconSize);
+                using var graphics = Graphics.FromImage(bitmap);
+
+                graphics.Clear(Color.Transparent);
+                graphics.DrawImage(image, new Rectangle(1, 1, ToolbarIconSize - 1, ToolbarIconSize - 1));
+                return bitmap;
+            }
+        }
+
+        private sealed class ModernToolbarRenderer : ToolStripProfessionalRenderer
+        {
+            public static readonly ModernToolbarRenderer Instance = new();
+
+            protected override void OnRenderToolStripBackground(ToolStripRenderEventArgs e)
+            {
+                using var brush = new System.Drawing.Drawing2D.LinearGradientBrush(
+                    e.AffectedBounds,
+                    Color.FromArgb(250, 252, 254),
+                    Color.FromArgb(242, 246, 250),
+                    System.Drawing.Drawing2D.LinearGradientMode.Vertical);
+
+                e.Graphics.FillRectangle(brush, e.AffectedBounds);
+            }
+
+            protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
+            {
+                using var pen = new Pen(Color.FromArgb(211, 219, 227));
+                e.Graphics.DrawLine(pen, 0, e.ToolStrip.Height - 1, e.ToolStrip.Width, e.ToolStrip.Height - 1);
+            }
+
+            protected override void OnRenderButtonBackground(ToolStripItemRenderEventArgs e)
+            {
+                var feedbackButton = e.Item as PressFeedbackToolStripButton;
+                RenderCommandBackground(
+                    e.Graphics,
+                    e.Item,
+                    e.Item.Pressed || feedbackButton?.IsPressFeedbackActive == true,
+                    e.Item.Selected,
+                    feedbackButton?.IsPrimary == true);
+            }
+
+            protected override void OnRenderDropDownButtonBackground(ToolStripItemRenderEventArgs e)
+            {
+                RenderCommandBackground(e.Graphics, e.Item, e.Item.Pressed, e.Item.Selected, false);
+            }
+
+            protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
+            {
+                var x = e.Item.Width / 2;
+                using var shadowPen = new Pen(Color.FromArgb(211, 219, 227));
+                using var highlightPen = new Pen(Color.White);
+
+                e.Graphics.DrawLine(shadowPen, x, 6, x, e.Item.Height - 7);
+                e.Graphics.DrawLine(highlightPen, x + 1, 6, x + 1, e.Item.Height - 7);
+            }
+
+            private static void RenderCommandBackground(Graphics graphics, ToolStripItem item, bool isPressed, bool isSelected, bool isPrimary)
+            {
+                var bounds = new Rectangle(Point.Empty, item.Size);
+                bounds.Inflate(-1, -2);
+
+                if (!item.Enabled)
+                {
+                    if (!isPrimary)
+                    {
+                        return;
+                    }
+
+                    DrawRoundedCommand(graphics, bounds, Color.FromArgb(238, 243, 247), Color.FromArgb(207, 216, 225), false);
+                    return;
+                }
+
+                if (isPrimary)
+                {
+                    var fill = isPressed
+                        ? Color.FromArgb(201, 227, 246)
+                        : isSelected
+                            ? Color.FromArgb(215, 236, 249)
+                            : Color.FromArgb(228, 241, 251);
+                    var border = isPressed ? Color.FromArgb(87, 138, 180) : Color.FromArgb(134, 182, 222);
+                    DrawRoundedCommand(graphics, bounds, fill, border, isPressed);
+                    return;
+                }
+
+                if (!isPressed && !isSelected)
+                {
+                    return;
+                }
+
+                DrawRoundedCommand(
+                    graphics,
+                    bounds,
+                    isPressed ? Color.FromArgb(216, 232, 244) : Color.FromArgb(233, 243, 251),
+                    isPressed ? Color.FromArgb(140, 183, 218) : Color.FromArgb(190, 213, 232),
+                    isPressed);
+            }
+
+            private static void DrawRoundedCommand(Graphics graphics, Rectangle bounds, Color fillColor, Color borderColor, bool isPressed)
+            {
+                using var path = CreateRoundedRectanglePath(bounds, 4);
+                using var brush = new SolidBrush(fillColor);
+                using var borderPen = new Pen(borderColor);
+
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                graphics.FillPath(brush, path);
+                graphics.DrawPath(borderPen, path);
+
+                if (isPressed)
+                {
+                    using var insetPen = new Pen(Color.FromArgb(96, 125, 152));
+                    graphics.DrawLine(insetPen, bounds.Left + 4, bounds.Top + 1, bounds.Right - 4, bounds.Top + 1);
+                }
+            }
+
+            private static System.Drawing.Drawing2D.GraphicsPath CreateRoundedRectanglePath(Rectangle rectangle, int radius)
+            {
+                var path = new System.Drawing.Drawing2D.GraphicsPath();
+                var diameter = radius * 2;
+                var arc = new Rectangle(rectangle.Location, new Size(diameter, diameter));
+
+                path.AddArc(arc, 180, 90);
+                arc.X = rectangle.Right - diameter;
+                path.AddArc(arc, 270, 90);
+                arc.Y = rectangle.Bottom - diameter;
+                path.AddArc(arc, 0, 90);
+                arc.X = rectangle.Left;
+                path.AddArc(arc, 90, 90);
+                path.CloseFigure();
+                return path;
+            }
+        }
+
+        private sealed class ModernSectionPanel : Panel
+        {
+            public ModernSectionPanel()
+            {
+                DoubleBuffered = true;
+            }
+
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                base.OnPaint(e);
+
+                var bounds = ClientRectangle;
+                bounds.Width -= 1;
+                bounds.Height -= 1;
+
+                using var path = CreateRoundedRectanglePath(bounds, 5);
+                using var brush = new SolidBrush(Color.FromArgb(248, 251, 253));
+                using var borderPen = new Pen(Color.FromArgb(211, 219, 227));
+
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                e.Graphics.FillPath(brush, path);
+                e.Graphics.DrawPath(borderPen, path);
+            }
+
+            private static System.Drawing.Drawing2D.GraphicsPath CreateRoundedRectanglePath(Rectangle rectangle, int radius)
+            {
+                var path = new System.Drawing.Drawing2D.GraphicsPath();
+                var diameter = radius * 2;
+                var arc = new Rectangle(rectangle.Location, new Size(diameter, diameter));
+
+                path.AddArc(arc, 180, 90);
+                arc.X = rectangle.Right - diameter;
+                path.AddArc(arc, 270, 90);
+                arc.Y = rectangle.Bottom - diameter;
+                path.AddArc(arc, 0, 90);
+                arc.X = rectangle.Left;
+                path.AddArc(arc, 90, 90);
+                path.CloseFigure();
+                return path;
+            }
+        }
 
         private static ToolStripButton CreateSearchToolbarButton(Image image, string toolTipText) =>
             new()

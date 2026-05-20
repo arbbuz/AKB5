@@ -26,6 +26,12 @@ Last updated: `2026-05-20`
 - When a branch has just moved to a new focused stream such as `Net`, update `docs/codex-handoff.md`, `docs/plans.md`, `AGENTS.md`, and `Roadmap.md` together or later sessions may resume from an old `to`/`card` priority.
 - For manual network-passport entry, prefer add-from-similar drafts that copy stable context fields but leave unique identity/address fields blank; this speeds repeated entry without creating accidental duplicates.
 - Narrow inline duplicate hints belong in the row being reviewed, not in a separate issue panel, while the `Net` stream is still manual-entry/manual-review first.
+- After a Net package is accepted, update the handoff baseline to the accepted commit immediately; stale `awaiting manual review` wording can misroute the next chat even when `HEAD` and `origin/Net` are already advanced.
+- When logic work and UI/UX polishing need to proceed separately, use a dedicated `git worktree` so the accepted `Net` baseline can stay clean while the design branch carries review-oriented WIP.
+- For wrapped WinForms action rows, offscreen layout-smoke should assert geometry and non-overlap, not just control existence; the `Фильтр` label regression showed that visible controls can still be clipped by the next group.
+- Build the manual-review executable from the worktree that contains the diff being reviewed; after a branch/worktree split, an older artifact from the parent worktree can point reviewers at stale code.
+- For Network passport `Проверка` rows, table-level polish should make review rows visually findable with subtle highlighting and enough column width before proposing a separate issue/problem panel.
+- On dense WinForms object trees, 20px icons can become unreadable on large monitors; when increasing tree icon size, adjust `ImageList.ImageSize`, `TreeView.ItemHeight`, and `TreeView.Indent` together and verify the generated icon bitmaps are non-blank.
 
 ## Planner and workbook logic
 

@@ -1,8 +1,8 @@
 # Roadmap
 
 Last updated: 2026-05-20
-Branch baseline: `to` for completed roadmap history; current active task branch: `Net`
-Implementation status: `Phase 0 complete on to, Phase 1 complete on to, Phase 2 complete on to, Phase 3 complete on to, Phase 3B complete on to, Phase 4 complete on to, Phase 5 complete on to, Phase 6 complete on to, Phase 7A complete on to, Phase 7B complete on to, Phase 7C complete on to, Phase 7D complete on to, Phase 7E first slice complete on to, Phase 7E.2 source exchange complete on to, Phase 7E mass-editing grid complete on to, major ТО2/ТО3 split complete on to, norm import coverage complete on to, phase7e-annual-norm-import accepted, phase7g-annual-norm-hidden-rows committed/pushed on to, Phase 7F production-calendar configuration complete on to, Phase 7F.1 PDF calendar import complete on to, Phase 11A accepted, production-calendar Russian date format accepted, Phase 11B equipment catalog UI complete on to, Phase 11C object template model accepted, Phase 11D create from template accepted, Phase 11E save existing object as template accepted, Phase 11F apply template with preview accepted, Phase 11G template import/export complete on to, Phase 12S0 SQLite storage plan approved, Phase 12S1-S8 storage redesign complete on to, menu rework first iteration committed/pushed on to, portable-first SQLite .akb storage is the current build baseline, Net network passport manual-review ergonomics accepted/committed/pushed as 207b6b1, local Net manual-entry hints package implemented and awaiting manual review`
+Branch baseline: `to` for completed roadmap history; accepted Network logic baseline: `Net` at `b2ea12e`; current active UI/UX worktree branch: `design/network-ui-polish` based on `a89e593`
+Implementation status: completed roadmap history is on `to` through `Phase 7F.1`, `Phase 11G`, `Phase 12S8`, and the first menu rework; portable-first SQLite `.akb` storage is the current build baseline; accepted `Net` network-passport baseline is `b2ea12e Enforce network passport mutation validation`; current local design work includes the validated uncommitted Network review-filter/UI polish package plus enlarged object-tree icons.
 
 ## Goal
 
@@ -58,37 +58,21 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - User-facing interface text on `to` is now normalized to Russian; new UI work should keep Russian-only labels, prompts, and status text.
 - `Phase 6` is complete on `to`: `Network` now uses typed file references, image preview inside the form, and `Open original` for server/file paths.
 - The `Phase 6` `Network` screen uses separate `Файлы` and `Предпросмотр` tabs; node load returns to `Файлы`, and automatic switching to `Предпросмотр` is not part of the accepted UX.
-- On 2026-05-19 and 2026-05-20, branch `Net` extends the network work with typed topology/passport storage, CRUD for devices/interfaces/connections on `Сеть -> Паспорт`, manual scheme-entry fields, editable protocol presets (`PROFINET`, `PROFIBUS`, `MPI`), editable medium presets (`Медь`, `Оптика`), local passport filtering, scroll-safe network add/edit dialogs, PDF network scheme references classified as `PDF` with metadata/`Open original` behavior, visible manual-review columns, copy-friendly row/context-menu actions, filtered visible-table export, persistent selected-row visibility, and row tooltips.
+- On 2026-05-19 and 2026-05-20, branch `Net` extends the network work with typed topology/passport storage, CRUD for devices/interfaces/connections on `Сеть -> Паспорт`, manual scheme-entry fields, editable protocol presets (`PROFINET`, `PROFIBUS`, `MPI`), editable medium presets (`Медь`, `Оптика`), local passport filtering, scroll-safe network add/edit dialogs, PDF network scheme references classified as `PDF` with metadata/`Open original` behavior, visible manual-review columns, copy-friendly row/context-menu actions, filtered visible-table export, persistent selected-row visibility, row tooltips, add-similar manual-entry actions, and inline `Проверка` duplicate hints.
 - The accepted `Net` manual-review ergonomics package is committed and pushed as `207b6b1 Improve network passport review ergonomics`.
-- A local uncommitted `Net` manual-entry hints package adds add-similar actions and inline `Проверка` duplicate hints; it is implemented and verified, but not manually accepted or pushed.
+- The accepted `Net` manual-entry hints package is committed and pushed as `a89e593 Improve network passport manual entry hints`.
+- The accepted `Net` mutation-service validation package is committed and pushed as `b2ea12e Enforce network passport mutation validation`.
+- Current Network UI/UX polishing is isolated in `C:\Users\Olga\AKB5-design` on `design/network-ui-polish`; the main `C:\Users\Olga\AKB5` worktree is intended to stay clean on `Net` for future logic work and should be rechecked before use.
+- The current uncommitted design package adds Network passport review-only filtering/copy ergonomics, warning-row counters, subtle warning-row highlighting, wider `Проверка` columns, and the layout fix that keeps the `Фильтр` row visible above the `Устройства` group; the current manual-review artifact is built from `C:\Users\Olga\AKB5-design`.
 - The current `Net` scope deliberately excludes OCR/PDF auto-import, PRONETA/CSV import, live scan, plan/fact comparison, data-quality issue panels, and AKB5-driven IP/PROFINET-name assignment.
+- The current design-branch package also stays inside manual-entry/manual-review ergonomics; do not broaden it into OCR/PDF auto-import, PRONETA/CSV import, live scan, plan/fact comparison, issue panels, IP assignment, PROFINET-name assignment, or embedded PDF preview without a new explicit requirement.
 - On 2026-04-28, the current `Phase 6` worktree passed verification build, passed `dotnet test` (`177/177`), and `asutpKB.exe` startup was rechecked after the final `Network` UX fixes.
 - Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition, but further workbook modernization is no longer the preferred next phase.
 - Current CI workflow also verifies `dotnet format --verify-no-changes` for the app project, core project, and tests before `build` / `test`.
 - The maintenance-schedule generation roadmap through `Phase 7F.1` is complete on `to`; `phase7g-annual-norm-hidden-rows` is committed/pushed as `7a4895d`; `Phase 11B` equipment catalog UI is complete on `to`; `Phase 11C` through `Phase 11F` object-template slices are accepted and committed/pushed; `Phase 11G` is accepted and committed/pushed; `Phase 12S0` SQLite storage plan is approved; `Phase 12S1` through `Phase 12S8` are accepted and committed/pushed on `to`; menu rework first iteration is committed/pushed as `8dfffbd`.
 - Portable-first storage follow-up keeps `.akb` as the main format, remembers the chosen database path in `akb5.settings.json`, can copy the old AppData `.akb` into the selected path on first run, and creates external timestamped `.akb` backups under `backups\yyyy-MM-dd\` before overwriting an existing SQLite database.
-- `Phase 7A` is complete on `to`: `Lvl2` inventory number support now follows visible hierarchy level, typed `MaintenanceScheduleProfiles` are persisted in JSON/session state, and engineering nodes expose a `График ТО` tab with per-node `ТО1` / `ТО2` / `ТО3` hour norms.
-- `Phase 7B` is complete on `to`: Russian production-calendar calculation for `5/2` workdays is available as a reusable service.
-- `Phase 7F` is complete on `to`: production-calendar years are persisted in JSON config, editable from the Russian UI, importable from JSON, and consumed by maintenance schedule generation.
-- `Phase 7C` is complete on `to`: the resolver and monthly planner generate month demand from `ТО1` / `ТО2` / `ТО3` norms and compare it against the selected monthly workshop budget.
-- `Phase 7D` is complete on `to`: the yearly workbook export is template-driven, exposed in the UI, and can import maintenance norms from monthly `123.xlsx`; `phase7e-annual-norm-import` also supports annual workbooks with the same structure as `456.xlsx`.
-- The first `Phase 7D` follow-up slice is complete on `to`: workshop-level `Импорт норм ТО...` and `Сформировать график ТО за месяц...` commands now live in the top-level `Файл` menu instead of the per-node `График ТО` tab.
-- The second `Phase 7D` follow-up slice is complete on `to`: `Файл -> Сформировать годовой график ТО...` generates all 12 months in one pass by orchestrating the existing monthly engine.
-- The third `Phase 7D` follow-up slice is complete on `to`: `Файл -> Пересчитать график ТО до конца года...` opens an existing yearly workbook, preserves earlier month sheets, and rewrites only the selected start month through December.
-- The first `Phase 7E` slice is complete on `to`: maintenance profiles can store manual 12-month `ТО1` / `ТО2` / `ТО3` placement in JSON, the profile dialog can edit it, and the resolver uses it before falling back to deterministic offsets.
-- On 2026-04-30, the current `Phase 7E` worktree passed `dotnet format --verify-no-changes`, verification build, and `dotnet test` (`250/250`) using isolated output paths.
-- On 2026-05-04, the accepted `Phase 7E` follow-up direction is `Phase 7E.2`: Excel export/import of the yearly schedule source before any dedicated in-app mass-editing grid.
-- `Phase 7E.2` is complete on `to`: it exports/imports a separate source workbook with `OwnerNodeId` and editable `M01`..`M12` values; import changes only `YearScheduleEntries` and does not change norms, inclusion flags, or production-calendar settings.
-- On 2026-05-04, `phase7e-year-schedule-source-exchange` passed `dotnet format --verify-no-changes`, verification build, and `dotnet test` (`255/255`) using isolated output paths.
-- On 2026-05-04, the manual-review `Memory stream is not expandable` workbook generation error was fixed and `phase7e-workbook-expandable-stream-fix` passed verification build and `dotnet test` (`256/256`).
-- The `Phase 7E` mass-editing grid adds `Файл -> Редактировать источник годового графика ТО...` for current-workshop profile rows; it edits only month placement and leaves norms, inclusion flags, and production calendars untouched.
-- On 2026-05-04, `phase7e-year-source-mass-edit-grid` passed `dotnet format --verify-no-changes`, verification build, and `dotnet test` (`261/261`) using isolated output paths.
-- The major-work split follow-up splits one `ТО2` / `ТО3` occurrence into assignments of up to 8 hours and spreads those assignments across working days when possible; the selected monthly workshop budget remains the hard constraint and production-calendar configuration is unchanged.
-- On 2026-05-04, `phase7e-major-work-split-days` passed `dotnet format --verify-no-changes`, targeted monthly-planner tests, verification build, and `dotnet test` (`262/262`) using isolated output paths.
-- The maintenance-norm import coverage follow-up improves matching for leading-zero inventory numbers, `ё/е`, parenthetical equipment names from `123.xlsx`, and reports unresolved rows with source sheet/row context.
-- On 2026-05-04, `phase7e-norm-import-coverage` passed `dotnet format --verify-no-changes`, targeted norm-import tests, verification build, and `dotnet test` (`264/264`) using isolated output paths.
-- The `phase7e-annual-norm-import` follow-up lets `ТО -> Импорт норм ТО...` accept annual workbooks by structure, with `456.xlsx` as the reference example; it extracts per-occurrence `ТО1` / `ТО2` / `ТО3` hours from the annual plan columns, applies `YearScheduleEntries`, keeps `123.xlsx` compatibility, passed verification build and `dotnet test` (`334/334`) on 2026-05-07, and passed manual review.
-- `phase7g-annual-norm-hidden-rows` skips hidden annual workbook rows before parsing headers or equipment rows, because hidden rows in `456.xlsx` represent retired equipment; it passed verification build and `dotnet test` (`335/335`) on 2026-05-07 and was committed/pushed on `to` as `7a4895d Fix annual maintenance norm import totals`.
+- Maintenance schedule work through `Phase 7F.1` is complete on `to`: it includes typed maintenance profiles, Russian production calendars, monthly/yearly workbook generation, future-month recalculation, yearly source exchange/editing, annual norm import, major-work splitting, and hidden-row handling for retired equipment.
+- `phase7g-annual-norm-hidden-rows` is committed/pushed on `to` as `7a4895d Fix annual maintenance norm import totals`.
 - Menu rework first iteration is complete on `to`: top menu commands are regrouped, snapshots/history have one entry, `ТО` is grouped, tree context templates are under `Шаблоны`, move confirmation shows old/new parent and `LvlX -> LvlY`, and dangerous operations offer protective snapshots. It passed `menu-rework-stage6` verification (`340/340`) and was committed/pushed as `8dfffbd Rework menu structure and safety prompts`.
 - `Phase 7F` production-calendar configuration is complete on `to`: `Config.ProductionCalendarYears` stores year-specific additional non-working days, `Файл` exposes calendar edit/import commands, and schedule generation resolves the calendar from the saved configuration.
 - On 2026-05-04, `phase7f-production-calendar-config` passed `dotnet format --verify-no-changes`, verification build, and `dotnet test` (`270/270`) using isolated output paths.
@@ -885,13 +869,12 @@ Completed on `to`:
 31. Phase 12S6. Restore selected snapshot, accepted and committed/pushed on `to`
 32. Phase 12S7. Snapshot comparison, accepted and committed/pushed on `to`
 33. Phase 12S8. Change history, accepted and committed/pushed on `to`
-34. `phase7e-annual-norm-import`, accepted after manual review
-35. `phase7g-annual-norm-hidden-rows`, committed/pushed on `to`
-36. Menu rework first iteration, committed/pushed on `to`
+34. Annual norm import and hidden-row handling, complete on `to`
+35. Menu rework first iteration, committed/pushed on `to`
 
 Approved next:
 
-1. Manually review the current local `Net` manual-entry hints package before coding the next direction.
+1. Refresh validation for the current uncommitted design package, then manually review it from `C:\Users\Olga\AKB5-design`.
 
 Not active:
 
@@ -899,26 +882,20 @@ Not active:
 
 ## AI handoff / next-dialog instructions
 
-When a new AI session starts, read in this exact order:
-
-1. `AGENTS.md`
-2. `docs/codex-handoff.md`
-3. `Roadmap.md`
-
-Then continue from the next explicitly prioritized task only. If no task is prioritized, do not invent a new phase.
+For a new AI session, start with the light context set from `AGENTS.md`: `AGENTS.md`, `docs/codex-handoff.md`, and `docs/plans.md`, then run the git status check. Treat `Roadmap.md` as a reference file: open only the relevant section when selecting or changing a roadmap direction.
 
 Recommended prompt for the next AI session:
 
 ```text
-Read AGENTS.md, docs/codex-handoff.md, docs/plans.md, docs/decision-log.md, docs/lessons-learned.md, and Roadmap.md.
-We are on branch Net. Verify with git status --short --branch and git log --oneline --decorate -5 before planning edits.
-HEAD and origin/Net should be 207b6b1 Improve network passport review ergonomics.
-The latest Net manual-review ergonomics package is accepted, committed, and pushed.
-There is a newer local package awaiting manual review: add-similar actions plus inline duplicate hints.
+Read AGENTS.md, docs/codex-handoff.md, and docs/plans.md. Use decision-log.md, lessons-learned.md, and Roadmap.md only for targeted lookups if the next task needs them.
+We are in C:\Users\Olga\AKB5-design on branch design/network-ui-polish. Verify with git status --short --branch and git log --oneline --decorate -5 before planning edits; also check git -C C:\Users\Olga\AKB5 status --short --branch before coordinating with Net.
+Design HEAD should be a89e593 Improve network passport manual entry hints; parent Net/origin/Net should be b2ea12e Enforce network passport mutation validation.
+The latest Net mutation-service validation package is accepted, committed, and pushed.
+The design worktree has a validated uncommitted Network review-filter/UI polish package plus enlarged tree icons ready for manual review.
 Do not commit or push future changes without an explicit current-chat request.
 Do not run interactive UI-smoke unless explicitly asked; use non-invasive/offscreen layout-smoke for Network UI changes.
 Do not start OCR/PDF auto-import, PRONETA/CSV import, live scan, plan/fact comparison, data-quality issue panels, AKB5-driven IP/PROFINET-name assignment, or embedded PDF preview.
-Continue from manual review of the local Net manual-entry hints package before selecting the next direction.
+Continue only inside manual-entry/manual-review ergonomics unless the user explicitly changes scope.
 ```
 
 ## Immediate next step
@@ -926,7 +903,6 @@ Continue from manual review of the local Net manual-entry hints package before s
 Continue from the next explicitly prioritized task:
 
 - stay on `Net` for the current network passport stream;
-- hand off the current local Net manual-entry hints package for manual review;
-- preserve the completed `Phase 7A` / `7B` / `7C` / `7D` / `7E` / `7F` / `7F.1` workflow as the current baseline;
+- use the current design-worktree artifact for manual review of the uncommitted Network review-filter/UI polish package and enlarged tree icons;
 - keep workbook `v3` readable as legacy, but do not expand it as the main feature direction;
 - keep SQLite single-file storage, JSON import/export and first-launch migration compatibility, and Russian-only UI intact during future work.

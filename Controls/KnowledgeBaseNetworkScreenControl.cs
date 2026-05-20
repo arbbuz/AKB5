@@ -13,6 +13,8 @@ namespace AsutpKnowledgeBase
 
     public sealed class KnowledgeBaseNetworkScreenControl : UserControl
     {
+        private static readonly Color ReviewWarningBackColor = Color.FromArgb(255, 248, 225);
+
         private sealed class ListItemTag
         {
             public KnowledgeBaseNetworkSelectionKind SelectionKind { get; init; }
@@ -40,8 +42,10 @@ namespace AsutpKnowledgeBase
         private Button _btnDeleteConnection = null!;
         private Button _btnCopyConnection = null!;
         private TextBox _txtPassportFilter = null!;
+        private CheckBox _chkPassportWarningsOnly = null!;
         private Button _btnClearPassportFilter = null!;
         private Button _btnCopyVisiblePassport = null!;
+        private Button _btnCopyVisiblePassportWarnings = null!;
         private Label _lblPassportFilterStatus = null!;
         private Button _btnAdd = null!;
         private Button _btnOpenSelected = null!;
@@ -66,6 +70,7 @@ namespace AsutpKnowledgeBase
         private Label _lblPreviewStatus = null!;
         private PictureBox _picPreview = null!;
         private Label _lblPreviewEmptyState = null!;
+        private ToolTip _toolTip = null!;
 
         private KnowledgeBaseNetworkState _currentState = new();
         private bool _isSynchronizingSelection;
@@ -74,6 +79,11 @@ namespace AsutpKnowledgeBase
         public KnowledgeBaseNetworkScreenControl()
         {
             Dock = DockStyle.Fill;
+
+            _toolTip = new ToolTip
+            {
+                ShowAlways = true
+            };
 
             var layout = new TableLayoutPanel
             {
@@ -181,7 +191,10 @@ namespace AsutpKnowledgeBase
         protected override void Dispose(bool disposing)
         {
             if (disposing)
+            {
                 ClearPreviewImage();
+                _toolTip?.Dispose();
+            }
 
             base.Dispose(disposing);
         }
@@ -273,14 +286,16 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Top,
                 AutoSize = true,
-                ColumnCount = 4,
-                RowCount = 1,
+                ColumnCount = 3,
+                RowCount = 3,
                 Margin = new Padding(0, 0, 0, 10)
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 210F));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             layout.Controls.Add(CreateValueLabel("Фильтр"), 0, 0);
 
@@ -288,29 +303,52 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Fill,
                 AccessibleName = "Фильтр паспорта",
-                PlaceholderText = "IP / протокол / среда / кабель",
+                PlaceholderText = "IP / устройство / проверка / кабель",
                 Margin = new Padding(0, 0, 8, 8)
             };
             _txtPassportFilter.TextChanged += (_, _) => HandlePassportFilterChanged();
+            _toolTip.SetToolTip(
+                _txtPassportFilter,
+                "Фильтрует устройства, интерфейсы и соединения по видимым полям, включая колонку \"Проверка\".");
             layout.Controls.Add(_txtPassportFilter, 1, 0);
 
             _btnClearPassportFilter = CreateActionButton("Сбросить");
-            _btnClearPassportFilter.Click += (_, _) => _txtPassportFilter.Clear();
+            _btnClearPassportFilter.Click += (_, _) => ClearPassportFilter();
+            _toolTip.SetToolTip(_btnClearPassportFilter, "Очищает текстовый фильтр и режим \"Только проверка\".");
+            layout.Controls.Add(_btnClearPassportFilter, 2, 0);
+
+            _chkPassportWarningsOnly = new CheckBox
+            {
+                Text = "Только проверка",
+                AutoSize = true,
+                Margin = new Padding(0, 3, 8, 8)
+            };
+            _chkPassportWarningsOnly.CheckedChanged += (_, _) => HandlePassportFilterChanged();
+            _toolTip.SetToolTip(_chkPassportWarningsOnly, "Показывает только строки, где заполнена колонка \"Проверка\".");
 
             _btnCopyVisiblePassport = CreateActionButton("Копировать видимое");
             _btnCopyVisiblePassport.Click += (_, _) => CopyVisiblePassportRows();
+            _toolTip.SetToolTip(_btnCopyVisiblePassport, "Копирует все строки, оставшиеся после текущего фильтра.");
+
+            _btnCopyVisiblePassportWarnings = CreateActionButton("Копировать проверку");
+            _btnCopyVisiblePassportWarnings.Click += (_, _) => CopyVisiblePassportWarnings();
+            _toolTip.SetToolTip(
+                _btnCopyVisiblePassportWarnings,
+                "Копирует только видимые строки с заполненной колонкой \"Проверка\".");
 
             var filterActions = new FlowLayoutPanel
             {
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Top,
                 AutoSize = true,
                 FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
+                WrapContents = true,
                 Margin = new Padding(0)
             };
-            filterActions.Controls.Add(_btnClearPassportFilter);
+            filterActions.Controls.Add(_chkPassportWarningsOnly);
             filterActions.Controls.Add(_btnCopyVisiblePassport);
-            layout.Controls.Add(filterActions, 2, 0);
+            filterActions.Controls.Add(_btnCopyVisiblePassportWarnings);
+            layout.Controls.Add(filterActions, 1, 1);
+            layout.SetColumnSpan(filterActions, 2);
 
             _lblPassportFilterStatus = new Label
             {
@@ -320,7 +358,8 @@ namespace AsutpKnowledgeBase
                 TextAlign = ContentAlignment.MiddleLeft,
                 Margin = new Padding(0, 3, 0, 8)
             };
-            layout.Controls.Add(_lblPassportFilterStatus, 3, 0);
+            layout.Controls.Add(_lblPassportFilterStatus, 0, 2);
+            layout.SetColumnSpan(_lblPassportFilterStatus, 3);
 
             return layout;
         }
@@ -554,6 +593,7 @@ namespace AsutpKnowledgeBase
         private int PopulateDeviceEntries(string preferredSelectionId)
         {
             string filterText = GetPassportFilterText();
+            bool warningsOnly = HasPassportWarningsOnly;
             int visibleCount = 0;
 
             _lvDevices.BeginUpdate();
@@ -562,7 +602,7 @@ namespace AsutpKnowledgeBase
                 _lvDevices.Items.Clear();
                 foreach (var entry in _currentState.DeviceStates)
                 {
-                    if (!DeviceMatchesFilter(entry, filterText))
+                    if (!DeviceMatchesFilter(entry, filterText, warningsOnly))
                         continue;
 
                     var item = new ListViewItem(
@@ -587,6 +627,7 @@ namespace AsutpKnowledgeBase
                             ItemId = entry.NetworkDeviceId
                         }
                     };
+                    ApplyReviewWarningStyle(item, entry.WarningText);
 
                     _lvDevices.Items.Add(item);
                     visibleCount++;
@@ -602,7 +643,7 @@ namespace AsutpKnowledgeBase
             bool hasEntries = visibleCount > 0;
             _lvDevices.Visible = hasEntries;
             _lblDevicesEmptyState.Visible = !hasEntries;
-            _lblDevicesEmptyState.Text = HasPassportFilter && _currentState.DeviceStates.Count > 0
+            _lblDevicesEmptyState.Text = HasActivePassportFilter && _currentState.DeviceStates.Count > 0
                 ? "По фильтру ничего не найдено."
                 : _currentState.SupportsPassportEditing
                 ? "Устройства сетевого паспорта пока не добавлены."
@@ -613,6 +654,7 @@ namespace AsutpKnowledgeBase
         private int PopulateInterfaceEntries(string preferredSelectionId)
         {
             string filterText = GetPassportFilterText();
+            bool warningsOnly = HasPassportWarningsOnly;
             int visibleCount = 0;
 
             _lvInterfaces.BeginUpdate();
@@ -621,7 +663,7 @@ namespace AsutpKnowledgeBase
                 _lvInterfaces.Items.Clear();
                 foreach (var entry in _currentState.InterfaceStates)
                 {
-                    if (!InterfaceMatchesFilter(entry, filterText))
+                    if (!InterfaceMatchesFilter(entry, filterText, warningsOnly))
                         continue;
 
                     var item = new ListViewItem(
@@ -648,6 +690,7 @@ namespace AsutpKnowledgeBase
                             ItemId = entry.NetworkInterfaceId
                         }
                     };
+                    ApplyReviewWarningStyle(item, entry.WarningText);
 
                     _lvInterfaces.Items.Add(item);
                     visibleCount++;
@@ -663,7 +706,7 @@ namespace AsutpKnowledgeBase
             bool hasEntries = visibleCount > 0;
             _lvInterfaces.Visible = hasEntries;
             _lblInterfacesEmptyState.Visible = !hasEntries;
-            _lblInterfacesEmptyState.Text = HasPassportFilter && _currentState.InterfaceStates.Count > 0
+            _lblInterfacesEmptyState.Text = HasActivePassportFilter && _currentState.InterfaceStates.Count > 0
                 ? "По фильтру ничего не найдено."
                 : _currentState.DeviceCount > 0
                 ? "Интерфейсы и IP-адреса пока не добавлены."
@@ -674,6 +717,7 @@ namespace AsutpKnowledgeBase
         private int PopulateConnectionEntries(string preferredSelectionId)
         {
             string filterText = GetPassportFilterText();
+            bool warningsOnly = HasPassportWarningsOnly;
             int visibleCount = 0;
 
             _lvConnections.BeginUpdate();
@@ -682,7 +726,7 @@ namespace AsutpKnowledgeBase
                 _lvConnections.Items.Clear();
                 foreach (var entry in _currentState.ConnectionStates)
                 {
-                    if (!ConnectionMatchesFilter(entry, filterText))
+                    if (!ConnectionMatchesFilter(entry, filterText, warningsOnly))
                         continue;
 
                     var item = new ListViewItem(
@@ -707,6 +751,7 @@ namespace AsutpKnowledgeBase
                             ItemId = entry.NetworkConnectionId
                         }
                     };
+                    ApplyReviewWarningStyle(item, entry.WarningText);
 
                     _lvConnections.Items.Add(item);
                     visibleCount++;
@@ -722,7 +767,7 @@ namespace AsutpKnowledgeBase
             bool hasEntries = visibleCount > 0;
             _lvConnections.Visible = hasEntries;
             _lblConnectionsEmptyState.Visible = !hasEntries;
-            _lblConnectionsEmptyState.Text = HasPassportFilter && _currentState.ConnectionStates.Count > 0
+            _lblConnectionsEmptyState.Text = HasActivePassportFilter && _currentState.ConnectionStates.Count > 0
                 ? "По фильтру ничего не найдено."
                 : _currentState.InterfaceCount >= 2
                 ? "Соединения между интерфейсами пока не добавлены."
@@ -779,7 +824,19 @@ namespace AsutpKnowledgeBase
             UpdateButtonStates();
         }
 
+        private void ClearPassportFilter()
+        {
+            if (_chkPassportWarningsOnly.Checked)
+                _chkPassportWarningsOnly.Checked = false;
+
+            _txtPassportFilter.Clear();
+        }
+
         private bool HasPassportFilter => !string.IsNullOrWhiteSpace(GetPassportFilterText());
+
+        private bool HasPassportWarningsOnly => _chkPassportWarningsOnly.Checked;
+
+        private bool HasActivePassportFilter => HasPassportFilter || HasPassportWarningsOnly;
 
         private string GetPassportFilterText() => _txtPassportFilter.Text.Trim();
 
@@ -788,14 +845,52 @@ namespace AsutpKnowledgeBase
             int visibleInterfaceCount,
             int visibleConnectionCount)
         {
-            _btnClearPassportFilter.Enabled = HasPassportFilter;
-            _btnCopyVisiblePassport.Enabled = visibleDeviceCount + visibleInterfaceCount + visibleConnectionCount > 0;
-            _lblPassportFilterStatus.Text = HasPassportFilter
-                ? $"Найдено: {visibleDeviceCount}/{_currentState.DeviceStates.Count} | {visibleInterfaceCount}/{_currentState.InterfaceStates.Count} | {visibleConnectionCount}/{_currentState.ConnectionStates.Count}"
-                : string.Empty;
+            int visibleRowCount = visibleDeviceCount + visibleInterfaceCount + visibleConnectionCount;
+            int visibleWarningCount =
+                CountVisibleWarnings(_lvDevices, warningColumnIndex: 8) +
+                CountVisibleWarnings(_lvInterfaces, warningColumnIndex: 11) +
+                CountVisibleWarnings(_lvConnections, warningColumnIndex: 9);
+
+            _btnClearPassportFilter.Enabled = HasActivePassportFilter;
+            _btnCopyVisiblePassport.Enabled = visibleRowCount > 0;
+            _btnCopyVisiblePassportWarnings.Enabled = visibleWarningCount > 0;
+            _chkPassportWarningsOnly.Enabled = _currentState.ReviewWarningCount > 0 || HasPassportWarningsOnly;
+            _lblPassportFilterStatus.Text = BuildPassportFilterStatus(
+                visibleDeviceCount,
+                visibleInterfaceCount,
+                visibleConnectionCount,
+                visibleWarningCount);
         }
 
-        private static bool DeviceMatchesFilter(KnowledgeBaseNetworkDeviceState entry, string filterText) =>
+        private string BuildPassportFilterStatus(
+            int visibleDeviceCount,
+            int visibleInterfaceCount,
+            int visibleConnectionCount,
+            int visibleWarningCount)
+        {
+            if (HasActivePassportFilter)
+            {
+                return
+                    $"Показано: устройства {visibleDeviceCount}/{_currentState.DeviceStates.Count}, " +
+                    $"интерфейсы {visibleInterfaceCount}/{_currentState.InterfaceStates.Count}, " +
+                    $"соединения {visibleConnectionCount}/{_currentState.ConnectionStates.Count}; " +
+                    $"строк с проверкой {visibleWarningCount}/{_currentState.ReviewWarningCount}.";
+            }
+
+            if (_currentState.HasPassportRows)
+            {
+                return
+                    $"Всего: устройства {_currentState.DeviceStates.Count}, " +
+                    $"интерфейсы {_currentState.InterfaceStates.Count}, " +
+                    $"соединения {_currentState.ConnectionStates.Count}; " +
+                    $"строк с проверкой {_currentState.ReviewWarningCount}.";
+            }
+
+            return string.Empty;
+        }
+
+        private static bool DeviceMatchesFilter(KnowledgeBaseNetworkDeviceState entry, string filterText, bool warningsOnly) =>
+            (!warningsOnly || HasWarning(entry.WarningText)) &&
             MatchesFilter(
                 filterText,
                 entry.NameText,
@@ -813,7 +908,8 @@ namespace AsutpKnowledgeBase
                 entry.WarningText,
                 entry.NotesText);
 
-        private static bool InterfaceMatchesFilter(KnowledgeBaseNetworkInterfaceState entry, string filterText) =>
+        private static bool InterfaceMatchesFilter(KnowledgeBaseNetworkInterfaceState entry, string filterText, bool warningsOnly) =>
+            (!warningsOnly || HasWarning(entry.WarningText)) &&
             MatchesFilter(
                 filterText,
                 entry.DeviceNameText,
@@ -832,7 +928,8 @@ namespace AsutpKnowledgeBase
                 entry.WarningText,
                 entry.NotesText);
 
-        private static bool ConnectionMatchesFilter(KnowledgeBaseNetworkConnectionState entry, string filterText) =>
+        private static bool ConnectionMatchesFilter(KnowledgeBaseNetworkConnectionState entry, string filterText, bool warningsOnly) =>
+            (!warningsOnly || HasWarning(entry.WarningText)) &&
             MatchesFilter(
                 filterText,
                 entry.EndpointAText,
@@ -865,6 +962,26 @@ namespace AsutpKnowledgeBase
             }
 
             return false;
+        }
+
+        private static int CountVisibleWarnings(ListView listView, int warningColumnIndex)
+        {
+            int count = 0;
+            foreach (ListViewItem item in listView.Items)
+            {
+                if (HasWarning(GetSubItemText(item, warningColumnIndex)))
+                    count++;
+            }
+
+            return count;
+        }
+
+        private static bool HasWarning(string? text) => CanCopyText(text);
+
+        private static void ApplyReviewWarningStyle(ListViewItem item, string warningText)
+        {
+            if (HasWarning(warningText))
+                item.BackColor = ReviewWarningBackColor;
         }
 
         private void EnsureFileSelection()
@@ -1252,6 +1369,18 @@ namespace AsutpKnowledgeBase
             CopyPassportText(string.Join(Environment.NewLine + Environment.NewLine, sections), "видимые строки паспорта");
         }
 
+        private void CopyVisiblePassportWarnings()
+        {
+            var sections = new List<string>();
+            AppendVisibleWarningSection(sections, "Устройства", _lvDevices, 8, 0, 4, 5);
+            AppendVisibleWarningSection(sections, "Интерфейсы", _lvInterfaces, 11, 0, 1, 2);
+            AppendVisibleWarningSection(sections, "Соединения", _lvConnections, 9, 0, 1, 2);
+            if (sections.Count == 0)
+                return;
+
+            CopyPassportText(string.Join(Environment.NewLine + Environment.NewLine, sections), "проверка видимых строк");
+        }
+
         private void CopyVisibleListRows(ListView listView, string copiedPart) =>
             CopyPassportText(BuildVisibleListText(listView), copiedPart);
 
@@ -1275,6 +1404,32 @@ namespace AsutpKnowledgeBase
                 sections.Add(title + Environment.NewLine + text);
         }
 
+        private static void AppendVisibleWarningSection(
+            ICollection<string> sections,
+            string title,
+            ListView listView,
+            int warningColumnIndex,
+            params int[] contextColumnIndexes)
+        {
+            var lines = new List<string>
+            {
+                "Контекст\tПроверка"
+            };
+
+            foreach (ListViewItem item in listView.Items)
+            {
+                string warning = GetSubItemText(item, warningColumnIndex);
+                if (!HasWarning(warning))
+                    continue;
+
+                string context = BuildWarningContextText(item, contextColumnIndexes);
+                lines.Add(context + "\t" + warning);
+            }
+
+            if (lines.Count > 1)
+                sections.Add(title + Environment.NewLine + string.Join(Environment.NewLine, lines));
+        }
+
         private static string BuildVisibleListText(ListView listView)
         {
             if (listView.Items.Count == 0)
@@ -1289,6 +1444,21 @@ namespace AsutpKnowledgeBase
                 lines.Add(BuildListItemText(item));
 
             return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string BuildWarningContextText(ListViewItem item, IReadOnlyList<int> contextColumnIndexes)
+        {
+            var values = new List<string>(contextColumnIndexes.Count);
+            foreach (int columnIndex in contextColumnIndexes)
+            {
+                string value = GetSubItemText(item, columnIndex);
+                if (CanCopyText(value))
+                    values.Add(value);
+            }
+
+            return values.Count == 0
+                ? "-"
+                : string.Join(" / ", values);
         }
 
         private static string BuildListHeaderText(ListView listView)
@@ -1308,6 +1478,11 @@ namespace AsutpKnowledgeBase
 
             return string.Join("\t", values);
         }
+
+        private static string GetSubItemText(ListViewItem item, int index) =>
+            index >= 0 && index < item.SubItems.Count
+                ? item.SubItems[index].Text
+                : string.Empty;
 
         private static string BuildDeviceSummaryText(KnowledgeBaseNetworkDeviceState device) =>
             string.Join(
@@ -1592,7 +1767,7 @@ namespace AsutpKnowledgeBase
             listView.Columns.Add("MAC", 145);
             listView.Columns.Add("Место", 150);
             listView.Columns.Add("Карточка", 150);
-            listView.Columns.Add("Проверка", 150);
+            listView.Columns.Add("Проверка", 210);
             listView.Columns.Add("Инт.", 55);
             listView.Columns.Add("Связи", 55);
             return listView;
@@ -1612,7 +1787,7 @@ namespace AsutpKnowledgeBase
             listView.Columns.Add("Скорость", 90);
             listView.Columns.Add("VLAN", 70);
             listView.Columns.Add("MAC", 145);
-            listView.Columns.Add("Проверка", 150);
+            listView.Columns.Add("Проверка", 210);
             listView.Columns.Add("Примечание", 220);
             return listView;
         }
@@ -1629,7 +1804,7 @@ namespace AsutpKnowledgeBase
             listView.Columns.Add("Длина", 80);
             listView.Columns.Add("Трасса / место", 160);
             listView.Columns.Add("Статус", 100);
-            listView.Columns.Add("Проверка", 150);
+            listView.Columns.Add("Проверка", 210);
             listView.Columns.Add("Примечание", 220);
             return listView;
         }

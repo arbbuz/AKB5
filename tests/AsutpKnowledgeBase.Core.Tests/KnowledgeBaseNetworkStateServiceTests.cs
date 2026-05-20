@@ -103,6 +103,7 @@ public class KnowledgeBaseNetworkStateServiceTests
         Assert.Equal(2, state.InterfaceCount);
         Assert.Equal(1, state.ConnectionCount);
         Assert.Equal(1, state.FileReferencesCount);
+        Assert.Equal(0, state.ReviewWarningCount);
 
         var fileReference = Assert.Single(state.FileReferenceStates);
         Assert.Equal("Sheet 1, lower-left fragment", fileReference.SourceNoteText);
@@ -245,6 +246,10 @@ public class KnowledgeBaseNetworkStateServiceTests
 
         Assert.All(state.ConnectionStates, connection =>
             Assert.Contains("Повтор кабеля", connection.WarningText, StringComparison.Ordinal));
+        Assert.Equal(2, state.DeviceWarningCount);
+        Assert.Equal(2, state.InterfaceWarningCount);
+        Assert.Equal(2, state.ConnectionWarningCount);
+        Assert.Equal(6, state.ReviewWarningCount);
     }
 
     private static KbNode CreateOwnerNode()
