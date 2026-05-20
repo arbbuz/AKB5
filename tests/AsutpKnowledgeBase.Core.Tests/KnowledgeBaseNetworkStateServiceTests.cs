@@ -34,7 +34,9 @@ public class KnowledgeBaseNetworkStateServiceTests
                     OwnerNodeId = "system-1",
                     LinkedNodeId = "cabinet-1",
                     Name = "PLC-1",
-                    Role = "Controller"
+                    Role = "Controller",
+                    Vendor = "Siemens",
+                    LocationText = "Operator room"
                 },
                 new KbNetworkDevice
                 {
@@ -52,7 +54,9 @@ public class KnowledgeBaseNetworkStateServiceTests
                     InterfaceName = "X1",
                     IpAddress = "10.0.0.10",
                     MpiDpPnAddress = "PN/IE",
-                    Medium = "Медь"
+                    Speed = "100 Mbit/s",
+                    Medium = "Медь",
+                    Notes = "from visual scheme"
                 },
                 new KbNetworkInterface
                 {
@@ -105,16 +109,21 @@ public class KnowledgeBaseNetworkStateServiceTests
 
         var device = Assert.Single(state.DeviceStates);
         Assert.Equal("PLC-1", device.NameText);
+        Assert.Equal("Siemens", device.VendorText);
+        Assert.Equal("Operator room", device.LocationText);
         Assert.Equal("Cabinet 1", device.LinkedNodeText);
         Assert.Equal(2, device.InterfacesCount);
         Assert.Equal(1, device.ConnectionsCount);
 
         var firstInterface = state.InterfaceStates.Single(item => item.NetworkInterfaceId == "iface-1");
+        Assert.Equal("PLC-1 / X1 / IP 10.0.0.10 / MPI/DP/PN PN/IE", firstInterface.EndpointText);
         Assert.Equal("X1", firstInterface.InterfaceNameText);
         Assert.Equal("PN/IE", firstInterface.MpiDpPnAddressText);
+        Assert.Equal("100 Mbit/s", firstInterface.SpeedText);
         Assert.Equal("Медь", firstInterface.MediumText);
-        Assert.Equal("PLC-1 / X1 / 10.0.0.10", state.ConnectionStates[0].EndpointAText);
-        Assert.Equal("PLC-1 / Порт 2 / 10.0.0.11", state.ConnectionStates[0].EndpointBText);
+        Assert.Equal("from visual scheme", firstInterface.NotesText);
+        Assert.Equal("PLC-1 / X1 / IP 10.0.0.10 / MPI/DP/PN PN/IE", state.ConnectionStates[0].EndpointAText);
+        Assert.Equal("PLC-1 / Порт 2 / IP 10.0.0.11", state.ConnectionStates[0].EndpointBText);
         Assert.Equal("PROFINET", state.ConnectionStates[0].ProtocolText);
         Assert.Equal("copper", state.ConnectionStates[0].MediumText);
         Assert.Equal("Operator room +7.0", state.ConnectionStates[0].RouteText);

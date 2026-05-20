@@ -27,14 +27,18 @@ namespace AsutpKnowledgeBase
         private Button _btnAddDevice = null!;
         private Button _btnEditDevice = null!;
         private Button _btnDeleteDevice = null!;
+        private Button _btnCopyDevice = null!;
         private Button _btnAddInterface = null!;
         private Button _btnEditInterface = null!;
         private Button _btnDeleteInterface = null!;
+        private Button _btnCopyInterface = null!;
         private Button _btnAddConnection = null!;
         private Button _btnEditConnection = null!;
         private Button _btnDeleteConnection = null!;
+        private Button _btnCopyConnection = null!;
         private TextBox _txtPassportFilter = null!;
         private Button _btnClearPassportFilter = null!;
+        private Button _btnCopyVisiblePassport = null!;
         private Label _lblPassportFilterStatus = null!;
         private Button _btnAdd = null!;
         private Button _btnOpenSelected = null!;
@@ -213,6 +217,9 @@ namespace AsutpKnowledgeBase
             _lvDevices = CreateDevicesListView();
             _lvInterfaces = CreateInterfacesListView();
             _lvConnections = CreateConnectionsListView();
+            ConfigureDeviceCopyActions();
+            ConfigureInterfaceCopyActions();
+            ConfigureConnectionCopyActions();
 
             _lblDevicesEmptyState = CreateEmptyStateLabel("Устройства сетевого паспорта пока не добавлены.");
             _lblInterfacesEmptyState = CreateEmptyStateLabel("Интерфейсы и IP-адреса пока не добавлены.");
@@ -280,7 +287,21 @@ namespace AsutpKnowledgeBase
 
             _btnClearPassportFilter = CreateActionButton("Сбросить");
             _btnClearPassportFilter.Click += (_, _) => _txtPassportFilter.Clear();
-            layout.Controls.Add(_btnClearPassportFilter, 2, 0);
+
+            _btnCopyVisiblePassport = CreateActionButton("Копировать видимое");
+            _btnCopyVisiblePassport.Click += (_, _) => CopyVisiblePassportRows();
+
+            var filterActions = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                AutoSize = true,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Margin = new Padding(0)
+            };
+            filterActions.Controls.Add(_btnClearPassportFilter);
+            filterActions.Controls.Add(_btnCopyVisiblePassport);
+            layout.Controls.Add(filterActions, 2, 0);
 
             _lblPassportFilterStatus = new Label
             {
@@ -358,10 +379,13 @@ namespace AsutpKnowledgeBase
             _btnAddDevice.Click += (_, _) => AddDeviceRequested?.Invoke(this, EventArgs.Empty);
             _btnEditDevice = CreateActionButton("Изменить");
             _btnEditDevice.Click += (_, _) => EditDeviceRequested?.Invoke(this, EventArgs.Empty);
+            _btnCopyDevice = CreateActionButton("Копировать строку");
+            _btnCopyDevice.Click += (_, _) => CopySelectedDeviceRow();
             _btnDeleteDevice = CreateActionButton("Удалить");
             _btnDeleteDevice.Click += (_, _) => DeleteDeviceRequested?.Invoke(this, EventArgs.Empty);
             panel.Controls.Add(_btnAddDevice);
             panel.Controls.Add(_btnEditDevice);
+            panel.Controls.Add(_btnCopyDevice);
             panel.Controls.Add(_btnDeleteDevice);
             return panel;
         }
@@ -373,10 +397,13 @@ namespace AsutpKnowledgeBase
             _btnAddInterface.Click += (_, _) => AddInterfaceRequested?.Invoke(this, EventArgs.Empty);
             _btnEditInterface = CreateActionButton("Изменить");
             _btnEditInterface.Click += (_, _) => EditInterfaceRequested?.Invoke(this, EventArgs.Empty);
+            _btnCopyInterface = CreateActionButton("Копировать строку");
+            _btnCopyInterface.Click += (_, _) => CopySelectedInterfaceRow();
             _btnDeleteInterface = CreateActionButton("Удалить");
             _btnDeleteInterface.Click += (_, _) => DeleteInterfaceRequested?.Invoke(this, EventArgs.Empty);
             panel.Controls.Add(_btnAddInterface);
             panel.Controls.Add(_btnEditInterface);
+            panel.Controls.Add(_btnCopyInterface);
             panel.Controls.Add(_btnDeleteInterface);
             return panel;
         }
@@ -388,10 +415,13 @@ namespace AsutpKnowledgeBase
             _btnAddConnection.Click += (_, _) => AddConnectionRequested?.Invoke(this, EventArgs.Empty);
             _btnEditConnection = CreateActionButton("Изменить");
             _btnEditConnection.Click += (_, _) => EditConnectionRequested?.Invoke(this, EventArgs.Empty);
+            _btnCopyConnection = CreateActionButton("Копировать строку");
+            _btnCopyConnection.Click += (_, _) => CopySelectedConnectionRow();
             _btnDeleteConnection = CreateActionButton("Удалить");
             _btnDeleteConnection.Click += (_, _) => DeleteConnectionRequested?.Invoke(this, EventArgs.Empty);
             panel.Controls.Add(_btnAddConnection);
             panel.Controls.Add(_btnEditConnection);
+            panel.Controls.Add(_btnCopyConnection);
             panel.Controls.Add(_btnDeleteConnection);
             return panel;
         }
@@ -521,14 +551,17 @@ namespace AsutpKnowledgeBase
                     [
                         entry.NameText,
                         entry.RoleText,
+                        entry.VendorText,
                         entry.ModelText,
                         entry.ProfinetNameText,
                         entry.MacAddressText,
+                        entry.LocationText,
                         entry.LinkedNodeText,
                         entry.InterfacesCount.ToString(),
                         entry.ConnectionsCount.ToString()
                     ])
                     {
+                        ToolTipText = BuildDeviceRowText(entry),
                         Tag = new ListItemTag
                         {
                             SelectionKind = KnowledgeBaseNetworkSelectionKind.Device,
@@ -582,10 +615,13 @@ namespace AsutpKnowledgeBase
                         entry.ProtocolText,
                         entry.MpiDpPnAddressText,
                         entry.MediumText,
+                        entry.SpeedText,
                         entry.VlanText,
-                        entry.MacAddressText
+                        entry.MacAddressText,
+                        entry.NotesText
                     ])
                     {
+                        ToolTipText = BuildInterfaceRowText(entry),
                         Tag = new ListItemTag
                         {
                             SelectionKind = KnowledgeBaseNetworkSelectionKind.Interface,
@@ -637,11 +673,13 @@ namespace AsutpKnowledgeBase
                         entry.CableTypeText,
                         entry.ProtocolText,
                         entry.MediumText,
+                        entry.LengthText,
                         entry.RouteText,
                         entry.StatusText,
                         entry.NotesText
                     ])
                     {
+                        ToolTipText = BuildConnectionRowText(entry),
                         Tag = new ListItemTag
                         {
                             SelectionKind = KnowledgeBaseNetworkSelectionKind.Connection,
@@ -730,6 +768,7 @@ namespace AsutpKnowledgeBase
             int visibleConnectionCount)
         {
             _btnClearPassportFilter.Enabled = HasPassportFilter;
+            _btnCopyVisiblePassport.Enabled = visibleDeviceCount + visibleInterfaceCount + visibleConnectionCount > 0;
             _lblPassportFilterStatus.Text = HasPassportFilter
                 ? $"Найдено: {visibleDeviceCount}/{_currentState.DeviceStates.Count} | {visibleInterfaceCount}/{_currentState.InterfaceStates.Count} | {visibleConnectionCount}/{_currentState.ConnectionStates.Count}"
                 : string.Empty;
@@ -826,6 +865,127 @@ namespace AsutpKnowledgeBase
             };
         }
 
+        private void ConfigureDeviceCopyActions()
+        {
+            _lvDevices.KeyDown += (_, e) =>
+            {
+                if (e.Control && e.KeyCode == Keys.C)
+                {
+                    e.SuppressKeyPress = true;
+                    CopySelectedDeviceRow();
+                }
+            };
+
+            _lvDevices.MouseDown += (_, e) => SelectListViewItemOnRightClick(_lvDevices, e);
+
+            var copyRow = new ToolStripMenuItem("Копировать строку", null, (_, _) => CopySelectedDeviceRow());
+            var copyVisibleRows = new ToolStripMenuItem("Копировать видимые строки", null, (_, _) => CopyVisibleDeviceRows());
+            var copyDevice = new ToolStripMenuItem("Копировать устройство", null, (_, _) => CopySelectedDeviceSummary());
+            var copyProfinetName = new ToolStripMenuItem("Копировать PROFINET-name", null, (_, _) => CopySelectedDeviceProfinetName());
+            var copyMac = new ToolStripMenuItem("Копировать MAC", null, (_, _) => CopySelectedDeviceMac());
+            var menu = new ContextMenuStrip();
+            menu.Opening += (_, _) =>
+            {
+                var selectedDevice = FindSelectedDeviceState();
+                bool hasDevice = selectedDevice != null;
+                copyRow.Enabled = hasDevice;
+                copyVisibleRows.Enabled = _lvDevices.Items.Count > 0;
+                copyDevice.Enabled = hasDevice && CanCopyText(BuildDeviceSummaryText(selectedDevice!));
+                copyProfinetName.Enabled = hasDevice && CanCopyText(selectedDevice!.ProfinetNameText);
+                copyMac.Enabled = hasDevice && CanCopyText(selectedDevice!.MacAddressText);
+            };
+            menu.Items.Add(copyRow);
+            menu.Items.Add(copyVisibleRows);
+            menu.Items.Add(copyDevice);
+            menu.Items.Add(copyProfinetName);
+            menu.Items.Add(copyMac);
+            _lvDevices.ContextMenuStrip = menu;
+        }
+
+        private void ConfigureInterfaceCopyActions()
+        {
+            _lvInterfaces.KeyDown += (_, e) =>
+            {
+                if (e.Control && e.KeyCode == Keys.C)
+                {
+                    e.SuppressKeyPress = true;
+                    CopySelectedInterfaceRow();
+                }
+            };
+
+            _lvInterfaces.MouseDown += (_, e) => SelectListViewItemOnRightClick(_lvInterfaces, e);
+
+            var copyRow = new ToolStripMenuItem("Копировать строку", null, (_, _) => CopySelectedInterfaceRow());
+            var copyVisibleRows = new ToolStripMenuItem("Копировать видимые строки", null, (_, _) => CopyVisibleInterfaceRows());
+            var copyEndpoint = new ToolStripMenuItem("Копировать интерфейс", null, (_, _) => CopySelectedInterfaceEndpoint());
+            var copyIp = new ToolStripMenuItem("Копировать IP", null, (_, _) => CopySelectedInterfaceIp());
+            var copyMpiDpPn = new ToolStripMenuItem("Копировать MPI/DP/PN", null, (_, _) => CopySelectedInterfaceMpiDpPn());
+            var menu = new ContextMenuStrip();
+            menu.Opening += (_, _) =>
+            {
+                var selectedInterface = FindSelectedInterfaceState();
+                bool hasInterface = selectedInterface != null;
+                copyRow.Enabled = hasInterface;
+                copyVisibleRows.Enabled = _lvInterfaces.Items.Count > 0;
+                copyEndpoint.Enabled = hasInterface && CanCopyText(selectedInterface!.EndpointText);
+                copyIp.Enabled = hasInterface && CanCopyText(selectedInterface!.IpAddressText);
+                copyMpiDpPn.Enabled = hasInterface && CanCopyText(selectedInterface!.MpiDpPnAddressText);
+            };
+            menu.Items.Add(copyRow);
+            menu.Items.Add(copyVisibleRows);
+            menu.Items.Add(copyEndpoint);
+            menu.Items.Add(copyIp);
+            menu.Items.Add(copyMpiDpPn);
+            _lvInterfaces.ContextMenuStrip = menu;
+        }
+
+        private void ConfigureConnectionCopyActions()
+        {
+            _lvConnections.KeyDown += (_, e) =>
+            {
+                if (e.Control && e.KeyCode == Keys.C)
+                {
+                    e.SuppressKeyPress = true;
+                    CopySelectedConnectionRow();
+                }
+            };
+
+            _lvConnections.MouseDown += (_, e) => SelectListViewItemOnRightClick(_lvConnections, e);
+
+            var copyRow = new ToolStripMenuItem("Копировать строку", null, (_, _) => CopySelectedConnectionRow());
+            var copyVisibleRows = new ToolStripMenuItem("Копировать видимые строки", null, (_, _) => CopyVisibleConnectionRows());
+            var copyEndpointA = new ToolStripMenuItem("Копировать интерфейс A", null, (_, _) => CopySelectedConnectionEndpointA());
+            var copyEndpointB = new ToolStripMenuItem("Копировать интерфейс B", null, (_, _) => CopySelectedConnectionEndpointB());
+            var menu = new ContextMenuStrip();
+            menu.Opening += (_, _) =>
+            {
+                bool hasConnection = FindSelectedConnectionState() != null;
+                copyRow.Enabled = hasConnection;
+                copyVisibleRows.Enabled = _lvConnections.Items.Count > 0;
+                copyEndpointA.Enabled = hasConnection;
+                copyEndpointB.Enabled = hasConnection;
+            };
+            menu.Items.Add(copyRow);
+            menu.Items.Add(copyVisibleRows);
+            menu.Items.Add(copyEndpointA);
+            menu.Items.Add(copyEndpointB);
+            _lvConnections.ContextMenuStrip = menu;
+        }
+
+        private static void SelectListViewItemOnRightClick(ListView listView, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Right)
+                return;
+
+            var item = listView.GetItemAt(e.X, e.Y);
+            if (item == null)
+                return;
+
+            listView.SelectedItems.Clear();
+            item.Selected = true;
+            item.Focused = true;
+        }
+
         private void HandlePassportSelectionChanged(ListView source, IReadOnlyList<ListView> others)
         {
             if (_isSynchronizingSelection)
@@ -900,6 +1060,283 @@ namespace AsutpKnowledgeBase
                 string.Equals(entry.NetworkAssetId, SelectedItemId, StringComparison.Ordinal));
         }
 
+        private KnowledgeBaseNetworkDeviceState? FindSelectedDeviceState()
+        {
+            if (_lvDevices.SelectedItems.Count == 0 ||
+                _lvDevices.SelectedItems[0].Tag is not ListItemTag tag)
+            {
+                return null;
+            }
+
+            return _currentState.DeviceStates.FirstOrDefault(entry =>
+                string.Equals(entry.NetworkDeviceId, tag.ItemId, StringComparison.Ordinal));
+        }
+
+        private KnowledgeBaseNetworkInterfaceState? FindSelectedInterfaceState()
+        {
+            if (_lvInterfaces.SelectedItems.Count == 0 ||
+                _lvInterfaces.SelectedItems[0].Tag is not ListItemTag tag)
+            {
+                return null;
+            }
+
+            return _currentState.InterfaceStates.FirstOrDefault(entry =>
+                string.Equals(entry.NetworkInterfaceId, tag.ItemId, StringComparison.Ordinal));
+        }
+
+        private KnowledgeBaseNetworkConnectionState? FindSelectedConnectionState()
+        {
+            if (_lvConnections.SelectedItems.Count == 0 ||
+                _lvConnections.SelectedItems[0].Tag is not ListItemTag tag)
+            {
+                return null;
+            }
+
+            return _currentState.ConnectionStates.FirstOrDefault(entry =>
+                string.Equals(entry.NetworkConnectionId, tag.ItemId, StringComparison.Ordinal));
+        }
+
+        private void CopySelectedDeviceRow()
+        {
+            var device = FindSelectedDeviceState();
+            if (device == null)
+                return;
+
+            CopyPassportText(BuildDeviceRowText(device), "строка устройства");
+        }
+
+        private void CopyVisibleDeviceRows() =>
+            CopyVisibleListRows(_lvDevices, "видимые устройства");
+
+        private void CopySelectedDeviceSummary()
+        {
+            var device = FindSelectedDeviceState();
+            if (device == null)
+                return;
+
+            CopyPassportText(BuildDeviceSummaryText(device), "устройство");
+        }
+
+        private void CopySelectedDeviceProfinetName()
+        {
+            var device = FindSelectedDeviceState();
+            if (device == null)
+                return;
+
+            CopyPassportText(device.ProfinetNameText, "PROFINET-name устройства");
+        }
+
+        private void CopySelectedDeviceMac()
+        {
+            var device = FindSelectedDeviceState();
+            if (device == null)
+                return;
+
+            CopyPassportText(device.MacAddressText, "MAC устройства");
+        }
+
+        private void CopySelectedInterfaceRow()
+        {
+            var networkInterface = FindSelectedInterfaceState();
+            if (networkInterface == null)
+                return;
+
+            CopyPassportText(BuildInterfaceRowText(networkInterface), "строка интерфейса");
+        }
+
+        private void CopyVisibleInterfaceRows() =>
+            CopyVisibleListRows(_lvInterfaces, "видимые интерфейсы");
+
+        private void CopySelectedInterfaceEndpoint()
+        {
+            var networkInterface = FindSelectedInterfaceState();
+            if (networkInterface == null)
+                return;
+
+            CopyPassportText(networkInterface.EndpointText, "интерфейс");
+        }
+
+        private void CopySelectedInterfaceIp()
+        {
+            var networkInterface = FindSelectedInterfaceState();
+            if (networkInterface == null)
+                return;
+
+            CopyPassportText(networkInterface.IpAddressText, "IP интерфейса");
+        }
+
+        private void CopySelectedInterfaceMpiDpPn()
+        {
+            var networkInterface = FindSelectedInterfaceState();
+            if (networkInterface == null)
+                return;
+
+            CopyPassportText(networkInterface.MpiDpPnAddressText, "MPI/DP/PN интерфейса");
+        }
+
+        private void CopySelectedConnectionRow()
+        {
+            var connection = FindSelectedConnectionState();
+            if (connection == null)
+                return;
+
+            CopyPassportText(BuildConnectionRowText(connection), "строка соединения");
+        }
+
+        private void CopyVisibleConnectionRows() =>
+            CopyVisibleListRows(_lvConnections, "видимые соединения");
+
+        private void CopySelectedConnectionEndpointA()
+        {
+            var connection = FindSelectedConnectionState();
+            if (connection == null)
+                return;
+
+            CopyPassportText(connection.EndpointAText, "интерфейс A");
+        }
+
+        private void CopySelectedConnectionEndpointB()
+        {
+            var connection = FindSelectedConnectionState();
+            if (connection == null)
+                return;
+
+            CopyPassportText(connection.EndpointBText, "интерфейс B");
+        }
+
+        private void CopyVisiblePassportRows()
+        {
+            var sections = new List<string>();
+            AppendVisibleListSection(sections, "Устройства", _lvDevices);
+            AppendVisibleListSection(sections, "Интерфейсы", _lvInterfaces);
+            AppendVisibleListSection(sections, "Соединения", _lvConnections);
+            if (sections.Count == 0)
+                return;
+
+            CopyPassportText(string.Join(Environment.NewLine + Environment.NewLine, sections), "видимые строки паспорта");
+        }
+
+        private void CopyVisibleListRows(ListView listView, string copiedPart) =>
+            CopyPassportText(BuildVisibleListText(listView), copiedPart);
+
+        private void CopyPassportText(string text, string copiedPart)
+        {
+            if (!CanCopyText(text))
+                return;
+
+            Clipboard.SetText(text);
+            _lblPassportFilterStatus.Text = $"Скопировано: {copiedPart}.";
+        }
+
+        private static bool CanCopyText(string? text) =>
+            !string.IsNullOrWhiteSpace(text) &&
+            !string.Equals(text, "-", StringComparison.Ordinal);
+
+        private static void AppendVisibleListSection(ICollection<string> sections, string title, ListView listView)
+        {
+            string text = BuildVisibleListText(listView);
+            if (CanCopyText(text))
+                sections.Add(title + Environment.NewLine + text);
+        }
+
+        private static string BuildVisibleListText(ListView listView)
+        {
+            if (listView.Items.Count == 0)
+                return string.Empty;
+
+            var lines = new List<string>
+            {
+                BuildListHeaderText(listView)
+            };
+
+            foreach (ListViewItem item in listView.Items)
+                lines.Add(BuildListItemText(item));
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string BuildListHeaderText(ListView listView)
+        {
+            var values = new List<string>(listView.Columns.Count);
+            foreach (ColumnHeader column in listView.Columns)
+                values.Add(column.Text);
+
+            return string.Join("\t", values);
+        }
+
+        private static string BuildListItemText(ListViewItem item)
+        {
+            var values = new List<string>(item.SubItems.Count);
+            foreach (ListViewItem.ListViewSubItem subItem in item.SubItems)
+                values.Add(subItem.Text);
+
+            return string.Join("\t", values);
+        }
+
+        private static string BuildDeviceSummaryText(KnowledgeBaseNetworkDeviceState device) =>
+            string.Join(
+                " / ",
+                new[]
+                {
+                    device.NameText,
+                    device.RoleText,
+                    device.VendorText,
+                    device.ModelText
+                }.Where(CanCopyText));
+
+        private static string BuildDeviceRowText(KnowledgeBaseNetworkDeviceState device) =>
+            string.Join(
+                "\t",
+                new[]
+                {
+                    device.NameText,
+                    device.RoleText,
+                    device.VendorText,
+                    device.ModelText,
+                    device.ProfinetNameText,
+                    device.MacAddressText,
+                    device.LocationText,
+                    device.LinkedNodeText,
+                    device.InterfacesCount.ToString(),
+                    device.ConnectionsCount.ToString()
+                });
+
+        private static string BuildInterfaceRowText(KnowledgeBaseNetworkInterfaceState networkInterface) =>
+            string.Join(
+                "\t",
+                new[]
+                {
+                    networkInterface.DeviceNameText,
+                    networkInterface.InterfaceNameText,
+                    networkInterface.IpAddressText,
+                    networkInterface.SubnetMaskText,
+                    networkInterface.GatewayText,
+                    networkInterface.ProtocolText,
+                    networkInterface.MpiDpPnAddressText,
+                    networkInterface.MediumText,
+                    networkInterface.SpeedText,
+                    networkInterface.VlanText,
+                    networkInterface.MacAddressText,
+                    networkInterface.NotesText
+                });
+
+        private static string BuildConnectionRowText(KnowledgeBaseNetworkConnectionState connection) =>
+            string.Join(
+                "\t",
+                new[]
+                {
+                    connection.EndpointAText,
+                    connection.EndpointBText,
+                    connection.CableLabelText,
+                    connection.CableTypeText,
+                    connection.ProtocolText,
+                    connection.MediumText,
+                    connection.LengthText,
+                    connection.RouteText,
+                    connection.StatusText,
+                    connection.NotesText
+                });
+
         private void UpdateButtonStates()
         {
             bool canFileEdit = _currentState.SupportsEditing;
@@ -910,12 +1347,15 @@ namespace AsutpKnowledgeBase
 
             _btnAddDevice.Enabled = canPassportEdit;
             _btnEditDevice.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedDeviceId);
+            _btnCopyDevice.Enabled = !string.IsNullOrWhiteSpace(SelectedDeviceId);
             _btnDeleteDevice.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedDeviceId);
             _btnAddInterface.Enabled = canPassportEdit && _currentState.DeviceCount > 0;
             _btnEditInterface.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedInterfaceId);
+            _btnCopyInterface.Enabled = !string.IsNullOrWhiteSpace(SelectedInterfaceId);
             _btnDeleteInterface.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedInterfaceId);
             _btnAddConnection.Enabled = canPassportEdit && _currentState.InterfaceCount >= 2;
             _btnEditConnection.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedConnectionId);
+            _btnCopyConnection.Enabled = !string.IsNullOrWhiteSpace(SelectedConnectionId);
             _btnDeleteConnection.Enabled = canPassportEdit && !string.IsNullOrWhiteSpace(SelectedConnectionId);
 
             _btnAdd.Enabled = canFileEdit;
@@ -1104,9 +1544,11 @@ namespace AsutpKnowledgeBase
             var listView = CreateBaseListView();
             listView.Columns.Add("Устройство", 180);
             listView.Columns.Add("Роль", 120);
+            listView.Columns.Add("Производитель", 130);
             listView.Columns.Add("Модель", 170);
             listView.Columns.Add("PROFINET-name", 150);
             listView.Columns.Add("MAC", 145);
+            listView.Columns.Add("Место", 150);
             listView.Columns.Add("Карточка", 150);
             listView.Columns.Add("Инт.", 55);
             listView.Columns.Add("Связи", 55);
@@ -1124,20 +1566,23 @@ namespace AsutpKnowledgeBase
             listView.Columns.Add("Протокол", 110);
             listView.Columns.Add("MPI/DP/PN", 100);
             listView.Columns.Add("Среда", 95);
+            listView.Columns.Add("Скорость", 90);
             listView.Columns.Add("VLAN", 70);
             listView.Columns.Add("MAC", 145);
+            listView.Columns.Add("Примечание", 220);
             return listView;
         }
 
         private static ListView CreateConnectionsListView()
         {
             var listView = CreateBaseListView();
-            listView.Columns.Add("Интерфейс A", 230);
-            listView.Columns.Add("Интерфейс B", 230);
+            listView.Columns.Add("Интерфейс A", 320);
+            listView.Columns.Add("Интерфейс B", 320);
             listView.Columns.Add("Кабель", 120);
             listView.Columns.Add("Тип", 110);
             listView.Columns.Add("Протокол", 110);
             listView.Columns.Add("Среда", 100);
+            listView.Columns.Add("Длина", 80);
             listView.Columns.Add("Трасса / место", 160);
             listView.Columns.Add("Статус", 100);
             listView.Columns.Add("Примечание", 220);
@@ -1161,7 +1606,9 @@ namespace AsutpKnowledgeBase
                 FullRowSelect = true,
                 GridLines = true,
                 HeaderStyle = ColumnHeaderStyle.Nonclickable,
+                HideSelection = false,
                 MultiSelect = false,
+                ShowItemToolTips = true,
                 View = View.Details
             };
 

@@ -68,6 +68,8 @@ namespace AsutpKnowledgeBase.Services
 
         public string DeviceRoleText { get; init; } = string.Empty;
 
+        public string EndpointText { get; init; } = string.Empty;
+
         public string InterfaceNameText { get; init; } = string.Empty;
 
         public string PortNumberText { get; init; } = string.Empty;
@@ -378,6 +380,7 @@ namespace AsutpKnowledgeBase.Services
                     NetworkDeviceId = networkInterface.NetworkDeviceId?.Trim() ?? string.Empty,
                     DeviceNameText = GetDisplayTitle(device?.Name, networkInterface.NetworkDeviceId),
                     DeviceRoleText = GetDisplayText(device?.Role),
+                    EndpointText = GetEndpointText(networkInterface, device),
                     InterfaceNameText = GetInterfaceDisplayName(networkInterface),
                     PortNumberText = GetDisplayText(networkInterface.PortNumber),
                     MacAddressText = GetDisplayText(networkInterface.MacAddress),
@@ -517,6 +520,7 @@ namespace AsutpKnowledgeBase.Services
             string deviceName = device?.Name?.Trim() ?? string.Empty;
             string interfaceName = GetInterfaceDisplayName(networkInterface);
             string ipAddress = networkInterface.IpAddress?.Trim() ?? string.Empty;
+            string mpiDpPnAddress = networkInterface.MpiDpPnAddress?.Trim() ?? string.Empty;
 
             var parts = new List<string>();
             if (!string.IsNullOrWhiteSpace(deviceName))
@@ -524,7 +528,9 @@ namespace AsutpKnowledgeBase.Services
             if (!string.IsNullOrWhiteSpace(interfaceName) && !string.Equals(interfaceName, "-", StringComparison.Ordinal))
                 parts.Add(interfaceName);
             if (!string.IsNullOrWhiteSpace(ipAddress))
-                parts.Add(ipAddress);
+                parts.Add($"IP {ipAddress}");
+            if (!string.IsNullOrWhiteSpace(mpiDpPnAddress))
+                parts.Add($"MPI/DP/PN {mpiDpPnAddress}");
 
             if (parts.Count > 0)
                 return string.Join(" / ", parts);

@@ -462,6 +462,13 @@ Acceptance:
 - the interface passport grid shows stored `MPI/DP/PN` and medium values so manual scheme data is visible without reopening the edit dialog
 - the interface dialog validates manually entered IP address, mask, and gateway values before saving while still allowing blank unknown fields
 - the connection dialog validates manually entered cable length while still allowing blank unknown length
+- the connection passport grid shows richer endpoint text with device/interface/IP/`MPI/DP/PN` context and a visible cable-length column for manual scheme checks
+- the connection passport grid supports copy-friendly manual checks: selected rows can be copied as tab-separated text, and endpoints A/B can be copied separately
+- the device passport grid shows vendor/location values and supports copy-friendly manual checks: selected rows, device summary, PROFINET-name, and MAC can be copied separately
+- the interface passport grid exposes speed/notes columns and supports copy-friendly manual checks: selected rows copy as tab-separated text, and interface summary/IP/`MPI/DP/PN` values can be copied separately
+- the passport filter area can copy all currently visible device/interface/connection rows with table headers for filtered manual review
+- each passport grid context menu can copy its own currently visible rows with headers
+- passport grids keep selected rows visible after focus changes and expose row tooltips for long manual-review values
 - PDF network scheme references are accepted as `PDF` metadata/`Open original` sources; embedded PDF preview and OCR/import remain outside the current scope
 
 ### Phase 7. Maintenance schedule generation
