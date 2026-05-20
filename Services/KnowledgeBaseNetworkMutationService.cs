@@ -231,6 +231,13 @@ namespace AsutpKnowledgeBase.Services
                 return FailurePassport("Укажите имя интерфейса, порт, IP-адрес или MAC-адрес.");
             }
 
+            var addressValidation = KnowledgeBaseNetworkFieldValidationService.ValidateInterfaceAddressFields(
+                ipAddress,
+                draftInterface.SubnetMask,
+                draftInterface.Gateway);
+            if (!addressValidation.IsSuccess)
+                return FailurePassport(addressValidation.ErrorMessage);
+
             var updatedInterfaces = CloneNetworkInterfaces(networkInterfaces);
             var currentConnections = CloneNetworkConnections(networkConnections);
             int existingIndex = !string.IsNullOrWhiteSpace(draftInterface.NetworkInterfaceId)
@@ -358,6 +365,11 @@ namespace AsutpKnowledgeBase.Services
             {
                 return FailurePassport("Такое соединение между интерфейсами уже существует.");
             }
+
+            var fieldValidation = KnowledgeBaseNetworkFieldValidationService.ValidateConnectionFields(
+                draftConnection.Length);
+            if (!fieldValidation.IsSuccess)
+                return FailurePassport(fieldValidation.ErrorMessage);
 
             var normalizedDraft = new KbNetworkConnection
             {

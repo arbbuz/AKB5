@@ -316,6 +316,37 @@ public class KnowledgeBaseNetworkMutationServiceTests
         Assert.Equal("255.255.255.0", networkInterface.SubnetMask);
     }
 
+    [Theory]
+    [InlineData("10.0.0.300", "255.255.255.0", "10.0.0.1", "IP-адрес")]
+    [InlineData("10.0.0.10", "255.0.255.0", "10.0.0.1", "Маска")]
+    [InlineData("10.0.0.10", "255.255.255.0", "gateway", "Шлюз")]
+    public void UpsertInterface_ForInvalidAddressFields_ReturnsFailure(
+        string ipAddress,
+        string subnetMask,
+        string gateway,
+        string expectedMessage)
+    {
+        var ownerNode = CreateOwnerNode();
+
+        var result = _service.UpsertInterface(
+            ownerNode,
+            CreateDevices(),
+            Array.Empty<KbNetworkInterface>(),
+            Array.Empty<KbNetworkConnection>(),
+            new KbNetworkInterface
+            {
+                NetworkDeviceId = "device-1",
+                InterfaceName = "X1",
+                IpAddress = ipAddress,
+                SubnetMask = subnetMask,
+                Gateway = gateway
+            },
+            visibleLevel: 2);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains(expectedMessage, result.ErrorMessage, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void UpsertInterface_ForDeviceOutsideOwner_ReturnsFailure()
     {
@@ -383,6 +414,30 @@ public class KnowledgeBaseNetworkMutationServiceTests
         Assert.Equal("Operator room +7.0", connection.RouteText);
         Assert.Equal("active", connection.Status);
         Assert.Equal("scheme row", connection.Notes);
+    }
+
+    [Theory]
+    [InlineData("0 m")]
+    [InlineData("12 mm")]
+    public void UpsertConnection_ForInvalidLength_ReturnsFailure(string length)
+    {
+        var ownerNode = CreateOwnerNode();
+
+        var result = _service.UpsertConnection(
+            ownerNode,
+            CreateDevices(),
+            CreateInterfaces(),
+            Array.Empty<KbNetworkConnection>(),
+            new KbNetworkConnection
+            {
+                EndpointAInterfaceId = "iface-1",
+                EndpointBInterfaceId = "iface-2",
+                Length = length
+            },
+            visibleLevel: 2);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("Длина", result.ErrorMessage, StringComparison.Ordinal);
     }
 
     [Fact]

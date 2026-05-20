@@ -26,6 +26,9 @@ Last updated: `2026-05-20`
 - When a branch has just moved to a new focused stream such as `Net`, update `docs/codex-handoff.md`, `docs/plans.md`, `AGENTS.md`, and `Roadmap.md` together or later sessions may resume from an old `to`/`card` priority.
 - For manual network-passport entry, prefer add-from-similar drafts that copy stable context fields but leave unique identity/address fields blank; this speeds repeated entry without creating accidental duplicates.
 - Narrow inline duplicate hints belong in the row being reviewed, not in a separate issue panel, while the `Net` stream is still manual-entry/manual-review first.
+- After a Net package is accepted, update the handoff baseline to the accepted commit immediately; stale `awaiting manual review` wording can misroute the next chat even when `HEAD` and `origin/Net` are already advanced.
+- When logic work and UI/UX polishing need to proceed separately, use a dedicated `git worktree` so the accepted `Net` baseline can stay clean while the design branch carries review-oriented WIP.
+- Keep Network dialog validation and mutation-service validation aligned for fields that affect persisted manual-review data; UI checks alone are not enough when services can be called from other workflows or tests.
 
 ## Planner and workbook logic
 

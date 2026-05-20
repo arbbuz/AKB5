@@ -4,71 +4,65 @@ Last updated: `2026-05-20`
 
 ## Current objective
 
-Prepare the next `Net` branch network-passport manual-review package for user review.
+Continue AKB5 Network work from the accepted `Net` baseline while keeping visual/UI polish isolated in the separate design worktree.
 
-The current local package improves manual entry and review without adding import/scan automation:
+Current local `Net` review package: enforce existing Network field validation at the mutation-service boundary so invalid interface IP/mask/gateway values and invalid connection lengths cannot bypass the dialogs.
 
-- `Добавить похожее` / `Добавить похожий` actions for devices, interfaces, and connections;
-- inline `Проверка` columns with duplicate hints for repeated device PROFINET-name/MAC, interface IP/MAC/port, and connection cable labels.
-
-This package is implemented locally and verified, but it is not manually accepted yet and must not be committed or pushed without a new explicit request.
+The next `Net` task should stay inside manual-entry / manual-review ergonomics unless the user explicitly broadens scope. Prefer logic, validation, persistence, and focused-test work that does not collide with the active `design/network-ui-polish` UI package.
 
 ## Current repo state
 
-- Repository root: `C:\Users\Olga\AKB5`
-- Active branch for this task: `Net`
+- Main Net worktree: `C:\Users\Olga\AKB5`
+- Active branch: `Net`
 - Tracking branch: `origin/Net`
-- Current expected head: `207b6b1 Improve network passport review ergonomics`
+- Expected `HEAD` and `origin/Net`: `a89e593 Improve network passport manual entry hints`
 - Current startup check on 2026-05-20:
 
 ```text
 ## Net...origin/Net
-207b6b1 (HEAD -> Net, origin/Net) Improve network passport review ergonomics
+a89e593 (HEAD -> Net, origin/Net, design/network-ui-polish) Improve network passport manual entry hints
 ```
 
-- Working tree was clean at the startup check, then became dirty from the inherited doc-only context refresh and the current local Net package.
-- The latest accepted Net review-ergonomics package was committed and pushed at the user's explicit request in the previous chat.
-- Do not run `git commit` or `git push` for future changes unless the user explicitly asks in the current chat.
-- Current application changes are local only and are limited to Network UI/state/test files; no real `.akb`, JSON data, or Excel files were edited.
-
-Current substantial dirty files for the local package:
-
-- `Controls/KnowledgeBaseNetworkScreenControl.cs`
-- `Forms/MainForm.Events.cs`
-- `Forms/MainForm.Network.cs`
-- `Services/KnowledgeBaseNetworkStateService.cs`
-- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseNetworkStateServiceTests.cs`
-
-The inherited context files are also dirty: `AGENTS.md`, `Roadmap.md`, `docs/codex-handoff.md`, `docs/plans.md`, `docs/decision-log.md`, and `docs/lessons-learned.md`.
+- The latest Net manual-entry hints package was accepted manually, committed, and pushed at the user's explicit request.
+- Before the current implementation pass, handoff-related dirtiness was doc-only: `AGENTS.md`, `Roadmap.md`, `docs/codex-handoff.md`, `docs/plans.md`, `docs/decision-log.md`, `docs/lessons-learned.md`, and `docs/new-chat-handoff-2026-05-20-net-a89e593.md`.
+- Current local uncommitted `Net` application/test changes are limited to `Services/KnowledgeBaseNetworkMutationService.cs` and `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseNetworkMutationServiceTests.cs`.
+- Separate design worktree: `C:\Users\Olga\AKB5-design` on `design/network-ui-polish`, carrying the uncommitted Network review-filter/layout UI package for manual review.
+- Do not run `git commit`, `git push`, `git merge`, `git rebase`, delete stash entries, or remove worktrees unless the user explicitly asks in the current chat.
 
 ## Latest completed package
 
-Commit `207b6b1 Improve network passport review ergonomics` contains the manually accepted Stage 5F / Stage 6 / Stage 7 network passport review package:
+Current local uncommitted review package:
+
+- `KnowledgeBaseNetworkMutationService.UpsertInterface` now reuses `KnowledgeBaseNetworkFieldValidationService` for IP address, subnet mask, and gateway validation before accepting an interface draft.
+- `KnowledgeBaseNetworkMutationService.UpsertConnection` now reuses the existing connection-field validator before accepting cable length.
+- Mutation-service tests cover invalid IP, non-contiguous mask, invalid gateway, and invalid cable length failures.
+
+Commit `a89e593 Improve network passport manual entry hints` contains the accepted manual-entry speed and inline duplicate-hints package:
+
+- device/interface/connection action panels expose `Добавить похожее` / `Добавить похожий`;
+- the same add-similar actions are available from row context menus;
+- add-similar device drafts copy stable context fields such as linked node, role, vendor, model, order number, firmware, location/cabinet, and notes while leaving unique identity fields blank;
+- add-similar interface drafts copy device, subnet/gateway/VLAN/protocol/speed/medium/notes while leaving unique address/port/MAC/MPI fields blank;
+- add-similar connection drafts copy endpoints and cable metadata while leaving the cable label blank;
+- Network state rows expose inline `Проверка` text for narrow duplicate hints;
+- device duplicate hints cover PROFINET-name and MAC;
+- interface duplicate hints cover IP, MAC, and the same port/name on the same device;
+- connection duplicate hints cover duplicate cable labels;
+- Network list copies and visible export include the `Проверка` column.
+
+Commit `207b6b1 Improve network passport review ergonomics` is the previous accepted review package:
 
 - richer connection endpoint text with device/interface/IP/`MPI/DP/PN`;
-- visible connection `Длина` column;
-- copy-friendly connection row actions: row button, `Ctrl+C`, and context-menu copy for selected row, visible rows, interface A, and interface B;
-- visible interface `Скорость` and `Примечание` columns;
-- copy-friendly interface summaries and context-menu copy for row, visible rows, interface summary, IP, and `MPI/DP/PN`;
-- visible device `Производитель` and `Место` columns;
-- copy-friendly device row actions and context-menu copy for row, visible rows, device summary, PROFINET-name, and MAC;
-- passport-wide `Копировать видимое` export for currently visible device/interface/connection rows with table headers;
-- per-grid copy of visible rows with headers;
-- persistent selected-row visibility and row tooltips for long manual-review values;
-- README/Roadmap updates for the accepted Net state;
-- `KnowledgeBaseNetworkStateServiceTests` coverage for richer endpoint/device/interface state text.
+- visible connection `Длина`, interface `Скорость` / `Примечание`, and device `Производитель` / `Место` columns;
+- copy-friendly row/context-menu actions and visible-row exports for devices, interfaces, and connections;
+- passport-wide `Копировать видимое` export with table headers;
+- persistent selected-row visibility and row tooltips for long manual-review values.
 
-## Current local package pending review
+## Branch split
 
-The current uncommitted package adds manual-entry speed and inline duplicate hints:
-
-- device/interface/connection action panels now expose `Добавить похожее` / `Добавить похожий`;
-- the same add-similar actions are available from row context menus;
-- add-similar device drafts copy stable context fields such as role/vendor/model/order/firmware/location/cabinet/notes but leave unique identity fields blank;
-- add-similar interface drafts copy device, subnet/gateway/VLAN/protocol/speed/medium/notes but leave unique address/port/MAC fields blank;
-- add-similar connection drafts copy endpoints and cable metadata while leaving the cable label blank;
-- Network state rows now expose inline `Проверка` text for narrow duplicate hints;
-- Network list copies/visible export include the new `Проверка` column.
+- `C:\Users\Olga\AKB5` / `Net`: logic, models, services, validation, persistence, focused tests, and coherent manual-entry/manual-review behavior packages.
+- `C:\Users\Olga\AKB5-design` / `design/network-ui-polish`: WinForms layout, visual ergonomics, review-filter UI polish, and offscreen layout-smoke.
+- Do not mix the two worktrees unless the user explicitly asks to merge or coordinate them.
 
 ## Decisions already made
 
@@ -82,10 +76,11 @@ The current uncommitted package adds manual-entry speed and inline duplicate hin
 - Do not run interactive UI-smoke unless the user explicitly asks. Prefer non-invasive/offscreen layout-smoke.
 - If Codex shows no progress for about 2-3 minutes after a completed tool result, treat it as an orchestration stall and recover early.
 
-## Files already relevant to the task
+## Files already relevant to Network work
 
 - `Controls/KnowledgeBaseNetworkScreenControl.cs`
 - `Forms/MainForm.Network.cs`
+- `Forms/MainForm.Events.cs`
 - `Forms/KnowledgeBaseNetworkDeviceDialog.cs`
 - `Forms/KnowledgeBaseNetworkInterfaceDialog.cs`
 - `Forms/KnowledgeBaseNetworkConnectionDialog.cs`
@@ -107,7 +102,7 @@ The current uncommitted package adds manual-entry speed and inline duplicate hin
 
 ## Validation status
 
-Current local package validation in this chat:
+Validation completed for `a89e593` before commit/push:
 
 - focused Network tests: `41/41`;
 - full Release tests: `433/433`;
@@ -116,25 +111,29 @@ Current local package validation in this chat:
 - `dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore`: passed;
 - `dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore`: passed;
 - app build: passed;
-- isolated Release artifact: `C:\Users\Olga\AKB5\artifacts\build-check\network-manual-entry-hints-20260520-132919\asutpKB.exe`;
+- isolated Release artifact at the time of review: `C:\Users\Olga\AKB5\artifacts\build-check\network-manual-entry-hints-20260520-132919\asutpKB.exe`;
 - non-invasive/offscreen layout smoke: `artifacts\layout-smoke\network-manual-entry-hints`, passed.
 
-The offscreen smoke project restore/build emitted pre-existing analyzer warnings when run through `dotnet run`; the smoke itself completed successfully. The official app format/build/test commands above were run with the documented analyzer suppression where applicable.
+Validation completed for the current local mutation-service validation package on 2026-05-20:
+
+- focused validation/mutation tests: `39/39`;
+- `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore`: passed;
+- `dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore`: passed;
+- `dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore`: passed;
+- `dotnet build asutpKB.csproj --no-restore /p:RunAnalyzers=false /p:WarningLevel=0`: passed;
+- full tests: `438/438`;
+- `git diff --check`: passed;
+- no UI/layout files changed, so interactive UI-smoke and offscreen layout-smoke were not run.
 
 ## Known risks / open questions
 
-- The current local package needs manual review before commit/push.
-- `Добавить похожее` for connections opens a copied endpoint pair as a draft; if the user saves without changing endpoints, the existing duplicate-pair validation will reject it.
+- The design branch currently has uncommitted UI/UX work; keep it isolated from `Net` until the user asks to merge.
 - If a default `Release` build output is locked by a running `asutpKB.exe`, use an isolated output path for verification.
 - Keep diagnostics compact and avoid broad log scans unless a specific failure requires them.
 
 ## Recommended next step
 
-Hand off the isolated executable for manual review:
-
-- `C:\Users\Olga\AKB5\artifacts\build-check\network-manual-entry-hints-20260520-132919\asutpKB.exe`
-
-After manual acceptance, wait for an explicit current-chat request before `git commit` / `git push`. If manual review finds layout or behavior issues, fix them in this same coherent package before moving to the next Net direction.
+Manual-review the current local `Net` mutation-service validation package. If it is accepted, request commit/push explicitly in the current chat; if not, refine the same package before starting another Network direction. Do not commit/push/merge without explicit current-chat approval.
 
 ## Commands to run before finishing future implementation work
 
