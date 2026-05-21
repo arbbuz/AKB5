@@ -107,13 +107,9 @@ public class KnowledgeBaseFormStateServiceTests
         Assert.Equal("Есть несохраненные изменения", state.SaveStateText);
         Assert.Equal("Отделение 1 / Линия 1 / Насос", state.SelectedNode.FullPath);
         Assert.Equal("Основной насос", state.SelectedNode.Description);
-        Assert.Equal(string.Empty, state.SelectedNode.Location);
-        Assert.Equal(string.Empty, state.SelectedNode.PhotoPath);
         Assert.Equal(string.Empty, state.SelectedNode.IpAddress);
         Assert.Equal(string.Empty, state.SelectedNode.SchemaLink);
         Assert.False(state.SelectedNode.ShowTechnicalFields);
-        Assert.False(state.SelectedNode.ShowLocation);
-        Assert.False(state.SelectedNode.ShowPhoto);
         Assert.True(state.SelectedNode.Workspace.UseTabHost);
     }
 
@@ -248,11 +244,7 @@ public class KnowledgeBaseFormStateServiceTests
 
         Assert.True(state.SelectedNode.ShowInventoryNumber);
         Assert.Equal("INV-100", state.SelectedNode.InventoryNumber);
-        Assert.False(state.SelectedNode.ShowLocation);
-        Assert.False(state.SelectedNode.ShowPhoto);
         Assert.False(state.SelectedNode.ShowTechnicalFields);
-        Assert.Equal(string.Empty, state.SelectedNode.Location);
-        Assert.Equal(string.Empty, state.SelectedNode.PhotoPath);
         Assert.Equal(string.Empty, state.SelectedNode.IpAddress);
         Assert.Equal(string.Empty, state.SelectedNode.SchemaLink);
 
@@ -270,12 +262,10 @@ public class KnowledgeBaseFormStateServiceTests
 
         Assert.False(cabinetState.SelectedNode.ShowInventoryNumber);
         Assert.Equal(string.Empty, cabinetState.SelectedNode.InventoryNumber);
-        Assert.False(cabinetState.SelectedNode.ShowLocation);
-        Assert.False(cabinetState.SelectedNode.ShowPhoto);
     }
 
     [Fact]
-    public void Build_HidesLocationAndPhotoForVisibleLevel1Nodes()
+    public void Build_ExposesDescriptionForVisibleLevel1Nodes()
     {
         var selectedNode = new KbNode
         {
@@ -300,14 +290,11 @@ public class KnowledgeBaseFormStateServiceTests
             currentRoots: new List<KbNode> { selectedNode },
             selectedNode: selectedNode);
 
-        Assert.False(state.SelectedNode.ShowLocation);
-        Assert.False(state.SelectedNode.ShowPhoto);
-        Assert.Equal(string.Empty, state.SelectedNode.Location);
-        Assert.Equal(string.Empty, state.SelectedNode.PhotoPath);
+        Assert.NotEmpty(state.SelectedNode.Description);
     }
 
     [Fact]
-    public void Build_HidesLocationAndPhotoForDeepVisibleLevels()
+    public void Build_ExposesDescriptionForDeepVisibleLevels()
     {
         var selectedNode = new KbNode
         {
@@ -355,10 +342,7 @@ public class KnowledgeBaseFormStateServiceTests
             selectedNode: selectedNode);
 
         Assert.Equal("РќРёР¶РЅРёР№ СѓСЂРѕРІРµРЅСЊ", state.SelectedNode.Description);
-        Assert.False(state.SelectedNode.ShowLocation);
-        Assert.False(state.SelectedNode.ShowPhoto);
-        Assert.Equal(string.Empty, state.SelectedNode.Location);
-        Assert.Equal(string.Empty, state.SelectedNode.PhotoPath);
+        Assert.NotEmpty(state.SelectedNode.Description);
     }
 
     [Fact]

@@ -1,4 +1,3 @@
-using System.Drawing.Drawing2D;
 using AsutpKnowledgeBase.Services;
 
 namespace AsutpKnowledgeBase
@@ -13,7 +12,7 @@ namespace AsutpKnowledgeBase
         private TextBox _txtNodeIpAddress = null!;
         private TextBox _txtNodeSchemaLink = null!;
         private TableLayoutPanel _tblDetailsLeftColumn = null!;
-        private ModernInfoSectionPanel _grpTechnicalFields = null!;
+        private KnowledgeBaseWorkspaceVisuals.SectionPanel _grpTechnicalFields = null!;
 
         public KnowledgeBaseInfoScreenControl()
         {
@@ -43,7 +42,7 @@ namespace AsutpKnowledgeBase
             _tblDetailsLeftColumn.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             _tblDetailsLeftColumn.RowStyles.Add(new RowStyle(SizeType.Absolute, 0F));
 
-            var grpSummary = new ModernInfoSectionPanel
+            var grpSummary = new KnowledgeBaseWorkspaceVisuals.SectionPanel
             {
                 Text = "Сводка",
                 Dock = DockStyle.Top,
@@ -54,7 +53,7 @@ namespace AsutpKnowledgeBase
             grpSummary.Controls.Add(CreateSummaryLayout());
             _tblDetailsLeftColumn.Controls.Add(grpSummary, 0, 0);
 
-            var grpCommonFields = new ModernInfoSectionPanel
+            var grpCommonFields = new KnowledgeBaseWorkspaceVisuals.SectionPanel
             {
                 Text = "Карточка объекта",
                 Dock = DockStyle.Fill,
@@ -63,7 +62,7 @@ namespace AsutpKnowledgeBase
             grpCommonFields.Controls.Add(CreateCommonFieldsLayout());
             _tblDetailsLeftColumn.Controls.Add(grpCommonFields, 0, 1);
 
-            _grpTechnicalFields = new ModernInfoSectionPanel
+            _grpTechnicalFields = new KnowledgeBaseWorkspaceVisuals.SectionPanel
             {
                 Text = "Технические поля",
                 Dock = DockStyle.Fill,
@@ -276,74 +275,6 @@ namespace AsutpKnowledgeBase
                 ForeColor = KnowledgeBaseWorkspaceVisuals.TextColor,
                 AutoEllipsis = true
             };
-
-        private sealed class ModernInfoSectionPanel : Panel
-        {
-            private const int BorderTop = 12;
-            private const int TitleTop = -1;
-            private const int TitleHeight = 18;
-
-            private static readonly Color FillColor = KnowledgeBaseWorkspaceVisuals.PanelColor;
-            private static readonly Color BorderColor = KnowledgeBaseWorkspaceVisuals.HairlineColor;
-            private static readonly Color TitleColor = KnowledgeBaseWorkspaceVisuals.TitleColor;
-
-            public ModernInfoSectionPanel()
-            {
-                DoubleBuffered = true;
-                BackColor = FillColor;
-                Padding = new Padding(10, 20, 10, 10);
-            }
-
-            protected override void OnPaint(PaintEventArgs e)
-            {
-                base.OnPaint(e);
-
-                var borderBounds = ClientRectangle;
-                borderBounds.X += 1;
-                borderBounds.Y += BorderTop;
-                borderBounds.Width -= 2;
-                borderBounds.Height -= BorderTop + 1;
-                if (borderBounds.Width <= 0 || borderBounds.Height <= 0)
-                    return;
-
-                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                using var path = CreateRoundedRectanglePath(borderBounds, 6);
-                using var borderPen = new Pen(BorderColor, 0.25F);
-                e.Graphics.DrawPath(borderPen, path);
-
-                if (string.IsNullOrWhiteSpace(Text))
-                    return;
-
-                var titleSize = TextRenderer.MeasureText(Text, Font);
-                var titleBounds = new Rectangle(14, TitleTop, titleSize.Width + 8, TitleHeight);
-                using var titleBackBrush = new SolidBrush(FillColor);
-                e.Graphics.FillRectangle(titleBackBrush, titleBounds);
-                TextRenderer.DrawText(
-                    e.Graphics,
-                    Text,
-                    Font,
-                    new Point(18, TitleTop),
-                    TitleColor,
-                    TextFormatFlags.NoPrefix);
-            }
-
-            private static GraphicsPath CreateRoundedRectanglePath(Rectangle rectangle, int radius)
-            {
-                var path = new GraphicsPath();
-                var diameter = radius * 2;
-                var arc = new Rectangle(rectangle.Location, new Size(diameter, diameter));
-
-                path.AddArc(arc, 180, 90);
-                arc.X = rectangle.Right - diameter;
-                path.AddArc(arc, 270, 90);
-                arc.Y = rectangle.Bottom - diameter;
-                path.AddArc(arc, 0, 90);
-                arc.X = rectangle.Left;
-                path.AddArc(arc, 90, 90);
-                path.CloseFigure();
-                return path;
-            }
-        }
 
         private sealed class ModernInfoFieldPanel : Panel
         {

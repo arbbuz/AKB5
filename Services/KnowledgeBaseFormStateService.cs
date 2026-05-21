@@ -22,11 +22,7 @@ namespace AsutpKnowledgeBase.Services
 
         public string Description { get; init; } = string.Empty;
 
-        public string Location { get; init; } = string.Empty;
-
         public string InventoryNumber { get; init; } = string.Empty;
-
-        public string PhotoPath { get; init; } = string.Empty;
 
         public string IpAddress { get; init; } = string.Empty;
 
@@ -35,10 +31,6 @@ namespace AsutpKnowledgeBase.Services
         public bool ShowTechnicalFields { get; init; }
 
         public bool ShowInventoryNumber { get; init; }
-
-        public bool ShowLocation { get; init; }
-
-        public bool ShowPhoto { get; init; }
 
         public KnowledgeBaseNodeWorkspaceState Workspace { get; init; } = new();
 
@@ -214,8 +206,6 @@ namespace AsutpKnowledgeBase.Services
             int visibleLevel = _nodePresentationService.GetVisibleLevel(currentRoots, selectedNode);
             bool supportsTechnicalFields = false;
             bool supportsInventoryNumber = KnowledgeBaseNodeMetadataService.SupportsInventoryNumber(visibleLevel);
-            bool supportsLocation = false;
-            bool supportsPhoto = false;
 
             return new KnowledgeBaseSelectedNodeState
             {
@@ -227,15 +217,11 @@ namespace AsutpKnowledgeBase.Services
                 NodeType = selectedNode.NodeType,
                 HasChildren = selectedNode.Children.Count > 0,
                 Description = selectedNode.Details?.Description ?? string.Empty,
-                Location = supportsLocation ? selectedNode.Details?.Location ?? string.Empty : string.Empty,
                 InventoryNumber = supportsInventoryNumber ? selectedNode.Details?.InventoryNumber ?? string.Empty : string.Empty,
-                PhotoPath = supportsPhoto ? selectedNode.Details?.PhotoPath ?? string.Empty : string.Empty,
                 IpAddress = supportsTechnicalFields ? selectedNode.Details?.IpAddress ?? string.Empty : string.Empty,
                 SchemaLink = supportsTechnicalFields ? selectedNode.Details?.SchemaLink ?? string.Empty : string.Empty,
                 ShowTechnicalFields = supportsTechnicalFields,
                 ShowInventoryNumber = supportsInventoryNumber,
-                ShowLocation = supportsLocation,
-                ShowPhoto = supportsPhoto,
                 Workspace = _nodeWorkspaceResolverService.Resolve(selectedNode.NodeType, visibleLevel),
                 Composition = _compositionStateService.Build(selectedNode, compositionRacks, compositionEntries, visibleLevel),
                 DocsAndSoftware = _docsAndSoftwareStateService.Build(
