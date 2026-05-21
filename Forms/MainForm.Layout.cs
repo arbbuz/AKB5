@@ -8,6 +8,10 @@ namespace AsutpKnowledgeBase
         private const int ToolbarItemHeight = 30;
         private const int ToolbarIconSize = 22;
         private const int ToolbarHeight = ToolbarItemHeight + 4;
+        private static readonly Color AppSurfaceBackColor = Color.White;
+        private static readonly Color AppChromeBackColor = Color.FromArgb(247, 249, 251);
+        private static readonly Color AppPanelBackColor = Color.FromArgb(251, 253, 254);
+        private static readonly Color AppHairlineColor = Color.FromArgb(54, 119, 138, 156);
 
         private void InitializeComponent()
         {
@@ -164,11 +168,14 @@ namespace AsutpKnowledgeBase
 
         private void InitializeMainLayout()
         {
-            splitMain = new SplitContainer
+            splitMain = new KnowledgeBaseThinSplitContainer
             {
                 Dock = DockStyle.Fill,
                 FixedPanel = FixedPanel.Panel1,
-                BackColor = Color.FromArgb(230, 230, 230)
+                BackColor = AppChromeBackColor,
+                SplitterWidth = 6,
+                SplitterFillColor = AppChromeBackColor,
+                SplitterLineColor = AppHairlineColor
             };
 
             InitializeLeftPanel();
@@ -180,13 +187,13 @@ namespace AsutpKnowledgeBase
             var pnlLeft = new Panel
             {
                 Dock = DockStyle.Fill,
-                BackColor = Color.FromArgb(245, 245, 245)
+                BackColor = AppChromeBackColor
             };
 
             var leftLayout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(12),
+                Padding = new Padding(10, 10, 10, 4),
                 ColumnCount = 1,
                 RowCount = 2
             };
@@ -195,12 +202,46 @@ namespace AsutpKnowledgeBase
             leftLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
             leftLayout.Controls.Add(CreateWorkshopSelectorPanel(), 0, 0);
+            splitMain.Panel1.Resize += (_, _) => RefreshWorkshopSelectorLayout();
 
-            var grpTree = new GroupBox
+            var treePanel = new ModernSectionPanel
             {
-                Text = "Дерево объектов",
                 Dock = DockStyle.Fill,
-                Padding = new Padding(10)
+                Padding = new Padding(8, 0, 8, 8)
+            };
+
+            var treeLayout = new TableLayoutPanel
+            {
+                BackColor = Color.Transparent,
+                ColumnCount = 1,
+                Dock = DockStyle.Fill,
+                RowCount = 2
+            };
+            treeLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            treeLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, ToolbarHeight));
+            treeLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            var treeHeader = new TableLayoutPanel
+            {
+                BackColor = Color.Transparent,
+                ColumnCount = 2,
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0),
+                RowCount = 1
+            };
+            treeHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            treeHeader.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            treeHeader.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            var treeTitle = new Label
+            {
+                AutoSize = false,
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(28, 38, 49),
+                Margin = new Padding(0),
+                Text = "Дерево объектов",
+                TextAlign = ContentAlignment.MiddleLeft
             };
 
             tvTree = new KnowledgeBaseTreeView
@@ -209,27 +250,31 @@ namespace AsutpKnowledgeBase
                 CheckBoxes = false,
                 Margin = new Padding(0),
                 AllowDrop = true,
+                BackColor = AppSurfaceBackColor,
                 ImageList = KnowledgeBaseTreeNodeVisuals.CreateImageList()
             };
 
             var treeToolStrip = new ToolStrip
             {
                 AutoSize = false,
-                Dock = DockStyle.Top,
+                Dock = DockStyle.Fill,
                 GripStyle = ToolStripGripStyle.Hidden,
                 Height = ToolbarHeight,
                 ImageScalingSize = new Size(ToolbarIconSize, ToolbarIconSize),
                 Padding = new Padding(0, 2, 0, 2),
-                Renderer = ModernToolbarRenderer.Instance
+                Renderer = ModernSurfaceToolbarRenderer.Instance
             };
             btnCollapseTree = CreateIconOnlyToolbarButton("\ue944", "Свернуть дерево до корневых элементов");
             btnCollapseTree.Alignment = ToolStripItemAlignment.Right;
             treeToolStrip.Items.Add(btnCollapseTree);
 
             toolTip.SetToolTip(tvTree, "Перетаскивание для перемещения, правая кнопка мыши для меню");
-            grpTree.Controls.Add(tvTree);
-            grpTree.Controls.Add(treeToolStrip);
-            leftLayout.Controls.Add(grpTree, 0, 1);
+            treeHeader.Controls.Add(treeTitle, 0, 0);
+            treeHeader.Controls.Add(treeToolStrip, 1, 0);
+            treeLayout.Controls.Add(treeHeader, 0, 0);
+            treeLayout.Controls.Add(tvTree, 0, 1);
+            treePanel.Controls.Add(treeLayout);
+            leftLayout.Controls.Add(treePanel, 0, 1);
 
             pnlLeft.Controls.Add(leftLayout);
             splitMain.Panel1.Controls.Add(pnlLeft);
@@ -300,7 +345,8 @@ namespace AsutpKnowledgeBase
             var pnlRight = new Panel
             {
                 Dock = DockStyle.Fill,
-                BackColor = Color.White
+                BackColor = AppChromeBackColor,
+                Padding = new Padding(6, 10, 10, 6)
             };
 
             var rightLayout = new TableLayoutPanel
@@ -314,13 +360,13 @@ namespace AsutpKnowledgeBase
             rightLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             rightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-            pnlSelectedNodeContextHeader = new Panel
+            pnlSelectedNodeContextHeader = new ModernWorkspaceHeaderPanel
             {
                 Dock = DockStyle.Top,
                 AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                BackColor = Color.FromArgb(250, 250, 250),
-                Padding = new Padding(14, 6, 14, 6),
+                BackColor = AppPanelBackColor,
+                Padding = new Padding(14, 10, 14, 10),
                 Visible = false
             };
 
@@ -329,20 +375,55 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Top,
                 AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                ColumnCount = 1,
+                ColumnCount = 2,
                 RowCount = 1
             };
+            contextHeaderLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 44F));
             contextHeaderLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             contextHeaderLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            picSelectedNodeContextIcon = new PictureBox
+            {
+                Dock = DockStyle.Top,
+                Size = new Size(36, 36),
+                Margin = new Padding(0, 1, 8, 0),
+                SizeMode = PictureBoxSizeMode.CenterImage,
+                TabStop = false
+            };
+
+            var contextHeaderTextLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 1,
+                RowCount = 2,
+                Margin = new Padding(0)
+            };
+            contextHeaderTextLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            contextHeaderTextLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            contextHeaderTextLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             lblSelectedNodeContextName = new Label
             {
                 Dock = DockStyle.Top,
                 AutoSize = false,
-                Height = 22,
+                Height = 23,
                 AutoEllipsis = true,
-                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(30, 30, 30),
+                Font = new Font("Segoe UI Semibold", 12F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(10, 15, 20),
+                Margin = new Padding(0),
+                Text = string.Empty
+            };
+
+            lblSelectedNodeContextMeta = new Label
+            {
+                Dock = DockStyle.Top,
+                AutoSize = false,
+                Height = 18,
+                AutoEllipsis = true,
+                Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+                ForeColor = Color.FromArgb(94, 107, 119),
                 Margin = new Padding(0),
                 Text = string.Empty
             };
@@ -351,7 +432,7 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Top,
                 BorderStyle = BorderStyle.None,
-                BackColor = Color.FromArgb(250, 250, 250),
+                BackColor = AppPanelBackColor,
                 ReadOnly = true,
                 TabStop = false,
                 ForeColor = Color.DimGray,
@@ -359,12 +440,23 @@ namespace AsutpKnowledgeBase
                 Visible = false
             };
 
-            contextHeaderLayout.Controls.Add(lblSelectedNodeContextName, 0, 0);
+            contextHeaderTextLayout.Controls.Add(lblSelectedNodeContextName, 0, 0);
+            contextHeaderTextLayout.Controls.Add(lblSelectedNodeContextMeta, 0, 1);
+            contextHeaderLayout.Controls.Add(picSelectedNodeContextIcon, 0, 0);
+            contextHeaderLayout.Controls.Add(contextHeaderTextLayout, 1, 0);
             pnlSelectedNodeContextHeader.Controls.Add(contextHeaderLayout);
 
             pnlSelectedNodeWorkspaceHost = new Panel
             {
-                Dock = DockStyle.Fill
+                Dock = DockStyle.Fill,
+                BackColor = AppSurfaceBackColor
+            };
+
+            pnlSelectedNodeWorkspaceSurface = new ModernWorkspaceSurfacePanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = AppSurfaceBackColor,
+                Padding = new Padding(1)
             };
 
             lblSelectedNodeEmptyState = new Label
@@ -380,6 +472,7 @@ namespace AsutpKnowledgeBase
             pnlSelectedNodeInfoScreen = new Panel
             {
                 Dock = DockStyle.Fill,
+                BackColor = AppSurfaceBackColor,
                 Visible = false
             };
 
@@ -392,27 +485,39 @@ namespace AsutpKnowledgeBase
 
             tabSelectedNodeInfo = new TabPage("Карточка")
             {
+                BackColor = AppSurfaceBackColor,
+                UseVisualStyleBackColor = false,
                 Tag = KnowledgeBaseNodeWorkspaceTabKind.Info
             };
             tabSelectedNodeComposition = new TabPage("Состав")
             {
+                BackColor = AppSurfaceBackColor,
+                UseVisualStyleBackColor = false,
                 Tag = KnowledgeBaseNodeWorkspaceTabKind.Composition
             };
             tabSelectedNodeAdditionalEquipment = new TabPage("Доп. оборудование")
             {
+                BackColor = AppSurfaceBackColor,
+                UseVisualStyleBackColor = false,
                 Tag = KnowledgeBaseNodeWorkspaceTabKind.AdditionalEquipment
             };
             tabSelectedNodeDocsAndSoftware = new TabPage("Документация и ПО")
             {
+                BackColor = AppSurfaceBackColor,
+                UseVisualStyleBackColor = false,
                 Tag = KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware
             };
             tabSelectedNodeNetwork = new TabPage("Сеть")
             {
+                BackColor = AppSurfaceBackColor,
+                UseVisualStyleBackColor = false,
                 Tag = KnowledgeBaseNodeWorkspaceTabKind.Network
             };
 
             tabSelectedNodeMaintenance = new TabPage("График ТО")
             {
+                BackColor = AppSurfaceBackColor,
+                UseVisualStyleBackColor = false,
                 Tag = KnowledgeBaseNodeWorkspaceTabKind.Maintenance
             };
 
@@ -464,7 +569,8 @@ namespace AsutpKnowledgeBase
             pnlSelectedNodeWorkspaceHost.Controls.Add(lblSelectedNodeEmptyState);
             rightLayout.Controls.Add(pnlSelectedNodeContextHeader, 0, 0);
             rightLayout.Controls.Add(pnlSelectedNodeWorkspaceHost, 0, 1);
-            pnlRight.Controls.Add(rightLayout);
+            pnlSelectedNodeWorkspaceSurface.Controls.Add(rightLayout);
+            pnlRight.Controls.Add(pnlSelectedNodeWorkspaceSurface);
             splitMain.Panel2.Controls.Add(pnlRight);
         }
 
@@ -592,11 +698,45 @@ namespace AsutpKnowledgeBase
                 Font = new Font("Segoe UI", 9F),
                 Margin = new Padding(0, 3, 0, 0)
             };
+            cmbWorkshops.SizeChanged += (_, _) => RefreshWorkshopSelectorLayout();
+            layout.SizeChanged += (_, _) => RefreshWorkshopSelectorLayout();
+            panel.SizeChanged += (_, _) => RefreshWorkshopSelectorLayout();
 
             layout.Controls.Add(label, 0, 0);
             layout.Controls.Add(cmbWorkshops, 0, 1);
             panel.Controls.Add(layout);
             return panel;
+        }
+
+        private void RefreshWorkshopSelectorLayout()
+        {
+            if (cmbWorkshops is not { IsDisposed: false } comboBox)
+                return;
+
+            int dropDownWidth = GetPreferredComboBoxDropDownWidth(comboBox);
+            if (comboBox.DropDownWidth != dropDownWidth)
+                comboBox.DropDownWidth = dropDownWidth;
+
+            comboBox.Invalidate();
+            comboBox.Parent?.Invalidate();
+            comboBox.Parent?.Parent?.Invalidate();
+        }
+
+        private static int GetPreferredComboBoxDropDownWidth(ComboBox comboBox)
+        {
+            int width = comboBox.Width;
+            foreach (object? item in comboBox.Items)
+            {
+                string text = comboBox.GetItemText(item);
+                if (string.IsNullOrEmpty(text))
+                    continue;
+
+                width = Math.Max(
+                    width,
+                    TextRenderer.MeasureText(text, comboBox.Font).Width + SystemInformation.VerticalScrollBarWidth + 16);
+            }
+
+            return Math.Max(width, 1);
         }
 
         private static Label CreateWorkspacePlaceholderLabel() =>
@@ -918,11 +1058,61 @@ namespace AsutpKnowledgeBase
             }
         }
 
+        private sealed class ModernSurfaceToolbarRenderer : ToolStripProfessionalRenderer
+        {
+            public static readonly ModernSurfaceToolbarRenderer Instance = new();
+
+            protected override void OnRenderToolStripBackground(ToolStripRenderEventArgs e)
+            {
+                using var brush = new SolidBrush(AppPanelBackColor);
+                e.Graphics.FillRectangle(brush, e.AffectedBounds);
+            }
+
+            protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
+            {
+            }
+
+            protected override void OnRenderButtonBackground(ToolStripItemRenderEventArgs e)
+            {
+                if (!e.Item.Enabled || (!e.Item.Selected && !e.Item.Pressed))
+                    return;
+
+                var bounds = new Rectangle(Point.Empty, e.Item.Size);
+                bounds.Inflate(-2, -3);
+
+                using var path = CreateRoundedRectanglePath(bounds, 4);
+                using var fill = new SolidBrush(e.Item.Pressed ? Color.FromArgb(231, 241, 248) : Color.FromArgb(239, 246, 250));
+                using var pen = new Pen(Color.FromArgb(130, 190, 213, 232), 0.5F);
+
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                e.Graphics.FillPath(fill, path);
+                e.Graphics.DrawPath(pen, path);
+            }
+
+            private static System.Drawing.Drawing2D.GraphicsPath CreateRoundedRectanglePath(Rectangle rectangle, int radius)
+            {
+                var path = new System.Drawing.Drawing2D.GraphicsPath();
+                var diameter = radius * 2;
+                var arc = new Rectangle(rectangle.Location, new Size(diameter, diameter));
+
+                path.AddArc(arc, 180, 90);
+                arc.X = rectangle.Right - diameter;
+                path.AddArc(arc, 270, 90);
+                arc.Y = rectangle.Bottom - diameter;
+                path.AddArc(arc, 0, 90);
+                arc.X = rectangle.Left;
+                path.AddArc(arc, 90, 90);
+                path.CloseFigure();
+                return path;
+            }
+        }
+
         private sealed class ModernSectionPanel : Panel
         {
             public ModernSectionPanel()
             {
                 DoubleBuffered = true;
+                SetStyle(ControlStyles.ResizeRedraw, true);
             }
 
             protected override void OnPaint(PaintEventArgs e)
@@ -934,8 +1124,8 @@ namespace AsutpKnowledgeBase
                 bounds.Height -= 1;
 
                 using var path = CreateRoundedRectanglePath(bounds, 5);
-                using var brush = new SolidBrush(Color.FromArgb(248, 251, 253));
-                using var borderPen = new Pen(Color.FromArgb(211, 219, 227));
+                using var brush = new SolidBrush(AppPanelBackColor);
+                using var borderPen = new Pen(AppHairlineColor, 0.25F);
 
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 e.Graphics.FillPath(brush, path);
@@ -957,6 +1147,66 @@ namespace AsutpKnowledgeBase
                 path.AddArc(arc, 90, 90);
                 path.CloseFigure();
                 return path;
+            }
+        }
+
+        private sealed class ModernWorkspaceSurfacePanel : Panel
+        {
+            public ModernWorkspaceSurfacePanel()
+            {
+                DoubleBuffered = true;
+                SetStyle(ControlStyles.ResizeRedraw, true);
+            }
+
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                base.OnPaint(e);
+
+                var bounds = ClientRectangle;
+                bounds.Width -= 1;
+                bounds.Height -= 1;
+                if (bounds.Width <= 0 || bounds.Height <= 0)
+                    return;
+
+                using var path = CreateRoundedRectanglePath(bounds, 8);
+                using var pen = new Pen(AppHairlineColor, 0.25F);
+
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                e.Graphics.DrawPath(pen, path);
+            }
+
+            private static System.Drawing.Drawing2D.GraphicsPath CreateRoundedRectanglePath(Rectangle rectangle, int radius)
+            {
+                var path = new System.Drawing.Drawing2D.GraphicsPath();
+                var diameter = radius * 2;
+                var arc = new Rectangle(rectangle.Location, new Size(diameter, diameter));
+
+                path.AddArc(arc, 180, 90);
+                arc.X = rectangle.Right - diameter;
+                path.AddArc(arc, 270, 90);
+                arc.Y = rectangle.Bottom - diameter;
+                path.AddArc(arc, 0, 90);
+                arc.X = rectangle.Left;
+                path.AddArc(arc, 90, 90);
+                path.CloseFigure();
+                return path;
+            }
+        }
+
+        private sealed class ModernWorkspaceHeaderPanel : Panel
+        {
+            public ModernWorkspaceHeaderPanel()
+            {
+                DoubleBuffered = true;
+                SetStyle(ControlStyles.ResizeRedraw, true);
+            }
+
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                base.OnPaint(e);
+
+                using var pen = new Pen(AppHairlineColor, 0.25F);
+                e.Graphics.DrawLine(pen, 0, Height - 1, Width, Height - 1);
             }
         }
 

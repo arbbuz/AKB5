@@ -1,10 +1,10 @@
+using System.Drawing.Drawing2D;
 using AsutpKnowledgeBase.Services;
 
 namespace AsutpKnowledgeBase
 {
     public sealed class KnowledgeBaseInfoScreenControl : UserControl
     {
-        private Label _lblSelectedNodeNameValue = null!;
         private TextBox _txtSelectedNodePath = null!;
         private Label _lblSelectedNodeChildrenValue = null!;
         private Label _lblNodeInventoryNumber = null!;
@@ -17,7 +17,7 @@ namespace AsutpKnowledgeBase
         private TextBox _txtNodeIpAddress = null!;
         private TextBox _txtNodeSchemaLink = null!;
         private TableLayoutPanel _tblDetailsLeftColumn = null!;
-        private GroupBox _grpTechnicalFields = null!;
+        private ModernInfoSectionPanel _grpTechnicalFields = null!;
         private FlowLayoutPanel _pnlPhotoButtons = null!;
         private Button _btnBrowsePhoto = null!;
         private Button _btnOpenPhoto = null!;
@@ -29,30 +29,13 @@ namespace AsutpKnowledgeBase
             var selectedNodeCard = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(16),
+                BackColor = Color.White,
+                Padding = new Padding(14),
                 ColumnCount = 1,
-                RowCount = 2
+                RowCount = 1
             };
             selectedNodeCard.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            selectedNodeCard.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             selectedNodeCard.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-
-            var headerPanel = new Panel
-            {
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0, 0, 0, 12),
-                Padding = new Padding(0, 0, 0, 8)
-            };
-
-            _lblSelectedNodeNameValue = new Label
-            {
-                Dock = DockStyle.Top,
-                Height = 38,
-                Font = new Font("Segoe UI Semibold", 18F, FontStyle.Bold),
-                AutoEllipsis = true
-            };
-            headerPanel.Controls.Add(_lblSelectedNodeNameValue);
-            selectedNodeCard.Controls.Add(headerPanel, 0, 0);
 
             _tblDetailsLeftColumn = new TableLayoutPanel
             {
@@ -66,7 +49,7 @@ namespace AsutpKnowledgeBase
             _tblDetailsLeftColumn.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             _tblDetailsLeftColumn.RowStyles.Add(new RowStyle(SizeType.Absolute, 0F));
 
-            var grpSummary = new GroupBox
+            var grpSummary = new ModernInfoSectionPanel
             {
                 Text = "Сводка",
                 Dock = DockStyle.Top,
@@ -77,7 +60,7 @@ namespace AsutpKnowledgeBase
             grpSummary.Controls.Add(CreateSummaryLayout());
             _tblDetailsLeftColumn.Controls.Add(grpSummary, 0, 0);
 
-            var grpCommonFields = new GroupBox
+            var grpCommonFields = new ModernInfoSectionPanel
             {
                 Text = "Карточка объекта",
                 Dock = DockStyle.Fill,
@@ -86,7 +69,7 @@ namespace AsutpKnowledgeBase
             grpCommonFields.Controls.Add(CreateCommonFieldsLayout());
             _tblDetailsLeftColumn.Controls.Add(grpCommonFields, 0, 1);
 
-            _grpTechnicalFields = new GroupBox
+            _grpTechnicalFields = new ModernInfoSectionPanel
             {
                 Text = "Технические поля",
                 Dock = DockStyle.Fill,
@@ -96,7 +79,7 @@ namespace AsutpKnowledgeBase
             _grpTechnicalFields.Controls.Add(CreateTechnicalFieldsLayout());
             _tblDetailsLeftColumn.Controls.Add(_grpTechnicalFields, 0, 2);
 
-            selectedNodeCard.Controls.Add(_tblDetailsLeftColumn, 0, 1);
+            selectedNodeCard.Controls.Add(_tblDetailsLeftColumn, 0, 0);
             Controls.Add(selectedNodeCard);
         }
 
@@ -134,7 +117,6 @@ namespace AsutpKnowledgeBase
 
         public void ApplyState(KnowledgeBaseSelectedNodeState selectedNodeState)
         {
-            _lblSelectedNodeNameValue.Text = selectedNodeState.Name;
             _txtSelectedNodePath.Text = selectedNodeState.FullPath;
             _lblSelectedNodeChildrenValue.Text = selectedNodeState.ChildrenCountText;
             _txtNodeDescription.Text = selectedNodeState.Description;
@@ -180,12 +162,11 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Multiline = true,
                 ReadOnly = true,
-                BorderStyle = BorderStyle.FixedSingle,
                 BackColor = Color.White,
                 ScrollBars = ScrollBars.Vertical,
                 TabStop = false
             };
-            layout.Controls.Add(_txtSelectedNodePath, 1, 0);
+            layout.Controls.Add(CreateTextFieldFrame(_txtSelectedNodePath, multiline: true), 1, 0);
 
             layout.Controls.Add(CreateFormLabel("Дочерних"), 0, 1);
             _lblSelectedNodeChildrenValue = CreateReadOnlyValueLabel();
@@ -201,7 +182,7 @@ namespace AsutpKnowledgeBase
                 Visible = false
             };
             _txtNodeInventoryNumber.TextChanged += (_, _) => InventoryNumberChangedByUser?.Invoke(this, EventArgs.Empty);
-            layout.Controls.Add(_txtNodeInventoryNumber, 1, 2);
+            layout.Controls.Add(CreateTextFieldFrame(_txtNodeInventoryNumber), 1, 2);
 
             return layout;
         }
@@ -233,20 +214,21 @@ namespace AsutpKnowledgeBase
                 ScrollBars = ScrollBars.Vertical
             };
             _txtNodeDescription.TextChanged += (_, _) => DescriptionChangedByUser?.Invoke(this, EventArgs.Empty);
-            layout.Controls.Add(_txtNodeDescription, 1, 0);
-            layout.SetRowSpan(_txtNodeDescription, 2);
+            var descriptionField = CreateTextFieldFrame(_txtNodeDescription, multiline: true);
+            layout.Controls.Add(descriptionField, 1, 0);
+            layout.SetRowSpan(descriptionField, 2);
 
             _lblNodeLocation = CreateFormLabel("Местоположение");
             layout.Controls.Add(_lblNodeLocation, 0, 2);
             _txtNodeLocation = new TextBox { Dock = DockStyle.Fill };
             _txtNodeLocation.TextChanged += (_, _) => LocationChangedByUser?.Invoke(this, EventArgs.Empty);
-            layout.Controls.Add(_txtNodeLocation, 1, 3);
+            layout.Controls.Add(CreateTextFieldFrame(_txtNodeLocation), 1, 3);
 
             _lblNodePhotoPath = CreateFormLabel("Фото");
             layout.Controls.Add(_lblNodePhotoPath, 0, 4);
             _txtNodePhotoPath = new TextBox { Dock = DockStyle.Fill };
             _txtNodePhotoPath.TextChanged += (_, _) => PhotoPathChangedByUser?.Invoke(this, EventArgs.Empty);
-            layout.Controls.Add(_txtNodePhotoPath, 1, 5);
+            layout.Controls.Add(CreateTextFieldFrame(_txtNodePhotoPath), 1, 5);
 
             _pnlPhotoButtons = new FlowLayoutPanel
             {
@@ -295,12 +277,12 @@ namespace AsutpKnowledgeBase
             layout.Controls.Add(CreateFormLabel("IP-адрес"), 0, 0);
             _txtNodeIpAddress = new TextBox { Dock = DockStyle.Fill };
             _txtNodeIpAddress.TextChanged += (_, _) => IpAddressChangedByUser?.Invoke(this, EventArgs.Empty);
-            layout.Controls.Add(_txtNodeIpAddress, 1, 1);
+            layout.Controls.Add(CreateTextFieldFrame(_txtNodeIpAddress), 1, 1);
 
             layout.Controls.Add(CreateFormLabel("Ссылка на схему"), 0, 2);
             _txtNodeSchemaLink = new TextBox { Dock = DockStyle.Fill };
             _txtNodeSchemaLink.TextChanged += (_, _) => SchemaLinkChangedByUser?.Invoke(this, EventArgs.Empty);
-            layout.Controls.Add(_txtNodeSchemaLink, 1, 3);
+            layout.Controls.Add(CreateTextFieldFrame(_txtNodeSchemaLink), 1, 3);
 
             return layout;
         }
@@ -320,6 +302,8 @@ namespace AsutpKnowledgeBase
             _lblNodeInventoryNumber.Visible = visible;
             _txtNodeInventoryNumber.Visible = visible;
             _txtNodeInventoryNumber.Enabled = visible;
+            _txtNodeInventoryNumber.Parent!.Visible = visible;
+            _txtNodeInventoryNumber.Parent.Enabled = visible;
 
             if (!visible)
                 _txtNodeInventoryNumber.Text = string.Empty;
@@ -338,6 +322,8 @@ namespace AsutpKnowledgeBase
             _lblNodeLocation.Visible = visible;
             _txtNodeLocation.Visible = visible;
             _txtNodeLocation.Enabled = visible;
+            _txtNodeLocation.Parent!.Visible = visible;
+            _txtNodeLocation.Parent.Enabled = visible;
 
             if (!visible)
                 _txtNodeLocation.Text = string.Empty;
@@ -356,6 +342,8 @@ namespace AsutpKnowledgeBase
             _lblNodePhotoPath.Visible = visible;
             _txtNodePhotoPath.Visible = visible;
             _txtNodePhotoPath.Enabled = visible;
+            _txtNodePhotoPath.Parent!.Visible = visible;
+            _txtNodePhotoPath.Parent.Enabled = visible;
             _pnlPhotoButtons.Visible = visible;
             _btnBrowsePhoto.Enabled = visible;
 
@@ -370,6 +358,26 @@ namespace AsutpKnowledgeBase
             }
 
             layout.PerformLayout();
+        }
+
+        private static ModernInfoFieldPanel CreateTextFieldFrame(TextBox textBox, bool multiline = false)
+        {
+            textBox.BorderStyle = BorderStyle.None;
+            textBox.Margin = new Padding(0);
+            textBox.BackColor = Color.White;
+
+            var frame = new ModernInfoFieldPanel
+            {
+                Dock = DockStyle.Fill,
+                Margin = textBox.Margin,
+                Padding = multiline ? new Padding(6, 4, 4, 4) : new Padding(6, 5, 6, 3)
+            };
+
+            textBox.Dock = DockStyle.Fill;
+            textBox.Enter += (_, _) => frame.Invalidate();
+            textBox.Leave += (_, _) => frame.Invalidate();
+            frame.Controls.Add(textBox);
+            return frame;
         }
 
         private static Label CreateFormLabel(string text) =>
@@ -388,5 +396,97 @@ namespace AsutpKnowledgeBase
                 TextAlign = ContentAlignment.MiddleLeft,
                 AutoEllipsis = true
             };
+
+        private sealed class ModernInfoSectionPanel : Panel
+        {
+            private static readonly Color FillColor = Color.FromArgb(251, 253, 254);
+            private static readonly Color BorderColor = Color.FromArgb(54, 211, 219, 227);
+            private static readonly Color TitleColor = Color.FromArgb(79, 95, 109);
+
+            public ModernInfoSectionPanel()
+            {
+                DoubleBuffered = true;
+                BackColor = FillColor;
+                Padding = new Padding(10, 18, 10, 10);
+            }
+
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                base.OnPaint(e);
+
+                var borderBounds = ClientRectangle;
+                borderBounds.X += 1;
+                borderBounds.Y += 8;
+                borderBounds.Width -= 2;
+                borderBounds.Height -= 9;
+                if (borderBounds.Width <= 0 || borderBounds.Height <= 0)
+                    return;
+
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                using var path = CreateRoundedRectanglePath(borderBounds, 6);
+                using var borderPen = new Pen(BorderColor, 0.25F);
+                e.Graphics.DrawPath(borderPen, path);
+
+                if (string.IsNullOrWhiteSpace(Text))
+                    return;
+
+                var titleSize = TextRenderer.MeasureText(Text, Font);
+                var titleBounds = new Rectangle(14, 0, titleSize.Width + 8, 18);
+                using var titleBackBrush = new SolidBrush(FillColor);
+                e.Graphics.FillRectangle(titleBackBrush, titleBounds);
+                TextRenderer.DrawText(
+                    e.Graphics,
+                    Text,
+                    Font,
+                    new Point(18, 1),
+                    TitleColor,
+                    TextFormatFlags.NoPrefix);
+            }
+
+            private static GraphicsPath CreateRoundedRectanglePath(Rectangle rectangle, int radius)
+            {
+                var path = new GraphicsPath();
+                var diameter = radius * 2;
+                var arc = new Rectangle(rectangle.Location, new Size(diameter, diameter));
+
+                path.AddArc(arc, 180, 90);
+                arc.X = rectangle.Right - diameter;
+                path.AddArc(arc, 270, 90);
+                arc.Y = rectangle.Bottom - diameter;
+                path.AddArc(arc, 0, 90);
+                arc.X = rectangle.Left;
+                path.AddArc(arc, 90, 90);
+                path.CloseFigure();
+                return path;
+            }
+        }
+
+        private sealed class ModernInfoFieldPanel : Panel
+        {
+            public ModernInfoFieldPanel()
+            {
+                DoubleBuffered = true;
+                BackColor = Color.White;
+            }
+
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                base.OnPaint(e);
+
+                var bounds = ClientRectangle;
+                bounds.Width -= 1;
+                bounds.Height -= 1;
+                if (bounds.Width <= 0 || bounds.Height <= 0)
+                    return;
+
+                var borderColor = ContainsFocus
+                    ? Color.FromArgb(138, 187, 225)
+                    : Color.FromArgb(231, 237, 243);
+                var borderWidth = ContainsFocus ? 1F : 0.25F;
+
+                using var pen = new Pen(borderColor, borderWidth);
+                e.Graphics.DrawRectangle(pen, bounds);
+            }
+        }
     }
 }

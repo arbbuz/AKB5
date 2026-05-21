@@ -71,8 +71,16 @@ namespace AsutpKnowledgeBase
         private void BindWorkshops(IReadOnlyList<string> workshopNames, string selectedWorkshop)
         {
             _isBindingWorkshops = true;
-            _treeViewService.BindWorkshops(cmbWorkshops, workshopNames, selectedWorkshop);
-            _isBindingWorkshops = false;
+            try
+            {
+                _treeViewService.BindWorkshops(cmbWorkshops, workshopNames, selectedWorkshop);
+            }
+            finally
+            {
+                _isBindingWorkshops = false;
+            }
+
+            RefreshWorkshopSelectorLayout();
         }
 
         private void ResetTransientUiStateAfterLoad()

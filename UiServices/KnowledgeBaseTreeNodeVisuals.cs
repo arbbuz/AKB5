@@ -67,9 +67,30 @@ namespace AsutpKnowledgeBase.UiServices
         public static string GetImageKey(KbNodeType nodeType, bool hasChildren)
             => BuildVariantKey(GetBaseImageKey(nodeType), hasChildren);
 
+        public static Bitmap CreateNodeIcon(KbNodeType nodeType, int hierarchyLevel, bool hasChildren)
+        {
+            var baseKey = GetBaseImageKey(GetIconNodeType(nodeType, hierarchyLevel));
+            return baseKey switch
+            {
+                WorkshopKey => hasChildren ? CreateContainerVariant(CreateWorkshopIcon()) : CreateLeafVariant(CreateWorkshopIcon()),
+                DepartmentKey => hasChildren ? CreateContainerVariant(CreateDepartmentIcon()) : CreateLeafVariant(CreateDepartmentIcon()),
+                SystemKey => hasChildren ? CreateContainerVariant(CreateSystemIcon()) : CreateLeafVariant(CreateSystemIcon()),
+                PanelKey => hasChildren ? CreateContainerVariant(CreatePanelIcon()) : CreateLeafVariant(CreatePanelIcon()),
+                _ => hasChildren ? CreateContainerVariant(CreateDeviceIcon()) : CreateLeafVariant(CreateDeviceIcon())
+            };
+        }
+
         private static KbNodeType GetIconNodeType(KbNode node, int hierarchyLevel)
         {
             if (node.NodeType == KbNodeType.WorkshopRoot)
+                return KbNodeType.WorkshopRoot;
+
+            return GetIconNodeType(node.NodeType, hierarchyLevel);
+        }
+
+        private static KbNodeType GetIconNodeType(KbNodeType nodeType, int hierarchyLevel)
+        {
+            if (nodeType == KbNodeType.WorkshopRoot)
                 return KbNodeType.WorkshopRoot;
 
             return hierarchyLevel switch
@@ -77,7 +98,7 @@ namespace AsutpKnowledgeBase.UiServices
                 0 => KbNodeType.Department,
                 1 => KbNodeType.System,
                 2 => KbNodeType.Cabinet,
-                _ => node.NodeType
+                _ => nodeType
             };
         }
 

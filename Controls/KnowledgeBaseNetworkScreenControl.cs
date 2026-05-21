@@ -14,6 +14,10 @@ namespace AsutpKnowledgeBase
     public sealed class KnowledgeBaseNetworkScreenControl : UserControl
     {
         private static readonly Color ReviewWarningBackColor = Color.FromArgb(255, 248, 225);
+        private static readonly Color NetworkSurfaceColor = Color.White;
+        private static readonly Color NetworkPanelColor = Color.FromArgb(251, 253, 254);
+        private static readonly Color NetworkHairlineColor = Color.FromArgb(54, 119, 138, 156);
+        private static readonly Color NetworkMutedTextColor = Color.FromArgb(99, 113, 129);
 
         private sealed class ListItemTag
         {
@@ -79,6 +83,7 @@ namespace AsutpKnowledgeBase
         public KnowledgeBaseNetworkScreenControl()
         {
             Dock = DockStyle.Fill;
+            BackColor = NetworkSurfaceColor;
 
             _toolTip = new ToolTip
             {
@@ -88,7 +93,8 @@ namespace AsutpKnowledgeBase
             var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(16),
+                BackColor = NetworkSurfaceColor,
+                Padding = new Padding(12),
                 ColumnCount = 1,
                 RowCount = 3
             };
@@ -102,7 +108,7 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Top,
                 AutoSize = true,
                 Font = new Font("Segoe UI", 9F, FontStyle.Regular),
-                ForeColor = Color.DimGray,
+                ForeColor = NetworkMutedTextColor,
                 Margin = new Padding(0, 0, 0, 8)
             };
 
@@ -203,16 +209,17 @@ namespace AsutpKnowledgeBase
         {
             _contentTabs = new TabControl
             {
-                Dock = DockStyle.Fill
+                Dock = DockStyle.Fill,
+                HotTrack = true
             };
 
-            _passportPage = new TabPage("Паспорт");
+            _passportPage = CreateContentTabPage("Паспорт");
             _passportPage.Controls.Add(CreatePassportPageLayout());
 
-            _filesPage = new TabPage("Файлы");
+            _filesPage = CreateContentTabPage("Файлы");
             _filesPage.Controls.Add(CreateFilesPageLayout());
 
-            _previewPage = new TabPage("Предпросмотр");
+            _previewPage = CreateContentTabPage("Предпросмотр");
             _previewPage.Controls.Add(CreatePreviewPageLayout());
 
             _contentTabs.TabPages.Add(_passportPage);
@@ -226,6 +233,7 @@ namespace AsutpKnowledgeBase
             var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
+                BackColor = NetworkSurfaceColor,
                 Padding = new Padding(12),
                 ColumnCount = 1,
                 RowCount = 4
@@ -280,12 +288,20 @@ namespace AsutpKnowledgeBase
             return layout;
         }
 
+        private static TabPage CreateContentTabPage(string text) =>
+            new(text)
+            {
+                BackColor = NetworkSurfaceColor,
+                UseVisualStyleBackColor = false
+            };
+
         private Control CreatePassportFilterPanel()
         {
             var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
                 AutoSize = true,
+                BackColor = NetworkSurfaceColor,
                 ColumnCount = 3,
                 RowCount = 3,
                 Margin = new Padding(0, 0, 0, 10)
@@ -304,13 +320,14 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 AccessibleName = "Фильтр паспорта",
                 PlaceholderText = "IP / устройство / проверка / кабель",
+                BackColor = NetworkSurfaceColor,
                 Margin = new Padding(0, 0, 8, 8)
             };
             _txtPassportFilter.TextChanged += (_, _) => HandlePassportFilterChanged();
             _toolTip.SetToolTip(
                 _txtPassportFilter,
                 "Фильтрует устройства, интерфейсы и соединения по видимым полям, включая колонку \"Проверка\".");
-            layout.Controls.Add(_txtPassportFilter, 1, 0);
+            layout.Controls.Add(CreateTextFieldFrame(_txtPassportFilter), 1, 0);
 
             _btnClearPassportFilter = CreateActionButton("Сбросить");
             _btnClearPassportFilter.Click += (_, _) => ClearPassportFilter();
@@ -321,6 +338,7 @@ namespace AsutpKnowledgeBase
             {
                 Text = "Только проверка",
                 AutoSize = true,
+                ForeColor = NetworkMutedTextColor,
                 Margin = new Padding(0, 3, 8, 8)
             };
             _chkPassportWarningsOnly.CheckedChanged += (_, _) => HandlePassportFilterChanged();
@@ -342,6 +360,7 @@ namespace AsutpKnowledgeBase
                 AutoSize = true,
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = true,
+                BackColor = NetworkSurfaceColor,
                 Margin = new Padding(0)
             };
             filterActions.Controls.Add(_chkPassportWarningsOnly);
@@ -354,7 +373,7 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Fill,
                 AutoEllipsis = true,
-                ForeColor = Color.DimGray,
+                ForeColor = NetworkMutedTextColor,
                 TextAlign = ContentAlignment.MiddleLeft,
                 Margin = new Padding(0, 3, 0, 8)
             };
@@ -369,6 +388,7 @@ namespace AsutpKnowledgeBase
             var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
+                BackColor = NetworkSurfaceColor,
                 Padding = new Padding(12),
                 ColumnCount = 1,
                 RowCount = 2
@@ -383,6 +403,7 @@ namespace AsutpKnowledgeBase
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = true,
                 AutoSize = true,
+                BackColor = NetworkSurfaceColor,
                 Margin = new Padding(0, 0, 0, 12)
             };
 
@@ -407,10 +428,10 @@ namespace AsutpKnowledgeBase
 
             _lblFilesEmptyState = CreateEmptyStateLabel("Для этого узла пока нет файлов сети.");
 
-            var listHost = new Panel
+            var listHost = new ModernNetworkBorderPanel
             {
                 Dock = DockStyle.Fill,
-                BorderStyle = BorderStyle.FixedSingle
+                Padding = new Padding(1)
             };
             listHost.Controls.Add(_lvFiles);
             listHost.Controls.Add(_lblFilesEmptyState);
@@ -488,6 +509,7 @@ namespace AsutpKnowledgeBase
             var host = new Panel
             {
                 Dock = DockStyle.Fill,
+                BackColor = NetworkSurfaceColor,
                 Padding = new Padding(12)
             };
             host.Controls.Add(CreatePreviewLayout());
@@ -520,14 +542,13 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Fill,
                 ReadOnly = true,
-                BorderStyle = BorderStyle.FixedSingle,
-                BackColor = Color.White,
+                BackColor = NetworkSurfaceColor,
                 Multiline = true,
                 Height = 44,
                 ScrollBars = ScrollBars.Vertical,
                 TabStop = false
             };
-            layout.Controls.Add(_txtPreviewPath, 1, 1);
+            layout.Controls.Add(CreateTextFieldFrame(_txtPreviewPath, multiline: true), 1, 1);
 
             layout.Controls.Add(CreateValueLabel("Тип предпросмотра"), 0, 2);
             _lblPreviewKindValue = CreateReadOnlyValueLabel();
@@ -538,30 +559,29 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Fill,
                 ReadOnly = true,
-                BorderStyle = BorderStyle.FixedSingle,
-                BackColor = Color.White,
+                BackColor = NetworkSurfaceColor,
                 Multiline = true,
                 Height = 44,
                 ScrollBars = ScrollBars.Vertical,
                 TabStop = false
             };
-            layout.Controls.Add(_txtPreviewSourceNote, 1, 3);
+            layout.Controls.Add(CreateTextFieldFrame(_txtPreviewSourceNote, multiline: true), 1, 3);
 
             _lblPreviewStatus = new Label
             {
                 Dock = DockStyle.Fill,
                 AutoSize = true,
-                ForeColor = Color.DimGray,
+                ForeColor = NetworkMutedTextColor,
                 Margin = new Padding(0, 6, 0, 10)
             };
             layout.Controls.Add(_lblPreviewStatus, 0, 4);
             layout.SetColumnSpan(_lblPreviewStatus, 2);
 
-            var previewHost = new Panel
+            var previewHost = new ModernNetworkBorderPanel
             {
                 Dock = DockStyle.Fill,
-                BackColor = Color.WhiteSmoke,
-                BorderStyle = BorderStyle.FixedSingle
+                BackColor = NetworkSurfaceColor,
+                Padding = new Padding(1)
             };
             _picPreview = new PictureBox
             {
@@ -1709,23 +1729,23 @@ namespace AsutpKnowledgeBase
             return false;
         }
 
-        private static GroupBox CreatePassportGroup(
+        private static ModernNetworkSectionPanel CreatePassportGroup(
             string title,
             Control actionsPanel,
             ListView listView,
             Label emptyStateLabel)
         {
-            var groupBox = new GroupBox
+            var groupBox = new ModernNetworkSectionPanel
             {
                 Text = title,
                 Dock = DockStyle.Fill,
-                Padding = new Padding(10),
                 Margin = new Padding(0, 0, 0, 10)
             };
 
             var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
+                BackColor = Color.Transparent,
                 ColumnCount = 1,
                 RowCount = 2
             };
@@ -1733,9 +1753,10 @@ namespace AsutpKnowledgeBase
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-            var container = new Panel
+            var container = new ModernNetworkBorderPanel
             {
-                Dock = DockStyle.Fill
+                Dock = DockStyle.Fill,
+                Padding = new Padding(1)
             };
             container.Controls.Add(listView);
             container.Controls.Add(emptyStateLabel);
@@ -1753,6 +1774,7 @@ namespace AsutpKnowledgeBase
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = true,
                 AutoSize = true,
+                BackColor = Color.Transparent,
                 Margin = new Padding(0, 0, 0, 8)
             };
 
@@ -1823,8 +1845,10 @@ namespace AsutpKnowledgeBase
             new()
             {
                 Dock = DockStyle.Fill,
+                BackColor = NetworkSurfaceColor,
+                BorderStyle = BorderStyle.None,
                 FullRowSelect = true,
-                GridLines = true,
+                GridLines = false,
                 HeaderStyle = ColumnHeaderStyle.Nonclickable,
                 HideSelection = false,
                 MultiSelect = false,
@@ -1838,6 +1862,7 @@ namespace AsutpKnowledgeBase
                 Text = text,
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = Color.FromArgb(28, 38, 49),
                 Margin = new Padding(0, 0, 8, 8)
             };
 
@@ -1857,17 +1882,137 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Text = text,
                 TextAlign = ContentAlignment.MiddleCenter,
-                ForeColor = Color.DimGray,
+                ForeColor = NetworkMutedTextColor,
                 Padding = new Padding(24),
                 Visible = false
             };
 
-        private static Button CreateActionButton(string text) =>
-            new()
+        private static ModernNetworkBorderPanel CreateTextFieldFrame(TextBox textBox, bool multiline = false)
+        {
+            var margin = textBox.Margin;
+            textBox.BorderStyle = BorderStyle.None;
+            textBox.Margin = new Padding(0);
+            textBox.Dock = DockStyle.Fill;
+            textBox.BackColor = NetworkSurfaceColor;
+
+            var frame = new ModernNetworkBorderPanel
+            {
+                Dock = DockStyle.Fill,
+                Margin = margin,
+                Padding = multiline ? new Padding(6, 4, 4, 4) : new Padding(6, 5, 6, 3)
+            };
+            frame.Controls.Add(textBox);
+            return frame;
+        }
+
+        private static Button CreateActionButton(string text)
+        {
+            var button = new Button
             {
                 Text = text,
                 AutoSize = true,
+                BackColor = NetworkSurfaceColor,
+                FlatStyle = FlatStyle.Flat,
+                UseVisualStyleBackColor = false,
                 Margin = new Padding(0, 0, 8, 8)
             };
+
+            button.FlatAppearance.BorderColor = Color.FromArgb(150, 190, 202, 214);
+            button.FlatAppearance.BorderSize = 1;
+            button.FlatAppearance.MouseDownBackColor = Color.FromArgb(231, 241, 248);
+            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(239, 246, 250);
+            button.EnabledChanged += (_, _) => ApplyActionButtonVisualState(button);
+            ApplyActionButtonVisualState(button);
+            return button;
+        }
+
+        private static void ApplyActionButtonVisualState(Button button)
+        {
+            button.BackColor = button.Enabled ? NetworkSurfaceColor : Color.FromArgb(245, 247, 249);
+            button.ForeColor = button.Enabled ? Color.FromArgb(17, 24, 32) : Color.FromArgb(154, 165, 175);
+        }
+
+        private sealed class ModernNetworkSectionPanel : Panel
+        {
+            public ModernNetworkSectionPanel()
+            {
+                DoubleBuffered = true;
+                BackColor = NetworkPanelColor;
+                Padding = new Padding(10, 18, 10, 10);
+            }
+
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                base.OnPaint(e);
+
+                var bounds = ClientRectangle;
+                bounds.X += 1;
+                bounds.Y += 8;
+                bounds.Width -= 2;
+                bounds.Height -= 9;
+                if (bounds.Width <= 0 || bounds.Height <= 0)
+                    return;
+
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using var path = CreateRoundedRectanglePath(bounds, 6);
+                using var pen = new Pen(NetworkHairlineColor, 0.25F);
+                e.Graphics.DrawPath(pen, path);
+
+                if (string.IsNullOrWhiteSpace(Text))
+                    return;
+
+                var titleSize = TextRenderer.MeasureText(Text, Font);
+                var titleBounds = new Rectangle(14, 0, titleSize.Width + 8, 18);
+                using var titleBrush = new SolidBrush(NetworkPanelColor);
+                e.Graphics.FillRectangle(titleBrush, titleBounds);
+                TextRenderer.DrawText(
+                    e.Graphics,
+                    Text,
+                    Font,
+                    new Point(18, 1),
+                    Color.FromArgb(28, 38, 49),
+                    TextFormatFlags.NoPrefix);
+            }
+
+            private static System.Drawing.Drawing2D.GraphicsPath CreateRoundedRectanglePath(Rectangle rectangle, int radius)
+            {
+                var path = new System.Drawing.Drawing2D.GraphicsPath();
+                var diameter = radius * 2;
+                var arc = new Rectangle(rectangle.Location, new Size(diameter, diameter));
+
+                path.AddArc(arc, 180, 90);
+                arc.X = rectangle.Right - diameter;
+                path.AddArc(arc, 270, 90);
+                arc.Y = rectangle.Bottom - diameter;
+                path.AddArc(arc, 0, 90);
+                arc.X = rectangle.Left;
+                path.AddArc(arc, 90, 90);
+                path.CloseFigure();
+                return path;
+            }
+        }
+
+        private sealed class ModernNetworkBorderPanel : Panel
+        {
+            public ModernNetworkBorderPanel()
+            {
+                DoubleBuffered = true;
+                BackColor = NetworkSurfaceColor;
+            }
+
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                base.OnPaint(e);
+
+                var bounds = ClientRectangle;
+                bounds.Width -= 1;
+                bounds.Height -= 1;
+                if (bounds.Width <= 0 || bounds.Height <= 0)
+                    return;
+
+                using var pen = new Pen(NetworkHairlineColor, 0.25F);
+                e.Graphics.DrawRectangle(pen, bounds);
+            }
+        }
     }
 }
