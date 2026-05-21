@@ -1,10 +1,19 @@
 # Decision Log
 
-Last updated: `2026-05-20`
+Last updated: `2026-05-21`
+
+## 2026-05-21
+
+- The user accepted `5348f4f Add network topology overview` on `Net`; it is committed and pushed to `origin/Net`.
+- The accepted first `Сеть` screen is topology-overview first and starts from already created AKB5 tree objects plus existing network records. It shows `Объекты / устройства` and `Топология` only.
+- The user explicitly removed the old overview-bottom `Файлы и снимки` block and the separate overview `Проверка` block. Files remain in their own tabs, and quality checks may be revisited later only if needed during data filling.
+- The approved practical-minimum visible fields for the first overview are object/device, type/role, IP, PROFINET-name, and cabinet/node placement. Extra details should stay in secondary tabs/dialogs unless explicitly approved for the overview.
+- Do not reintroduce PRONETA/CSV parsing/import, live scan, automatic IP/PROFINET-name assignment, plan/fact comparison, or a separate quality/problem panel without a new explicit requirement.
 
 ## 2026-05-20
 
-- The accepted `Net` branch baseline is `a89e593 Improve network passport manual entry hints`; it is committed and pushed to `origin/Net` after manual review.
+- The previous accepted `Net` manual-entry baseline is `a89e593 Improve network passport manual entry hints`; it is committed and pushed to `origin/Net` after manual review.
+- The current accepted `Net` branch baseline is `b2ea12e Enforce network passport mutation validation`; it is committed and pushed to `origin/Net` after manual review.
 - The previous `Net` manual-review ergonomics baseline remains `207b6b1 Improve network passport review ergonomics`.
 - Network passport work stays manual-entry / manual-review first. The accepted scope includes typed devices/interfaces/connections, visible review columns, filtering, copy-friendly rows/endpoints/summaries, visible table export, selected-row visibility, and row tooltips.
 - PDF network scheme references are metadata and `Open original` sources only. Embedded PDF preview/rendering remains a separate dependency decision and is not approved.

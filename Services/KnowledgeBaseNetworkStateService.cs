@@ -167,6 +167,16 @@ namespace AsutpKnowledgeBase.Services
 
         public int ObjectCount { get; init; }
 
+        public int DeviceWarningCount => CountWarningRows(DeviceStates.Select(static device => device.WarningText));
+
+        public int InterfaceWarningCount =>
+            CountWarningRows(InterfaceStates.Select(static networkInterface => networkInterface.WarningText));
+
+        public int ConnectionWarningCount =>
+            CountWarningRows(ConnectionStates.Select(static connection => connection.WarningText));
+
+        public int ReviewWarningCount => DeviceWarningCount + InterfaceWarningCount + ConnectionWarningCount;
+
         public IReadOnlyList<KnowledgeBaseNetworkObjectState> ObjectStates { get; init; } =
             Array.Empty<KnowledgeBaseNetworkObjectState>();
 
@@ -185,6 +195,11 @@ namespace AsutpKnowledgeBase.Services
         public bool HasPassportRows => DeviceCount > 0 || InterfaceCount > 0 || ConnectionCount > 0;
 
         public bool HasEntries => FileReferencesCount > 0;
+
+        private static int CountWarningRows(IEnumerable<string> warnings) =>
+            warnings.Count(static warning =>
+                !string.IsNullOrWhiteSpace(warning) &&
+                !string.Equals(warning, "-", StringComparison.Ordinal));
     }
 
     public class KnowledgeBaseNetworkStateService

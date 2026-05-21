@@ -2,7 +2,7 @@
 
 Last updated: 2026-05-20
 Branch baseline: `to` for completed roadmap history; current active task branch: `Net`
-Implementation status: completed roadmap history is on `to` through `Phase 7F.1`, `Phase 11G`, `Phase 12S8`, and the first menu rework; portable-first SQLite `.akb` storage is the current build baseline; accepted `Net` network-passport baseline is `a89e593 Improve network passport manual entry hints`; current local `Net` work is the uncommitted mutation-service validation package awaiting manual review.
+Implementation status: completed roadmap history is on `to` through `Phase 7F.1`, `Phase 11G`, `Phase 12S8`, and the first menu rework; portable-first SQLite `.akb` storage is the current build baseline; accepted `Net` network-passport baseline is `b2ea12e Enforce network passport mutation validation`; current uncommitted UI/UX work is isolated in `C:\Users\Olga\AKB5-design`.
 
 ## Goal
 
@@ -61,6 +61,7 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - On 2026-05-19 and 2026-05-20, branch `Net` extends the network work with typed topology/passport storage, CRUD for devices/interfaces/connections on `Сеть -> Паспорт`, manual scheme-entry fields, editable protocol presets (`PROFINET`, `PROFIBUS`, `MPI`), editable medium presets (`Медь`, `Оптика`), local passport filtering, scroll-safe network add/edit dialogs, PDF network scheme references classified as `PDF` with metadata/`Open original` behavior, visible manual-review columns, copy-friendly row/context-menu actions, filtered visible-table export, persistent selected-row visibility, row tooltips, add-similar manual-entry actions, and inline `Проверка` duplicate hints.
 - The accepted `Net` manual-review ergonomics package is committed and pushed as `207b6b1 Improve network passport review ergonomics`.
 - The accepted `Net` manual-entry hints package is committed and pushed as `a89e593 Improve network passport manual entry hints`.
+- The accepted `Net` mutation-service validation package is committed and pushed as `b2ea12e Enforce network passport mutation validation`.
 - The current `Net` scope deliberately excludes OCR/PDF auto-import, PRONETA/CSV import, live scan, plan/fact comparison, data-quality issue panels, and AKB5-driven IP/PROFINET-name assignment.
 - On 2026-04-28, the current `Phase 6` worktree passed verification build, passed `dotnet test` (`177/177`), and `asutpKB.exe` startup was rechecked after the final `Network` UX fixes.
 - Current Excel `v3` now preserves `NodeId` after import and writes/reads a read-only `NodeType` column as part of the transition, but further workbook modernization is no longer the preferred next phase.
@@ -871,7 +872,7 @@ Completed on `to`:
 
 Approved next:
 
-1. Manually review the current local `Net` mutation-service validation package before coding the next direction.
+1. Continue future `Net` work in `C:\Users\Olga\AKB5`; keep the separate `design/network-ui-polish` UI/UX work isolated unless the user explicitly asks to review, merge, or coordinate it.
 
 Not active:
 
@@ -886,9 +887,8 @@ Recommended prompt for the next AI session:
 ```text
 Read AGENTS.md, docs/codex-handoff.md, and docs/plans.md. Use decision-log.md, lessons-learned.md, and Roadmap.md only for targeted lookups if the next task needs them.
 We are on branch Net. Verify with git status --short --branch and git log --oneline --decorate -5 before planning edits.
-HEAD and origin/Net should be a89e593 Improve network passport manual entry hints.
-The latest Net manual-entry hints package is accepted, committed, and pushed.
-There may be an uncommitted Net mutation-service validation package; check `docs/codex-handoff.md` before starting new work.
+HEAD and origin/Net should be b2ea12e Enforce network passport mutation validation.
+The latest Net mutation-service validation package is accepted, committed, and pushed.
 UI/UX polishing is split into C:\Users\Olga\AKB5-design on design/network-ui-polish; keep this Net chat in C:\Users\Olga\AKB5 unless explicitly asked otherwise.
 Do not commit or push future changes without an explicit current-chat request.
 Do not run interactive UI-smoke unless explicitly asked; use non-invasive/offscreen layout-smoke for Network UI changes.
@@ -900,7 +900,7 @@ Choose the next Net direction inside manual-entry/manual-review ergonomics and a
 
 Continue from the next explicitly prioritized task:
 
-- stay on `Net` for the current network passport stream;
-- manually review the current local mutation-service validation package before starting another Net package;
+- stay on `Net` in `C:\Users\Olga\AKB5` for the current network passport stream;
+- keep `C:\Users\Olga\AKB5-design` as a separate UI/UX worktree handled only on explicit request;
 - keep workbook `v3` readable as legacy, but do not expand it as the main feature direction;
 - keep SQLite single-file storage, JSON import/export and first-launch migration compatibility, and Russian-only UI intact during future work.

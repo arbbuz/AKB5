@@ -14,6 +14,12 @@ namespace AsutpKnowledgeBase.Services
 
         public string ChildrenCountText { get; init; } = string.Empty;
 
+        public int VisibleLevel { get; init; }
+
+        public KbNodeType NodeType { get; init; } = KbNodeType.Unknown;
+
+        public bool HasChildren { get; init; }
+
         public string Description { get; init; } = string.Empty;
 
         public string Location { get; init; } = string.Empty;
@@ -232,6 +238,9 @@ namespace AsutpKnowledgeBase.Services
                 Name = selectedNode.Name,
                 FullPath = _nodePresentationService.BuildNodePath(currentRoots, selectedNode),
                 ChildrenCountText = selectedNode.Children.Count.ToString(),
+                VisibleLevel = visibleLevel,
+                NodeType = selectedNode.NodeType,
+                HasChildren = selectedNode.Children.Count > 0,
                 Description = selectedNode.Details?.Description ?? string.Empty,
                 Location = supportsLocation ? selectedNode.Details?.Location ?? string.Empty : string.Empty,
                 InventoryNumber = supportsInventoryNumber ? selectedNode.Details?.InventoryNumber ?? string.Empty : string.Empty,

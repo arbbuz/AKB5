@@ -54,10 +54,10 @@ namespace AsutpKnowledgeBase
         private ToolStripButton btnRedo = null!;
         private ToolStripButton btnSave = null!;
         private ToolStripButton btnCollapseTree = null!;
-        private ToolStripMenuItem menuFile = null!;
-        private ToolStripMenuItem menuMaintenance = null!;
-        private ToolStripMenuItem menuReferences = null!;
-        private ToolStripMenuItem menuService = null!;
+        private ToolStripDropDownButton menuFile = null!;
+        private ToolStripDropDownButton menuMaintenance = null!;
+        private ToolStripDropDownButton menuReferences = null!;
+        private ToolStripDropDownButton menuService = null!;
         private ToolStripMenuItem menuSave = null!;
         private ToolStripMenuItem menuNewWorkshop = null!;
         private ToolStripMenuItem menuRenameWorkshop = null!;
@@ -114,8 +114,11 @@ namespace AsutpKnowledgeBase
         private ToolStripSeparator ctxDeleteSeparator = null!;
         private Label lblSelectedNodeEmptyState = null!;
         private Panel pnlSelectedNodeContextHeader = null!;
+        private PictureBox picSelectedNodeContextIcon = null!;
         private Label lblSelectedNodeContextName = null!;
+        private Label lblSelectedNodeContextMeta = null!;
         private TextBox txtSelectedNodeContextPath = null!;
+        private Panel pnlSelectedNodeWorkspaceSurface = null!;
         private Panel pnlSelectedNodeWorkspaceHost = null!;
         private Panel pnlSelectedNodeInfoScreen = null!;
         private TabControl tabSelectedNodeWorkspace = null!;
@@ -414,8 +417,10 @@ namespace AsutpKnowledgeBase
                 lblSelectedNodeEmptyState.Text = selectedNodeState.EmptyStateText;
                 if (hasSelection)
                 {
-                    lblSelectedNodeContextName.Text = FormatSelectedNodeContextHeader(selectedNodeState);
+                    lblSelectedNodeContextName.Text = selectedNodeState.Name;
+                    lblSelectedNodeContextMeta.Text = FormatSelectedNodeContextSubtitle(selectedNodeState);
                     txtSelectedNodeContextPath.Text = selectedNodeState.FullPath;
+                    UpdateSelectedNodeContextIcon(selectedNodeState);
                     selectedNodeInfoScreen.ApplyState(selectedNodeState);
                     selectedNodeCompositionScreen.ApplyState(selectedNodeState.Composition);
                     selectedNodeAdditionalEquipmentScreen.ApplyState(selectedNodeState.Composition);
@@ -426,7 +431,9 @@ namespace AsutpKnowledgeBase
                 else
                 {
                     lblSelectedNodeContextName.Text = string.Empty;
+                    lblSelectedNodeContextMeta.Text = string.Empty;
                     txtSelectedNodeContextPath.Text = string.Empty;
+                    UpdateSelectedNodeContextIcon(null);
                 }
 
                 ScheduleDeferredLayout();
@@ -437,18 +444,46 @@ namespace AsutpKnowledgeBase
             }
         }
 
-        private static string FormatSelectedNodeContextHeader(KnowledgeBaseSelectedNodeState selectedNodeState)
+        private static string FormatSelectedNodeContextSubtitle(KnowledgeBaseSelectedNodeState selectedNodeState)
         {
-            string name = selectedNodeState.Name.Trim();
             string path = selectedNodeState.FullPath.Trim();
+            string levelText = selectedNodeState.VisibleLevel > 0
+                ? $"Lvl{selectedNodeState.VisibleLevel}"
+                : "Lvl";
 
             if (string.IsNullOrWhiteSpace(path))
-                return name;
+                return levelText;
 
-            if (string.IsNullOrWhiteSpace(name) || string.Equals(name, path, StringComparison.Ordinal))
-                return path;
+            if (selectedNodeState.VisibleLevel <= 1)
+                return $"{levelText} · {selectedNodeState.ChildrenCountText} дочерних объектов";
 
-            return $"{name} | {path}";
+            string name = selectedNodeState.Name.Trim();
+            string parentPath = path;
+            if (!string.IsNullOrWhiteSpace(name) &&
+                path.EndsWith(name, StringComparison.Ordinal) &&
+                path.Length > name.Length)
+            {
+                parentPath = path[..^name.Length].TrimEnd();
+                parentPath = parentPath.TrimEnd('/', ' ');
+            }
+
+            if (string.IsNullOrWhiteSpace(parentPath))
+                parentPath = path;
+
+            return $"{levelText} · {parentPath}";
+        }
+
+        private void UpdateSelectedNodeContextIcon(KnowledgeBaseSelectedNodeState? selectedNodeState)
+        {
+            var previousImage = picSelectedNodeContextIcon.Image;
+            picSelectedNodeContextIcon.Image = selectedNodeState is null
+                ? null
+                : KnowledgeBaseTreeNodeVisuals.CreateNodeIcon(
+                    selectedNodeState.NodeType,
+                    Math.Max(0, selectedNodeState.VisibleLevel - 1),
+                    selectedNodeState.HasChildren);
+
+            previousImage?.Dispose();
         }
 
         private void SetLastActionText(string text)

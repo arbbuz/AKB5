@@ -9,16 +9,15 @@ Run these first in the new chat:
 ```powershell
 git -C C:\Users\Olga\AKB5 status --short --branch
 git -C C:\Users\Olga\AKB5 log --oneline --decorate -5
-git -C C:\Users\Olga\AKB5-design status --short --branch
 ```
 
 ## Expected state
 
 - Main Net worktree: `C:\Users\Olga\AKB5`
 - Branch: `Net`
-- Expected `HEAD` and `origin/Net`: `a89e593 Improve network passport manual entry hints`
-- Original handoff dirtiness was doc-only. Current local state is tracked in `docs\codex-handoff.md`; after the follow-up Net implementation pass, local uncommitted work may also include `Services\KnowledgeBaseNetworkMutationService.cs` and `tests\AsutpKnowledgeBase.Core.Tests\KnowledgeBaseNetworkMutationServiceTests.cs` for the mutation-service validation review package.
-- Separate design worktree: `C:\Users\Olga\AKB5-design` on `design/network-ui-polish`, carrying the Network review-filter/layout UI package for manual review.
+- Expected `HEAD` and `origin/Net`: `b2ea12e Enforce network passport mutation validation`
+- Current local state is tracked in `docs\codex-handoff.md`; after the mutation-service validation package was accepted, committed, and pushed, the main `Net` worktree should be clean.
+- Separate design worktree: `C:\Users\Olga\AKB5-design` on `design/network-ui-polish`, carrying UI/UX work that belongs to the separate design chat. Do not use it for a `Net` continuation unless the user explicitly asks.
 - Do not commit, push, merge, rebase, delete stash entries, or remove worktrees without explicit approval in the current chat.
 
 ## Light context files to read
@@ -34,6 +33,12 @@ Use `docs\decision-log.md`, `docs\lessons-learned.md`, and `Roadmap.md` only for
 
 The latest accepted Net package is committed and pushed:
 
+- `b2ea12e Enforce network passport mutation validation`
+
+It enforces existing interface address and connection length validation rules inside `KnowledgeBaseNetworkMutationService`, with mutation-service tests for invalid IP, non-contiguous mask, invalid gateway, and invalid cable length.
+
+Previous accepted Net package:
+
 - `a89e593 Improve network passport manual entry hints`
 
 It includes manual-entry speed and inline duplicate-hint ergonomics:
@@ -47,8 +52,6 @@ It includes manual-entry speed and inline duplicate-hint ergonomics:
 Previous accepted Net baseline:
 
 - `207b6b1 Improve network passport review ergonomics`
-
-Current local uncommitted follow-up package, if present, is not a new accepted baseline yet. It enforces the existing interface address and connection length validation rules inside `KnowledgeBaseNetworkMutationService` and should be manually reviewed before commit/push.
 
 ## Branch split
 
@@ -66,7 +69,7 @@ Current local uncommitted follow-up package, if present, is not a new accepted b
 
 ## Recommended next Net direction
 
-Choose the next Net-side task only after reading the context and checking the worktree. If the mutation-service validation package is present, review or finish it before starting another direction. Prefer logic/manual-review behavior that does not collide with the active design branch, for example:
+Choose the next Net-side task only after reading the light context and checking the `Net` worktree. Prefer logic/manual-review behavior that does not collide with the separate design branch, for example:
 
 - improving state-service validation summaries;
 - strengthening focused tests around existing Network passport behavior;

@@ -295,6 +295,7 @@ namespace AsutpKnowledgeBase
                 return;
 
             SaveCurrentSplitterDistance();
+            RefreshWorkshopSelectorLayout();
         }
 
         private void UndoAction()
