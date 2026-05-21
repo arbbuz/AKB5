@@ -7,7 +7,6 @@ namespace AsutpKnowledgeBase.Services
         public static bool SupportsEngineeringWorkspace(KbNodeType nodeType, int visibleLevel = 0) =>
             SupportsComposition(nodeType, visibleLevel) ||
             SupportsDocsAndSoftwareRecords(nodeType, visibleLevel) ||
-            SupportsNetworkRecords(nodeType, visibleLevel) ||
             SupportsMaintenanceProfile(nodeType, visibleLevel);
 
         public static bool SupportsComposition(KbNodeType nodeType, int visibleLevel = 0) =>
@@ -16,11 +15,6 @@ namespace AsutpKnowledgeBase.Services
                 : IsEngineeringNodeType(nodeType);
 
         public static bool SupportsDocsAndSoftwareRecords(KbNodeType nodeType, int visibleLevel = 0) =>
-            HasVisibleLevel(visibleLevel)
-                ? visibleLevel == 2
-                : IsEngineeringNodeType(nodeType);
-
-        public static bool SupportsNetworkRecords(KbNodeType nodeType, int visibleLevel = 0) =>
             HasVisibleLevel(visibleLevel)
                 ? visibleLevel == 2
                 : IsEngineeringNodeType(nodeType);

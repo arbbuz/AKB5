@@ -62,8 +62,6 @@ namespace AsutpKnowledgeBase.Services
 
         public List<KbSoftwareRecord> SoftwareRecords { get; init; } = new();
 
-        public List<KbNetworkFileReference> NetworkFileReferences { get; init; } = new();
-
         public List<KbMaintenanceScheduleProfile> MaintenanceScheduleProfiles { get; init; } = new();
 
         public int AddedCount => PreviewItems.Count(static item =>
@@ -82,7 +80,6 @@ namespace AsutpKnowledgeBase.Services
             CompositionEntries.Count > 0 ||
             DocumentLinks.Count > 0 ||
             SoftwareRecords.Count > 0 ||
-            NetworkFileReferences.Count > 0 ||
             MaintenanceScheduleProfiles.Count > 0;
     }
 }

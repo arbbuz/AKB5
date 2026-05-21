@@ -14,8 +14,6 @@ namespace AsutpKnowledgeBase.Models
 
         public string Label { get; set; } = string.Empty;
 
-        public string NetworkLink { get; set; } = string.Empty;
-
         public string Notes { get; set; } = string.Empty;
 
         public List<KbCompositionRackProperty> Properties { get; set; } = new();

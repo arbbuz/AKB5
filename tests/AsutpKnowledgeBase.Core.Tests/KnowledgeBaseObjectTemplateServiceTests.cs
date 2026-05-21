@@ -51,10 +51,6 @@ public class KnowledgeBaseObjectTemplateServiceTests
         Assert.Equal(firstController.NodeId, software.OwnerNodeId);
         Assert.Equal("Проект PLC", software.Title);
 
-        KbNetworkFileReference network = Assert.Single(first.NetworkFileReferences);
-        Assert.Equal(firstRoot.NodeId, network.OwnerNodeId);
-        Assert.Equal(KbNetworkPreviewKind.Image, network.PreviewKind);
-
         KbMaintenanceScheduleProfile maintenance = Assert.Single(first.MaintenanceScheduleProfiles);
         Assert.Equal(firstRoot.NodeId, maintenance.OwnerNodeId);
         Assert.True(maintenance.IsIncludedInSchedule);
@@ -152,16 +148,6 @@ public class KnowledgeBaseObjectTemplateServiceTests
             },
             new[]
             {
-                new KbNetworkFileReference
-                {
-                    NetworkAssetId = "network-real-id",
-                    OwnerNodeId = "cabinet-1",
-                    Title = "Topology",
-                    Path = "\\\\srv\\topology.png"
-                }
-            },
-            new[]
-            {
                 new KbMaintenanceScheduleProfile
                 {
                     MaintenanceProfileId = "maintenance-real-id",
@@ -220,9 +206,6 @@ public class KnowledgeBaseObjectTemplateServiceTests
         KbObjectTemplateSoftwareRecord software = Assert.Single(template.SoftwareRecords);
         Assert.Equal(controllerTemplateNodeId, software.OwnerTemplateNodeId);
 
-        KbObjectTemplateNetworkFileReference network = Assert.Single(template.NetworkFileReferences);
-        Assert.Equal(cabinetTemplateNodeId, network.OwnerTemplateNodeId);
-
         KbObjectTemplateMaintenanceScheduleProfile maintenance = Assert.Single(template.MaintenanceScheduleProfiles);
         Assert.Equal(controllerTemplateNodeId, maintenance.OwnerTemplateNodeId);
         Assert.Equal(4, Assert.Single(maintenance.YearScheduleEntries).Month);
@@ -252,7 +235,6 @@ public class KnowledgeBaseObjectTemplateServiceTests
             existingCompositionEntries: Array.Empty<KbCompositionEntry>(),
             existingDocumentLinks: Array.Empty<KbDocumentLink>(),
             existingSoftwareRecords: Array.Empty<KbSoftwareRecord>(),
-            existingNetworkFileReferences: Array.Empty<KbNetworkFileReference>(),
             existingMaintenanceScheduleProfiles: new[]
             {
                 new KbMaintenanceScheduleProfile
@@ -284,10 +266,6 @@ public class KnowledgeBaseObjectTemplateServiceTests
         KbSoftwareRecord software = Assert.Single(plan.SoftwareRecords);
         Assert.Equal(addition.Node.NodeId, software.OwnerNodeId);
 
-        KbNetworkFileReference network = Assert.Single(plan.NetworkFileReferences);
-        Assert.Equal("target-cabinet", network.OwnerNodeId);
-        Assert.Equal(KbNetworkPreviewKind.Image, network.PreviewKind);
-
         Assert.Empty(plan.MaintenanceScheduleProfiles);
         Assert.Contains(
             plan.PreviewItems,
@@ -316,7 +294,6 @@ public class KnowledgeBaseObjectTemplateServiceTests
             existingCompositionEntries: null,
             existingDocumentLinks: null,
             existingSoftwareRecords: null,
-            existingNetworkFileReferences: null,
             existingMaintenanceScheduleProfiles: null);
 
         Assert.False(plan.IsSuccess);
@@ -376,15 +353,6 @@ public class KnowledgeBaseObjectTemplateServiceTests
                     OwnerTemplateNodeId = "controller",
                     Title = "Проект PLC",
                     Path = "\\\\srv\\plc"
-                }
-            },
-            NetworkFileReferences =
-            {
-                new KbObjectTemplateNetworkFileReference
-                {
-                    OwnerTemplateNodeId = "cabinet",
-                    Title = "Топология",
-                    Path = "\\\\srv\\topology.png"
                 }
             },
             MaintenanceScheduleProfiles =

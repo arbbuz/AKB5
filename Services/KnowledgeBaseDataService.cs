@@ -35,10 +35,6 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = new List<KbCompositionEntry>(),
                 DocumentLinks = new List<KbDocumentLink>(),
                 SoftwareRecords = new List<KbSoftwareRecord>(),
-                NetworkFileReferences = new List<KbNetworkFileReference>(),
-                NetworkDevices = new List<KbNetworkDevice>(),
-                NetworkInterfaces = new List<KbNetworkInterface>(),
-                NetworkConnections = new List<KbNetworkConnection>(),
                 MaintenanceScheduleProfiles = new List<KbMaintenanceScheduleProfile>(),
                 EquipmentCatalogItems = new List<KbEquipmentCatalogItem>(),
                 ObjectTemplates = new List<KbObjectTemplate>(),
@@ -55,20 +51,6 @@ namespace AsutpKnowledgeBase.Services
             var normalizedCompositionEntries = NormalizeCompositionEntries(source.CompositionEntries);
             var normalizedDocumentLinks = NormalizeDocumentLinks(source.DocumentLinks, nodeOwnershipIndex);
             var normalizedSoftwareRecords = NormalizeSoftwareRecords(source.SoftwareRecords, nodeOwnershipIndex);
-            var normalizedNetworkFileReferences = NormalizeNetworkFileReferences(
-                source.NetworkFileReferences,
-                nodeOwnershipIndex);
-            var normalizedNetworkDevices = NormalizeNetworkDevices(
-                source.NetworkDevices,
-                nodeOwnershipIndex,
-                out var networkDeviceIdMap);
-            var normalizedNetworkInterfaces = NormalizeNetworkInterfaces(
-                source.NetworkInterfaces,
-                networkDeviceIdMap,
-                out var networkInterfaceIdMap);
-            var normalizedNetworkConnections = NormalizeNetworkConnections(
-                source.NetworkConnections,
-                networkInterfaceIdMap);
             var normalizedMaintenanceScheduleProfiles = NormalizeMaintenanceScheduleProfiles(source.MaintenanceScheduleProfiles);
             var normalizedEquipmentCatalogItems = NormalizeEquipmentCatalogItems(source.EquipmentCatalogItems);
             var normalizedObjectTemplates = NormalizeObjectTemplates(source.ObjectTemplates);
@@ -89,10 +71,6 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = normalizedCompositionEntries,
                 DocumentLinks = normalizedDocumentLinks,
                 SoftwareRecords = normalizedSoftwareRecords,
-                NetworkFileReferences = normalizedNetworkFileReferences,
-                NetworkDevices = normalizedNetworkDevices,
-                NetworkInterfaces = normalizedNetworkInterfaces,
-                NetworkConnections = normalizedNetworkConnections,
                 MaintenanceScheduleProfiles = normalizedMaintenanceScheduleProfiles,
                 EquipmentCatalogItems = normalizedEquipmentCatalogItems,
                 ObjectTemplates = normalizedObjectTemplates,
@@ -331,7 +309,6 @@ namespace AsutpKnowledgeBase.Services
                 compositionEntries: null,
                 documentLinks: null,
                 softwareRecords: null,
-                networkFileReferences: null,
                 maintenanceScheduleProfiles: null,
                 equipmentCatalogItems: null,
                 objectTemplates: null,
@@ -345,7 +322,6 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbCompositionEntry>? compositionEntries,
             IReadOnlyList<KbDocumentLink>? documentLinks,
             IReadOnlyList<KbSoftwareRecord>? softwareRecords,
-            IReadOnlyList<KbNetworkFileReference>? networkFileReferences,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
             IReadOnlyList<KbEquipmentCatalogItem>? equipmentCatalogItems,
             string currentWorkshop,
@@ -357,7 +333,6 @@ namespace AsutpKnowledgeBase.Services
                 compositionEntries,
                 documentLinks,
                 softwareRecords,
-                networkFileReferences,
                 maintenanceScheduleProfiles,
                 equipmentCatalogItems,
                 objectTemplates: null,
@@ -370,7 +345,6 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbCompositionEntry>? compositionEntries,
             IReadOnlyList<KbDocumentLink>? documentLinks,
             IReadOnlyList<KbSoftwareRecord>? softwareRecords,
-            IReadOnlyList<KbNetworkFileReference>? networkFileReferences,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
             IReadOnlyList<KbEquipmentCatalogItem>? equipmentCatalogItems,
             string currentWorkshop,
@@ -382,7 +356,6 @@ namespace AsutpKnowledgeBase.Services
                 compositionEntries,
                 documentLinks,
                 softwareRecords,
-                networkFileReferences,
                 maintenanceScheduleProfiles,
                 equipmentCatalogItems,
                 objectTemplates: null,
@@ -396,15 +369,11 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbCompositionEntry>? compositionEntries,
             IReadOnlyList<KbDocumentLink>? documentLinks,
             IReadOnlyList<KbSoftwareRecord>? softwareRecords,
-            IReadOnlyList<KbNetworkFileReference>? networkFileReferences,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
             IReadOnlyList<KbEquipmentCatalogItem>? equipmentCatalogItems,
             IReadOnlyList<KbObjectTemplate>? objectTemplates,
             string currentWorkshop,
-            bool includeCurrentWorkshop,
-            IReadOnlyList<KbNetworkDevice>? networkDevices = null,
-            IReadOnlyList<KbNetworkInterface>? networkInterfaces = null,
-            IReadOnlyList<KbNetworkConnection>? networkConnections = null)
+            bool includeCurrentWorkshop)
         {
             var data = new SavedData
             {
@@ -415,10 +384,6 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = compositionEntries?.ToList() ?? new List<KbCompositionEntry>(),
                 DocumentLinks = documentLinks?.ToList() ?? new List<KbDocumentLink>(),
                 SoftwareRecords = softwareRecords?.ToList() ?? new List<KbSoftwareRecord>(),
-                NetworkFileReferences = networkFileReferences?.ToList() ?? new List<KbNetworkFileReference>(),
-                NetworkDevices = networkDevices?.ToList() ?? new List<KbNetworkDevice>(),
-                NetworkInterfaces = networkInterfaces?.ToList() ?? new List<KbNetworkInterface>(),
-                NetworkConnections = networkConnections?.ToList() ?? new List<KbNetworkConnection>(),
                 MaintenanceScheduleProfiles = maintenanceScheduleProfiles?.ToList() ?? new List<KbMaintenanceScheduleProfile>(),
                 EquipmentCatalogItems = equipmentCatalogItems?.ToList() ?? new List<KbEquipmentCatalogItem>(),
                 ObjectTemplates = objectTemplates?.ToList() ?? new List<KbObjectTemplate>(),
@@ -569,7 +534,6 @@ namespace AsutpKnowledgeBase.Services
                     SortOrder = sortOrder,
                     RackType = NormalizeRackType(rack.RackType),
                     Label = rack.Label?.Trim() ?? string.Empty,
-                    NetworkLink = rack.NetworkLink?.Trim() ?? string.Empty,
                     Notes = rack.Notes?.Trim() ?? string.Empty,
                     Properties = NormalizeCompositionRackProperties(rack.Properties)
                 });
@@ -770,254 +734,6 @@ namespace AsutpKnowledgeBase.Services
             return normalized;
         }
 
-        private static List<KbNetworkFileReference> NormalizeNetworkFileReferences(
-            IEnumerable<KbNetworkFileReference>? references,
-            IReadOnlyDictionary<string, NodeOwnershipState>? nodeOwnershipIndex = null)
-        {
-            var normalized = new List<KbNetworkFileReference>();
-            if (references == null)
-                return normalized;
-
-            var usedNetworkAssetIds = new HashSet<string>(StringComparer.Ordinal);
-            int normalizedIndex = 0;
-
-            foreach (var reference in references)
-            {
-                if (reference == null)
-                    continue;
-
-                string ownerNodeId = ResolveLevel2EngineeringOwnerNodeId(
-                    reference.OwnerNodeId?.Trim() ?? string.Empty,
-                    nodeOwnershipIndex);
-                if (string.IsNullOrWhiteSpace(ownerNodeId))
-                    continue;
-
-                string path = reference.Path?.Trim() ?? string.Empty;
-
-                normalized.Add(new KbNetworkFileReference
-                {
-                    NetworkAssetId = NormalizeOwnedRecordId(
-                        reference.NetworkAssetId,
-                        "network",
-                        ownerNodeId,
-                        normalizedIndex.ToString(),
-                        usedNetworkAssetIds),
-                    OwnerNodeId = ownerNodeId,
-                    Title = reference.Title?.Trim() ?? string.Empty,
-                    Path = path,
-                    SourceNote = reference.SourceNote?.Trim() ?? string.Empty,
-                    PreviewKind = KnowledgeBaseNetworkPreviewService.ResolvePreviewKind(path)
-                });
-
-                normalizedIndex++;
-            }
-
-            return normalized;
-        }
-
-        private static List<KbNetworkDevice> NormalizeNetworkDevices(
-            IEnumerable<KbNetworkDevice>? devices,
-            IReadOnlyDictionary<string, NodeOwnershipState>? nodeOwnershipIndex,
-            out Dictionary<string, string> networkDeviceIdMap)
-        {
-            networkDeviceIdMap = new Dictionary<string, string>(StringComparer.Ordinal);
-            var normalized = new List<KbNetworkDevice>();
-            if (devices == null)
-                return normalized;
-
-            var usedNetworkDeviceIds = new HashSet<string>(StringComparer.Ordinal);
-            int normalizedIndex = 0;
-
-            foreach (KbNetworkDevice? device in devices)
-            {
-                if (device == null)
-                    continue;
-
-                string ownerNodeId = ResolveLevel2EngineeringOwnerNodeId(
-                    device.OwnerNodeId?.Trim() ?? string.Empty,
-                    nodeOwnershipIndex);
-                if (string.IsNullOrWhiteSpace(ownerNodeId))
-                    continue;
-
-                string linkedNodeId = NormalizeLinkedNodeId(device.LinkedNodeId, nodeOwnershipIndex);
-                string originalDeviceId = device.NetworkDeviceId?.Trim() ?? string.Empty;
-                string normalizedDeviceId = NormalizeOwnedRecordId(
-                    originalDeviceId,
-                    "network-device",
-                    ownerNodeId,
-                    normalizedIndex.ToString(),
-                    usedNetworkDeviceIds);
-
-                AddRecordIdMap(networkDeviceIdMap, originalDeviceId, normalizedDeviceId);
-                AddRecordIdMap(networkDeviceIdMap, normalizedDeviceId, normalizedDeviceId);
-
-                normalized.Add(new KbNetworkDevice
-                {
-                    NetworkDeviceId = normalizedDeviceId,
-                    OwnerNodeId = ownerNodeId,
-                    LinkedNodeId = linkedNodeId,
-                    Name = device.Name?.Trim() ?? string.Empty,
-                    Role = device.Role?.Trim() ?? string.Empty,
-                    Vendor = device.Vendor?.Trim() ?? string.Empty,
-                    Model = device.Model?.Trim() ?? string.Empty,
-                    OrderNumber = device.OrderNumber?.Trim() ?? string.Empty,
-                    SerialNumber = device.SerialNumber?.Trim() ?? string.Empty,
-                    Firmware = device.Firmware?.Trim() ?? string.Empty,
-                    ProfinetName = device.ProfinetName?.Trim() ?? string.Empty,
-                    MacAddress = device.MacAddress?.Trim() ?? string.Empty,
-                    LocationText = device.LocationText?.Trim() ?? string.Empty,
-                    CabinetText = device.CabinetText?.Trim() ?? string.Empty,
-                    Notes = device.Notes?.Trim() ?? string.Empty
-                });
-
-                normalizedIndex++;
-            }
-
-            return normalized;
-        }
-
-        private static List<KbNetworkInterface> NormalizeNetworkInterfaces(
-            IEnumerable<KbNetworkInterface>? interfaces,
-            IReadOnlyDictionary<string, string> networkDeviceIdMap,
-            out Dictionary<string, string> networkInterfaceIdMap)
-        {
-            networkInterfaceIdMap = new Dictionary<string, string>(StringComparer.Ordinal);
-            var normalized = new List<KbNetworkInterface>();
-            if (interfaces == null)
-                return normalized;
-
-            var usedNetworkInterfaceIds = new HashSet<string>(StringComparer.Ordinal);
-            int normalizedIndex = 0;
-
-            foreach (KbNetworkInterface? networkInterface in interfaces)
-            {
-                if (networkInterface == null)
-                    continue;
-
-                string originalDeviceId = networkInterface.NetworkDeviceId?.Trim() ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(originalDeviceId) ||
-                    !networkDeviceIdMap.TryGetValue(originalDeviceId, out string? normalizedDeviceId) ||
-                    string.IsNullOrWhiteSpace(normalizedDeviceId))
-                {
-                    continue;
-                }
-
-                string originalInterfaceId = networkInterface.NetworkInterfaceId?.Trim() ?? string.Empty;
-                string normalizedInterfaceId = NormalizeOwnedRecordId(
-                    originalInterfaceId,
-                    "network-interface",
-                    normalizedDeviceId,
-                    normalizedIndex.ToString(),
-                    usedNetworkInterfaceIds);
-
-                AddRecordIdMap(networkInterfaceIdMap, originalInterfaceId, normalizedInterfaceId);
-                AddRecordIdMap(networkInterfaceIdMap, normalizedInterfaceId, normalizedInterfaceId);
-
-                normalized.Add(new KbNetworkInterface
-                {
-                    NetworkInterfaceId = normalizedInterfaceId,
-                    NetworkDeviceId = normalizedDeviceId,
-                    InterfaceName = networkInterface.InterfaceName?.Trim() ?? string.Empty,
-                    PortNumber = networkInterface.PortNumber?.Trim() ?? string.Empty,
-                    MacAddress = networkInterface.MacAddress?.Trim() ?? string.Empty,
-                    IpAddress = networkInterface.IpAddress?.Trim() ?? string.Empty,
-                    SubnetMask = networkInterface.SubnetMask?.Trim() ?? string.Empty,
-                    Gateway = networkInterface.Gateway?.Trim() ?? string.Empty,
-                    Vlan = networkInterface.Vlan?.Trim() ?? string.Empty,
-                    Protocol = networkInterface.Protocol?.Trim() ?? string.Empty,
-                    MpiDpPnAddress = networkInterface.MpiDpPnAddress?.Trim() ?? string.Empty,
-                    Speed = networkInterface.Speed?.Trim() ?? string.Empty,
-                    Medium = networkInterface.Medium?.Trim() ?? string.Empty,
-                    Notes = networkInterface.Notes?.Trim() ?? string.Empty
-                });
-
-                normalizedIndex++;
-            }
-
-            return normalized;
-        }
-
-        private static List<KbNetworkConnection> NormalizeNetworkConnections(
-            IEnumerable<KbNetworkConnection>? connections,
-            IReadOnlyDictionary<string, string> networkInterfaceIdMap)
-        {
-            var normalized = new List<KbNetworkConnection>();
-            if (connections == null)
-                return normalized;
-
-            var usedNetworkConnectionIds = new HashSet<string>(StringComparer.Ordinal);
-            int normalizedIndex = 0;
-
-            foreach (KbNetworkConnection? connection in connections)
-            {
-                if (connection == null)
-                    continue;
-
-                string originalEndpointAInterfaceId = connection.EndpointAInterfaceId?.Trim() ?? string.Empty;
-                string originalEndpointBInterfaceId = connection.EndpointBInterfaceId?.Trim() ?? string.Empty;
-                if (!networkInterfaceIdMap.TryGetValue(originalEndpointAInterfaceId, out string? endpointAInterfaceId) ||
-                    !networkInterfaceIdMap.TryGetValue(originalEndpointBInterfaceId, out string? endpointBInterfaceId) ||
-                    string.IsNullOrWhiteSpace(endpointAInterfaceId) ||
-                    string.IsNullOrWhiteSpace(endpointBInterfaceId) ||
-                    string.Equals(endpointAInterfaceId, endpointBInterfaceId, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                normalized.Add(new KbNetworkConnection
-                {
-                    NetworkConnectionId = NormalizeOwnedRecordId(
-                        connection.NetworkConnectionId,
-                        "network-connection",
-                        endpointAInterfaceId,
-                        $"{endpointBInterfaceId}-{normalizedIndex}",
-                        usedNetworkConnectionIds),
-                    EndpointAInterfaceId = endpointAInterfaceId,
-                    EndpointBInterfaceId = endpointBInterfaceId,
-                    CableLabel = connection.CableLabel?.Trim() ?? string.Empty,
-                    CableType = connection.CableType?.Trim() ?? string.Empty,
-                    Protocol = connection.Protocol?.Trim() ?? string.Empty,
-                    Medium = connection.Medium?.Trim() ?? string.Empty,
-                    Length = connection.Length?.Trim() ?? string.Empty,
-                    RouteText = connection.RouteText?.Trim() ?? string.Empty,
-                    Status = connection.Status?.Trim() ?? string.Empty,
-                    Notes = connection.Notes?.Trim() ?? string.Empty
-                });
-
-                normalizedIndex++;
-            }
-
-            return normalized;
-        }
-
-        private static string NormalizeLinkedNodeId(
-            string? linkedNodeId,
-            IReadOnlyDictionary<string, NodeOwnershipState>? nodeOwnershipIndex)
-        {
-            string normalizedLinkedNodeId = linkedNodeId?.Trim() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(normalizedLinkedNodeId))
-                return string.Empty;
-
-            return nodeOwnershipIndex == null || nodeOwnershipIndex.ContainsKey(normalizedLinkedNodeId)
-                ? normalizedLinkedNodeId
-                : string.Empty;
-        }
-
-        private static void AddRecordIdMap(
-            IDictionary<string, string> recordIdMap,
-            string originalId,
-            string normalizedId)
-        {
-            if (string.IsNullOrWhiteSpace(originalId) ||
-                string.IsNullOrWhiteSpace(normalizedId) ||
-                recordIdMap.ContainsKey(originalId))
-            {
-                return;
-            }
-
-            recordIdMap.Add(originalId, normalizedId);
-        }
-
         private static List<KbMaintenanceScheduleProfile> NormalizeMaintenanceScheduleProfiles(
             IEnumerable<KbMaintenanceScheduleProfile>? profiles)
         {
@@ -1188,14 +904,8 @@ namespace AsutpKnowledgeBase.Services
                     SoftwareRecords = NormalizeObjectTemplateSoftwareRecords(
                         template.SoftwareRecords,
                         knownTemplateNodeIds),
-                    NetworkFileReferences = NormalizeObjectTemplateNetworkFileReferences(
-                        template.NetworkFileReferences,
-                        knownTemplateNodeIds),
                     MaintenanceScheduleProfiles = NormalizeObjectTemplateMaintenanceScheduleProfiles(
                         template.MaintenanceScheduleProfiles,
-                        knownTemplateNodeIds),
-                    NetworkInterfaceStubs = NormalizeObjectTemplateNetworkInterfaceStubs(
-                        template.NetworkInterfaceStubs,
                         knownTemplateNodeIds)
                 });
 
@@ -1381,7 +1091,6 @@ namespace AsutpKnowledgeBase.Services
                     SortOrder = rack.SortOrder >= 0 ? rack.SortOrder : normalizedIndex,
                     RackType = NormalizeRackType(rack.RackType),
                     Label = rack.Label?.Trim() ?? string.Empty,
-                    NetworkLink = rack.NetworkLink?.Trim() ?? string.Empty,
                     Notes = rack.Notes?.Trim() ?? string.Empty,
                     Properties = NormalizeCompositionRackProperties(rack.Properties)
                 });
@@ -1477,42 +1186,6 @@ namespace AsutpKnowledgeBase.Services
                 .ToList();
         }
 
-        private static List<KbObjectTemplateNetworkFileReference> NormalizeObjectTemplateNetworkFileReferences(
-            IEnumerable<KbObjectTemplateNetworkFileReference>? references,
-            ISet<string> knownTemplateNodeIds)
-        {
-            var normalized = new List<KbObjectTemplateNetworkFileReference>();
-            if (references == null)
-                return normalized;
-
-            foreach (KbObjectTemplateNetworkFileReference? reference in references)
-            {
-                if (reference == null)
-                    continue;
-
-                string ownerTemplateNodeId = reference.OwnerTemplateNodeId?.Trim() ?? string.Empty;
-                string title = reference.Title?.Trim() ?? string.Empty;
-                string path = reference.Path?.Trim() ?? string.Empty;
-                if (!knownTemplateNodeIds.Contains(ownerTemplateNodeId) ||
-                    (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(path)))
-                {
-                    continue;
-                }
-
-                normalized.Add(new KbObjectTemplateNetworkFileReference
-                {
-                    OwnerTemplateNodeId = ownerTemplateNodeId,
-                    Title = title,
-                    Path = path
-                });
-            }
-
-            return normalized
-                .OrderBy(static reference => reference.OwnerTemplateNodeId, StringComparer.Ordinal)
-                .ThenBy(static reference => reference.Title, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-        }
-
         private static List<KbObjectTemplateMaintenanceScheduleProfile>
             NormalizeObjectTemplateMaintenanceScheduleProfiles(
                 IEnumerable<KbObjectTemplateMaintenanceScheduleProfile>? profiles,
@@ -1548,66 +1221,6 @@ namespace AsutpKnowledgeBase.Services
 
             return normalized
                 .OrderBy(static profile => profile.OwnerTemplateNodeId, StringComparer.Ordinal)
-                .ToList();
-        }
-
-        private static List<KbObjectTemplateNetworkInterfaceStub> NormalizeObjectTemplateNetworkInterfaceStubs(
-            IEnumerable<KbObjectTemplateNetworkInterfaceStub>? stubs,
-            ISet<string> knownTemplateNodeIds)
-        {
-            var normalized = new List<KbObjectTemplateNetworkInterfaceStub>();
-            if (stubs == null)
-                return normalized;
-
-            var usedInterfaceIds = new HashSet<string>(StringComparer.Ordinal);
-            int normalizedIndex = 0;
-            foreach (KbObjectTemplateNetworkInterfaceStub? stub in stubs)
-            {
-                if (stub == null)
-                    continue;
-
-                string ownerTemplateNodeId = stub.OwnerTemplateNodeId?.Trim() ?? string.Empty;
-                if (!knownTemplateNodeIds.Contains(ownerTemplateNodeId))
-                    continue;
-
-                string name = stub.Name?.Trim() ?? string.Empty;
-                string ipAddress = stub.IpAddress?.Trim() ?? string.Empty;
-                string subnetMask = stub.SubnetMask?.Trim() ?? string.Empty;
-                string gateway = stub.Gateway?.Trim() ?? string.Empty;
-                string protocol = stub.Protocol?.Trim() ?? string.Empty;
-                string notes = stub.Notes?.Trim() ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(name) &&
-                    string.IsNullOrWhiteSpace(ipAddress) &&
-                    string.IsNullOrWhiteSpace(subnetMask) &&
-                    string.IsNullOrWhiteSpace(gateway) &&
-                    string.IsNullOrWhiteSpace(protocol) &&
-                    string.IsNullOrWhiteSpace(notes))
-                {
-                    continue;
-                }
-
-                normalized.Add(new KbObjectTemplateNetworkInterfaceStub
-                {
-                    OwnerTemplateNodeId = ownerTemplateNodeId,
-                    InterfaceId = NormalizeObjectTemplateInterfaceId(
-                        stub.InterfaceId,
-                        ownerTemplateNodeId,
-                        normalizedIndex,
-                        usedInterfaceIds),
-                    Name = name,
-                    IpAddress = ipAddress,
-                    SubnetMask = subnetMask,
-                    Gateway = gateway,
-                    Protocol = protocol,
-                    Notes = notes
-                });
-
-                normalizedIndex++;
-            }
-
-            return normalized
-                .OrderBy(static stub => stub.OwnerTemplateNodeId, StringComparer.Ordinal)
-                .ThenBy(static stub => stub.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
 
@@ -1785,31 +1398,6 @@ namespace AsutpKnowledgeBase.Services
             {
                 string candidate = $"{baseId}-{suffix}";
                 if (usedTemplateNodeIds.Add(candidate))
-                    return candidate;
-
-                suffix++;
-            }
-        }
-
-        private static string NormalizeObjectTemplateInterfaceId(
-            string? interfaceId,
-            string ownerTemplateNodeId,
-            int normalizedIndex,
-            HashSet<string> usedInterfaceIds)
-        {
-            string normalizedExistingId = interfaceId?.Trim() ?? string.Empty;
-            if (!string.IsNullOrWhiteSpace(normalizedExistingId) && usedInterfaceIds.Add(normalizedExistingId))
-                return normalizedExistingId;
-
-            string deterministicId = $"iface-{ownerTemplateNodeId}-{normalizedIndex}";
-            if (usedInterfaceIds.Add(deterministicId))
-                return deterministicId;
-
-            int suffix = 2;
-            while (true)
-            {
-                string candidate = $"{deterministicId}-{suffix}";
-                if (usedInterfaceIds.Add(candidate))
                     return candidate;
 
                 suffix++;

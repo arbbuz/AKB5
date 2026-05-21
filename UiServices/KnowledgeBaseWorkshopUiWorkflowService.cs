@@ -195,7 +195,6 @@ namespace AsutpKnowledgeBase.UiServices
                 $"- записей состава: {_session.CompositionEntries.Count(entry => nodeIds.Contains(entry.ParentNodeId))}",
                 $"- документов: {_session.DocumentLinks.Count(link => nodeIds.Contains(link.OwnerNodeId))}",
                 $"- записей ПО: {_session.SoftwareRecords.Count(record => nodeIds.Contains(record.OwnerNodeId))}",
-                $"- сетевых файлов: {_session.NetworkFileReferences.Count(reference => nodeIds.Contains(reference.OwnerNodeId))}",
                 $"- профилей ТО: {_session.MaintenanceScheduleProfiles.Count(profile => nodeIds.Contains(profile.OwnerNodeId))}",
                 string.Empty,
                 "После подтверждения будет предложено создать снимок базы.",

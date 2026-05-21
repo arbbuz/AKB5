@@ -62,7 +62,6 @@ namespace AsutpKnowledgeBase.Services
                 SortOrder = sortOrder,
                 RackType = rackType,
                 Label = draftRack.Label?.Trim() ?? string.Empty,
-                NetworkLink = draftRack.NetworkLink?.Trim() ?? string.Empty,
                 Notes = draftRack.Notes?.Trim() ?? string.Empty,
                 Properties = CloneProperties(draftRack.Properties)
             };
@@ -216,7 +215,6 @@ namespace AsutpKnowledgeBase.Services
                     SortOrder = rack.SortOrder,
                     RackType = rack.RackType,
                     Label = rack.Label,
-                    NetworkLink = rack.NetworkLink,
                     Notes = rack.Notes,
                     Properties = CloneProperties(rack.Properties)
                 });

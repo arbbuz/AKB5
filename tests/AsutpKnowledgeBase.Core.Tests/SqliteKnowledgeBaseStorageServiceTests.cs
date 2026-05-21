@@ -32,10 +32,6 @@ public class SqliteKnowledgeBaseStorageServiceTests
             Assert.Contains("composition_entries", tables);
             Assert.Contains("document_links", tables);
             Assert.Contains("software_records", tables);
-            Assert.Contains("network_file_references", tables);
-            Assert.Contains("network_devices", tables);
-            Assert.Contains("network_interfaces", tables);
-            Assert.Contains("network_connections", tables);
             Assert.Contains("maintenance_schedule_profiles", tables);
             Assert.Contains("maintenance_year_schedule_entries", tables);
             Assert.Contains("equipment_catalog_items", tables);
@@ -54,13 +50,8 @@ public class SqliteKnowledgeBaseStorageServiceTests
             Assert.Contains("comment_text", compositionColumns);
             Assert.Contains("interface_rows", compositionColumns);
 
-            var connectionColumns = ReadColumnNames(connection, "network_connections");
-            Assert.Contains("protocol", connectionColumns);
-            Assert.Contains("medium", connectionColumns);
-            Assert.Contains("route_text", connectionColumns);
-
-            var fileReferenceColumns = ReadColumnNames(connection, "network_file_references");
-            Assert.Contains("source_note", fileReferenceColumns);
+            var rackColumns = ReadColumnNames(connection, "composition_racks");
+            Assert.DoesNotContain("network_link", rackColumns);
         }
         finally
         {
@@ -94,10 +85,6 @@ public class SqliteKnowledgeBaseStorageServiceTests
             Assert.Equal(1, CountRows(connection, "composition_entries"));
             Assert.Equal(1, CountRows(connection, "document_links"));
             Assert.Equal(1, CountRows(connection, "software_records"));
-            Assert.Equal(1, CountRows(connection, "network_file_references"));
-            Assert.Equal(2, CountRows(connection, "network_devices"));
-            Assert.Equal(2, CountRows(connection, "network_interfaces"));
-            Assert.Equal(1, CountRows(connection, "network_connections"));
             Assert.Equal(1, CountRows(connection, "maintenance_schedule_profiles"));
             Assert.Equal(2, CountRows(connection, "maintenance_year_schedule_entries"));
             Assert.Equal(1, CountRows(connection, "equipment_catalog_items"));
@@ -160,53 +147,6 @@ public class SqliteKnowledgeBaseStorageServiceTests
             Assert.Equal(string.Empty, entry.OutputAddress);
             Assert.Equal(string.Empty, entry.Comment);
             Assert.Equal(string.Empty, entry.InterfaceRows);
-        }
-        finally
-        {
-            Directory.Delete(tempDirectory, recursive: true);
-        }
-    }
-
-    [Fact]
-    public void Load_WhenNetworkFileReferencesHaveLegacySchema_AddsSourceNoteColumn()
-    {
-        string tempDirectory = CreateTempDirectory();
-
-        try
-        {
-            string path = Path.Combine(tempDirectory, "legacy-network.akb");
-            using (var connection = new SqliteConnection($"Data Source={path};Pooling=False"))
-            {
-                connection.Open();
-                using var command = connection.CreateCommand();
-                command.CommandText =
-                    """
-                    CREATE TABLE network_file_references (
-                        network_asset_id TEXT PRIMARY KEY,
-                        entry_order INTEGER NOT NULL,
-                        owner_node_id TEXT NOT NULL,
-                        title TEXT NOT NULL,
-                        path TEXT NOT NULL,
-                        preview_kind INTEGER NOT NULL
-                    );
-                    INSERT INTO network_file_references (
-                        network_asset_id, entry_order, owner_node_id, title, path, preview_kind)
-                    VALUES ('network-file-1', 0, 'system-1', 'Topology', 'C:\network\topology.pdf', 2);
-                    """;
-                command.ExecuteNonQuery();
-            }
-
-            var service = new SqliteKnowledgeBaseStorageService(path);
-            KnowledgeBaseStorageLoadResult loadResult = service.Load();
-
-            Assert.True(loadResult.IsSuccess, loadResult.ErrorMessage);
-            var reference = Assert.Single(loadResult.Data!.NetworkFileReferences);
-            Assert.Equal("Topology", reference.Title);
-            Assert.Equal(string.Empty, reference.SourceNote);
-
-            using var verifyConnection = new SqliteConnection($"Data Source={path};Pooling=False");
-            verifyConnection.Open();
-            Assert.Contains("source_note", ReadColumnNames(verifyConnection, "network_file_references"));
         }
         finally
         {
@@ -617,103 +557,6 @@ public class SqliteKnowledgeBaseStorageServiceTests
                     Notes = "Версия 1"
                 }
             },
-            NetworkFileReferences = new List<KbNetworkFileReference>
-            {
-                new()
-                {
-                    NetworkAssetId = "net-1",
-                    OwnerNodeId = childId,
-                    Title = "Топология",
-                    Path = @"C:\network\topology.png",
-                    SourceNote = "Лист 1, шкаф PLC-1",
-                    PreviewKind = KbNetworkPreviewKind.Image
-                }
-            },
-            NetworkDevices = new List<KbNetworkDevice>
-            {
-                new()
-                {
-                    NetworkDeviceId = "network-device-1",
-                    OwnerNodeId = childId,
-                    LinkedNodeId = childId,
-                    Name = "PLC-1",
-                    Role = "Controller",
-                    Vendor = "Siemens",
-                    Model = "CPU 1214C",
-                    OrderNumber = "6ES7 214-1AG40-0XB0",
-                    SerialNumber = "S123",
-                    Firmware = "V4.5",
-                    ProfinetName = "plc-1",
-                    MacAddress = "00-11-22-33-44-55",
-                    LocationText = "Line 1",
-                    CabinetText = "Cabinet 1",
-                    Notes = "Main controller"
-                },
-                new()
-                {
-                    NetworkDeviceId = "network-device-2",
-                    OwnerNodeId = childId,
-                    Name = "HMI-1",
-                    Role = "Operator panel",
-                    Vendor = "Siemens",
-                    Model = "KTP700",
-                    ProfinetName = "hmi-1",
-                    MacAddress = "00-11-22-33-44-66",
-                    CabinetText = "Cabinet 1"
-                }
-            },
-            NetworkInterfaces = new List<KbNetworkInterface>
-            {
-                new()
-                {
-                    NetworkInterfaceId = "network-interface-1",
-                    NetworkDeviceId = "network-device-1",
-                    InterfaceName = "X1",
-                    PortNumber = "1",
-                    MacAddress = "00-11-22-33-44-55",
-                    IpAddress = "10.0.0.10",
-                    SubnetMask = "255.255.255.0",
-                    Gateway = "10.0.0.1",
-                    Vlan = "10",
-                    Protocol = "Profinet",
-                    MpiDpPnAddress = "PN/IE",
-                    Speed = "100 Mbit/s",
-                    Medium = "Copper",
-                    Notes = "Controller PN port"
-                },
-                new()
-                {
-                    NetworkInterfaceId = "network-interface-2",
-                    NetworkDeviceId = "network-device-2",
-                    InterfaceName = "X1",
-                    PortNumber = "1",
-                    MacAddress = "00-11-22-33-44-66",
-                    IpAddress = "10.0.0.20",
-                    SubnetMask = "255.255.255.0",
-                    Gateway = "10.0.0.1",
-                    Protocol = "Profinet",
-                    Speed = "100 Mbit/s",
-                    Medium = "Copper",
-                    Notes = "Panel PN port"
-                }
-            },
-            NetworkConnections = new List<KbNetworkConnection>
-            {
-                new()
-                {
-                    NetworkConnectionId = "network-connection-1",
-                    EndpointAInterfaceId = "network-interface-1",
-                    EndpointBInterfaceId = "network-interface-2",
-                    CableLabel = "W1",
-                    CableType = "Profinet",
-                    Protocol = "PROFINET",
-                    Medium = "Copper",
-                    Length = "12 m",
-                    RouteText = "Operator room +7.0",
-                    Status = "Active",
-                    Notes = "PLC to HMI"
-                }
-            },
             MaintenanceScheduleProfiles = new List<KbMaintenanceScheduleProfile>
             {
                 new()
@@ -822,15 +665,6 @@ public class SqliteKnowledgeBaseStorageServiceTests
                             Notes = "ПО"
                         }
                     },
-                    NetworkFileReferences = new List<KbObjectTemplateNetworkFileReference>
-                    {
-                        new()
-                        {
-                            OwnerTemplateNodeId = "template-child",
-                            Title = "Сеть",
-                            Path = @"C:\network\template.png"
-                        }
-                    },
                     MaintenanceScheduleProfiles = new List<KbObjectTemplateMaintenanceScheduleProfile>
                     {
                         new()
@@ -844,20 +678,6 @@ public class SqliteKnowledgeBaseStorageServiceTests
                             {
                                 new() { Month = 12, WorkKind = KbMaintenanceWorkKind.To3 }
                             }
-                        }
-                    },
-                    NetworkInterfaceStubs = new List<KbObjectTemplateNetworkInterfaceStub>
-                    {
-                        new()
-                        {
-                            OwnerTemplateNodeId = "template-child",
-                            InterfaceId = "eth0",
-                            Name = "Ethernet",
-                            IpAddress = "10.0.0.20",
-                            SubnetMask = "255.255.255.0",
-                            Gateway = "10.0.0.1",
-                            Protocol = "Profinet",
-                            Notes = "Основной интерфейс"
                         }
                     }
                 }

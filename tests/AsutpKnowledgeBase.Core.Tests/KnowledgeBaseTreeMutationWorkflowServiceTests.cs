@@ -193,28 +193,6 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
                 new KbSoftwareRecord { OwnerNodeId = "controller-1", Title = "Backup 2", Path = "\\\\srv\\backup2.zip" },
                 new KbSoftwareRecord { OwnerNodeId = "cabinet-2", Title = "Backup 3", Path = "\\\\srv\\backup3.zip" }
             });
-        session.ReplaceNetworkFileReferences(
-            new[]
-            {
-                new KbNetworkFileReference
-                {
-                    OwnerNodeId = "cabinet-1",
-                    Title = "Topology 1",
-                    Path = "\\\\srv\\network\\topology-1.png"
-                },
-                new KbNetworkFileReference
-                {
-                    OwnerNodeId = "controller-1",
-                    Title = "Topology 2",
-                    Path = "\\\\srv\\network\\topology-2.png"
-                },
-                new KbNetworkFileReference
-                {
-                    OwnerNodeId = "cabinet-2",
-                    Title = "Topology 3",
-                    Path = "\\\\srv\\network\\topology-3.png"
-                }
-            });
         session.ReplaceMaintenanceScheduleProfiles(
             new[]
             {
@@ -258,8 +236,6 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
         Assert.Equal("cabinet-2", remainingDocument.OwnerNodeId);
         var remainingSoftware = Assert.Single(session.SoftwareRecords);
         Assert.Equal("cabinet-2", remainingSoftware.OwnerNodeId);
-        var remainingNetwork = Assert.Single(session.NetworkFileReferences);
-        Assert.Equal("cabinet-2", remainingNetwork.OwnerNodeId);
         var remainingMaintenanceProfile = Assert.Single(session.MaintenanceScheduleProfiles);
         Assert.Equal("cabinet-2", remainingMaintenanceProfile.OwnerNodeId);
     }
@@ -328,10 +304,6 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
         var software = Assert.Single(session.SoftwareRecords);
         Assert.Equal(parentNode.NodeId, software.OwnerNodeId);
 
-        var networkFile = Assert.Single(session.NetworkFileReferences);
-        Assert.Equal(parentNode.NodeId, networkFile.OwnerNodeId);
-        Assert.Equal(KbNetworkPreviewKind.Image, networkFile.PreviewKind);
-
         var maintenanceProfile = Assert.Single(session.MaintenanceScheduleProfiles);
         Assert.Equal(controllerNode.NodeId, maintenanceProfile.OwnerNodeId);
         Assert.Equal(2, maintenanceProfile.To1Hours);
@@ -342,7 +314,6 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
         Assert.Empty(session.CompositionEntries);
         Assert.Empty(session.DocumentLinks);
         Assert.Empty(session.SoftwareRecords);
-        Assert.Empty(session.NetworkFileReferences);
         Assert.Empty(session.MaintenanceScheduleProfiles);
     }
 
@@ -679,9 +650,6 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
         KbSoftwareRecord software = Assert.Single(session.SoftwareRecords);
         Assert.Equal(system.NodeId, software.OwnerNodeId);
 
-        KbNetworkFileReference network = Assert.Single(session.NetworkFileReferences);
-        Assert.Equal(system.NodeId, network.OwnerNodeId);
-
         KbMaintenanceScheduleProfile maintenance = Assert.Single(session.MaintenanceScheduleProfiles);
         Assert.Equal(controllerNode.NodeId, maintenance.OwnerNodeId);
 
@@ -695,7 +663,6 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
         Assert.Empty(session.CompositionEntries);
         Assert.Empty(session.DocumentLinks);
         Assert.Empty(session.SoftwareRecords);
-        Assert.Empty(session.NetworkFileReferences);
         Assert.Empty(session.MaintenanceScheduleProfiles);
     }
 
@@ -1041,15 +1008,6 @@ public class KnowledgeBaseTreeMutationWorkflowServiceTests
                     OwnerTemplateNodeId = "controller",
                     Title = "Backup",
                     Path = "\\\\srv\\backup.zip"
-                }
-            },
-            NetworkFileReferences =
-            {
-                new KbObjectTemplateNetworkFileReference
-                {
-                    OwnerTemplateNodeId = "controller",
-                    Title = "Topology",
-                    Path = "\\\\srv\\network\\topology.png"
                 }
             },
             MaintenanceScheduleProfiles =

@@ -20,8 +20,6 @@ namespace AsutpKnowledgeBase.Services
 
         public List<KbSoftwareRecord> SoftwareRecords { get; init; } = new();
 
-        public List<KbNetworkFileReference> NetworkFileReferences { get; init; } = new();
-
         public List<KbMaintenanceScheduleProfile> MaintenanceScheduleProfiles { get; init; } = new();
     }
 
@@ -47,7 +45,6 @@ namespace AsutpKnowledgeBase.Services
             IEnumerable<KbCompositionEntry>? compositionEntries,
             IEnumerable<KbDocumentLink>? documentLinks,
             IEnumerable<KbSoftwareRecord>? softwareRecords,
-            IEnumerable<KbNetworkFileReference>? networkFileReferences,
             IEnumerable<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
         {
             if (sourceRoot == null)
@@ -73,7 +70,6 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = CreateTemplateCompositionEntries(compositionEntries, nodeIdMap),
                 DocumentLinks = CreateTemplateDocumentLinks(documentLinks, nodeIdMap),
                 SoftwareRecords = CreateTemplateSoftwareRecords(softwareRecords, nodeIdMap),
-                NetworkFileReferences = CreateTemplateNetworkFileReferences(networkFileReferences, nodeIdMap),
                 MaintenanceScheduleProfiles = CreateTemplateMaintenanceScheduleProfiles(
                     maintenanceScheduleProfiles,
                     nodeIdMap)
@@ -119,7 +115,6 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = CreateCompositionEntries(normalizedTemplate.CompositionEntries, nodeIdMap),
                 DocumentLinks = CreateDocumentLinks(normalizedTemplate.DocumentLinks, nodeIdMap),
                 SoftwareRecords = CreateSoftwareRecords(normalizedTemplate.SoftwareRecords, nodeIdMap),
-                NetworkFileReferences = CreateNetworkFileReferences(normalizedTemplate.NetworkFileReferences, nodeIdMap),
                 MaintenanceScheduleProfiles = CreateMaintenanceScheduleProfiles(
                     normalizedTemplate.MaintenanceScheduleProfiles,
                     nodeIdMap)
@@ -134,7 +129,6 @@ namespace AsutpKnowledgeBase.Services
             IEnumerable<KbCompositionEntry>? existingCompositionEntries,
             IEnumerable<KbDocumentLink>? existingDocumentLinks,
             IEnumerable<KbSoftwareRecord>? existingSoftwareRecords,
-            IEnumerable<KbNetworkFileReference>? existingNetworkFileReferences,
             IEnumerable<KbMaintenanceScheduleProfile>? existingMaintenanceScheduleProfiles)
         {
             if (targetRoot == null)
@@ -200,20 +194,9 @@ namespace AsutpKnowledgeBase.Services
                 nodeIdMap,
                 templateNodePathMap,
                 plan);
-            AddNetworkFileReferencePlans(
-                normalizedTemplate.NetworkFileReferences,
-                existingNetworkFileReferences,
-                nodeIdMap,
-                templateNodePathMap,
-                plan);
             AddMaintenanceScheduleProfilePlans(
                 normalizedTemplate.MaintenanceScheduleProfiles,
                 existingMaintenanceScheduleProfiles,
-                nodeIdMap,
-                templateNodePathMap,
-                plan);
-            AddNetworkInterfaceStubPlans(
-                normalizedTemplate.NetworkInterfaceStubs,
                 nodeIdMap,
                 templateNodePathMap,
                 plan);
@@ -580,51 +563,6 @@ namespace AsutpKnowledgeBase.Services
             }
         }
 
-        private static void AddNetworkFileReferencePlans(
-            IEnumerable<KbObjectTemplateNetworkFileReference> templateReferences,
-            IEnumerable<KbNetworkFileReference>? existingReferences,
-            IReadOnlyDictionary<string, string> nodeIdMap,
-            IReadOnlyDictionary<string, string> templateNodePathMap,
-            KnowledgeBaseObjectTemplateApplicationPlan plan)
-        {
-            var existing = existingReferences?.ToList() ?? new List<KbNetworkFileReference>();
-            foreach (KbObjectTemplateNetworkFileReference templateReference in templateReferences)
-            {
-                if (!nodeIdMap.TryGetValue(templateReference.OwnerTemplateNodeId, out string? ownerNodeId))
-                {
-                    AddSkippedForMissingMappedNode("Файлы сети", templateReference.OwnerTemplateNodeId, templateNodePathMap, plan);
-                    continue;
-                }
-
-                var reference = new KbNetworkFileReference
-                {
-                    OwnerNodeId = ownerNodeId,
-                    Title = templateReference.Title,
-                    Path = templateReference.Path,
-                    PreviewKind = KnowledgeBaseNetworkPreviewService.ResolvePreviewKind(templateReference.Path)
-                };
-                string targetPath = ResolveTemplateNodePath(templateReference.OwnerTemplateNodeId, templateNodePathMap);
-                if (existing.Concat(plan.NetworkFileReferences).Any(current => NetworkFileReferencesEqual(current, reference)))
-                {
-                    AddPreviewItem(
-                        plan,
-                        KnowledgeBaseObjectTemplateApplicationAction.Unchanged,
-                        "Файлы сети",
-                        targetPath,
-                        BuildTitlePathPreviewText(reference.Title, reference.Path, "Файл сети уже есть."));
-                    continue;
-                }
-
-                plan.NetworkFileReferences.Add(reference);
-                AddPreviewItem(
-                    plan,
-                    KnowledgeBaseObjectTemplateApplicationAction.Added,
-                    "Файлы сети",
-                    targetPath,
-                    BuildTitlePathPreviewText(reference.Title, reference.Path, "Будет добавлен файл сети."));
-            }
-        }
-
         private static void AddMaintenanceScheduleProfilePlans(
             IEnumerable<KbObjectTemplateMaintenanceScheduleProfile> templateProfiles,
             IEnumerable<KbMaintenanceScheduleProfile>? existingProfiles,
@@ -681,29 +619,6 @@ namespace AsutpKnowledgeBase.Services
             }
         }
 
-        private static void AddNetworkInterfaceStubPlans(
-            IEnumerable<KbObjectTemplateNetworkInterfaceStub> stubs,
-            IReadOnlyDictionary<string, string> nodeIdMap,
-            IReadOnlyDictionary<string, string> templateNodePathMap,
-            KnowledgeBaseObjectTemplateApplicationPlan plan)
-        {
-            foreach (KbObjectTemplateNetworkInterfaceStub stub in stubs)
-            {
-                if (!nodeIdMap.ContainsKey(stub.OwnerTemplateNodeId))
-                {
-                    AddSkippedForMissingMappedNode("Сетевые интерфейсы", stub.OwnerTemplateNodeId, templateNodePathMap, plan);
-                    continue;
-                }
-
-                AddPreviewItem(
-                    plan,
-                    KnowledgeBaseObjectTemplateApplicationAction.Skipped,
-                    "Сетевые интерфейсы",
-                    ResolveTemplateNodePath(stub.OwnerTemplateNodeId, templateNodePathMap),
-                    "Заготовка сетевого интерфейса сохранена в шаблоне, но отдельная сущность интерфейсов пока не реализована.");
-            }
-        }
-
         private static void AddSkippedTemplateSubtree(
             KbObjectTemplateNode templateNode,
             string path,
@@ -757,7 +672,6 @@ namespace AsutpKnowledgeBase.Services
                     SortOrder = templateRack.SortOrder,
                     RackType = templateRack.RackType,
                     Label = templateRack.Label,
-                    NetworkLink = templateRack.NetworkLink,
                     Notes = templateRack.Notes,
                     Properties = templateRack.Properties
                         .Select(static property => new KbCompositionRackProperty
@@ -928,7 +842,6 @@ namespace AsutpKnowledgeBase.Services
             first.SortOrder == second.SortOrder &&
             TextEqual(first.RackType, second.RackType) &&
             TextEqual(first.Label, second.Label) &&
-            TextEqual(first.NetworkLink, second.NetworkLink) &&
             TextEqual(first.Notes, second.Notes);
 
         private static bool DocumentLinksEqual(KbDocumentLink first, KbDocumentLink second) =>
@@ -946,11 +859,6 @@ namespace AsutpKnowledgeBase.Services
             first.LastChangedAt == second.LastChangedAt &&
             first.LastBackupAt == second.LastBackupAt &&
             TextEqual(first.Notes, second.Notes);
-
-        private static bool NetworkFileReferencesEqual(KbNetworkFileReference first, KbNetworkFileReference second) =>
-            string.Equals(first.OwnerNodeId, second.OwnerNodeId, StringComparison.Ordinal) &&
-            TextEqual(first.Title, second.Title) &&
-            TextEqual(first.Path, second.Path);
 
         private static List<KbObjectTemplateCompositionEntry> CreateTemplateCompositionEntries(
             IEnumerable<KbCompositionEntry>? entries,
@@ -1004,7 +912,6 @@ namespace AsutpKnowledgeBase.Services
                     SortOrder = rack.SortOrder,
                     RackType = rack.RackType,
                     Label = rack.Label,
-                    NetworkLink = rack.NetworkLink,
                     Notes = rack.Notes,
                     Properties = rack.Properties
                         .Select(static property => new KbCompositionRackProperty
@@ -1061,27 +968,6 @@ namespace AsutpKnowledgeBase.Services
                     LastChangedAt = record.LastChangedAt,
                     LastBackupAt = record.LastBackupAt,
                     Notes = record.Notes
-                });
-            }
-
-            return result;
-        }
-
-        private static List<KbObjectTemplateNetworkFileReference> CreateTemplateNetworkFileReferences(
-            IEnumerable<KbNetworkFileReference>? references,
-            IReadOnlyDictionary<string, string> nodeIdMap)
-        {
-            var result = new List<KbObjectTemplateNetworkFileReference>();
-            foreach (KbNetworkFileReference reference in references ?? Enumerable.Empty<KbNetworkFileReference>())
-            {
-                if (!nodeIdMap.TryGetValue(reference.OwnerNodeId, out string? ownerTemplateNodeId))
-                    continue;
-
-                result.Add(new KbObjectTemplateNetworkFileReference
-                {
-                    OwnerTemplateNodeId = ownerTemplateNodeId,
-                    Title = reference.Title,
-                    Path = reference.Path
                 });
             }
 
@@ -1192,7 +1078,6 @@ namespace AsutpKnowledgeBase.Services
                     SortOrder = rack.SortOrder,
                     RackType = rack.RackType,
                     Label = rack.Label,
-                    NetworkLink = rack.NetworkLink,
                     Notes = rack.Notes,
                     Properties = rack.Properties
                         .Select(static property => new KbCompositionRackProperty
@@ -1249,28 +1134,6 @@ namespace AsutpKnowledgeBase.Services
                     LastChangedAt = record.LastChangedAt,
                     LastBackupAt = record.LastBackupAt,
                     Notes = record.Notes
-                });
-            }
-
-            return result;
-        }
-
-        private static List<KbNetworkFileReference> CreateNetworkFileReferences(
-            IEnumerable<KbObjectTemplateNetworkFileReference> references,
-            IReadOnlyDictionary<string, string> nodeIdMap)
-        {
-            var result = new List<KbNetworkFileReference>();
-            foreach (KbObjectTemplateNetworkFileReference reference in references)
-            {
-                if (!nodeIdMap.TryGetValue(reference.OwnerTemplateNodeId, out string? ownerNodeId))
-                    continue;
-
-                result.Add(new KbNetworkFileReference
-                {
-                    OwnerNodeId = ownerNodeId,
-                    Title = reference.Title,
-                    Path = reference.Path,
-                    PreviewKind = KnowledgeBaseNetworkPreviewService.ResolvePreviewKind(reference.Path)
                 });
             }
 

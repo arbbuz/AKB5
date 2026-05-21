@@ -483,57 +483,7 @@ public class KnowledgeBaseDataServiceTests
     }
 
     [Fact]
-    public void NormalizeSavedData_NormalizesNetworkFileReferences()
-    {
-        var normalized = KnowledgeBaseDataService.NormalizeSavedData(
-            new SavedData
-            {
-                SchemaVersion = SavedData.CurrentSchemaVersion,
-                Config = new KbConfig
-                {
-                    MaxLevels = 2,
-                    LevelNames = new List<string> { "Shop", "Cabinet" }
-                },
-                Workshops = new Dictionary<string, List<KbNode>>
-                {
-                    ["Shop 1"] = new List<KbNode>
-                    {
-                        new()
-                        {
-                            NodeId = "cabinet-1",
-                            Name = "Cabinet 1",
-                            LevelIndex = 0,
-                            NodeType = KbNodeType.Cabinet
-                        }
-                    }
-                },
-                NetworkFileReferences = new List<KbNetworkFileReference>
-                {
-                    new()
-                    {
-                        OwnerNodeId = " cabinet-1 ",
-                        Title = " Topology ",
-                        Path = " \\\\srv\\network\\topology.png ",
-                        PreviewKind = (KbNetworkPreviewKind)999
-                    },
-                    new()
-                    {
-                        OwnerNodeId = "   "
-                    }
-                },
-                LastWorkshop = "Shop 1"
-            });
-
-        var reference = Assert.Single(normalized.NetworkFileReferences);
-        Assert.Equal("cabinet-1", reference.OwnerNodeId);
-        Assert.Equal("Topology", reference.Title);
-        Assert.Equal("\\\\srv\\network\\topology.png", reference.Path);
-        Assert.Equal(KbNetworkPreviewKind.Image, reference.PreviewKind);
-        Assert.False(string.IsNullOrWhiteSpace(reference.NetworkAssetId));
-    }
-
-    [Fact]
-    public void NormalizeSavedData_MovesDocsSoftwareAndNetworkFromLevel3ToLevel2Owner()
+    public void NormalizeSavedData_MovesDocsAndSoftwareFromLevel3ToLevel2Owner()
     {
         var normalized = KnowledgeBaseDataService.NormalizeSavedData(
             new SavedData
@@ -596,200 +546,11 @@ public class KnowledgeBaseDataServiceTests
                         Path = "\\\\srv\\software\\backup.zip"
                     }
                 },
-                NetworkFileReferences = new List<KbNetworkFileReference>
-                {
-                    new()
-                    {
-                        OwnerNodeId = "cabinet-1",
-                        Title = "Сеть",
-                        Path = "\\\\srv\\network\\topology.png"
-                    }
-                },
                 LastWorkshop = "Цех 1"
             });
 
         Assert.Equal("system-1", Assert.Single(normalized.DocumentLinks).OwnerNodeId);
         Assert.Equal("system-1", Assert.Single(normalized.SoftwareRecords).OwnerNodeId);
-        Assert.Equal("system-1", Assert.Single(normalized.NetworkFileReferences).OwnerNodeId);
-    }
-
-    [Fact]
-    public void NormalizeSavedData_NormalizesNetworkTopologyRecords()
-    {
-        var normalized = KnowledgeBaseDataService.NormalizeSavedData(
-            new SavedData
-            {
-                SchemaVersion = SavedData.CurrentSchemaVersion,
-                Config = new KbConfig
-                {
-                    MaxLevels = 3,
-                    LevelNames = new List<string> { "Department", "System", "Cabinet" }
-                },
-                Workshops = new Dictionary<string, List<KbNode>>
-                {
-                    ["Shop 1"] = new List<KbNode>
-                    {
-                        new()
-                        {
-                            NodeId = "department-1",
-                            Name = "Department 1",
-                            LevelIndex = 0,
-                            NodeType = KbNodeType.Department,
-                            Children =
-                            {
-                                new KbNode
-                                {
-                                    NodeId = "system-1",
-                                    Name = "System 1",
-                                    LevelIndex = 1,
-                                    NodeType = KbNodeType.System,
-                                    Children =
-                                    {
-                                        new KbNode
-                                        {
-                                            NodeId = "cabinet-1",
-                                            Name = "Cabinet 1",
-                                            LevelIndex = 2,
-                                            NodeType = KbNodeType.Cabinet
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                NetworkDevices = new List<KbNetworkDevice>
-                {
-                    new()
-                    {
-                        NetworkDeviceId = " device-1 ",
-                        OwnerNodeId = " cabinet-1 ",
-                        LinkedNodeId = " cabinet-1 ",
-                        Name = " PLC-1 ",
-                        Role = " Controller ",
-                        Vendor = " Siemens ",
-                        Model = " CPU 1214C ",
-                        OrderNumber = " 6ES7 ",
-                        SerialNumber = " S123 ",
-                        Firmware = " V4.5 ",
-                        ProfinetName = " plc-1 ",
-                        MacAddress = " 00-11-22-33-44-55 ",
-                        LocationText = " Line 1 ",
-                        CabinetText = " Cabinet 1 ",
-                        Notes = " Main "
-                    },
-                    new()
-                    {
-                        NetworkDeviceId = "device-without-owner"
-                    }
-                },
-                NetworkInterfaces = new List<KbNetworkInterface>
-                {
-                    new()
-                    {
-                        NetworkInterfaceId = " iface-a ",
-                        NetworkDeviceId = " device-1 ",
-                        InterfaceName = " X1 ",
-                        PortNumber = " 1 ",
-                        MacAddress = " 00-11-22-33-44-55 ",
-                        IpAddress = " 10.0.0.10 ",
-                        SubnetMask = " 255.255.255.0 ",
-                        Gateway = " 10.0.0.1 ",
-                        Vlan = " 10 ",
-                        Protocol = " Profinet ",
-                        MpiDpPnAddress = " PN/IE ",
-                        Speed = " 100 Mbit/s ",
-                        Medium = " Copper ",
-                        Notes = " Port A "
-                    },
-                    new()
-                    {
-                        NetworkInterfaceId = " iface-b ",
-                        NetworkDeviceId = " device-1 ",
-                        InterfaceName = " X2 ",
-                        IpAddress = " 10.0.0.11 "
-                    },
-                    new()
-                    {
-                        NetworkInterfaceId = "iface-orphan",
-                        NetworkDeviceId = "missing-device"
-                    }
-                },
-                NetworkConnections = new List<KbNetworkConnection>
-                {
-                    new()
-                    {
-                        NetworkConnectionId = " connection-1 ",
-                        EndpointAInterfaceId = " iface-a ",
-                        EndpointBInterfaceId = " iface-b ",
-                        CableLabel = " W1 ",
-                        CableType = " Profinet ",
-                        Protocol = " PROFINET ",
-                        Medium = " Copper ",
-                        Length = " 12 m ",
-                        RouteText = " Operator room +7.0 ",
-                        Status = " Active ",
-                        Notes = " Link "
-                    },
-                    new()
-                    {
-                        EndpointAInterfaceId = " iface-a ",
-                        EndpointBInterfaceId = " iface-a "
-                    },
-                    new()
-                    {
-                        EndpointAInterfaceId = " iface-a ",
-                        EndpointBInterfaceId = " missing-interface "
-                    }
-                },
-                LastWorkshop = "Shop 1"
-            });
-
-        KbNetworkDevice device = Assert.Single(normalized.NetworkDevices);
-        Assert.Equal("device-1", device.NetworkDeviceId);
-        Assert.Equal("system-1", device.OwnerNodeId);
-        Assert.Equal("cabinet-1", device.LinkedNodeId);
-        Assert.Equal("PLC-1", device.Name);
-        Assert.Equal("Controller", device.Role);
-        Assert.Equal("Siemens", device.Vendor);
-        Assert.Equal("CPU 1214C", device.Model);
-        Assert.Equal("6ES7", device.OrderNumber);
-        Assert.Equal("S123", device.SerialNumber);
-        Assert.Equal("V4.5", device.Firmware);
-        Assert.Equal("plc-1", device.ProfinetName);
-        Assert.Equal("00-11-22-33-44-55", device.MacAddress);
-        Assert.Equal("Line 1", device.LocationText);
-        Assert.Equal("Cabinet 1", device.CabinetText);
-        Assert.Equal("Main", device.Notes);
-
-        Assert.Equal(2, normalized.NetworkInterfaces.Count);
-        KbNetworkInterface firstInterface = normalized.NetworkInterfaces[0];
-        Assert.Equal("iface-a", firstInterface.NetworkInterfaceId);
-        Assert.Equal("device-1", firstInterface.NetworkDeviceId);
-        Assert.Equal("X1", firstInterface.InterfaceName);
-        Assert.Equal("1", firstInterface.PortNumber);
-        Assert.Equal("10.0.0.10", firstInterface.IpAddress);
-        Assert.Equal("255.255.255.0", firstInterface.SubnetMask);
-        Assert.Equal("10.0.0.1", firstInterface.Gateway);
-        Assert.Equal("10", firstInterface.Vlan);
-        Assert.Equal("Profinet", firstInterface.Protocol);
-        Assert.Equal("PN/IE", firstInterface.MpiDpPnAddress);
-        Assert.Equal("100 Mbit/s", firstInterface.Speed);
-        Assert.Equal("Copper", firstInterface.Medium);
-        Assert.Equal("Port A", firstInterface.Notes);
-
-        KbNetworkConnection connection = Assert.Single(normalized.NetworkConnections);
-        Assert.Equal("connection-1", connection.NetworkConnectionId);
-        Assert.Equal("iface-a", connection.EndpointAInterfaceId);
-        Assert.Equal("iface-b", connection.EndpointBInterfaceId);
-        Assert.Equal("W1", connection.CableLabel);
-        Assert.Equal("Profinet", connection.CableType);
-        Assert.Equal("PROFINET", connection.Protocol);
-        Assert.Equal("Copper", connection.Medium);
-        Assert.Equal("12 m", connection.Length);
-        Assert.Equal("Operator room +7.0", connection.RouteText);
-        Assert.Equal("Active", connection.Status);
-        Assert.Equal("Link", connection.Notes);
     }
 
     [Fact]
@@ -1037,7 +798,6 @@ public class KnowledgeBaseDataServiceTests
             compositionEntries: null,
             documentLinks: null,
             softwareRecords: null,
-            networkFileReferences: null,
             maintenanceScheduleProfiles: null,
             equipmentCatalogItems:
             [
@@ -1138,15 +898,6 @@ public class KnowledgeBaseDataServiceTests
                                 Path = " \\\\srv\\plc "
                             }
                         },
-                        NetworkFileReferences =
-                        {
-                            new KbObjectTemplateNetworkFileReference
-                            {
-                                OwnerTemplateNodeId = " cabinet ",
-                                Title = " Топология ",
-                                Path = " \\\\srv\\topology.png "
-                            }
-                        },
                         MaintenanceScheduleProfiles =
                         {
                             new KbObjectTemplateMaintenanceScheduleProfile
@@ -1166,22 +917,6 @@ public class KnowledgeBaseDataServiceTests
                             {
                                 OwnerTemplateNodeId = " cabinet ",
                                 To1Hours = 99
-                            }
-                        },
-                        NetworkInterfaceStubs =
-                        {
-                            new KbObjectTemplateNetworkInterfaceStub
-                            {
-                                OwnerTemplateNodeId = " controller ",
-                                InterfaceId = " eth0 ",
-                                Name = " Ethernet 1 ",
-                                IpAddress = " 192.168.1.20 ",
-                                Protocol = " Profinet "
-                            },
-                            new KbObjectTemplateNetworkInterfaceStub
-                            {
-                                OwnerTemplateNodeId = " missing ",
-                                Name = " Игнорируется "
                             }
                         }
                     },
@@ -1218,7 +953,6 @@ public class KnowledgeBaseDataServiceTests
 
         Assert.Equal("Схема", Assert.Single(template.DocumentLinks).Title);
         Assert.Equal("Проект PLC", Assert.Single(template.SoftwareRecords).Title);
-        Assert.Equal("Топология", Assert.Single(template.NetworkFileReferences).Title);
 
         KbObjectTemplateMaintenanceScheduleProfile maintenance = Assert.Single(template.MaintenanceScheduleProfiles);
         Assert.True(maintenance.IsIncludedInSchedule);
@@ -1227,11 +961,6 @@ public class KnowledgeBaseDataServiceTests
         Assert.Equal(8, maintenance.To3Hours);
         Assert.Equal(12, Assert.Single(maintenance.YearScheduleEntries).Month);
 
-        KbObjectTemplateNetworkInterfaceStub networkInterface = Assert.Single(template.NetworkInterfaceStubs);
-        Assert.Equal("eth0", networkInterface.InterfaceId);
-        Assert.Equal("controller", networkInterface.OwnerTemplateNodeId);
-        Assert.Equal("Ethernet 1", networkInterface.Name);
-        Assert.Equal("Profinet", networkInterface.Protocol);
     }
 
     [Fact]
@@ -1247,7 +976,6 @@ public class KnowledgeBaseDataServiceTests
             compositionEntries: null,
             documentLinks: null,
             softwareRecords: null,
-            networkFileReferences: null,
             maintenanceScheduleProfiles: null,
             equipmentCatalogItems: null,
             objectTemplates:

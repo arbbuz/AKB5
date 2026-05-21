@@ -487,7 +487,6 @@ namespace AsutpKnowledgeBase
                     SortOrder = savedRack.SortOrder,
                     RackType = savedRack.RackType,
                     Label = savedRack.Label,
-                    NetworkLink = savedRack.NetworkLink,
                     Notes = savedRack.Notes,
                     Properties = savedRack.Properties
                         .Select(static property => new KbCompositionRackProperty
@@ -509,7 +508,6 @@ namespace AsutpKnowledgeBase
                     SortOrder = rackState.RackNumber,
                     RackType = rackState.RackTypeText,
                     Label = rackState.LabelText,
-                    NetworkLink = rackState.NetworkLinkText,
                     Notes = rackState.NotesText
                 };
         }

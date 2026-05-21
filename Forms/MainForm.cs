@@ -28,7 +28,6 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseCompositionRackMutationService _compositionRackMutationService = new();
         private readonly KnowledgeBaseCompositionTemplateService _compositionTemplateService = new();
         private readonly KnowledgeBaseDocsAndSoftwareMutationService _docsAndSoftwareMutationService = new();
-        private readonly KnowledgeBaseNetworkMutationService _networkMutationService = new();
         private readonly KnowledgeBaseMaintenanceScheduleProfileMutationService _maintenanceScheduleProfileMutationService = new();
         private readonly KnowledgeBaseMaintenanceScheduleNormImportService _maintenanceScheduleNormImportService = new();
         private readonly KnowledgeBaseMaintenanceYearScheduleSourceService _maintenanceYearScheduleSourceService = new();
@@ -126,13 +125,11 @@ namespace AsutpKnowledgeBase
         private TabPage tabSelectedNodeComposition = null!;
         private TabPage tabSelectedNodeAdditionalEquipment = null!;
         private TabPage tabSelectedNodeDocsAndSoftware = null!;
-        private TabPage tabSelectedNodeNetwork = null!;
         private TabPage tabSelectedNodeMaintenance = null!;
         private KnowledgeBaseInfoScreenControl selectedNodeInfoScreen = null!;
         private KnowledgeBaseCompositionScreenControl selectedNodeCompositionScreen = null!;
         private KnowledgeBaseAdditionalEquipmentScreenControl selectedNodeAdditionalEquipmentScreen = null!;
         private KnowledgeBaseDocsAndSoftwareScreenControl selectedNodeDocsAndSoftwareScreen = null!;
-        private KnowledgeBaseNetworkScreenControl selectedNodeNetworkScreen = null!;
         private KnowledgeBaseMaintenanceScheduleScreenControl selectedNodeMaintenanceScreen = null!;
         private Label lblSelectedNodeDocsPlaceholder = null!;
 
@@ -425,7 +422,6 @@ namespace AsutpKnowledgeBase
                     selectedNodeCompositionScreen.ApplyState(selectedNodeState.Composition);
                     selectedNodeAdditionalEquipmentScreen.ApplyState(selectedNodeState.Composition);
                     selectedNodeDocsAndSoftwareScreen.ApplyState(selectedNodeState.DocsAndSoftware);
-                    selectedNodeNetworkScreen.ApplyState(selectedNodeState.Network);
                     selectedNodeMaintenanceScreen.ApplyState(selectedNodeState.MaintenanceSchedule);
                 }
                 else
@@ -519,12 +515,8 @@ namespace AsutpKnowledgeBase
                 _session.CompositionEntries,
                 _session.DocumentLinks,
                 _session.SoftwareRecords,
-                _session.NetworkFileReferences,
                 _session.MaintenanceScheduleProfiles,
-                _session.CompositionRacks,
-                _session.NetworkDevices,
-                _session.NetworkInterfaces,
-                _session.NetworkConnections);
+                _session.CompositionRacks);
         }
 
         private void ApplyFormState(KnowledgeBaseFormState formState, bool refreshSelectedNodeState)

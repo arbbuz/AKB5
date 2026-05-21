@@ -353,7 +353,6 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = data.CompositionEntries ?? new List<KbCompositionEntry>(),
                 DocumentLinks = data.DocumentLinks ?? new List<KbDocumentLink>(),
                 SoftwareRecords = data.SoftwareRecords ?? new List<KbSoftwareRecord>(),
-                NetworkFileReferences = data.NetworkFileReferences ?? new List<KbNetworkFileReference>(),
                 MaintenanceScheduleProfiles = data.MaintenanceScheduleProfiles ?? new List<KbMaintenanceScheduleProfile>(),
                 EquipmentCatalogItems = data.EquipmentCatalogItems ?? new List<KbEquipmentCatalogItem>(),
                 ObjectTemplates = data.ObjectTemplates ?? new List<KbObjectTemplate>(),

@@ -29,8 +29,6 @@ namespace AsutpKnowledgeBase.Models
 
         public string Label { get; init; } = string.Empty;
 
-        public string NetworkLink { get; init; } = string.Empty;
-
         public string Notes { get; init; } = string.Empty;
     }
 

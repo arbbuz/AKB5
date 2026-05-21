@@ -38,22 +38,6 @@ namespace AsutpKnowledgeBase
             selectedNodeDocsAndSoftwareScreen.OpenSelectedRequested += OpenSelectedDocsAndSoftwareItem;
             selectedNodeDocsAndSoftwareScreen.EditSelectedRequested += EditSelectedDocsAndSoftwareItem;
             selectedNodeDocsAndSoftwareScreen.DeleteSelectedRequested += DeleteSelectedDocsAndSoftwareItem;
-            selectedNodeNetworkScreen.AddDeviceRequested += AddNetworkDevice;
-            selectedNodeNetworkScreen.AddSimilarDeviceRequested += AddSimilarNetworkDevice;
-            selectedNodeNetworkScreen.EditDeviceRequested += EditSelectedNetworkDevice;
-            selectedNodeNetworkScreen.DeleteDeviceRequested += DeleteSelectedNetworkDevice;
-            selectedNodeNetworkScreen.AddInterfaceRequested += AddNetworkInterface;
-            selectedNodeNetworkScreen.AddSimilarInterfaceRequested += AddSimilarNetworkInterface;
-            selectedNodeNetworkScreen.EditInterfaceRequested += EditSelectedNetworkInterface;
-            selectedNodeNetworkScreen.DeleteInterfaceRequested += DeleteSelectedNetworkInterface;
-            selectedNodeNetworkScreen.AddConnectionRequested += AddNetworkConnection;
-            selectedNodeNetworkScreen.AddSimilarConnectionRequested += AddSimilarNetworkConnection;
-            selectedNodeNetworkScreen.EditConnectionRequested += EditSelectedNetworkConnection;
-            selectedNodeNetworkScreen.DeleteConnectionRequested += DeleteSelectedNetworkConnection;
-            selectedNodeNetworkScreen.AddRequested += AddNetworkFileReference;
-            selectedNodeNetworkScreen.OpenSelectedRequested += OpenSelectedNetworkFileReference;
-            selectedNodeNetworkScreen.EditSelectedRequested += EditSelectedNetworkFileReference;
-            selectedNodeNetworkScreen.DeleteSelectedRequested += DeleteSelectedNetworkFileReference;
             selectedNodeMaintenanceScreen.ConfigureRequested += ConfigureMaintenanceScheduleProfile;
             selectedNodeMaintenanceScreen.DeleteRequested += DeleteMaintenanceScheduleProfile;
 

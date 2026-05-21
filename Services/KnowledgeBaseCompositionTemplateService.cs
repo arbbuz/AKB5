@@ -446,7 +446,6 @@ namespace AsutpKnowledgeBase.Services
                     SortOrder = rack.SortOrder,
                     RackType = rack.RackType,
                     Label = rack.Label,
-                    NetworkLink = rack.NetworkLink,
                     Notes = rack.Notes
                 };
             }
@@ -495,7 +494,6 @@ namespace AsutpKnowledgeBase.Services
                     SortOrder = rack.SortOrder,
                     RackType = rack.RackType,
                     Label = rack.Label,
-                    NetworkLink = rack.NetworkLink,
                     Notes = rack.Notes,
                     Properties = rack.Properties
                         .Select(static property => new KbCompositionRackProperty
@@ -552,7 +550,6 @@ namespace AsutpKnowledgeBase.Services
                     SortOrder = rack.SortOrder,
                     RackType = rack.RackType,
                     Label = rack.Label,
-                    NetworkLink = rack.NetworkLink,
                     Notes = rack.Notes,
                     Properties = rack.Properties
                         .Select(static property => new KbCompositionRackProperty

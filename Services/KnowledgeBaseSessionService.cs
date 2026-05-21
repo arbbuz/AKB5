@@ -23,14 +23,6 @@ namespace AsutpKnowledgeBase.Services
 
         public List<KbSoftwareRecord> SoftwareRecords { get; private set; } = new();
 
-        public List<KbNetworkFileReference> NetworkFileReferences { get; private set; } = new();
-
-        public List<KbNetworkDevice> NetworkDevices { get; private set; } = new();
-
-        public List<KbNetworkInterface> NetworkInterfaces { get; private set; } = new();
-
-        public List<KbNetworkConnection> NetworkConnections { get; private set; } = new();
-
         public List<KbMaintenanceScheduleProfile> MaintenanceScheduleProfiles { get; private set; } = new();
 
         public List<KbEquipmentCatalogItem> EquipmentCatalogItems { get; private set; } = new();
@@ -65,10 +57,6 @@ namespace AsutpKnowledgeBase.Services
             CompositionEntries = normalizedData.CompositionEntries;
             DocumentLinks = normalizedData.DocumentLinks;
             SoftwareRecords = normalizedData.SoftwareRecords;
-            NetworkFileReferences = normalizedData.NetworkFileReferences;
-            NetworkDevices = normalizedData.NetworkDevices;
-            NetworkInterfaces = normalizedData.NetworkInterfaces;
-            NetworkConnections = normalizedData.NetworkConnections;
             MaintenanceScheduleProfiles = normalizedData.MaintenanceScheduleProfiles;
             EquipmentCatalogItems = normalizedData.EquipmentCatalogItems;
             ObjectTemplates = normalizedData.ObjectTemplates;
@@ -92,10 +80,6 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = CompositionEntries,
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = SoftwareRecords,
-                NetworkFileReferences = NetworkFileReferences,
-                NetworkDevices = NetworkDevices,
-                NetworkInterfaces = NetworkInterfaces,
-                NetworkConnections = NetworkConnections,
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = EquipmentCatalogItems,
                 ObjectTemplates = ObjectTemplates,
@@ -113,15 +97,11 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries,
                 DocumentLinks,
                 SoftwareRecords,
-                NetworkFileReferences,
                 MaintenanceScheduleProfiles,
                 EquipmentCatalogItems,
                 ObjectTemplates,
                 CurrentWorkshop,
-                includeCurrentWorkshop,
-                NetworkDevices,
-                NetworkInterfaces,
-                NetworkConnections);
+                includeCurrentWorkshop);
         }
 
         public void RecordSavedState(List<KbNode> currentWorkshopRoots)
@@ -257,10 +237,6 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = compositionEntries?.ToList() ?? new List<KbCompositionEntry>(),
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = SoftwareRecords,
-                NetworkFileReferences = NetworkFileReferences,
-                NetworkDevices = NetworkDevices,
-                NetworkInterfaces = NetworkInterfaces,
-                NetworkConnections = NetworkConnections,
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = EquipmentCatalogItems,
                 ObjectTemplates = ObjectTemplates,
@@ -277,10 +253,6 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = CompositionEntries,
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = SoftwareRecords,
-                NetworkFileReferences = NetworkFileReferences,
-                NetworkDevices = NetworkDevices,
-                NetworkInterfaces = NetworkInterfaces,
-                NetworkConnections = NetworkConnections,
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = EquipmentCatalogItems,
                 ObjectTemplates = ObjectTemplates,
@@ -297,10 +269,6 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = CompositionEntries,
                 DocumentLinks = documentLinks?.ToList() ?? new List<KbDocumentLink>(),
                 SoftwareRecords = SoftwareRecords,
-                NetworkFileReferences = NetworkFileReferences,
-                NetworkDevices = NetworkDevices,
-                NetworkInterfaces = NetworkInterfaces,
-                NetworkConnections = NetworkConnections,
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = EquipmentCatalogItems,
                 ObjectTemplates = ObjectTemplates,
@@ -317,95 +285,11 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = CompositionEntries,
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = softwareRecords?.ToList() ?? new List<KbSoftwareRecord>(),
-                NetworkFileReferences = NetworkFileReferences,
-                NetworkDevices = NetworkDevices,
-                NetworkInterfaces = NetworkInterfaces,
-                NetworkConnections = NetworkConnections,
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = EquipmentCatalogItems,
                 ObjectTemplates = ObjectTemplates,
                 LastWorkshop = CurrentWorkshop
             }).SoftwareRecords;
-
-        public void ReplaceNetworkFileReferences(IEnumerable<KbNetworkFileReference> networkFileReferences) =>
-            NetworkFileReferences = KnowledgeBaseDataService.NormalizeSavedData(new SavedData
-            {
-                SchemaVersion = SavedData.CurrentSchemaVersion,
-                Config = Config,
-                Workshops = Workshops,
-                CompositionRacks = CompositionRacks,
-                CompositionEntries = CompositionEntries,
-                DocumentLinks = DocumentLinks,
-                SoftwareRecords = SoftwareRecords,
-                NetworkFileReferences = networkFileReferences?.ToList() ?? new List<KbNetworkFileReference>(),
-                NetworkDevices = NetworkDevices,
-                NetworkInterfaces = NetworkInterfaces,
-                NetworkConnections = NetworkConnections,
-                MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
-                EquipmentCatalogItems = EquipmentCatalogItems,
-                ObjectTemplates = ObjectTemplates,
-                LastWorkshop = CurrentWorkshop
-            }).NetworkFileReferences;
-
-        public void ReplaceNetworkDevices(IEnumerable<KbNetworkDevice> networkDevices) =>
-            NetworkDevices = KnowledgeBaseDataService.NormalizeSavedData(new SavedData
-            {
-                SchemaVersion = SavedData.CurrentSchemaVersion,
-                Config = Config,
-                Workshops = Workshops,
-                CompositionRacks = CompositionRacks,
-                CompositionEntries = CompositionEntries,
-                DocumentLinks = DocumentLinks,
-                SoftwareRecords = SoftwareRecords,
-                NetworkFileReferences = NetworkFileReferences,
-                NetworkDevices = networkDevices?.ToList() ?? new List<KbNetworkDevice>(),
-                NetworkInterfaces = NetworkInterfaces,
-                NetworkConnections = NetworkConnections,
-                MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
-                EquipmentCatalogItems = EquipmentCatalogItems,
-                ObjectTemplates = ObjectTemplates,
-                LastWorkshop = CurrentWorkshop
-            }).NetworkDevices;
-
-        public void ReplaceNetworkInterfaces(IEnumerable<KbNetworkInterface> networkInterfaces) =>
-            NetworkInterfaces = KnowledgeBaseDataService.NormalizeSavedData(new SavedData
-            {
-                SchemaVersion = SavedData.CurrentSchemaVersion,
-                Config = Config,
-                Workshops = Workshops,
-                CompositionRacks = CompositionRacks,
-                CompositionEntries = CompositionEntries,
-                DocumentLinks = DocumentLinks,
-                SoftwareRecords = SoftwareRecords,
-                NetworkFileReferences = NetworkFileReferences,
-                NetworkDevices = NetworkDevices,
-                NetworkInterfaces = networkInterfaces?.ToList() ?? new List<KbNetworkInterface>(),
-                NetworkConnections = NetworkConnections,
-                MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
-                EquipmentCatalogItems = EquipmentCatalogItems,
-                ObjectTemplates = ObjectTemplates,
-                LastWorkshop = CurrentWorkshop
-            }).NetworkInterfaces;
-
-        public void ReplaceNetworkConnections(IEnumerable<KbNetworkConnection> networkConnections) =>
-            NetworkConnections = KnowledgeBaseDataService.NormalizeSavedData(new SavedData
-            {
-                SchemaVersion = SavedData.CurrentSchemaVersion,
-                Config = Config,
-                Workshops = Workshops,
-                CompositionRacks = CompositionRacks,
-                CompositionEntries = CompositionEntries,
-                DocumentLinks = DocumentLinks,
-                SoftwareRecords = SoftwareRecords,
-                NetworkFileReferences = NetworkFileReferences,
-                NetworkDevices = NetworkDevices,
-                NetworkInterfaces = NetworkInterfaces,
-                NetworkConnections = networkConnections?.ToList() ?? new List<KbNetworkConnection>(),
-                MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
-                EquipmentCatalogItems = EquipmentCatalogItems,
-                ObjectTemplates = ObjectTemplates,
-                LastWorkshop = CurrentWorkshop
-            }).NetworkConnections;
 
         public void ReplaceMaintenanceScheduleProfiles(IEnumerable<KbMaintenanceScheduleProfile> maintenanceScheduleProfiles) =>
             MaintenanceScheduleProfiles = KnowledgeBaseDataService.NormalizeSavedData(new SavedData
@@ -417,10 +301,6 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = CompositionEntries,
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = SoftwareRecords,
-                NetworkFileReferences = NetworkFileReferences,
-                NetworkDevices = NetworkDevices,
-                NetworkInterfaces = NetworkInterfaces,
-                NetworkConnections = NetworkConnections,
                 MaintenanceScheduleProfiles = maintenanceScheduleProfiles?.ToList() ?? new List<KbMaintenanceScheduleProfile>(),
                 EquipmentCatalogItems = EquipmentCatalogItems,
                 ObjectTemplates = ObjectTemplates,
@@ -437,10 +317,6 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = CompositionEntries,
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = SoftwareRecords,
-                NetworkFileReferences = NetworkFileReferences,
-                NetworkDevices = NetworkDevices,
-                NetworkInterfaces = NetworkInterfaces,
-                NetworkConnections = NetworkConnections,
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = equipmentCatalogItems?.ToList() ?? new List<KbEquipmentCatalogItem>(),
                 ObjectTemplates = ObjectTemplates,
@@ -457,10 +333,6 @@ namespace AsutpKnowledgeBase.Services
                 CompositionEntries = CompositionEntries,
                 DocumentLinks = DocumentLinks,
                 SoftwareRecords = SoftwareRecords,
-                NetworkFileReferences = NetworkFileReferences,
-                NetworkDevices = NetworkDevices,
-                NetworkInterfaces = NetworkInterfaces,
-                NetworkConnections = NetworkConnections,
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = EquipmentCatalogItems,
                 ObjectTemplates = objectTemplates?.ToList() ?? new List<KbObjectTemplate>(),

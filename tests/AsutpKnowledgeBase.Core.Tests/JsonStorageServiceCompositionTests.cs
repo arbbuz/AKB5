@@ -193,82 +193,6 @@ public class JsonStorageServiceCompositionTests
                         Notes = "Main backup"
                     }
                 },
-                NetworkFileReferences = new List<KbNetworkFileReference>
-                {
-                    new()
-                    {
-                        NetworkAssetId = "network-1",
-                        OwnerNodeId = "cabinet-1",
-                        Title = "Topology",
-                        Path = "\\\\srv\\network\\topology.png",
-                        PreviewKind = KbNetworkPreviewKind.Image
-                    }
-                },
-                NetworkDevices = new List<KbNetworkDevice>
-                {
-                    new()
-                    {
-                        NetworkDeviceId = "device-1",
-                        OwnerNodeId = "cabinet-1",
-                        LinkedNodeId = "cabinet-1",
-                        Name = "PLC-1",
-                        Role = "Controller",
-                        Vendor = "Siemens",
-                        Model = "CPU 1214C",
-                        ProfinetName = "plc-1",
-                        MacAddress = "00-11-22-33-44-55",
-                        CabinetText = "Cabinet 1",
-                        Notes = "Main controller"
-                    },
-                    new()
-                    {
-                        NetworkDeviceId = "device-2",
-                        OwnerNodeId = "cabinet-1",
-                        Name = "HMI-1",
-                        Role = "Operator panel",
-                        Vendor = "Siemens",
-                        Model = "KTP700",
-                        ProfinetName = "hmi-1"
-                    }
-                },
-                NetworkInterfaces = new List<KbNetworkInterface>
-                {
-                    new()
-                    {
-                        NetworkInterfaceId = "interface-1",
-                        NetworkDeviceId = "device-1",
-                        InterfaceName = "X1",
-                        PortNumber = "1",
-                        IpAddress = "10.0.0.10",
-                        SubnetMask = "255.255.255.0",
-                        Gateway = "10.0.0.1",
-                        Protocol = "Profinet"
-                    },
-                    new()
-                    {
-                        NetworkInterfaceId = "interface-2",
-                        NetworkDeviceId = "device-2",
-                        InterfaceName = "X1",
-                        PortNumber = "1",
-                        IpAddress = "10.0.0.20",
-                        SubnetMask = "255.255.255.0",
-                        Gateway = "10.0.0.1",
-                        Protocol = "Profinet"
-                    }
-                },
-                NetworkConnections = new List<KbNetworkConnection>
-                {
-                    new()
-                    {
-                        NetworkConnectionId = "connection-1",
-                        EndpointAInterfaceId = "interface-1",
-                        EndpointBInterfaceId = "interface-2",
-                        CableLabel = "W1",
-                        CableType = "Profinet",
-                        Length = "12 m",
-                        Status = "Active"
-                    }
-                },
                 LastWorkshop = "Shop 1"
             };
 
@@ -294,28 +218,6 @@ public class JsonStorageServiceCompositionTests
             Assert.Equal(new DateTime(2026, 4, 3), record.LastBackupAt);
             Assert.Equal("Main backup", record.Notes);
 
-            var networkReference = Assert.Single(loaded.Data.NetworkFileReferences);
-            Assert.Equal("network-1", networkReference.NetworkAssetId);
-            Assert.Equal("cabinet-1", networkReference.OwnerNodeId);
-            Assert.Equal("Topology", networkReference.Title);
-            Assert.Equal("\\\\srv\\network\\topology.png", networkReference.Path);
-            Assert.Equal(KbNetworkPreviewKind.Image, networkReference.PreviewKind);
-
-            Assert.Equal(2, loaded.Data.NetworkDevices.Count);
-            Assert.Equal("PLC-1", loaded.Data.NetworkDevices[0].Name);
-            Assert.Equal("cabinet-1", loaded.Data.NetworkDevices[0].OwnerNodeId);
-            Assert.Equal("cabinet-1", loaded.Data.NetworkDevices[0].LinkedNodeId);
-
-            Assert.Equal(2, loaded.Data.NetworkInterfaces.Count);
-            Assert.Equal("interface-1", loaded.Data.NetworkInterfaces[0].NetworkInterfaceId);
-            Assert.Equal("device-1", loaded.Data.NetworkInterfaces[0].NetworkDeviceId);
-            Assert.Equal("10.0.0.10", loaded.Data.NetworkInterfaces[0].IpAddress);
-
-            var connection = Assert.Single(loaded.Data.NetworkConnections);
-            Assert.Equal("connection-1", connection.NetworkConnectionId);
-            Assert.Equal("interface-1", connection.EndpointAInterfaceId);
-            Assert.Equal("interface-2", connection.EndpointBInterfaceId);
-            Assert.Equal("W1", connection.CableLabel);
         }
         finally
         {

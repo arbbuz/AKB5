@@ -46,10 +46,6 @@ namespace AsutpKnowledgeBase.UiServices
 
         public int SoftwareRecordCount { get; init; }
 
-        public int NetworkFileReferenceCount { get; init; }
-
-        public int NetworkTopologyRecordCount { get; init; }
-
         public int MaintenanceProfileCount { get; init; }
 
         public bool HasImpact =>
@@ -57,8 +53,6 @@ namespace AsutpKnowledgeBase.UiServices
             CompositionEntryCount > 0 ||
             DocumentLinkCount > 0 ||
             SoftwareRecordCount > 0 ||
-            NetworkFileReferenceCount > 0 ||
-            NetworkTopologyRecordCount > 0 ||
             MaintenanceProfileCount > 0;
     }
 
@@ -291,10 +285,6 @@ namespace AsutpKnowledgeBase.UiServices
                     lines.Add($"- документов: {impact.DocumentLinkCount}");
                 if (impact.SoftwareRecordCount > 0)
                     lines.Add($"- записей ПО: {impact.SoftwareRecordCount}");
-                if (impact.NetworkFileReferenceCount > 0)
-                    lines.Add($"- сетевых файлов: {impact.NetworkFileReferenceCount}");
-                if (impact.NetworkTopologyRecordCount > 0)
-                    lines.Add($"- сетевых устройств/интерфейсов/соединений: {impact.NetworkTopologyRecordCount}");
                 if (impact.MaintenanceProfileCount > 0)
                     lines.Add($"- профилей ТО: {impact.MaintenanceProfileCount}");
             }

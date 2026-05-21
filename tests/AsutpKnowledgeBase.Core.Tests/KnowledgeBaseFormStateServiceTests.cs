@@ -410,7 +410,6 @@ public class KnowledgeBaseFormStateServiceTests
         Assert.True(systemState.SelectedNode.Workspace.UseTabHost);
         Assert.False(systemState.SelectedNode.Composition.SupportsEditing);
         Assert.True(systemState.SelectedNode.DocsAndSoftware.SupportsEditing);
-        Assert.True(systemState.SelectedNode.Network.SupportsEditing);
         Assert.False(systemState.SelectedNode.MaintenanceSchedule.SupportsEditing);
 
         var cabinetState = _service.Build(
@@ -426,7 +425,6 @@ public class KnowledgeBaseFormStateServiceTests
         Assert.True(cabinetState.SelectedNode.Workspace.UseTabHost);
         Assert.True(cabinetState.SelectedNode.Composition.SupportsEditing);
         Assert.False(cabinetState.SelectedNode.DocsAndSoftware.SupportsEditing);
-        Assert.False(cabinetState.SelectedNode.Network.SupportsEditing);
         Assert.True(cabinetState.SelectedNode.MaintenanceSchedule.SupportsEditing);
     }
 

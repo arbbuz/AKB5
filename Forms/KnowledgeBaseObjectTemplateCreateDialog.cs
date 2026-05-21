@@ -188,9 +188,7 @@ namespace AsutpKnowledgeBase
             lines.Add($"Записей состава: {template.CompositionEntries.Count}");
             lines.Add($"Документов: {template.DocumentLinks.Count}");
             lines.Add($"Записей ПО: {template.SoftwareRecords.Count}");
-            lines.Add($"Файлов сети: {template.NetworkFileReferences.Count}");
             lines.Add($"Профилей ТО: {template.MaintenanceScheduleProfiles.Count}");
-            lines.Add($"Заготовок сетевых интерфейсов: {template.NetworkInterfaceStubs.Count}");
             return string.Join(Environment.NewLine, lines);
         }
 

@@ -20,11 +20,7 @@ namespace AsutpKnowledgeBase.Models
 
         public List<KbObjectTemplateSoftwareRecord> SoftwareRecords { get; set; } = new();
 
-        public List<KbObjectTemplateNetworkFileReference> NetworkFileReferences { get; set; } = new();
-
         public List<KbObjectTemplateMaintenanceScheduleProfile> MaintenanceScheduleProfiles { get; set; } = new();
-
-        public List<KbObjectTemplateNetworkInterfaceStub> NetworkInterfaceStubs { get; set; } = new();
     }
 
     public class KbObjectTemplateNode
@@ -53,8 +49,6 @@ namespace AsutpKnowledgeBase.Models
         public string RackType { get; set; } = "UR";
 
         public string Label { get; set; } = string.Empty;
-
-        public string NetworkLink { get; set; } = string.Empty;
 
         public string Notes { get; set; } = string.Empty;
 
@@ -128,15 +122,6 @@ namespace AsutpKnowledgeBase.Models
         public string Notes { get; set; } = string.Empty;
     }
 
-    public class KbObjectTemplateNetworkFileReference
-    {
-        public string OwnerTemplateNodeId { get; set; } = string.Empty;
-
-        public string Title { get; set; } = string.Empty;
-
-        public string Path { get; set; } = string.Empty;
-    }
-
     public class KbObjectTemplateMaintenanceScheduleProfile
     {
         public string OwnerTemplateNodeId { get; set; } = string.Empty;
@@ -152,22 +137,4 @@ namespace AsutpKnowledgeBase.Models
         public List<KbMaintenanceYearScheduleEntry> YearScheduleEntries { get; set; } = new();
     }
 
-    public class KbObjectTemplateNetworkInterfaceStub
-    {
-        public string OwnerTemplateNodeId { get; set; } = string.Empty;
-
-        public string InterfaceId { get; set; } = string.Empty;
-
-        public string Name { get; set; } = string.Empty;
-
-        public string IpAddress { get; set; } = string.Empty;
-
-        public string SubnetMask { get; set; } = string.Empty;
-
-        public string Gateway { get; set; } = string.Empty;
-
-        public string Protocol { get; set; } = string.Empty;
-
-        public string Notes { get; set; } = string.Empty;
-    }
 }

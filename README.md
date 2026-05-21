@@ -77,7 +77,6 @@ Core persisted structures:
 - `SavedData.CompositionEntries`
 - `SavedData.DocumentLinks`
 - `SavedData.SoftwareRecords`
-- `SavedData.NetworkFileReferences`
 - `SavedData.MaintenanceScheduleProfiles`
 - `SavedData.ObjectTemplates`
 - `Config.ProductionCalendarYears`

@@ -13,7 +13,6 @@ namespace AsutpKnowledgeBase
         private TextBox _txtRackType = null!;
         private TextBox _txtLabel = null!;
         private Label _lblPreview = null!;
-        private readonly string _existingNetworkLink;
         private readonly string _existingNotes;
 
         public KnowledgeBaseCompositionRackDialog(string title, KbCompositionRack draftRack)
@@ -21,7 +20,6 @@ namespace AsutpKnowledgeBase
             _rackId = draftRack.RackId?.Trim() ?? string.Empty;
             _parentNodeId = draftRack.ParentNodeId?.Trim() ?? string.Empty;
             _sortOrder = draftRack.SortOrder;
-            _existingNetworkLink = draftRack.NetworkLink?.Trim() ?? string.Empty;
             _existingNotes = draftRack.Notes?.Trim() ?? string.Empty;
 
             Text = title;
@@ -132,7 +130,6 @@ namespace AsutpKnowledgeBase
                 SortOrder = _sortOrder,
                 RackType = rackType,
                 Label = _txtLabel.Text.Trim(),
-                NetworkLink = _existingNetworkLink,
                 Notes = _existingNotes
             };
 

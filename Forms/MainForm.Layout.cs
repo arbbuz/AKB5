@@ -507,13 +507,6 @@ namespace AsutpKnowledgeBase
                 UseVisualStyleBackColor = false,
                 Tag = KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware
             };
-            tabSelectedNodeNetwork = new TabPage("Сеть")
-            {
-                BackColor = AppSurfaceBackColor,
-                UseVisualStyleBackColor = false,
-                Tag = KnowledgeBaseNodeWorkspaceTabKind.Network
-            };
-
             tabSelectedNodeMaintenance = new TabPage("График ТО")
             {
                 BackColor = AppSurfaceBackColor,
@@ -535,10 +528,6 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Fill
             };
-            selectedNodeNetworkScreen = new KnowledgeBaseNetworkScreenControl
-            {
-                Dock = DockStyle.Fill
-            };
             selectedNodeMaintenanceScreen = new KnowledgeBaseMaintenanceScheduleScreenControl
             {
                 Dock = DockStyle.Fill
@@ -547,7 +536,6 @@ namespace AsutpKnowledgeBase
             tabSelectedNodeComposition.Controls.Add(selectedNodeCompositionScreen);
             tabSelectedNodeAdditionalEquipment.Controls.Add(selectedNodeAdditionalEquipmentScreen);
             tabSelectedNodeDocsAndSoftware.Controls.Add(selectedNodeDocsAndSoftwareScreen);
-            tabSelectedNodeNetwork.Controls.Add(selectedNodeNetworkScreen);
             tabSelectedNodeMaintenance.Controls.Add(selectedNodeMaintenanceScreen);
 
             selectedNodeInfoScreen = new KnowledgeBaseInfoScreenControl
@@ -561,7 +549,6 @@ namespace AsutpKnowledgeBase
             tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeComposition);
             tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeAdditionalEquipment);
             tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeDocsAndSoftware);
-            tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeNetwork);
             tabSelectedNodeWorkspace.TabPages.Add(tabSelectedNodeMaintenance);
 
             pnlSelectedNodeWorkspaceHost.Controls.Add(pnlSelectedNodeInfoScreen);

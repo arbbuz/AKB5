@@ -70,8 +70,6 @@ namespace AsutpKnowledgeBase.Services
 
         public string LabelText { get; init; } = string.Empty;
 
-        public string NetworkLinkText { get; init; } = string.Empty;
-
         public string NotesText { get; init; } = string.Empty;
 
         public bool IsExplicit { get; init; }
@@ -410,7 +408,6 @@ namespace AsutpKnowledgeBase.Services
                             rackMetadata.Label),
                     RackTypeText = rackMetadata?.RackType ?? "UR",
                     LabelText = rackMetadata?.Label ?? string.Empty,
-                    NetworkLinkText = rackMetadata?.NetworkLink ?? string.Empty,
                     NotesText = rackMetadata?.Notes ?? string.Empty,
                     IsExplicit = rackMetadata != null,
                     FilledSlots = rackEntries

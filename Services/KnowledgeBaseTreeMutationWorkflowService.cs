@@ -282,9 +282,6 @@ namespace AsutpKnowledgeBase.Services
             if (instance.SoftwareRecords.Count > 0)
                 _session.ReplaceSoftwareRecords(_session.SoftwareRecords.Concat(instance.SoftwareRecords));
 
-            if (instance.NetworkFileReferences.Count > 0)
-                _session.ReplaceNetworkFileReferences(_session.NetworkFileReferences.Concat(instance.NetworkFileReferences));
-
             if (instance.MaintenanceScheduleProfiles.Count > 0)
                 _session.ReplaceMaintenanceScheduleProfiles(
                     _session.MaintenanceScheduleProfiles.Concat(instance.MaintenanceScheduleProfiles));
@@ -318,7 +315,6 @@ namespace AsutpKnowledgeBase.Services
                 _session.CompositionEntries,
                 _session.DocumentLinks,
                 _session.SoftwareRecords,
-                _session.NetworkFileReferences,
                 _session.MaintenanceScheduleProfiles);
             if (!templateResult.IsSuccess || templateResult.Template == null)
             {
@@ -347,7 +343,6 @@ namespace AsutpKnowledgeBase.Services
                 _session.CompositionEntries,
                 _session.DocumentLinks,
                 _session.SoftwareRecords,
-                _session.NetworkFileReferences,
                 _session.MaintenanceScheduleProfiles);
         }
 
@@ -390,9 +385,6 @@ namespace AsutpKnowledgeBase.Services
 
             if (plan.SoftwareRecords.Count > 0)
                 _session.ReplaceSoftwareRecords(_session.SoftwareRecords.Concat(plan.SoftwareRecords));
-
-            if (plan.NetworkFileReferences.Count > 0)
-                _session.ReplaceNetworkFileReferences(_session.NetworkFileReferences.Concat(plan.NetworkFileReferences));
 
             if (plan.MaintenanceScheduleProfiles.Count > 0)
                 _session.ReplaceMaintenanceScheduleProfiles(
@@ -636,8 +628,6 @@ namespace AsutpKnowledgeBase.Services
             if (remainingSoftwareRecords.Count != _session.SoftwareRecords.Count)
                 _session.ReplaceSoftwareRecords(remainingSoftwareRecords);
 
-            DeleteNetworkDataForNodeIds(removedNodeIds);
-
             var remainingMaintenanceScheduleProfiles = _session.MaintenanceScheduleProfiles
                 .Where(profile => !removedNodeIds.Contains(profile.OwnerNodeId))
                 .ToList();
@@ -658,12 +648,6 @@ namespace AsutpKnowledgeBase.Services
                 movedRoot,
                 visibleLevelByNodeId,
                 static (node, visibleLevel) => !KnowledgeBaseDocsAndSoftwareStateService.SupportsRecords(
-                    node.NodeType,
-                    visibleLevel)));
-            DeleteNetworkDataForNodeIds(CollectMovedSubtreeUnsupportedTypedNodeIds(
-                movedRoot,
-                visibleLevelByNodeId,
-                static (node, visibleLevel) => !KnowledgeBaseNetworkStateService.SupportsRecords(
                     node.NodeType,
                     visibleLevel)));
             DeleteMaintenanceDataForNodeIds(CollectMovedSubtreeUnsupportedTypedNodeIds(
@@ -708,56 +692,6 @@ namespace AsutpKnowledgeBase.Services
                 .ToList();
             if (remainingSoftwareRecords.Count != _session.SoftwareRecords.Count)
                 _session.ReplaceSoftwareRecords(remainingSoftwareRecords);
-        }
-
-        private void DeleteNetworkDataForNodeIds(ISet<string> removedNodeIds)
-        {
-            if (removedNodeIds.Count == 0)
-                return;
-
-            var remainingNetworkFileReferences = _session.NetworkFileReferences
-                .Where(reference => !removedNodeIds.Contains(reference.OwnerNodeId))
-                .ToList();
-            if (remainingNetworkFileReferences.Count != _session.NetworkFileReferences.Count)
-                _session.ReplaceNetworkFileReferences(remainingNetworkFileReferences);
-
-            var removedNetworkDeviceIds = _session.NetworkDevices
-                .Where(device =>
-                    removedNodeIds.Contains(device.OwnerNodeId) ||
-                    removedNodeIds.Contains(device.LinkedNodeId))
-                .Select(device => device.NetworkDeviceId)
-                .ToHashSet(StringComparer.Ordinal);
-
-            if (removedNetworkDeviceIds.Count == 0)
-                return;
-
-            var remainingNetworkDevices = _session.NetworkDevices
-                .Where(device => !removedNetworkDeviceIds.Contains(device.NetworkDeviceId))
-                .ToList();
-            if (remainingNetworkDevices.Count != _session.NetworkDevices.Count)
-                _session.ReplaceNetworkDevices(remainingNetworkDevices);
-
-            var removedNetworkInterfaceIds = _session.NetworkInterfaces
-                .Where(networkInterface => removedNetworkDeviceIds.Contains(networkInterface.NetworkDeviceId))
-                .Select(networkInterface => networkInterface.NetworkInterfaceId)
-                .ToHashSet(StringComparer.Ordinal);
-
-            var remainingNetworkInterfaces = _session.NetworkInterfaces
-                .Where(networkInterface => !removedNetworkDeviceIds.Contains(networkInterface.NetworkDeviceId))
-                .ToList();
-            if (remainingNetworkInterfaces.Count != _session.NetworkInterfaces.Count)
-                _session.ReplaceNetworkInterfaces(remainingNetworkInterfaces);
-
-            if (removedNetworkInterfaceIds.Count == 0)
-                return;
-
-            var remainingNetworkConnections = _session.NetworkConnections
-                .Where(connection =>
-                    !removedNetworkInterfaceIds.Contains(connection.EndpointAInterfaceId) &&
-                    !removedNetworkInterfaceIds.Contains(connection.EndpointBInterfaceId))
-                .ToList();
-            if (remainingNetworkConnections.Count != _session.NetworkConnections.Count)
-                _session.ReplaceNetworkConnections(remainingNetworkConnections);
         }
 
         private void DeleteMaintenanceDataForNodeIds(ISet<string> removedNodeIds)

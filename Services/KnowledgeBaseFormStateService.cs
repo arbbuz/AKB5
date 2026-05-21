@@ -46,8 +46,6 @@ namespace AsutpKnowledgeBase.Services
 
         public KnowledgeBaseDocsAndSoftwareState DocsAndSoftware { get; init; } = new();
 
-        public KnowledgeBaseNetworkState Network { get; init; } = new();
-
         public KnowledgeBaseMaintenanceScheduleState MaintenanceSchedule { get; init; } = new();
     }
 
@@ -84,7 +82,6 @@ namespace AsutpKnowledgeBase.Services
         private readonly KnowledgeBaseNodeWorkspaceResolverService _nodeWorkspaceResolverService = new();
         private readonly KnowledgeBaseCompositionStateService _compositionStateService = new();
         private readonly KnowledgeBaseDocsAndSoftwareStateService _docsAndSoftwareStateService = new();
-        private readonly KnowledgeBaseNetworkStateService _networkStateService = new();
         private readonly KnowledgeBaseMaintenanceScheduleStateService _maintenanceScheduleStateService = new();
 
         public KnowledgeBaseFormState Build(
@@ -99,12 +96,8 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbCompositionEntry>? compositionEntries = null,
             IReadOnlyList<KbDocumentLink>? documentLinks = null,
             IReadOnlyList<KbSoftwareRecord>? softwareRecords = null,
-            IReadOnlyList<KbNetworkFileReference>? networkFileReferences = null,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles = null,
-            IReadOnlyList<KbCompositionRack>? compositionRacks = null,
-            IReadOnlyList<KbNetworkDevice>? networkDevices = null,
-            IReadOnlyList<KbNetworkInterface>? networkInterfaces = null,
-            IReadOnlyList<KbNetworkConnection>? networkConnections = null)
+            IReadOnlyList<KbCompositionRack>? compositionRacks = null)
         {
             bool fileExists = File.Exists(currentDataPath);
             string currentDataFileName = Path.GetFileName(currentDataPath);
@@ -118,12 +111,8 @@ namespace AsutpKnowledgeBase.Services
                 compositionEntries,
                 documentLinks,
                 softwareRecords,
-                networkFileReferences,
                 maintenanceScheduleProfiles,
-                compositionRacks,
-                networkDevices,
-                networkInterfaces,
-                networkConnections);
+                compositionRacks);
 
             return new KnowledgeBaseFormState
             {
@@ -207,12 +196,8 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbCompositionEntry>? compositionEntries,
             IReadOnlyList<KbDocumentLink>? documentLinks,
             IReadOnlyList<KbSoftwareRecord>? softwareRecords,
-            IReadOnlyList<KbNetworkFileReference>? networkFileReferences,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
-            IReadOnlyList<KbCompositionRack>? compositionRacks,
-            IReadOnlyList<KbNetworkDevice>? networkDevices,
-            IReadOnlyList<KbNetworkInterface>? networkInterfaces,
-            IReadOnlyList<KbNetworkConnection>? networkConnections)
+            IReadOnlyList<KbCompositionRack>? compositionRacks)
         {
             if (selectedNode == null)
             {
@@ -257,13 +242,6 @@ namespace AsutpKnowledgeBase.Services
                     selectedNode,
                     documentLinks,
                     softwareRecords,
-                    visibleLevel),
-                Network = _networkStateService.Build(
-                    selectedNode,
-                    networkFileReferences,
-                    networkDevices,
-                    networkInterfaces,
-                    networkConnections,
                     visibleLevel),
                 MaintenanceSchedule = _maintenanceScheduleStateService.Build(selectedNode, maintenanceScheduleProfiles, visibleLevel)
             };

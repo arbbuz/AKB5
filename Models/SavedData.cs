@@ -11,10 +11,6 @@ namespace AsutpKnowledgeBase.Models
         public List<KbCompositionEntry> CompositionEntries { get; set; } = new();
         public List<KbDocumentLink> DocumentLinks { get; set; } = new();
         public List<KbSoftwareRecord> SoftwareRecords { get; set; } = new();
-        public List<KbNetworkFileReference> NetworkFileReferences { get; set; } = new();
-        public List<KbNetworkDevice> NetworkDevices { get; set; } = new();
-        public List<KbNetworkInterface> NetworkInterfaces { get; set; } = new();
-        public List<KbNetworkConnection> NetworkConnections { get; set; } = new();
         public List<KbMaintenanceScheduleProfile> MaintenanceScheduleProfiles { get; set; } = new();
         public List<KbEquipmentCatalogItem> EquipmentCatalogItems { get; set; } = new();
         public List<KbObjectTemplate> ObjectTemplates { get; set; } = new();
