@@ -25,11 +25,12 @@ namespace AsutpKnowledgeBase
         public KnowledgeBaseInfoScreenControl()
         {
             Dock = DockStyle.Fill;
+            BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor;
 
             var selectedNodeCard = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                BackColor = Color.White,
+                BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor,
                 Padding = new Padding(14),
                 ColumnCount = 1,
                 RowCount = 1
@@ -235,11 +236,13 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
+                BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor,
                 Margin = new Padding(0)
             };
-            _btnBrowsePhoto = new Button { Text = "Выбрать фото", AutoSize = true };
+            _btnBrowsePhoto = KnowledgeBaseWorkspaceVisuals.CreateActionButton("Выбрать фото");
             _btnBrowsePhoto.Click += (_, _) => BrowsePhotoRequested?.Invoke(this, EventArgs.Empty);
-            _btnOpenPhoto = new Button { Text = "Открыть фото", AutoSize = true, Enabled = false };
+            _btnOpenPhoto = KnowledgeBaseWorkspaceVisuals.CreateActionButton("Открыть фото");
+            _btnOpenPhoto.Enabled = false;
             _btnOpenPhoto.Click += (_, _) => OpenPhotoRequested?.Invoke(this, EventArgs.Empty);
             _pnlPhotoButtons.Controls.Add(_btnBrowsePhoto);
             _pnlPhotoButtons.Controls.Add(_btnOpenPhoto);
@@ -364,7 +367,7 @@ namespace AsutpKnowledgeBase
         {
             textBox.BorderStyle = BorderStyle.None;
             textBox.Margin = new Padding(0);
-            textBox.BackColor = Color.White;
+            textBox.BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor;
 
             var frame = new ModernInfoFieldPanel
             {
@@ -386,6 +389,7 @@ namespace AsutpKnowledgeBase
                 Text = text,
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = KnowledgeBaseWorkspaceVisuals.MutedTextColor,
                 Margin = new Padding(0, 0, 8, 0)
             };
 
@@ -394,14 +398,15 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = KnowledgeBaseWorkspaceVisuals.TextColor,
                 AutoEllipsis = true
             };
 
         private sealed class ModernInfoSectionPanel : Panel
         {
-            private static readonly Color FillColor = Color.FromArgb(251, 253, 254);
-            private static readonly Color BorderColor = Color.FromArgb(54, 211, 219, 227);
-            private static readonly Color TitleColor = Color.FromArgb(79, 95, 109);
+            private static readonly Color FillColor = KnowledgeBaseWorkspaceVisuals.PanelColor;
+            private static readonly Color BorderColor = KnowledgeBaseWorkspaceVisuals.HairlineColor;
+            private static readonly Color TitleColor = KnowledgeBaseWorkspaceVisuals.TitleColor;
 
             public ModernInfoSectionPanel()
             {
@@ -466,7 +471,7 @@ namespace AsutpKnowledgeBase
             public ModernInfoFieldPanel()
             {
                 DoubleBuffered = true;
-                BackColor = Color.White;
+                BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor;
             }
 
             protected override void OnPaint(PaintEventArgs e)
@@ -481,7 +486,7 @@ namespace AsutpKnowledgeBase
 
                 var borderColor = ContainsFocus
                     ? Color.FromArgb(138, 187, 225)
-                    : Color.FromArgb(231, 237, 243);
+                    : KnowledgeBaseWorkspaceVisuals.HairlineColor;
                 var borderWidth = ContainsFocus ? 1F : 0.25F;
 
                 using var pen = new Pen(borderColor, borderWidth);

@@ -45,6 +45,7 @@ namespace AsutpKnowledgeBase
             var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
+                BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor,
                 Padding = new Padding(16),
                 ColumnCount = 1,
                 RowCount = 4
@@ -60,7 +61,7 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Top,
                 AutoSize = true,
                 Font = new Font("Segoe UI", 9F, FontStyle.Regular),
-                ForeColor = Color.DimGray,
+                ForeColor = KnowledgeBaseWorkspaceVisuals.MutedTextColor,
                 Margin = new Padding(0, 0, 0, 8)
             };
 
@@ -78,6 +79,7 @@ namespace AsutpKnowledgeBase
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = true,
                 AutoSize = true,
+                BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor,
                 Margin = new Padding(0, 0, 0, 12)
             };
 
@@ -104,6 +106,7 @@ namespace AsutpKnowledgeBase
             var contentLayout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
+                BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor,
                 ColumnCount = 1,
                 RowCount = 3
             };
@@ -358,17 +361,18 @@ namespace AsutpKnowledgeBase
 
         private static Control CreateEntriesGroup(string title, ListView listView, Label emptyStateLabel)
         {
-            var groupBox = new GroupBox
+            var groupBox = new KnowledgeBaseWorkspaceVisuals.SectionPanel
             {
                 Text = title,
                 Dock = DockStyle.Fill,
-                Padding = new Padding(10),
+                Padding = new Padding(10, 18, 10, 10),
                 Margin = new Padding(0, 0, 0, 12)
             };
 
-            var container = new Panel
+            var container = new KnowledgeBaseWorkspaceVisuals.BorderPanel
             {
-                Dock = DockStyle.Fill
+                Dock = DockStyle.Fill,
+                Padding = new Padding(1)
             };
             container.Controls.Add(listView);
             container.Controls.Add(emptyStateLabel);
@@ -395,33 +399,27 @@ namespace AsutpKnowledgeBase
         }
 
         private static ListView CreateBaseListView() =>
-            new()
-            {
-                Dock = DockStyle.Fill,
-                FullRowSelect = true,
-                GridLines = true,
-                HeaderStyle = ColumnHeaderStyle.Nonclickable,
-                MultiSelect = false,
-                View = View.Details
-            };
+            ConfigureBaseListView(
+                new()
+                {
+                    Dock = DockStyle.Fill,
+                    FullRowSelect = true,
+                    GridLines = true,
+                    HeaderStyle = ColumnHeaderStyle.Nonclickable,
+                    MultiSelect = false,
+                    View = View.Details
+                });
+
+        private static ListView ConfigureBaseListView(ListView listView)
+        {
+            KnowledgeBaseWorkspaceVisuals.ConfigureListView(listView);
+            return listView;
+        }
 
         private static Label CreateEmptyStateLabel(string text) =>
-            new()
-            {
-                Dock = DockStyle.Fill,
-                Text = text,
-                TextAlign = ContentAlignment.MiddleCenter,
-                ForeColor = Color.DimGray,
-                Padding = new Padding(24),
-                Visible = false
-            };
+            KnowledgeBaseWorkspaceVisuals.CreateEmptyStateLabel(text);
 
         private static Button CreateActionButton(string text) =>
-            new()
-            {
-                Text = text,
-                AutoSize = true,
-                Margin = new Padding(0, 0, 8, 8)
-            };
+            KnowledgeBaseWorkspaceVisuals.CreateActionButton(text);
     }
 }

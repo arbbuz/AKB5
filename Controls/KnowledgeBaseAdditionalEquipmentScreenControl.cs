@@ -24,6 +24,7 @@ namespace AsutpKnowledgeBase
             var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
+                BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor,
                 Padding = new Padding(16),
                 ColumnCount = 1,
                 RowCount = 4
@@ -39,7 +40,7 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Top,
                 AutoSize = true,
                 Font = new Font("Segoe UI", 9F, FontStyle.Regular),
-                ForeColor = Color.DimGray,
+                ForeColor = KnowledgeBaseWorkspaceVisuals.MutedTextColor,
                 Margin = new Padding(0, 0, 0, 8)
             };
 
@@ -57,6 +58,7 @@ namespace AsutpKnowledgeBase
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = true,
                 AutoSize = true,
+                BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor,
                 Margin = new Padding(0, 0, 0, 12)
             };
 
@@ -182,17 +184,18 @@ namespace AsutpKnowledgeBase
 
         private Control CreateEntriesGroup()
         {
-            var groupBox = new GroupBox
+            var groupBox = new KnowledgeBaseWorkspaceVisuals.SectionPanel
             {
                 Text = "Доп. оборудование",
                 Dock = DockStyle.Fill,
-                Padding = new Padding(10),
+                Padding = new Padding(10, 18, 10, 10),
                 Margin = new Padding(0)
             };
 
-            var container = new Panel
+            var container = new KnowledgeBaseWorkspaceVisuals.BorderPanel
             {
-                Dock = DockStyle.Fill
+                Dock = DockStyle.Fill,
+                Padding = new Padding(1)
             };
             container.Controls.Add(_lvEntries);
             container.Controls.Add(_lblEmptyState);
@@ -213,6 +216,7 @@ namespace AsutpKnowledgeBase
                 ShowItemToolTips = true,
                 View = View.Details
             };
+            KnowledgeBaseWorkspaceVisuals.ConfigureListView(listView);
             listView.Columns.Add("Позиция", 110);
             listView.Columns.Add("Тип", 120);
             listView.Columns.Add("Компонент", 200);
@@ -240,25 +244,9 @@ namespace AsutpKnowledgeBase
         }
 
         private static Label CreateEmptyStateLabel(string text) =>
-            new()
-            {
-                Dock = DockStyle.Fill,
-                Text = text,
-                TextAlign = ContentAlignment.MiddleCenter,
-                ForeColor = Color.DimGray,
-                Padding = new Padding(24),
-                Visible = false
-            };
+            KnowledgeBaseWorkspaceVisuals.CreateEmptyStateLabel(text);
 
         private static Button CreateActionButton(string text) =>
-            new()
-            {
-                Text = text,
-                AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                Margin = new Padding(0, 0, 8, 8),
-                Padding = new Padding(8, 2, 8, 2),
-                MinimumSize = new Size(0, 28)
-            };
+            KnowledgeBaseWorkspaceVisuals.CreateActionButton(text);
     }
 }

@@ -8,6 +8,7 @@ namespace AsutpKnowledgeBase
         private const int ToolbarItemHeight = 30;
         private const int ToolbarIconSize = 22;
         private const int ToolbarHeight = ToolbarItemHeight + 4;
+        private const int StatusBarHeight = 24;
         private static readonly Color AppSurfaceBackColor = Color.White;
         private static readonly Color AppChromeBackColor = Color.FromArgb(247, 249, 251);
         private static readonly Color AppPanelBackColor = Color.FromArgb(251, 253, 254);
@@ -569,6 +570,9 @@ namespace AsutpKnowledgeBase
                 BorderSides = ToolStripStatusLabelBorderSides.Right,
                 AutoSize = false,
                 Width = 540,
+                Height = StatusBarHeight - 2,
+                Margin = new Padding(0),
+                Padding = new Padding(0),
                 TextAlign = ContentAlignment.MiddleLeft,
                 Visible = false
             };
@@ -578,18 +582,50 @@ namespace AsutpKnowledgeBase
                 BorderSides = ToolStripStatusLabelBorderSides.None,
                 AutoSize = false,
                 Width = 0,
+                Height = StatusBarHeight - 2,
+                Margin = new Padding(0),
+                Padding = new Padding(0),
                 TextAlign = ContentAlignment.MiddleLeft,
                 Visible = false
             };
             lblLastAction = new ToolStripStatusLabel
             {
                 Text = "Последнее действие: ожидание загрузки",
+                AutoSize = false,
+                Height = StatusBarHeight - 2,
+                Margin = new Padding(0),
+                Padding = new Padding(0),
                 Spring = true,
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
-            ssStatus = new StatusStrip();
+            ssStatus = new StatusStrip
+            {
+                AutoSize = false,
+                Dock = DockStyle.Bottom,
+                Height = StatusBarHeight,
+                Padding = new Padding(6, 0, 6, 0),
+                SizingGrip = false,
+                Stretch = false
+            };
             ssStatus.Items.AddRange(new ToolStripItem[] { lblSessionInfo, lblLastAction });
+            ssStatus.Resize += (_, _) => ApplyStatusBarHeight();
+            ApplyStatusBarHeight();
+        }
+
+        private void ApplyStatusBarHeight()
+        {
+            if (ssStatus is not { IsDisposed: false })
+                return;
+
+            if (ssStatus.Height != StatusBarHeight)
+                ssStatus.Height = StatusBarHeight;
+
+            foreach (ToolStripItem item in ssStatus.Items)
+            {
+                item.Height = StatusBarHeight - 2;
+                item.Margin = new Padding(0);
+            }
         }
 
         private void InitializeContextMenu()
