@@ -77,7 +77,7 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Top,
                 AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                Padding = new Padding(10, 18, 10, 10),
+                Padding = new Padding(10, 20, 10, 10),
                 Text = "Параметры"
             };
 

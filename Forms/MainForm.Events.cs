@@ -20,8 +20,6 @@ namespace AsutpKnowledgeBase
             cmbSearchScope.SelectedIndexChanged += (s, e) => SearchWithinSelectedScope();
             txtSearch.TextBox.PreviewKeyDown += TxtSearch_PreviewKeyDown;
             txtSearch.TextBox.KeyDown += TxtSearch_KeyDown;
-            selectedNodeInfoScreen.BrowsePhotoRequested += BtnBrowsePhoto_Click;
-            selectedNodeInfoScreen.OpenPhotoRequested += BtnOpenPhoto_Click;
             selectedNodeCompositionScreen.AddSlottedRequested += AddSlottedCompositionEntry;
             selectedNodeCompositionScreen.AddRackRequested += AddCompositionRack;
             selectedNodeCompositionScreen.EditRackRequested += EditSelectedCompositionRack;
@@ -47,12 +45,8 @@ namespace AsutpKnowledgeBase
 
             selectedNodeInfoScreen.DescriptionChangedByUser +=
                 (s, e) => HandleNodeDetailsChanged(details => details.Description = selectedNodeInfoScreen.DescriptionText);
-            selectedNodeInfoScreen.LocationChangedByUser +=
-                (s, e) => HandleNodeDetailsChanged(details => details.Location = selectedNodeInfoScreen.LocationText);
             selectedNodeInfoScreen.InventoryNumberChangedByUser +=
                 (s, e) => HandleNodeDetailsChanged(details => details.InventoryNumber = selectedNodeInfoScreen.InventoryNumberText);
-            selectedNodeInfoScreen.PhotoPathChangedByUser +=
-                (s, e) => HandleNodeDetailsChanged(details => details.PhotoPath = selectedNodeInfoScreen.PhotoPathText);
             selectedNodeInfoScreen.IpAddressChangedByUser +=
                 (s, e) => HandleNodeDetailsChanged(details => details.IpAddress = selectedNodeInfoScreen.IpAddressText);
             selectedNodeInfoScreen.SchemaLinkChangedByUser +=

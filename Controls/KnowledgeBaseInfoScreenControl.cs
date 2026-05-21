@@ -9,18 +9,11 @@ namespace AsutpKnowledgeBase
         private Label _lblSelectedNodeChildrenValue = null!;
         private Label _lblNodeInventoryNumber = null!;
         private TextBox _txtNodeInventoryNumber = null!;
-        private Label _lblNodeLocation = null!;
-        private Label _lblNodePhotoPath = null!;
         private TextBox _txtNodeDescription = null!;
-        private TextBox _txtNodeLocation = null!;
-        private TextBox _txtNodePhotoPath = null!;
         private TextBox _txtNodeIpAddress = null!;
         private TextBox _txtNodeSchemaLink = null!;
         private TableLayoutPanel _tblDetailsLeftColumn = null!;
         private ModernInfoSectionPanel _grpTechnicalFields = null!;
-        private FlowLayoutPanel _pnlPhotoButtons = null!;
-        private Button _btnBrowsePhoto = null!;
-        private Button _btnOpenPhoto = null!;
 
         public KnowledgeBaseInfoScreenControl()
         {
@@ -86,31 +79,15 @@ namespace AsutpKnowledgeBase
 
         public event EventHandler? DescriptionChangedByUser;
 
-        public event EventHandler? LocationChangedByUser;
-
         public event EventHandler? InventoryNumberChangedByUser;
-
-        public event EventHandler? PhotoPathChangedByUser;
 
         public event EventHandler? IpAddressChangedByUser;
 
         public event EventHandler? SchemaLinkChangedByUser;
 
-        public event EventHandler? BrowsePhotoRequested;
-
-        public event EventHandler? OpenPhotoRequested;
-
         public string DescriptionText => _txtNodeDescription.Text;
 
-        public string LocationText => _txtNodeLocation.Text;
-
         public string InventoryNumberText => _txtNodeInventoryNumber.Text;
-
-        public string PhotoPathText
-        {
-            get => _txtNodePhotoPath.Text;
-            set => _txtNodePhotoPath.Text = value;
-        }
 
         public string IpAddressText => _txtNodeIpAddress.Text;
 
@@ -121,24 +98,12 @@ namespace AsutpKnowledgeBase
             _txtSelectedNodePath.Text = selectedNodeState.FullPath;
             _lblSelectedNodeChildrenValue.Text = selectedNodeState.ChildrenCountText;
             _txtNodeDescription.Text = selectedNodeState.Description;
-            _txtNodeLocation.Text = selectedNodeState.Location;
             _txtNodeInventoryNumber.Text = selectedNodeState.InventoryNumber;
-            _txtNodePhotoPath.Text = selectedNodeState.PhotoPath;
             _txtNodeIpAddress.Text = selectedNodeState.IpAddress;
             _txtNodeSchemaLink.Text = selectedNodeState.SchemaLink;
-            SetDescriptionLayout(!selectedNodeState.ShowLocation && !selectedNodeState.ShowPhoto);
             SetInventoryNumberVisibility(selectedNodeState.ShowInventoryNumber);
-            SetLocationVisibility(selectedNodeState.ShowLocation);
-            SetPhotoVisibility(selectedNodeState.ShowPhoto);
             SetTechnicalFieldsVisibility(selectedNodeState.ShowTechnicalFields);
-            UpdatePhotoControlsState(selectedNodeState.PhotoPath);
         }
-
-        public void UpdatePhotoControlsState(string photoPath) =>
-            _btnOpenPhoto.Enabled =
-                _pnlPhotoButtons.Visible &&
-                !string.IsNullOrWhiteSpace(photoPath) &&
-                File.Exists(photoPath.Trim());
 
         private TableLayoutPanel CreateSummaryLayout()
         {
@@ -192,20 +157,17 @@ namespace AsutpKnowledgeBase
         {
             var layout = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 ColumnCount = 2,
-                RowCount = 7,
+                RowCount = 2,
                 Padding = new Padding(10, 8, 10, 10)
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 118F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
 
             layout.Controls.Add(CreateFormLabel("Описание"), 0, 0);
             _txtNodeDescription = new TextBox
@@ -219,46 +181,7 @@ namespace AsutpKnowledgeBase
             layout.Controls.Add(descriptionField, 1, 0);
             layout.SetRowSpan(descriptionField, 2);
 
-            _lblNodeLocation = CreateFormLabel("Местоположение");
-            layout.Controls.Add(_lblNodeLocation, 0, 2);
-            _txtNodeLocation = new TextBox { Dock = DockStyle.Fill };
-            _txtNodeLocation.TextChanged += (_, _) => LocationChangedByUser?.Invoke(this, EventArgs.Empty);
-            layout.Controls.Add(CreateTextFieldFrame(_txtNodeLocation), 1, 3);
-
-            _lblNodePhotoPath = CreateFormLabel("Фото");
-            layout.Controls.Add(_lblNodePhotoPath, 0, 4);
-            _txtNodePhotoPath = new TextBox { Dock = DockStyle.Fill };
-            _txtNodePhotoPath.TextChanged += (_, _) => PhotoPathChangedByUser?.Invoke(this, EventArgs.Empty);
-            layout.Controls.Add(CreateTextFieldFrame(_txtNodePhotoPath), 1, 5);
-
-            _pnlPhotoButtons = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
-                BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor,
-                Margin = new Padding(0)
-            };
-            _btnBrowsePhoto = KnowledgeBaseWorkspaceVisuals.CreateActionButton("Выбрать фото");
-            _btnBrowsePhoto.Click += (_, _) => BrowsePhotoRequested?.Invoke(this, EventArgs.Empty);
-            _btnOpenPhoto = KnowledgeBaseWorkspaceVisuals.CreateActionButton("Открыть фото");
-            _btnOpenPhoto.Enabled = false;
-            _btnOpenPhoto.Click += (_, _) => OpenPhotoRequested?.Invoke(this, EventArgs.Empty);
-            _pnlPhotoButtons.Controls.Add(_btnBrowsePhoto);
-            _pnlPhotoButtons.Controls.Add(_btnOpenPhoto);
-            layout.Controls.Add(_pnlPhotoButtons, 1, 6);
-
             return layout;
-        }
-
-        private void SetDescriptionLayout(bool expanded)
-        {
-            if (_txtNodeDescription.Parent is not TableLayoutPanel layout || layout.RowStyles.Count <= 1)
-                return;
-
-            layout.RowStyles[1].Height = expanded ? 262F : 118F;
-            _txtNodeDescription.MinimumSize = new Size(0, expanded ? 288 : 144);
-            layout.PerformLayout();
         }
 
         private TableLayoutPanel CreateTechnicalFieldsLayout()
@@ -315,54 +238,6 @@ namespace AsutpKnowledgeBase
             _tblDetailsLeftColumn.PerformLayout();
         }
 
-        private void SetLocationVisibility(bool visible)
-        {
-            if (_txtNodeLocation.Parent is not TableLayoutPanel layout || layout.RowStyles.Count <= 3)
-                return;
-
-            layout.RowStyles[2].Height = visible ? 26F : 0F;
-            layout.RowStyles[3].Height = visible ? 30F : 0F;
-            _lblNodeLocation.Visible = visible;
-            _txtNodeLocation.Visible = visible;
-            _txtNodeLocation.Enabled = visible;
-            _txtNodeLocation.Parent!.Visible = visible;
-            _txtNodeLocation.Parent.Enabled = visible;
-
-            if (!visible)
-                _txtNodeLocation.Text = string.Empty;
-
-            layout.PerformLayout();
-        }
-
-        private void SetPhotoVisibility(bool visible)
-        {
-            if (_txtNodePhotoPath.Parent is not TableLayoutPanel layout || layout.RowStyles.Count <= 6)
-                return;
-
-            layout.RowStyles[4].Height = visible ? 26F : 0F;
-            layout.RowStyles[5].Height = visible ? 30F : 0F;
-            layout.RowStyles[6].Height = visible ? 40F : 0F;
-            _lblNodePhotoPath.Visible = visible;
-            _txtNodePhotoPath.Visible = visible;
-            _txtNodePhotoPath.Enabled = visible;
-            _txtNodePhotoPath.Parent!.Visible = visible;
-            _txtNodePhotoPath.Parent.Enabled = visible;
-            _pnlPhotoButtons.Visible = visible;
-            _btnBrowsePhoto.Enabled = visible;
-
-            if (!visible)
-            {
-                _txtNodePhotoPath.Text = string.Empty;
-                _btnOpenPhoto.Enabled = false;
-            }
-            else
-            {
-                UpdatePhotoControlsState(_txtNodePhotoPath.Text);
-            }
-
-            layout.PerformLayout();
-        }
-
         private static ModernInfoFieldPanel CreateTextFieldFrame(TextBox textBox, bool multiline = false)
         {
             textBox.BorderStyle = BorderStyle.None;
@@ -404,6 +279,10 @@ namespace AsutpKnowledgeBase
 
         private sealed class ModernInfoSectionPanel : Panel
         {
+            private const int BorderTop = 12;
+            private const int TitleTop = -1;
+            private const int TitleHeight = 18;
+
             private static readonly Color FillColor = KnowledgeBaseWorkspaceVisuals.PanelColor;
             private static readonly Color BorderColor = KnowledgeBaseWorkspaceVisuals.HairlineColor;
             private static readonly Color TitleColor = KnowledgeBaseWorkspaceVisuals.TitleColor;
@@ -412,7 +291,7 @@ namespace AsutpKnowledgeBase
             {
                 DoubleBuffered = true;
                 BackColor = FillColor;
-                Padding = new Padding(10, 18, 10, 10);
+                Padding = new Padding(10, 20, 10, 10);
             }
 
             protected override void OnPaint(PaintEventArgs e)
@@ -421,9 +300,9 @@ namespace AsutpKnowledgeBase
 
                 var borderBounds = ClientRectangle;
                 borderBounds.X += 1;
-                borderBounds.Y += 8;
+                borderBounds.Y += BorderTop;
                 borderBounds.Width -= 2;
-                borderBounds.Height -= 9;
+                borderBounds.Height -= BorderTop + 1;
                 if (borderBounds.Width <= 0 || borderBounds.Height <= 0)
                     return;
 
@@ -436,14 +315,14 @@ namespace AsutpKnowledgeBase
                     return;
 
                 var titleSize = TextRenderer.MeasureText(Text, Font);
-                var titleBounds = new Rectangle(14, 0, titleSize.Width + 8, 18);
+                var titleBounds = new Rectangle(14, TitleTop, titleSize.Width + 8, TitleHeight);
                 using var titleBackBrush = new SolidBrush(FillColor);
                 e.Graphics.FillRectangle(titleBackBrush, titleBounds);
                 TextRenderer.DrawText(
                     e.Graphics,
                     Text,
                     Font,
-                    new Point(18, 1),
+                    new Point(18, TitleTop),
                     TitleColor,
                     TextFormatFlags.NoPrefix);
             }

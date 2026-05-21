@@ -365,7 +365,7 @@ namespace AsutpKnowledgeBase
             {
                 Text = title,
                 Dock = DockStyle.Fill,
-                Padding = new Padding(10, 18, 10, 10),
+                Padding = new Padding(10, 20, 10, 10),
                 Margin = new Padding(0, 0, 0, 12)
             };
 

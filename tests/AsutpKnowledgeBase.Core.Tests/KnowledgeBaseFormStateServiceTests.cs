@@ -307,6 +307,61 @@ public class KnowledgeBaseFormStateServiceTests
     }
 
     [Fact]
+    public void Build_HidesLocationAndPhotoForDeepVisibleLevels()
+    {
+        var selectedNode = new KbNode
+        {
+            Name = "Р”Р°С‚С‡РёРє",
+            LevelIndex = 4,
+            NodeType = KbNodeType.Device,
+            Details = new KbNodeDetails
+            {
+                Description = "РќРёР¶РЅРёР№ СѓСЂРѕРІРµРЅСЊ",
+                Location = "РЎРєСЂС‹С‚РѕРµ РјРµСЃС‚Рѕ",
+                PhotoPath = @"C:\hidden-photo.jpg"
+            }
+        };
+        var roots = new List<KbNode>
+        {
+            new()
+            {
+                Name = "РћС‚РґРµР»РµРЅРёРµ",
+                Children =
+                {
+                    new KbNode
+                    {
+                        Name = "РЎРёСЃС‚РµРјР°",
+                        Children =
+                        {
+                            new KbNode
+                            {
+                                Name = "РЁРєР°С„",
+                                Children = { selectedNode }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var state = _service.Build(
+            isDirty: false,
+            requiresSave: false,
+            currentDataPath: "/tmp/deep-node.json",
+            currentWorkshop: "Р¦РµС… 1",
+            lastSavedWorkshop: "Р¦РµС… 1",
+            totalNodes: 4,
+            currentRoots: roots,
+            selectedNode: selectedNode);
+
+        Assert.Equal("РќРёР¶РЅРёР№ СѓСЂРѕРІРµРЅСЊ", state.SelectedNode.Description);
+        Assert.False(state.SelectedNode.ShowLocation);
+        Assert.False(state.SelectedNode.ShowPhoto);
+        Assert.Equal(string.Empty, state.SelectedNode.Location);
+        Assert.Equal(string.Empty, state.SelectedNode.PhotoPath);
+    }
+
+    [Fact]
     public void Build_ExposesMaintenanceScheduleStateForEngineeringNodes()
     {
         var selectedNode = new KbNode

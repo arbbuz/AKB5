@@ -242,11 +242,15 @@ namespace AsutpKnowledgeBase
 
         internal sealed class SectionPanel : Panel
         {
+            private const int BorderTop = 12;
+            private const int TitleTop = -1;
+            private const int TitleHeight = 18;
+
             public SectionPanel()
             {
                 DoubleBuffered = true;
                 BackColor = PanelColor;
-                Padding = new Padding(10, 18, 10, 10);
+                Padding = new Padding(10, 20, 10, 10);
             }
 
             protected override void OnPaint(PaintEventArgs e)
@@ -255,9 +259,9 @@ namespace AsutpKnowledgeBase
 
                 var bounds = ClientRectangle;
                 bounds.X += 1;
-                bounds.Y += 8;
+                bounds.Y += BorderTop;
                 bounds.Width -= 2;
-                bounds.Height -= 9;
+                bounds.Height -= BorderTop + 1;
                 if (bounds.Width <= 0 || bounds.Height <= 0)
                     return;
 
@@ -270,14 +274,14 @@ namespace AsutpKnowledgeBase
                     return;
 
                 var titleSize = TextRenderer.MeasureText(Text, Font);
-                var titleBounds = new Rectangle(14, 0, titleSize.Width + 8, 18);
+                var titleBounds = new Rectangle(14, TitleTop, titleSize.Width + 8, TitleHeight);
                 using var titleBrush = new SolidBrush(PanelColor);
                 e.Graphics.FillRectangle(titleBrush, titleBounds);
                 TextRenderer.DrawText(
                     e.Graphics,
                     Text,
                     Font,
-                    new Point(18, 1),
+                    new Point(18, TitleTop),
                     TitleColor,
                     TextFormatFlags.NoPrefix);
             }
