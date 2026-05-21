@@ -25,6 +25,7 @@ namespace AsutpKnowledgeBase
             var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
+                BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor,
                 Padding = new Padding(16),
                 ColumnCount = 1,
                 RowCount = 4
@@ -40,7 +41,7 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Top,
                 AutoSize = true,
                 Font = new Font("Segoe UI", 9F, FontStyle.Regular),
-                ForeColor = Color.DimGray,
+                ForeColor = KnowledgeBaseWorkspaceVisuals.MutedTextColor,
                 Margin = new Padding(0, 0, 0, 8)
             };
 
@@ -58,6 +59,7 @@ namespace AsutpKnowledgeBase
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = true,
                 AutoSize = true,
+                BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor,
                 Margin = new Padding(0, 0, 0, 12)
             };
 
@@ -70,12 +72,12 @@ namespace AsutpKnowledgeBase
             actionsPanel.Controls.Add(_btnConfigure);
             actionsPanel.Controls.Add(_btnDelete);
 
-            var detailsGroup = new GroupBox
+            var detailsGroup = new KnowledgeBaseWorkspaceVisuals.SectionPanel
             {
                 Dock = DockStyle.Top,
                 AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                Padding = new Padding(10),
+                Padding = new Padding(10, 18, 10, 10),
                 Text = "Параметры"
             };
 
@@ -84,6 +86,7 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Top,
                 AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                BackColor = Color.Transparent,
                 ColumnCount = 2
             };
             detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 200F));
@@ -144,6 +147,7 @@ namespace AsutpKnowledgeBase
             {
                 Text = labelText,
                 AutoSize = true,
+                ForeColor = KnowledgeBaseWorkspaceVisuals.MutedTextColor,
                 Margin = new Padding(0, 4, 12, 8)
             };
 
@@ -151,6 +155,7 @@ namespace AsutpKnowledgeBase
             {
                 AutoSize = true,
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = KnowledgeBaseWorkspaceVisuals.TextColor,
                 Margin = new Padding(0, 4, 0, 8)
             };
 
@@ -159,11 +164,6 @@ namespace AsutpKnowledgeBase
         }
 
         private static Button CreateActionButton(string text) =>
-            new()
-            {
-                Text = text,
-                AutoSize = true,
-                Margin = new Padding(0, 0, 8, 8)
-            };
+            KnowledgeBaseWorkspaceVisuals.CreateActionButton(text);
     }
 }

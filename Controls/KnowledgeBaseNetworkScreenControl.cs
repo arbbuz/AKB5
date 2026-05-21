@@ -14,10 +14,10 @@ namespace AsutpKnowledgeBase
     public sealed class KnowledgeBaseNetworkScreenControl : UserControl
     {
         private static readonly Color ReviewWarningBackColor = Color.FromArgb(255, 248, 225);
-        private static readonly Color NetworkSurfaceColor = Color.White;
-        private static readonly Color NetworkPanelColor = Color.FromArgb(251, 253, 254);
-        private static readonly Color NetworkHairlineColor = Color.FromArgb(54, 119, 138, 156);
-        private static readonly Color NetworkMutedTextColor = Color.FromArgb(99, 113, 129);
+        private static readonly Color NetworkSurfaceColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor;
+        private static readonly Color NetworkPanelColor = KnowledgeBaseWorkspaceVisuals.PanelColor;
+        private static readonly Color NetworkHairlineColor = KnowledgeBaseWorkspaceVisuals.HairlineColor;
+        private static readonly Color NetworkMutedTextColor = KnowledgeBaseWorkspaceVisuals.MutedTextColor;
 
         private sealed class ListItemTag
         {
@@ -1877,15 +1877,7 @@ namespace AsutpKnowledgeBase
             };
 
         private static Label CreateEmptyStateLabel(string text) =>
-            new()
-            {
-                Dock = DockStyle.Fill,
-                Text = text,
-                TextAlign = ContentAlignment.MiddleCenter,
-                ForeColor = NetworkMutedTextColor,
-                Padding = new Padding(24),
-                Visible = false
-            };
+            KnowledgeBaseWorkspaceVisuals.CreateEmptyStateLabel(text);
 
         private static ModernNetworkBorderPanel CreateTextFieldFrame(TextBox textBox, bool multiline = false)
         {

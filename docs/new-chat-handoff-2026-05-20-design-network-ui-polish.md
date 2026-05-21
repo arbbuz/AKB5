@@ -2,6 +2,8 @@
 
 Date: `2026-05-20`
 
+Superseded by `docs\new-chat-handoff-2026-05-21-design-network-ui-polish.md`.
+
 ## Start here
 
 Use the design worktree:

@@ -32,6 +32,7 @@ namespace AsutpKnowledgeBase
             var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
+                BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor,
                 Padding = new Padding(12),
                 ColumnCount = 1,
                 RowCount = 2
@@ -46,6 +47,7 @@ namespace AsutpKnowledgeBase
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = true,
                 AutoSize = true,
+                BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor,
                 Margin = new Padding(0, 0, 0, 8)
             };
 
@@ -74,7 +76,8 @@ namespace AsutpKnowledgeBase
                 FlowDirection = FlowDirection.TopDown,
                 WrapContents = false,
                 Margin = new Padding(0),
-                Padding = new Padding(0, 0, 2, 0)
+                Padding = new Padding(0, 0, 2, 0),
+                BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor
             };
             _rackPanel.SizeChanged += (_, _) => UpdateRackCardSizes();
 
@@ -386,22 +389,28 @@ namespace AsutpKnowledgeBase
             _btnCopyFromExisting.Enabled = canAdd;
         }
 
-        private static GroupBox CreateRackDetailsGroup(KnowledgeBaseCompositionRackState rack, DataGridView grid)
+        private static Control CreateRackDetailsGroup(KnowledgeBaseCompositionRackState rack, DataGridView grid)
         {
             string warningText = rack.WarningCount > 0
                 ? $"   !{rack.WarningCount}"
                 : string.Empty;
-            var groupBox = new GroupBox
+            var groupBox = new KnowledgeBaseWorkspaceVisuals.SectionPanel
             {
                 Text = $"{rack.Title}   ({rack.FilledSlots}/{rack.TotalSlots}){warningText}",
                 Width = 720,
                 Height = 300,
-                Padding = new Padding(6, 6, 6, 4),
+                Padding = new Padding(10, 18, 10, 10),
                 Margin = new Padding(0, 0, 0, 6),
                 MinimumSize = new Size(520, 220)
             };
 
-            groupBox.Controls.Add(grid);
+            var container = new KnowledgeBaseWorkspaceVisuals.BorderPanel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(1)
+            };
+            container.Controls.Add(grid);
+            groupBox.Controls.Add(container);
             return groupBox;
         }
 
@@ -414,14 +423,13 @@ namespace AsutpKnowledgeBase
                 AllowUserToDeleteRows = false,
                 AllowUserToResizeRows = false,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
-                BackgroundColor = SystemColors.Window,
-                BorderStyle = BorderStyle.Fixed3D,
                 EditMode = DataGridViewEditMode.EditProgrammatically,
                 MultiSelect = false,
                 ReadOnly = true,
                 RowHeadersVisible = false,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect
             };
+            KnowledgeBaseWorkspaceVisuals.ConfigureGrid(grid);
 
             grid.Columns.Add(CreateGridColumn("Slot", "Slot", 55));
             grid.Columns.Add(CreateGridColumn("Role", "Роль", 80));
@@ -533,25 +541,9 @@ namespace AsutpKnowledgeBase
         }
 
         private static Button CreateActionButton(string text) =>
-            new()
-            {
-                Text = text,
-                AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                Margin = new Padding(0, 0, 8, 8),
-                Padding = new Padding(8, 2, 8, 2),
-                MinimumSize = new Size(0, 28)
-            };
+            KnowledgeBaseWorkspaceVisuals.CreateActionButton(text);
 
         private static Button CreateSquareActionButton(string text) =>
-            new()
-            {
-                Text = text,
-                AutoSize = false,
-                Margin = new Padding(0, 0, 8, 8),
-                Padding = new Padding(0),
-                MinimumSize = new Size(32, 28),
-                Size = new Size(32, 28)
-            };
+            KnowledgeBaseWorkspaceVisuals.CreateSquareActionButton(text);
     }
 }
