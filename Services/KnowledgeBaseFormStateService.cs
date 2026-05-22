@@ -39,6 +39,8 @@ namespace AsutpKnowledgeBase.Services
         public KnowledgeBaseDocsAndSoftwareState DocsAndSoftware { get; init; } = new();
 
         public KnowledgeBaseMaintenanceScheduleState MaintenanceSchedule { get; init; } = new();
+
+        public KbNetworkTopology NetworkTopology { get; init; } = new();
     }
 
     public class KnowledgeBaseFormState
@@ -206,6 +208,7 @@ namespace AsutpKnowledgeBase.Services
             int visibleLevel = _nodePresentationService.GetVisibleLevel(currentRoots, selectedNode);
             bool supportsTechnicalFields = false;
             bool supportsInventoryNumber = KnowledgeBaseNodeMetadataService.SupportsInventoryNumber(visibleLevel);
+            bool supportsNetworkTopology = KnowledgeBaseNodeMetadataService.SupportsNetworkTopology(visibleLevel);
 
             return new KnowledgeBaseSelectedNodeState
             {
@@ -223,6 +226,9 @@ namespace AsutpKnowledgeBase.Services
                 ShowTechnicalFields = supportsTechnicalFields,
                 ShowInventoryNumber = supportsInventoryNumber,
                 Workspace = _nodeWorkspaceResolverService.Resolve(selectedNode.NodeType, visibleLevel),
+                NetworkTopology = supportsNetworkTopology
+                    ? KnowledgeBaseDataService.NormalizeNetworkTopology(selectedNode.Details?.NetworkTopology)
+                    : new KbNetworkTopology(),
                 Composition = _compositionStateService.Build(selectedNode, compositionRacks, compositionEntries, visibleLevel),
                 DocsAndSoftware = _docsAndSoftwareStateService.Build(
                     selectedNode,

@@ -9,7 +9,7 @@ namespace AsutpKnowledgeBase.Services
 {
     public sealed class SqliteKnowledgeBaseStorageService : IKnowledgeBaseStorageService
     {
-        public const int CurrentDatabaseSchemaVersion = 11;
+        public const int CurrentDatabaseSchemaVersion = 12;
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -572,6 +572,7 @@ namespace AsutpKnowledgeBase.Services
 
             EnsureCompositionEntriesRackNumberColumn(connection, transaction);
             EnsureCompositionEntriesHardwareColumns(connection, transaction);
+            EnsureNodesNetworkTopologyColumn(connection, transaction);
             EnsureObjectTemplatesCompositionRacksColumn(connection, transaction);
             EnsureMaintenanceYearScheduleHoursColumn(connection, transaction);
             ExecuteNonQuery(connection, transaction, $"PRAGMA user_version={CurrentDatabaseSchemaVersion};");
@@ -628,6 +629,19 @@ namespace AsutpKnowledgeBase.Services
                 connection,
                 transaction,
                 "ALTER TABLE object_templates ADD COLUMN composition_racks_json TEXT NOT NULL DEFAULT '[]';");
+        }
+
+        private static void EnsureNodesNetworkTopologyColumn(
+            SqliteConnection connection,
+            SqliteTransaction? transaction)
+        {
+            if (ColumnExists(connection, transaction, "nodes", "details_network_topology_json"))
+                return;
+
+            ExecuteNonQuery(
+                connection,
+                transaction,
+                "ALTER TABLE nodes ADD COLUMN details_network_topology_json TEXT NOT NULL DEFAULT '{}';");
         }
 
         private static void EnsureMaintenanceYearScheduleHoursColumn(
@@ -946,11 +960,11 @@ namespace AsutpKnowledgeBase.Services
                     INSERT INTO nodes (
                         node_id, workshop_id, parent_node_id, position_order, name, level_index, node_type,
                         details_description, details_location, details_inventory_number, details_photo_path,
-                        details_ip_address, details_schema_link)
+                        details_ip_address, details_schema_link, details_network_topology_json)
                     VALUES (
                         @node_id, @workshop_id, @parent_node_id, @position_order, @name, @level_index, @node_type,
                         @details_description, @details_location, @details_inventory_number, @details_photo_path,
-                        @details_ip_address, @details_schema_link);
+                        @details_ip_address, @details_schema_link, @details_network_topology_json);
                     """,
                     ("@node_id", node.NodeId),
                     ("@workshop_id", workshopId),
@@ -964,7 +978,8 @@ namespace AsutpKnowledgeBase.Services
                     ("@details_inventory_number", node.Details.InventoryNumber),
                     ("@details_photo_path", node.Details.PhotoPath),
                     ("@details_ip_address", node.Details.IpAddress),
-                    ("@details_schema_link", node.Details.SchemaLink));
+                    ("@details_schema_link", node.Details.SchemaLink),
+                    ("@details_network_topology_json", SerializeJson(node.Details.NetworkTopology)));
 
                 InsertNodes(connection, transaction, workshopId, node.NodeId, node.Children);
             }
@@ -997,7 +1012,8 @@ namespace AsutpKnowledgeBase.Services
                             InventoryNumber = GetString(reader, "details_inventory_number"),
                             PhotoPath = GetString(reader, "details_photo_path"),
                             IpAddress = GetString(reader, "details_ip_address"),
-                            SchemaLink = GetString(reader, "details_schema_link")
+                            SchemaLink = GetString(reader, "details_schema_link"),
+                            NetworkTopology = DeserializeJson<KbNetworkTopology>(GetString(reader, "details_network_topology_json"))
                         }
                     }),
                 ("@workshop_id", workshopId))
@@ -1947,6 +1963,7 @@ namespace AsutpKnowledgeBase.Services
                 details_photo_path TEXT NOT NULL,
                 details_ip_address TEXT NOT NULL,
                 details_schema_link TEXT NOT NULL,
+                details_network_topology_json TEXT NOT NULL DEFAULT '{}',
                 FOREIGN KEY (workshop_id) REFERENCES workshops(workshop_id) ON DELETE CASCADE,
                 FOREIGN KEY (parent_node_id) REFERENCES nodes(node_id) ON DELETE CASCADE
             );

@@ -50,6 +50,9 @@ public class SqliteKnowledgeBaseStorageServiceTests
             Assert.Contains("comment_text", compositionColumns);
             Assert.Contains("interface_rows", compositionColumns);
 
+            var nodeColumns = ReadColumnNames(connection, "nodes");
+            Assert.Contains("details_network_topology_json", nodeColumns);
+
             var rackColumns = ReadColumnNames(connection, "composition_racks");
             Assert.DoesNotContain("network_link", rackColumns);
         }
@@ -490,7 +493,40 @@ public class SqliteKnowledgeBaseStorageServiceTests
                                 NodeType = KbNodeType.Cabinet,
                                 Details = new KbNodeDetails
                                 {
-                                    Description = "Шкаф управления"
+                                    Description = "Шкаф управления",
+                                    NetworkTopology = new KbNetworkTopology
+                                    {
+                                        Elements =
+                                        {
+                                            new()
+                                            {
+                                                ElementId = "network-plc",
+                                                Kind = KbNetworkElementKind.Plc,
+                                                Name = "PLC-AKT-01",
+                                                IpAddress = "192.168.10.11",
+                                                X = 120,
+                                                Y = 80
+                                            },
+                                            new()
+                                            {
+                                                ElementId = "network-switch",
+                                                Kind = KbNetworkElementKind.Scalance,
+                                                Name = "SCALANCE-X204",
+                                                IpAddress = "192.168.10.1",
+                                                X = 280,
+                                                Y = 80
+                                            }
+                                        },
+                                        Links =
+                                        {
+                                            new()
+                                            {
+                                                LinkId = "network-link-1",
+                                                FromElementId = "network-plc",
+                                                ToElementId = "network-switch"
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

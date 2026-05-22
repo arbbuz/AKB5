@@ -288,6 +288,27 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
     }
 
     [Fact]
+    public void ExportSingleMonth_ForEveryMonthStylesWrittenPlanDayCellsLikeTemplateDayCells()
+    {
+        for (int month = 1; month <= 12; month++)
+        {
+            KnowledgeBaseMaintenanceWorkbookExportResult result =
+                _service.ExportSingleMonth(CreateModelWithPlanOnDay(2026, month, dayOfMonth: 2, planText: "\u0422\u041E2/4"));
+
+            Assert.True(result.IsSuccess);
+            byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+            AssertValidWorkbook(packageBytes);
+
+            string sheetName = BuildMonthSheetName(month);
+            uint planRowIndex = FindRowContainingText(packageBytes, sheetName, "\u043F\u043B\u0430\u043D");
+            Assert.Equal("\u0422\u041E2/4", ReadCellText(packageBytes, sheetName, $"G{planRowIndex}"));
+            Assert.Equal(
+                ReadCellStyleIndex(packageBytes, sheetName, $"F{planRowIndex}"),
+                ReadCellStyleIndex(packageBytes, sheetName, $"G{planRowIndex}"));
+        }
+    }
+
+    [Fact]
     public void GenerateYearWorkbook_ForEveryMonthKeepsMonthlyFormHeaders()
     {
         var generationService = new KnowledgeBaseMaintenanceWorkbookGenerationService();
@@ -719,6 +740,52 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
             }
         };
 
+    private static KbMaintenanceMonthSheetModel CreateModelWithPlanOnDay(
+        int year,
+        int month,
+        int dayOfMonth,
+        string planText) =>
+        new()
+        {
+            Year = year,
+            Month = month,
+            WorkingDayCount = 10,
+            TotalPlannedHours = 4,
+            DailyTotals =
+            {
+                new KbMaintenanceMonthSheetDayTotal { DayOfMonth = dayOfMonth, TotalHours = 4 }
+            },
+            SystemGroups =
+            {
+                new KbMaintenanceMonthSheetSystemGroup
+                {
+                    SequenceNumber = 1,
+                    SystemName = "System",
+                    InventoryNumber = "INV",
+                    DetailRows =
+                    {
+                        new KbMaintenanceMonthSheetDetailRow
+                        {
+                            NodeName = "Cabinet",
+                            TotalHours = 4,
+                            DayCells =
+                            {
+                                new KbMaintenanceMonthSheetDayCell
+                                {
+                                    DayOfMonth = dayOfMonth,
+                                    TotalHours = 4,
+                                    WorkEntries =
+                                    {
+                                        new KbMaintenanceMonthSheetWorkEntry { PlanText = planText }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
     private static KbMaintenanceMonthSheetSystemGroup CreateSystemGroup(
         int sequenceNumber,
         string systemName,
@@ -940,6 +1007,15 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         CellFormats cellFormats = document.WorkbookPart!.WorkbookStylesPart!.Stylesheet.CellFormats!;
         CellFormat cellFormat = (CellFormat)cellFormats.ElementAt((int)styleIndex);
         return cellFormat.FillId?.Value ?? 0;
+    }
+
+    private static uint ReadCellStyleIndex(byte[] packageBytes, string sheetName, string cellReference)
+    {
+        using SpreadsheetDocument document = OpenDocument(packageBytes);
+        WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
+        Cell cell = FindCell(worksheetPart, cellReference)
+            ?? throw new InvalidOperationException($"Cell '{cellReference}' was not found.");
+        return cell.StyleIndex?.Value ?? 0;
     }
 
     private static string ReadCellFormula(byte[] packageBytes, string sheetName, string cellReference)

@@ -27,6 +27,8 @@ namespace AsutpKnowledgeBase.Services
 
         public static bool SupportsPhoto(int visibleLevel) => visibleLevel >= 3;
 
+        public static bool SupportsNetworkTopology(int visibleLevel) => visibleLevel == 2;
+
         public static void NormalizePersistentWorkshopNodes(string workshopName, IList<KbNode> nodes, ISet<string> usedNodeIds)
         {
             var siblingPath = new List<int>();
@@ -245,6 +247,7 @@ namespace AsutpKnowledgeBase.Services
             details.PhotoPath = string.Empty;
             details.IpAddress = string.Empty;
             details.SchemaLink = string.Empty;
+            details.NetworkTopology = new KbNetworkTopology();
         }
 
         private static bool IsKnownNodeType(KbNodeType nodeType) =>

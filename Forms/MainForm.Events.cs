@@ -36,6 +36,8 @@ namespace AsutpKnowledgeBase
             selectedNodeDocsAndSoftwareScreen.OpenSelectedRequested += OpenSelectedDocsAndSoftwareItem;
             selectedNodeDocsAndSoftwareScreen.EditSelectedRequested += EditSelectedDocsAndSoftwareItem;
             selectedNodeDocsAndSoftwareScreen.DeleteSelectedRequested += DeleteSelectedDocsAndSoftwareItem;
+            selectedNodeNetworkScreen.TopologyChangedByUser +=
+                (s, e) => HandleNodeDetailsChanged(details => details.NetworkTopology = selectedNodeNetworkScreen.CurrentTopology);
             selectedNodeMaintenanceScreen.ConfigureRequested += ConfigureMaintenanceScheduleProfile;
             selectedNodeMaintenanceScreen.DeleteRequested += DeleteMaintenanceScheduleProfile;
 

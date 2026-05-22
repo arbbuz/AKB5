@@ -434,7 +434,10 @@ namespace AsutpKnowledgeBase.Services
                     : string.Empty,
                 SchemaLink = KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(nodeType, visibleLevel)
                     ? details?.SchemaLink ?? string.Empty
-                    : string.Empty
+                    : string.Empty,
+                NetworkTopology = KnowledgeBaseNodeMetadataService.SupportsNetworkTopology(visibleLevel)
+                    ? NormalizeNetworkTopology(details?.NetworkTopology)
+                    : new KbNetworkTopology()
             };
 
         private static Dictionary<string, NodeOwnershipState> BuildNodeOwnershipIndex(
@@ -982,7 +985,8 @@ namespace AsutpKnowledgeBase.Services
                 InventoryNumber = details?.InventoryNumber?.Trim() ?? string.Empty,
                 PhotoPath = details?.PhotoPath?.Trim() ?? string.Empty,
                 IpAddress = details?.IpAddress?.Trim() ?? string.Empty,
-                SchemaLink = details?.SchemaLink?.Trim() ?? string.Empty
+                SchemaLink = details?.SchemaLink?.Trim() ?? string.Empty,
+                NetworkTopology = new KbNetworkTopology()
             };
 
         private static bool HasObjectTemplateDetails(KbNodeDetails details) =>
@@ -992,6 +996,105 @@ namespace AsutpKnowledgeBase.Services
             !string.IsNullOrWhiteSpace(details.PhotoPath) ||
             !string.IsNullOrWhiteSpace(details.IpAddress) ||
             !string.IsNullOrWhiteSpace(details.SchemaLink);
+
+        public static KbNetworkTopology NormalizeNetworkTopology(KbNetworkTopology? topology)
+        {
+            var normalized = new KbNetworkTopology();
+            if (topology == null)
+                return normalized;
+
+            var usedElementIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (KbNetworkElement? element in topology.Elements ?? Enumerable.Empty<KbNetworkElement>())
+            {
+                if (element == null)
+                    continue;
+
+                string elementId = NormalizeStableId(element.ElementId, usedElementIds);
+                var kind = Enum.IsDefined(typeof(KbNetworkElementKind), element.Kind)
+                    ? element.Kind
+                    : KbNetworkElementKind.Other;
+
+                normalized.Elements.Add(new KbNetworkElement
+                {
+                    ElementId = elementId,
+                    Kind = kind,
+                    Name = NormalizeNetworkText(element.Name, GetDefaultNetworkElementName(kind)),
+                    IpAddress = NormalizeNetworkText(element.IpAddress),
+                    X = Math.Clamp(element.X, 0, 5000),
+                    Y = Math.Clamp(element.Y, 0, 5000)
+                });
+            }
+
+            var validElementIds = normalized.Elements
+                .Select(static element => element.ElementId)
+                .ToHashSet(StringComparer.Ordinal);
+            var usedLinkIds = new HashSet<string>(StringComparer.Ordinal);
+            var usedPairs = new HashSet<string>(StringComparer.Ordinal);
+            foreach (KbNetworkLink? link in topology.Links ?? Enumerable.Empty<KbNetworkLink>())
+            {
+                if (link == null ||
+                    !validElementIds.Contains(link.FromElementId) ||
+                    !validElementIds.Contains(link.ToElementId) ||
+                    string.Equals(link.FromElementId, link.ToElementId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                bool fromFirst = string.CompareOrdinal(link.FromElementId, link.ToElementId) <= 0;
+                string left = fromFirst ? link.FromElementId : link.ToElementId;
+                string right = fromFirst ? link.ToElementId : link.FromElementId;
+                string pairKey = $"{left}|{right}";
+                if (!usedPairs.Add(pairKey))
+                    continue;
+
+                normalized.Links.Add(new KbNetworkLink
+                {
+                    LinkId = NormalizeStableId(link.LinkId, usedLinkIds),
+                    FromElementId = link.FromElementId,
+                    ToElementId = link.ToElementId,
+                    Label = NormalizeNetworkText(link.Label)
+                });
+            }
+
+            return normalized;
+        }
+
+        private static string NormalizeStableId(string? value, ISet<string> usedIds)
+        {
+            string normalized = value?.Trim() ?? string.Empty;
+            if (normalized.Length > 0 && usedIds.Add(normalized))
+                return normalized;
+
+            string id;
+            do
+            {
+                id = Guid.NewGuid().ToString("N");
+            }
+            while (!usedIds.Add(id));
+
+            return id;
+        }
+
+        private static string NormalizeNetworkText(string? value, string fallback = "")
+        {
+            string normalized = value?.Trim() ?? string.Empty;
+            return string.IsNullOrWhiteSpace(normalized)
+                ? fallback
+                : normalized;
+        }
+
+        private static string GetDefaultNetworkElementName(KbNetworkElementKind kind) => kind switch
+        {
+            KbNetworkElementKind.Plc => "PLC",
+            KbNetworkElementKind.Panel => "Панель",
+            KbNetworkElementKind.Scalance => "SCALANCE",
+            KbNetworkElementKind.Arm => "АРМ",
+            KbNetworkElementKind.Hmi => "HMI",
+            KbNetworkElementKind.Server => "Сервер",
+            KbNetworkElementKind.Io => "I/O",
+            KbNetworkElementKind.Camera => "Камера",
+            _ => "Устройство"
+        };
 
         private static HashSet<string> CollectObjectTemplateNodeIds(KbObjectTemplateNode rootNode)
         {

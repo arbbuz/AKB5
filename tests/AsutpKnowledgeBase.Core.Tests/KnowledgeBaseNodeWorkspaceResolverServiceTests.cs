@@ -19,7 +19,7 @@ public class KnowledgeBaseNodeWorkspaceResolverServiceTests
     }
 
     [Fact]
-    public void Resolve_ForLevel2System_ReturnsDocsTabWithoutNetwork()
+    public void Resolve_ForLevel2System_ReturnsDocsAndNetworkTabs()
     {
         var workspace = _service.Resolve(KbNodeType.System, visibleLevel: 2);
 
@@ -28,7 +28,8 @@ public class KnowledgeBaseNodeWorkspaceResolverServiceTests
             new[]
             {
                 KnowledgeBaseNodeWorkspaceTabKind.Info,
-                KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware
+                KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware,
+                KnowledgeBaseNodeWorkspaceTabKind.Network
             },
             workspace.Tabs.Select(static tab => tab.Kind).ToArray());
     }

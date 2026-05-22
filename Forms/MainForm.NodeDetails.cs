@@ -23,6 +23,9 @@ namespace AsutpKnowledgeBase
             if (!KnowledgeBaseNodeMetadataService.SupportsPhoto(visibleLevel))
                 selectedNode.Details.PhotoPath = string.Empty;
 
+            if (!KnowledgeBaseNodeMetadataService.SupportsNetworkTopology(visibleLevel))
+                selectedNode.Details.NetworkTopology = new KbNetworkTopology();
+
             if (!KnowledgeBaseNodeMetadataService.SupportsTechnicalFields(selectedNode.NodeType, visibleLevel))
             {
                 selectedNode.Details.IpAddress = string.Empty;

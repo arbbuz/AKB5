@@ -265,6 +265,76 @@ public class KnowledgeBaseFormStateServiceTests
     }
 
     [Fact]
+    public void Build_ShowsNetworkTabAndTopologyOnlyForVisibleLevel2Nodes()
+    {
+        var selectedNode = new KbNode
+        {
+            NodeId = "system-1",
+            Name = "System 1",
+            LevelIndex = 1,
+            NodeType = KbNodeType.System,
+            Details = new KbNodeDetails
+            {
+                NetworkTopology = new KbNetworkTopology
+                {
+                    Elements =
+                    {
+                        new()
+                        {
+                            ElementId = "plc-1",
+                            Kind = KbNetworkElementKind.Plc,
+                            Name = "PLC-AKT-01",
+                            IpAddress = "192.168.10.11",
+                            X = 80,
+                            Y = 120
+                        }
+                    }
+                }
+            }
+        };
+        var roots = new List<KbNode>
+        {
+            new()
+            {
+                Name = "Department",
+                LevelIndex = 0,
+                NodeType = KbNodeType.Department,
+                Children = { selectedNode }
+            }
+        };
+
+        var state = _service.Build(
+            isDirty: false,
+            requiresSave: false,
+            currentDataPath: "/tmp/network.json",
+            currentWorkshop: "Workshop",
+            lastSavedWorkshop: "Workshop",
+            totalNodes: 2,
+            currentRoots: roots,
+            selectedNode: selectedNode);
+
+        Assert.Contains(
+            state.SelectedNode.Workspace.Tabs,
+            tab => tab.Kind == KnowledgeBaseNodeWorkspaceTabKind.Network && tab.Title == "Сеть");
+        KbNetworkElement element = Assert.Single(state.SelectedNode.NetworkTopology.Elements);
+        Assert.Equal("PLC-AKT-01", element.Name);
+        Assert.Equal("192.168.10.11", element.IpAddress);
+
+        var rootLevelState = _service.Build(
+            isDirty: false,
+            requiresSave: false,
+            currentDataPath: "/tmp/network.json",
+            currentWorkshop: "Workshop",
+            lastSavedWorkshop: "Workshop",
+            totalNodes: 1,
+            currentRoots: new List<KbNode> { selectedNode },
+            selectedNode: selectedNode);
+
+        Assert.DoesNotContain(rootLevelState.SelectedNode.Workspace.Tabs, tab => tab.Kind == KnowledgeBaseNodeWorkspaceTabKind.Network);
+        Assert.Empty(rootLevelState.SelectedNode.NetworkTopology.Elements);
+    }
+
+    [Fact]
     public void Build_ExposesDescriptionForVisibleLevel1Nodes()
     {
         var selectedNode = new KbNode

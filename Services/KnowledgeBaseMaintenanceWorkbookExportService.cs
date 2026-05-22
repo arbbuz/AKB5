@@ -736,6 +736,7 @@ namespace AsutpKnowledgeBase.Services
             SetCellText(planRow, 4, DefaultDashText);
             SetCellText(planRow, 5, PlanText);
             ClearRowValues(planRow, FirstDayColumnIndex, SheetColumnSpanEndIndex);
+            NormalizeMonthlyDayCellStyles(planRow);
 
             int maxPlanCellLineCount = 1;
             foreach (KbMaintenanceMonthSheetDayCell dayCell in detailRow.DayCells)
@@ -754,6 +755,7 @@ namespace AsutpKnowledgeBase.Services
             SetCellNumber(planRow, TotalHoursColumnIndex, detailRow.TotalHours);
 
             ClearRowValues(factRow, 1, SheetColumnSpanEndIndex);
+            NormalizeMonthlyDayCellStyles(factRow);
             SetCellText(factRow, 5, FactText);
             SetMonthlyDetailRowHeights(planRow, factRow, detailName, maxPlanCellLineCount);
         }
@@ -1795,6 +1797,38 @@ namespace AsutpKnowledgeBase.Services
             {
                 ClearCellValue(GetOrCreateCell(row, columnIndex));
             }
+        }
+
+        private static void NormalizeMonthlyDayCellStyles(Row row)
+        {
+            uint? dayCellStyleIndex = ResolveMostCommonStyleIndex(row, FirstDayColumnIndex, FirstDayColumnIndex + 30);
+            if (dayCellStyleIndex == null)
+                return;
+
+            for (int columnIndex = FirstDayColumnIndex; columnIndex <= FirstDayColumnIndex + 30; columnIndex++)
+            {
+                Cell cell = GetOrCreateCell(row, columnIndex);
+                cell.StyleIndex ??= dayCellStyleIndex.Value;
+            }
+        }
+
+        private static uint? ResolveMostCommonStyleIndex(Row row, int startColumnIndex, int endColumnIndex)
+        {
+            return row.Elements<Cell>()
+                .Select(cell => new
+                {
+                    Cell = cell,
+                    ColumnIndex = GetColumnIndex(cell.CellReference?.Value)
+                })
+                .Where(item =>
+                    item.ColumnIndex >= startColumnIndex &&
+                    item.ColumnIndex <= endColumnIndex &&
+                    item.Cell.StyleIndex?.Value != null)
+                .GroupBy(item => item.Cell.StyleIndex!.Value)
+                .OrderByDescending(group => group.Count())
+                .ThenBy(group => group.Key)
+                .Select(group => (uint?)group.Key)
+                .FirstOrDefault();
         }
 
         private static void SetCellText(Row row, int columnIndex, string value)

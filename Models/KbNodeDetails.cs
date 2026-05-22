@@ -13,5 +13,7 @@ namespace AsutpKnowledgeBase.Models
         public string IpAddress { get; set; } = string.Empty;
 
         public string SchemaLink { get; set; } = string.Empty;
+
+        public KbNetworkTopology NetworkTopology { get; set; } = new();
     }
 }

@@ -14,6 +14,7 @@ namespace AsutpKnowledgeBase.Services
         Composition = 1,
         AdditionalEquipment = 2,
         DocsAndSoftware = 3,
+        Network = 4,
         Maintenance = 5
     }
 
@@ -86,6 +87,16 @@ namespace AsutpKnowledgeBase.Services
                     Kind = KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware,
                     Title = "Документация и ПО",
                     Description = "Показывает ссылки на документы и программное обеспечение для этого узла."
+                });
+            }
+
+            if (KnowledgeBaseNodeMetadataService.SupportsNetworkTopology(visibleLevel))
+            {
+                tabs.Add(new KnowledgeBaseNodeWorkspaceTabState
+                {
+                    Kind = KnowledgeBaseNodeWorkspaceTabKind.Network,
+                    Title = "Сеть",
+                    Description = "Графическая топология сети выбранного узла."
                 });
             }
 

@@ -125,11 +125,13 @@ namespace AsutpKnowledgeBase
         private TabPage tabSelectedNodeComposition = null!;
         private TabPage tabSelectedNodeAdditionalEquipment = null!;
         private TabPage tabSelectedNodeDocsAndSoftware = null!;
+        private TabPage tabSelectedNodeNetwork = null!;
         private TabPage tabSelectedNodeMaintenance = null!;
         private KnowledgeBaseInfoScreenControl selectedNodeInfoScreen = null!;
         private KnowledgeBaseCompositionScreenControl selectedNodeCompositionScreen = null!;
         private KnowledgeBaseAdditionalEquipmentScreenControl selectedNodeAdditionalEquipmentScreen = null!;
         private KnowledgeBaseDocsAndSoftwareScreenControl selectedNodeDocsAndSoftwareScreen = null!;
+        private KnowledgeBaseNetworkTopologyScreenControl selectedNodeNetworkScreen = null!;
         private KnowledgeBaseMaintenanceScheduleScreenControl selectedNodeMaintenanceScreen = null!;
         private Label lblSelectedNodeDocsPlaceholder = null!;
 
@@ -422,6 +424,7 @@ namespace AsutpKnowledgeBase
                     selectedNodeCompositionScreen.ApplyState(selectedNodeState.Composition);
                     selectedNodeAdditionalEquipmentScreen.ApplyState(selectedNodeState.Composition);
                     selectedNodeDocsAndSoftwareScreen.ApplyState(selectedNodeState.DocsAndSoftware);
+                    selectedNodeNetworkScreen.ApplyState(selectedNodeState.NetworkTopology);
                     selectedNodeMaintenanceScreen.ApplyState(selectedNodeState.MaintenanceSchedule);
                 }
                 else
