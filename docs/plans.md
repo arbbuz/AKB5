@@ -5,7 +5,7 @@ Last updated: `2026-05-22`
 ## Active plan
 
 - Treat `C:\Users\Olga\Documents\Codex\2026-05-22\net-merge-workspace-resolver\base-d429330` on branch `net-ui-fixes-on-d429330` as the active worktree for this recovered package.
-- Current task: commit and push the manually accepted Level 2 `Сеть` topology canvas package to `origin/Net`.
+- Current task: manually accepted Level 2 `Сеть` topology canvas package has been committed and pushed to `origin/Net`.
 - Do not commit, push, merge, rebase, delete stash entries, or remove worktrees unless the user explicitly asks in the current chat.
 - Keep user-facing strings Russian-only.
 - Keep user-facing progress compact and validation-focused.
@@ -16,7 +16,7 @@ Last updated: `2026-05-22`
 - Persist topology through `KbNodeDetails.NetworkTopology` and the SQLite `details_network_topology_json` column.
 - Preserve existing dirty/save behavior by routing canvas edits through `HandleNodeDetailsChanged`.
 - Keep tests focused on tab availability, form state, SQLite schema/round-trip, and related workbook regression coverage already in the package.
-- After push, report the commit hash and final `origin/Net` state.
+- For future work, start from updated `origin/Net` and choose the next task explicitly.
 
 ## Not active / out of scope
 

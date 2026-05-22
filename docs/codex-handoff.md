@@ -4,7 +4,7 @@ Last updated: `2026-05-22`
 
 ## Current objective
 
-Network topology canvas package is manually accepted and ready on `origin/Net`.
+Network topology canvas package is manually accepted, committed, and pushed to `origin/Net`.
 
 The active package adds a Level 2 `Сеть` workspace tab with a graphical topology canvas: device creation, selection, double-click edit for name/IP, link mode, drag-and-drop positioning, and element deletion. It also connects topology edits to the existing dirty/save flow.
 
@@ -16,7 +16,7 @@ Do not commit, push, merge, rebase, or remove unrelated worktrees without explic
 - Active branch: `net-ui-fixes-on-d429330`
 - Baseline before this package: `45c94e7 Refactor card state and section panel`
 - No tracking branch was detected for this worktree.
-- The accepted package is intended to be committed from this worktree and pushed fast-forward to `origin/Net` under the 2026-05-22 user approval.
+- The accepted package was committed from this worktree and pushed fast-forward to `origin/Net` under the 2026-05-22 user approval.
 - The same package also contains a focused maintenance workbook style normalization fix/test that was already present in the interrupted work.
 - No real `.akb` or JSON user data files have been edited.
 
