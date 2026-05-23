@@ -4,26 +4,31 @@ Last updated: `2026-05-23`
 
 ## Active plan
 
-- Treat `C:\Users\Olga\Documents\Codex\2026-05-23\network-topology-icons` on branch `net-topology-icons` as the active worktree for the topology icons/camera-removal package.
-- Current task: user manual review of the published edit-dialog kind-fix build.
-- Do not commit, push, merge, rebase, delete stash entries, or remove worktrees unless the user explicitly asks in the current chat.
-- Keep the dirty prompt-removal worktree isolated and untouched.
-- Keep user-facing strings Russian-only.
+- Work in `C:\Users\Olga\AKB5` on branch `Net`, tracking `origin/Net`.
+- Current task: manual review of the fixed existing-link endpoint drag/reassignment.
+- Do not commit, push, merge, rebase, create remote branches, or edit user data files without explicit approval in the current chat.
 - Keep user-facing progress compact and validation-focused.
 
 ## Current implementation plan
 
-- Keep the Network topology canvas scoped to Level 2 nodes.
-- Use the approved icon mapping from `artifacts\icon-review\icon-review.html`, with the later approved replacement of panel by `ПЧ / преобразователь частоты` using Siemens iX `drive.svg`.
-- Keep HMI available as an approved topology element.
-- Keep camera unavailable for new/edited topology elements.
-- Use the published build at `artifacts\publish\network-topology-icons-vfd-editfix-win-x64\asutpKB.exe` for manual review.
+- Selected icon pair is implemented and manually accepted: SCALANCE `ix:network-wired`, HMI `ix:panel-ipc`.
+- Right-click on a link segment should offer `Удалить связь` and remove only that clicked `KbNetworkLink`.
+- Context-menu link-start command should read `Связать`; the toolbar command remains `Связь`.
+- Keep object deletion separate from link deletion; do not remove connected objects when deleting a link.
+- Link routing should connect device edge/port to device edge/port, not center-to-center.
+- Orthogonal routes should avoid unrelated device rectangles and should not visually merge a PLC-SCALANCE link with an SRV-SCALANCE link.
+- Devices above/below any object should connect to top/bottom ports; same-row devices should connect to left/right ports.
+- Port positions should be distributed per object side from all incident links to avoid false T-junctions on any object type.
+- Existing link endpoints should be draggable to another object without deleting/recreating the link.
+- Invalid drops should be ignored when they are outside an object, on the fixed endpoint object, or would duplicate an existing connection.
+- Drop validation must happen before clearing drag state; otherwise the dragged link snaps back to the old endpoint.
+- Validate with app format check and isolated Release build.
+- Keep existing Level 2-only Network topology behavior unchanged.
 
 ## Not active / out of scope
 
-- The separate prompt-removal package in another dirty worktree.
-- PRONETA/CSV import, live scan, OCR/PDF import, plan/fact comparison, data-quality issue panels, AKB5-driven IP/PROFINET-name assignment, or embedded PDF preview.
-- Direct edits to user databases.
+- PRONETA/CSV import, live scan, OCR/PDF import, plan/fact comparison, data-quality panels, AKB5-driven IP/PROFINET-name assignment, or embedded PDF preview.
+- Direct edits to real `.akb` or JSON user databases.
 - Commit/push without explicit approval.
 
 ## Update rule
