@@ -1086,13 +1086,12 @@ namespace AsutpKnowledgeBase.Services
         private static string GetDefaultNetworkElementName(KbNetworkElementKind kind) => kind switch
         {
             KbNetworkElementKind.Plc => "PLC",
-            KbNetworkElementKind.Panel => "Панель",
+            KbNetworkElementKind.FrequencyConverter => "ПЧ",
             KbNetworkElementKind.Scalance => "SCALANCE",
             KbNetworkElementKind.Arm => "АРМ",
             KbNetworkElementKind.Hmi => "HMI",
             KbNetworkElementKind.Server => "Сервер",
             KbNetworkElementKind.Io => "I/O",
-            KbNetworkElementKind.Camera => "Камера",
             _ => "Устройство"
         };
 

@@ -3,13 +3,14 @@ namespace AsutpKnowledgeBase.Models
     public enum KbNetworkElementKind
     {
         Plc = 0,
-        Panel = 1,
+        FrequencyConverter = 1,
+        [System.Obsolete("Use FrequencyConverter.")]
+        Panel = FrequencyConverter,
         Scalance = 2,
         Arm = 3,
         Hmi = 4,
         Server = 5,
         Io = 6,
-        Camera = 7,
         Other = 99
     }
 

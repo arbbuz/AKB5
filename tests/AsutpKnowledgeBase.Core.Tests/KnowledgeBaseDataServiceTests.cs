@@ -245,6 +245,81 @@ public class KnowledgeBaseDataServiceTests
     }
 
     [Fact]
+    public void NormalizeNetworkTopology_MapsObsoleteCameraKindToOther()
+    {
+        var topology = new KbNetworkTopology
+        {
+            Elements =
+            {
+                new KbNetworkElement
+                {
+                    ElementId = "camera-1",
+                    Kind = (KbNetworkElementKind)7,
+                    Name = "",
+                    X = 12,
+                    Y = 18
+                }
+            }
+        };
+
+        KbNetworkTopology normalized = KnowledgeBaseDataService.NormalizeNetworkTopology(topology);
+
+        KbNetworkElement element = Assert.Single(normalized.Elements);
+        Assert.Equal(KbNetworkElementKind.Other, element.Kind);
+        Assert.Equal("Устройство", element.Name);
+    }
+
+    [Fact]
+    public void NormalizeNetworkTopology_PreservesApprovedHmiKind()
+    {
+        var topology = new KbNetworkTopology
+        {
+            Elements =
+            {
+                new KbNetworkElement
+                {
+                    ElementId = "hmi-1",
+                    Kind = KbNetworkElementKind.Hmi,
+                    Name = "",
+                    X = 24,
+                    Y = 30
+                }
+            }
+        };
+
+        KbNetworkTopology normalized = KnowledgeBaseDataService.NormalizeNetworkTopology(topology);
+
+        KbNetworkElement element = Assert.Single(normalized.Elements);
+        Assert.Equal(KbNetworkElementKind.Hmi, element.Kind);
+        Assert.Equal("HMI", element.Name);
+    }
+
+    [Fact]
+    public void NormalizeNetworkTopology_PreservesApprovedFrequencyConverterKind()
+    {
+        var topology = new KbNetworkTopology
+        {
+            Elements =
+            {
+                new KbNetworkElement
+                {
+                    ElementId = "vfd-1",
+                    Kind = (KbNetworkElementKind)1,
+                    Name = "",
+                    X = 36,
+                    Y = 42
+                }
+            }
+        };
+
+        KbNetworkTopology normalized = KnowledgeBaseDataService.NormalizeNetworkTopology(topology);
+
+        KbNetworkElement element = Assert.Single(normalized.Elements);
+        Assert.Equal(KbNetworkElementKind.FrequencyConverter, element.Kind);
+        Assert.Equal("ПЧ", element.Name);
+    }
+
+    [Fact]
     public void NormalizeSavedData_PreservesInventoryNumberForVisibleLevel2NodeWithoutHiddenWrapper()
     {
         var normalized = KnowledgeBaseDataService.NormalizeSavedData(
