@@ -5,7 +5,7 @@ Last updated: `2026-05-23`
 ## Active plan
 
 - Treat `C:\Users\Olga\Documents\Codex\2026-05-23\network-topology-icons` on branch `net-topology-icons` as the active worktree for the topology icons/camera-removal package.
-- Current task: user manual review of the published `ПЧ / преобразователь частоты` build.
+- Current task: user manual review of the published edit-dialog kind-fix build.
 - Do not commit, push, merge, rebase, delete stash entries, or remove worktrees unless the user explicitly asks in the current chat.
 - Keep the dirty prompt-removal worktree isolated and untouched.
 - Keep user-facing strings Russian-only.
@@ -17,7 +17,7 @@ Last updated: `2026-05-23`
 - Use the approved icon mapping from `artifacts\icon-review\icon-review.html`, with the later approved replacement of panel by `ПЧ / преобразователь частоты` using Siemens iX `drive.svg`.
 - Keep HMI available as an approved topology element.
 - Keep camera unavailable for new/edited topology elements.
-- Use the published build at `artifacts\publish\network-topology-icons-vfd-win-x64\asutpKB.exe` for manual review.
+- Use the published build at `artifacts\publish\network-topology-icons-vfd-editfix-win-x64\asutpKB.exe` for manual review.
 
 ## Not active / out of scope
 

@@ -374,18 +374,16 @@ namespace AsutpKnowledgeBase
                 layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
                 layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
+                List<KindOption> kindOptions = GetKindOptions();
                 _cmbKind = new ComboBox
                 {
                     Dock = DockStyle.Top,
                     DropDownStyle = ComboBoxStyle.DropDownList,
-                    DataSource = GetKindOptions(),
-                    DisplayMember = nameof(KindOption.Label),
-                    ValueMember = nameof(KindOption.Kind),
                     Margin = new Padding(0, 0, 0, 8)
                 };
-                _cmbKind.SelectedValue = GetKindOptions().Any(option => option.Kind == element.Kind)
-                    ? element.Kind
-                    : KbNetworkElementKind.Other;
+                _cmbKind.Items.AddRange(kindOptions.Cast<object>().ToArray());
+                _cmbKind.SelectedItem = kindOptions.FirstOrDefault(option => option.Kind == element.Kind) ??
+                    kindOptions.First(option => option.Kind == KbNetworkElementKind.Other);
 
                 _txtName = new TextBox
                 {
@@ -440,7 +438,7 @@ namespace AsutpKnowledgeBase
             }
 
             public KbNetworkElementKind ElementKind =>
-                _cmbKind.SelectedValue is KbNetworkElementKind kind ? kind : KbNetworkElementKind.Other;
+                _cmbKind.SelectedItem is KindOption option ? option.Kind : KbNetworkElementKind.Other;
 
             public string ElementName => _txtName.Text.Trim();
 
@@ -467,7 +465,10 @@ namespace AsutpKnowledgeBase
                 new(KbNetworkElementKind.Other, "Другое")
             ];
 
-            private sealed record KindOption(KbNetworkElementKind Kind, string Label);
+            private sealed record KindOption(KbNetworkElementKind Kind, string Label)
+            {
+                public override string ToString() => Label;
+            }
         }
 
         private enum NetworkCommandIconKind

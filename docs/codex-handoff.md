@@ -60,6 +60,19 @@ Additional validation after applying the approved `ПЧ`/Siemens iX `drive.svg` 
 - Smoke artifact visually checked: toolbar contains `ПЧ`, canvas contains `ПЧ-01`, and the former camera kind still normalizes to `Устройство`.
 - Publish succeeded to `artifacts\publish\network-topology-icons-vfd-win-x64`; executable: `artifacts\publish\network-topology-icons-vfd-win-x64\asutpKB.exe`.
 
+Additional validation after fixing the edit dialog kind reset:
+
+- Root cause: `NetworkElementDialog` used `ComboBox.DataSource`/`SelectedValue`; after editing IP the selected kind could fall back to the first item (`PLC`). The dialog now uses direct `Items` with a typed `SelectedItem`.
+- Smoke regression was added locally under ignored `artifacts\ui-smoke\NetworkTopologyIconSmoke` and verifies that editing IP preserves `FrequencyConverter`, `Scalance`, and `Hmi`.
+- `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore` passed.
+- `dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore` passed.
+- `dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore` passed.
+- `dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\network-topology-dialog-kind-fix /clp:ErrorsOnly -p:UseSharedCompilation=false` passed with 38 warnings and 0 errors.
+- `dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore /clp:ErrorsOnly` passed: 394 passed, 0 failed, 0 skipped.
+- `dotnet build artifacts\ui-smoke\NetworkTopologyIconSmoke\NetworkTopologyIconSmoke.csproj --configuration Release /clp:ErrorsOnly -p:UseSharedCompilation=false` passed with existing warnings and 0 errors.
+- `dotnet run --project artifacts\ui-smoke\NetworkTopologyIconSmoke\NetworkTopologyIconSmoke.csproj --configuration Release --no-build` passed: `buttonsWithIcons=10`, `coloredPixels=12645`.
+- Publish succeeded to `artifacts\publish\network-topology-icons-vfd-editfix-win-x64`; executable: `artifacts\publish\network-topology-icons-vfd-editfix-win-x64\asutpKB.exe`.
+
 ## Known risks / open questions
 
 - Release build still reports the repo's existing warning set; warnings were not part of this task.
@@ -68,7 +81,7 @@ Additional validation after applying the approved `ПЧ`/Siemens iX `drive.svg` 
 
 ## Recommended next step
 
-Ask the user to test `C:\Users\Olga\Documents\Codex\2026-05-23\network-topology-icons\artifacts\publish\network-topology-icons-vfd-win-x64\asutpKB.exe`. If accepted, request explicit approval before committing or pushing `net-topology-icons`.
+Ask the user to test `C:\Users\Olga\Documents\Codex\2026-05-23\network-topology-icons\artifacts\publish\network-topology-icons-vfd-editfix-win-x64\asutpKB.exe`.
 
 ## Commands to run before finishing future implementation work
 
