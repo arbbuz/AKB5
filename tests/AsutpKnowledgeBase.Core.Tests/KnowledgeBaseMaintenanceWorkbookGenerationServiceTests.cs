@@ -228,6 +228,62 @@ public class KnowledgeBaseMaintenanceWorkbookGenerationServiceTests
     }
 
     [Fact]
+    public void GenerateYearWorkbook_PacksSameSystemAssignmentsAndChecksRouteSystemMix()
+    {
+        KnowledgeBaseMaintenanceYearWorkbookGenerationResult result = _service.GenerateYearWorkbook(
+            existingWorkbookPackage: null,
+            year: 2026,
+            totalMonthlyHourBudget: 40,
+            BuildTwoCabinetRoots(),
+            new[]
+            {
+                new KbMaintenanceScheduleProfile
+                {
+                    OwnerNodeId = "cabinet-1",
+                    IsIncludedInSchedule = true,
+                    YearScheduleEntries =
+                    {
+                        new KbMaintenanceYearScheduleEntry
+                        {
+                            Month = 1,
+                            WorkKind = KbMaintenanceWorkKind.To3,
+                            Hours = 8
+                        }
+                    }
+                },
+                new KbMaintenanceScheduleProfile
+                {
+                    OwnerNodeId = "cabinet-2",
+                    IsIncludedInSchedule = true,
+                    YearScheduleEntries =
+                    {
+                        new KbMaintenanceYearScheduleEntry
+                        {
+                            Month = 1,
+                            WorkKind = KbMaintenanceWorkKind.To3,
+                            Hours = 8
+                        }
+                    }
+                }
+            });
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        KnowledgeBaseMaintenanceYearWorkbookGenerationMonthResult januaryResult =
+            Assert.Single(result.MonthResults.Where(static monthResult => monthResult.Month == 1));
+        Assert.NotNull(januaryResult.PlanResult);
+        AssertRouteSystemMixRules(januaryResult.PlanResult!);
+        AssertNoSameOwnerDateConflicts(januaryResult.PlanResult!);
+
+        DateOnly[] systemDates = januaryResult.PlanResult!.PlannedDays
+            .SelectMany(static day => day.Assignments)
+            .Where(static assignment => assignment.SystemNodeId == "system-1")
+            .Select(static assignment => assignment.Date)
+            .Distinct()
+            .ToArray();
+        Assert.Single(systemDates);
+    }
+
+    [Fact]
     public void GenerateYearWorkbook_WhenExistingPathContainsAnnualWorkbook_StartsFromMonthlyTemplate()
     {
         byte[] annualWorkbook = Assert.IsType<byte[]>(
@@ -430,6 +486,40 @@ public class KnowledgeBaseMaintenanceWorkbookGenerationServiceTests
         }
     ];
 
+    private static KbNode[] BuildTwoCabinetRoots() =>
+    [
+        new KbNode
+        {
+            NodeId = "department-1",
+            Name = "Отделение 1",
+            NodeType = KbNodeType.Department,
+            Children =
+            {
+                new KbNode
+                {
+                    NodeId = "system-1",
+                    Name = "Система 1",
+                    NodeType = KbNodeType.System,
+                    Children =
+                    {
+                        new KbNode
+                        {
+                            NodeId = "cabinet-1",
+                            Name = "Шкаф 1",
+                            NodeType = KbNodeType.Cabinet
+                        },
+                        new KbNode
+                        {
+                            NodeId = "cabinet-2",
+                            Name = "Шкаф 2",
+                            NodeType = KbNodeType.Cabinet
+                        }
+                    }
+                }
+            }
+        }
+    ];
+
     private static string ReadCellText(byte[] workbookPackage, string sheetName, string cellReference)
     {
         using var stream = new MemoryStream(workbookPackage);
@@ -469,5 +559,40 @@ public class KnowledgeBaseMaintenanceWorkbookGenerationServiceTests
             .Elements<Sheet>()
             .Select(static sheet => sheet.Name?.Value ?? string.Empty)
             .ToArray();
+    }
+
+    private static void AssertNoSameOwnerDateConflicts(KnowledgeBaseMaintenanceMonthPlanResult result)
+    {
+        var conflicts = result.PlannedDays
+            .SelectMany(static day => day.Assignments.Select(assignment => new
+            {
+                day.Date,
+                assignment.OwnerNodeId
+            }))
+            .Where(static assignment => !string.IsNullOrWhiteSpace(assignment.OwnerNodeId))
+            .GroupBy(static assignment => (assignment.Date, assignment.OwnerNodeId))
+            .Where(static group => group.Count() > 1)
+            .ToList();
+
+        Assert.Empty(conflicts);
+    }
+
+    private static void AssertRouteSystemMixRules(KnowledgeBaseMaintenanceMonthPlanResult result)
+    {
+        Assert.All(
+            result.PlannedDays,
+            static day =>
+            {
+                int largeSystemCount = day.Assignments
+                    .Where(static assignment => assignment.SystemLevel3NodeCount > 2)
+                    .Select(static assignment => string.IsNullOrWhiteSpace(assignment.SystemNodeId)
+                        ? $"owner:{assignment.OwnerNodeId}"
+                        : $"system:{assignment.SystemNodeId}")
+                    .Where(static key => !string.IsNullOrWhiteSpace(key))
+                    .Distinct(StringComparer.Ordinal)
+                    .Count();
+
+                Assert.True(largeSystemCount <= 1, $"Expected at most 1 large system on {day.Date}, got {largeSystemCount}.");
+            });
     }
 }

@@ -13,7 +13,6 @@ namespace AsutpKnowledgeBase
         private Button _btnAddSlotted = null!;
         private Button _btnCopyFromExisting = null!;
         private FlowLayoutPanel _rackPanel = null!;
-        private ToolTip _toolTip = null!;
 
         private KnowledgeBaseCompositionState _currentState = new();
         private bool _isSynchronizingSelection;
@@ -23,11 +22,6 @@ namespace AsutpKnowledgeBase
         public KnowledgeBaseCompositionScreenControl()
         {
             Dock = DockStyle.Fill;
-
-            _toolTip = new ToolTip
-            {
-                ShowAlways = true
-            };
 
             var layout = new TableLayoutPanel
             {
@@ -52,7 +46,6 @@ namespace AsutpKnowledgeBase
             };
 
             _btnAddRack = CreateSquareActionButton("+");
-            _toolTip.SetToolTip(_btnAddRack, "Добавить Rack");
             _btnAddRack.Click += (_, _) => AddRackRequested?.Invoke(this, EventArgs.Empty);
             _btnEditRack = CreateActionButton("Изменить Rack");
             _btnEditRack.Click += (_, _) => EditRackRequested?.Invoke(this, EventArgs.Empty);

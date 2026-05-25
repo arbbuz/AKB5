@@ -1,10 +1,10 @@
 # Current State
 
-Last updated: `2026-05-23`
+Last updated: `2026-05-24`
 
 ## Current objective
 
-Level 2 Network topology usability tweaks on `Net` are implemented and manually accepted by the user. The selected SCALANCE/HMI icon replacement and universal port-distributed routing are also manually accepted by the user. The current follow-up is fixing link endpoint drag/reassignment so dropping the dragged endpoint on another object actually persists.
+Codex-doc cleanup by the Dicta pattern is completed locally on `Net`: common operating rules belong in `C:\Users\Olga\.codex\AGENTS.md`, while the main AKB5 workspace keeps only AKB5-specific `AGENTS.md` rules and active continuity docs. Level 2 Network topology usability tweaks on `Net` are implemented, committed, pushed, and manually accepted through link endpoint drag/reassignment. Current uncommitted follow-ups are implemented and manually accepted: scaled Network canvas objects and IP duplicate/validity checks in the topology element dialog. A single-instance startup guard, a no-hover-tooltip UI regression cleanup, balanced maintenance schedule no-fail fallback fix, and Lvl2 inventory-number field visibility fix have also been implemented and validated locally. User approved commit/push to `Net`.
 
 - SCALANCE: `ix:network-wired`;
 - HMI: `ix:panel-ipc`.
@@ -18,6 +18,8 @@ Implemented accepted behavior:
 - route links from device edge/port to device edge/port instead of center-to-center;
 - distribute link ports along the chosen card side for every object, based on all links attached to that side;
 - allow dragging an existing link endpoint to another object while preserving the existing link record;
+- scale topology objects on the Network canvas for readability;
+- validate entered topology IP addresses and prevent duplicates on the same Network diagram;
 - render the IP address at the top of the element card in a more readable semibold badge instead of below the device image.
 
 Do not commit, push, merge, rebase, or create/remove remote branches without explicit approval in the current chat.
@@ -28,16 +30,50 @@ Do not commit, push, merge, rebase, or create/remove remote branches without exp
 - Active branch: `Net`
 - Tracking branch: `origin/Net`
 - Local `Net` was aligned to `origin/Net` after explicit user approval in the current chat.
-- Current upstream base before local edits: `e6baef3 Fix network topology edit kind retention`.
-- Working tree has uncommitted local edits for this task.
+- Current upstream base before the scale follow-up: `1f87bb5 Improve network topology editing`.
+- Working tree has local edits ready for commit/push: the scale follow-up, the single-instance startup guard, the no-hover-tooltip cleanup, the balanced maintenance schedule no-fail fallback fix, Lvl2 inventory-number field visibility fix, and AKB5 Codex-doc cleanup.
+- Global Codex rules were moved/expanded in `C:\Users\Olga\.codex\AGENTS.md` so AKB5 `AGENTS.md` can stay project-specific.
+- Historical AKB5/Net/network-topology worktrees and snapshots under `C:\Users\Olga\Documents\Codex\...` were inspected as references only; none were edited or deleted.
 - No real `.akb` or JSON user data files were edited.
 - No commit or push has been performed for this task.
 
 ## Current package
 
-Changed file:
+Changed files:
 
 - `Controls/KnowledgeBaseNetworkTopologyScreenControl.cs`
+- `Controls/KnowledgeBaseAdditionalEquipmentScreenControl.cs`
+- `Controls/KnowledgeBaseCompositionScreenControl.cs`
+- `Controls/KnowledgeBaseWorkspaceVisuals.cs`
+- `Forms/MainForm.Layout.cs`
+- `Forms/MainForm.cs`
+- `Forms/KnowledgeBaseChangeHistoryForm.cs`
+- `Forms/KnowledgeBaseEquipmentCatalogForm.cs`
+- `Forms/KnowledgeBaseEquipmentCatalogSelectionDialog.cs`
+- `Forms/KnowledgeBaseMaintenanceAnnualWorkbookExportDialog.cs`
+- `Forms/KnowledgeBaseMaintenanceYearScheduleSourceDialog.cs`
+- `Forms/KnowledgeBaseMaintenanceYearWorkbookExportDialog.cs`
+- `Forms/KnowledgeBaseMaintenanceYearWorkbookRecalculationDialog.cs`
+- `Forms/KnowledgeBaseSnapshotBrowserForm.cs`
+- `Forms/KnowledgeBaseSnapshotsAndHistoryForm.cs`
+- `Program.cs`
+- `Models/KbMaintenanceMonthPlanAssignment.cs`
+- `Models/KbMaintenanceMonthWorkItem.cs`
+- `Services/KnowledgeBaseMaintenanceMonthWorkResolverService.cs`
+- `Services/KnowledgeBaseMaintenanceMonthlyPlannerService.cs`
+- `Services/KnowledgeBaseFormStateService.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseFormStateServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseMaintenanceMonthWorkResolverServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseMaintenanceMonthlyPlannerServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseMaintenanceMonthlyPlannerIntegrationTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseMaintenanceWorkbookGenerationServiceTests.cs`
+- `C:\Users\Olga\.codex\AGENTS.md`
+- `AGENTS.md`
+- `docs/codex-handoff.md`
+- `docs/decision-log.md`
+- `docs/lessons-learned.md`
+- `docs/plans.md`
+- `Roadmap.md`
 
 Implemented behavior:
 
@@ -55,10 +91,32 @@ Implemented behavior:
 - Left-dragging an existing link starts endpoint reassignment. The nearest endpoint to the click is treated as the moving endpoint; releasing over another object updates that endpoint and preserves the existing `LinkId`.
 - Invalid link endpoint drops are ignored: releasing outside an object, onto the fixed endpoint object, or onto an already-existing duplicate connection leaves the link unchanged.
 - The initial endpoint-drag implementation cleared drag state before validating the drop, so the target was rejected and the link snapped back. This is fixed: drop validation and endpoint update now happen before drag state is cleared.
+- Network canvas element cards are scaled from `112x84` to `134x101`; device icons from `38` to `46`; default placement spacing and link port/stub spacing were scaled to match.
+- Element name text was scaled by roughly 20%; IP badge height and IP font were scaled by roughly 30%.
+- `NetworkElementDialog` now validates IP on OK for both add and edit. Empty IP is allowed; partial IP and octets outside `0..255` are rejected; normalized duplicate IP addresses already used by another element on the same diagram are rejected with a warning.
 - SCALANCE and HMI topology icons were replaced with the user-selected Siemens iX icons: `ix:network-wired` and `ix:panel-ipc`.
 - The existing edit dialog kind-retention behavior is preserved for already-created elements.
 - The topology canvas card height was slightly increased to fit the top IP badge.
 - IP text now renders in a top badge with `Segoe UI Semibold`; the device icon is shifted below it, and the element name remains at the bottom.
+- `Program.Main` now creates a per-user named mutex (`Local\AKB5.AsutpKnowledgeBase.SingleInstance`) before starting the WinForms shell. If another instance is already running, the new process shows an informational message and exits without opening a second `MainForm`.
+- Maintenance monthly planning now distinguishes large systems (`Lvl2` systems with more than two visible `Lvl3` children) from small systems. A working day may contain at most one large system; small systems can be added as fillers, including third and later systems, only while the resulting day stays within the shift-load limit.
+- The planner now computes `AK9`-style balance from actual planned/requested hours per working day, not from a manually entered monthly fund. The entered fund remains the capacity check.
+- Day selection now avoids exceeding the shift-load limit when a feasible day exists. This fixes bad local optima where `19 + 8 = 27` or an August day at `22 h` were accepted while other working days still had usable capacity.
+- The shift-load limit is `16 h` while `AK9 <= 16`; when `AK9 > 16`, the planner may exceed `16 h` and uses `ceil(AK9) + 1` as a small route-constraint allowance.
+- The planner now uses a constrained visit queue instead of scheduling one entire system stream before the next. At each step it places the next visit from the group with the fewest feasible days, which prevents large systems from consuming all day capacity before narrow small-system fillers are considered.
+- Candidate day ranking is intentional and should stay in this order: feasible-day scarcity first, shift-load-limit compliance, empty day while the month has not reached the target occupied working-day count, future same-system continuation before calendar rollback, nearest continuation date, closeness to `AK9`, lower current load, small-system filler below target, lower projected total, weak adjacency penalties, earlier date.
+- Continuations for the same system now prefer the nearest next feasible working day before other balance criteria, so a split route does not skip a working day solely to avoid same-system adjacency.
+- Multiple work assignments from the same `SystemNodeId` may share a date when they belong to different owner nodes. A repeated assignment for the same `OwnerNodeId` on the same date remains blocked, so split work for one object continues on the next working day.
+- The planner now carries `SystemLevel3NodeCount` from the tree resolver into work items and planned assignments so route-size rules are based on the actual visible hierarchy, not only the number of assignments due in a month.
+- The same system-flow rule applies through all workbook generation paths that use the monthly planner: single month, month update, full year-by-month generation, and partial year recalculation. The annual summary workbook has no day-level placement, so no same-day route conflict can be created there.
+- Common Codex operating rules now live in `C:\Users\Olga\.codex\AGENTS.md`; AKB5 `AGENTS.md` now points there and keeps project-specific rules only.
+- Dicta's `C:\Users\Olga\Documents\VoiceHelper\AGENTS.md` / `docs` split was used as the pattern for the AKB5 cleanup.
+- Historical candidates inspected under `C:\Users\Olga\Documents\Codex\...`: `2026-05-18\akb5-card-git-c-c-users`, `2026-05-19\akb5-net-git-c-c-users-3`, `2026-05-22\net-merge-workspace-resolver\base-d429330`, `2026-05-22\net-merge-workspace-resolver\merged-net`, and `2026-05-23\network-topology-icons`. They were not edited or deleted.
+- Hover/popup tooltips have been removed from the main toolbar/search/tree, Network topology toolbar/add buttons, Composition add-rack button, and Additional Equipment rows.
+- Automatic WinForms hover tooltips are disabled for ToolStrip/ListView/DataGridView surfaces that were touched by this cleanup; `SaveToolTip` form-state plumbing was removed.
+- `AGENTS.md`, `docs/decision-log.md`, `docs/lessons-learned.md`, `docs/plans.md`, and `Roadmap.md` now document that hover/popup tooltips must not be reintroduced.
+- Lvl2 inventory-number field visibility is restored in the info screen. The inventory `TextBox` is wrapped in a field-frame panel; the row-height toggle now targets the actual summary `TableLayoutPanel`, so existing Lvl2 inventory data is visible/editable again.
+- Maintenance monthly planning no longer fails merely because no day satisfies every soft route/load preference. Repeating the same owner object on one date remains blocked; shift overload and same-day large-system mixing are last-resort penalties so a feasible month still produces a workbook.
 
 ## Validation status
 
@@ -84,33 +142,142 @@ Validation completed in `C:\Users\Olga\AKB5`:
 - `dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\network-link-reassign /p:RunAnalyzers=false /p:WarningLevel=0`: passed with 0 warnings and 0 errors.
 - Manual review did not pass for the first endpoint-drag build: the link moved visually but returned to the old endpoint after drop.
 - `dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\network-link-reassign-fix /p:RunAnalyzers=false /p:WarningLevel=0`: passed with 0 warnings and 0 errors.
+- Manual review passed per user message on `2026-05-23` for the fixed endpoint-drag build.
+- `dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\network-scale-objects /p:RunAnalyzers=false /p:WarningLevel=0`: passed with 0 warnings and 0 errors.
+- `dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\network-ip-duplicates /p:RunAnalyzers=false /p:WarningLevel=0`: passed with 0 warnings and 0 errors.
+- Manual review passed per user message on `2026-05-24` for scaled Network objects and IP duplicate/validity checks.
+- `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore`: passed after the single-instance guard change.
+- `dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\single-instance /p:RunAnalyzers=false /p:WarningLevel=0`: passed with 0 warnings and 0 errors.
+- `git diff --check`: passed with only CRLF normalization warnings.
+- `dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0 --filter "FullyQualifiedName~KnowledgeBaseMaintenanceMonthlyPlanner"`: passed, 16 tests before system-flow refinement.
+- `dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0 --filter "FullyQualifiedName~KnowledgeBaseMaintenance"`: passed, 111 tests before system-flow refinement.
+- `dotnet format src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore`: passed.
+- `dotnet format tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore`: passed.
+- `dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\maintenance-same-system-day /p:RunAnalyzers=false /p:WarningLevel=0`: passed with 0 warnings and 0 errors.
+- `dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0`: passed, 395 tests.
+- Inspected `C:\Users\Olga\Pictures\Купоросный цех (КЦ)_ГрафикТО_2026_01.xlsx`: first working day `12.01.2026` had 5 assignments across 5 systems and 21 hours, confirming the route-mixing problem.
+- `dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0 --filter "FullyQualifiedName~KnowledgeBaseMaintenanceMonthlyPlanner"`: passed after system-flow refinement, 16 tests.
+- `dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0 --filter "FullyQualifiedName~KnowledgeBaseMaintenance"`: passed after system-flow refinement, 112 tests.
+- `dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\maintenance-system-flow /p:RunAnalyzers=false /p:WarningLevel=0`: passed with 0 warnings and 0 errors.
+- `dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0`: passed after system-flow refinement, 396 tests.
+- Inspected `C:\Users\Olga\Pictures\Купоросный цех (КЦ)_ГрафикТО_2026_01.xlsx`, `...\_2026_02.xlsx`, and `...\_2026_03.xlsx`: the rejected outputs still had overloaded days such as January `23` with `39 h`, January `28` with `38 h`, and January `30` with `7 h`; this confirmed that the earlier two-system cap did not express the route logic.
+- `dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0 --filter "FullyQualifiedName~KnowledgeBaseMaintenanceMonthlyPlanner"`: passed after refined route-flow fix, 19 tests.
+- `dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0 --filter "FullyQualifiedName~KnowledgeBaseMaintenance"`: passed after refined route-flow fix, 115 tests.
+- `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore`: passed.
+- `dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore`: passed.
+- `dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore`: passed.
+- `dotnet build asutpKB.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0`: passed with 0 warnings and 0 errors.
+- `dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0`: passed, 399 tests.
+- `dotnet publish asutpKB.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts\publish\win-x64 /p:RunAnalyzers=false /p:WarningLevel=0`: passed; manual-review executable is `C:\Users\Olga\AKB5\artifacts\publish\win-x64\asutpKB.exe`.
+- `git diff --check`: passed with only CRLF normalization warnings.
+- `dotnet build asutpKB.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0`: passed after tooltip cleanup with 0 warnings and 0 errors.
+- `dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~KnowledgeBaseFormStateService" /p:RunAnalyzers=false /p:WarningLevel=0`: passed after removing `SaveToolTip`, 16 tests.
+- `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore`: passed after tooltip cleanup.
+- `dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore`: passed after tooltip cleanup.
+- `dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore`: passed after tooltip cleanup.
+- `dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0`: passed after tooltip cleanup, 399 tests.
+- `dotnet publish asutpKB.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts\publish\win-x64 /p:RunAnalyzers=false /p:WarningLevel=0`: passed after tooltip cleanup; manual-review executable is `C:\Users\Olga\AKB5\artifacts\publish\win-x64\asutpKB.exe`.
+- Inspected the user-provided rejected `C:\Users\Olga\Pictures\Купоросный цех (КЦ)_ГрафикТО_2026_01.xlsx`: `AK8=290`, `AK9=19.333333333333332`, `AL9=15`; day totals included `22.01=27`, `29.01=0`, `30.01=2`, confirming the remaining balance failure.
+- `dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~KnowledgeBaseMaintenanceMonthlyPlannerServiceTests" /p:RunAnalyzers=false /p:WarningLevel=0`: passed after balance fix, 17 tests.
+- Diagnostic read-only run against `C:\Users\Olga\AKB5\bin\Release\net8.0-windows\database\knowledge-base.akb` for KЦ with workbook budgets from the rejected files:
+  - January 2026, budget `290`, `AK9=19.33`: `empty=0`, min/max `13..21`, totals `12:20, 13:20, 14:19, 15:19, 16:20, 19:17, 20:16, 21:19, 22:20, 23:19, 26:21, 27:21, 28:16, 29:20, 30:13`.
+  - February 2026, budget `285`, `AK9=15.00`: `empty=0`, min/max `10..16`.
+  - March 2026, budget `303`, `AK9=14.43`: `empty=0`, min/max `9..17`.
+- Diagnostic read-only full-year KЦ run against the current `C:\Users\Olga\AKB5\bin\Release\net8.0-windows\database\knowledge-base.akb` using monthly default budgets (`budget = current month demand`) passed for all 12 months; log: `artifacts\diagnostics\maintenance-full-year-check\full-year-kc-2026.log`.
+  - January: requested/budget `280`, working days `15`, `AK9=18.67`, `empty=0`, min/max `15..23`.
+  - February: requested/budget `275`, working days `19`, `AK9=14.47`, `empty=0`, min/max `10..16`.
+  - March: requested/budget `288`, working days `21`, `AK9=13.71`, `empty=0`, min/max `8..17`.
+  - April: requested/budget `289`, working days `22`, `AK9=13.14`, `empty=0`, min/max `8..16`.
+  - May: requested/budget `287`, working days `19`, `AK9=15.11`, `empty=0`, min/max `11..22`.
+  - June: requested/budget `287`, working days `21`, `AK9=13.67`, `empty=0`, min/max `8..17`.
+  - July: requested/budget `274`, working days `23`, `AK9=11.91`, `empty=0`, min/max `6..16`.
+  - August: requested/budget `290`, working days `21`, `AK9=13.81`, `empty=0`, min/max `8..22`.
+  - September: requested/budget `273`, working days `22`, `AK9=12.41`, `empty=0`, min/max `6..16`.
+  - October: requested/budget `282`, working days `22`, `AK9=12.82`, `empty=0`, min/max `6..16`.
+  - November: requested/budget `301`, working days `20`, `AK9=15.05`, `empty=0`, min/max `10..24`.
+  - December: requested/budget `281`, working days `22`, `AK9=12.77`, `empty=0`, min/max `6..18`.
+- Diagnostic read-only full-year KЦ rerun after the shift-limit/visit-queue refinement passed for all 12 months; log: `artifacts\diagnostics\maintenance-full-year-check\full-year-kc-2026-after-ak9-over16-slack.log`.
+  - January: requested/budget `280`, working days `15`, `AK9=18.67`, `empty=0`, min/max `9..20`.
+  - February: requested/budget `275`, working days `19`, `AK9=14.47`, `empty=0`, min/max `7..16`.
+  - March: requested/budget `288`, working days `21`, `AK9=13.71`, `empty=0`, min/max `4..16`.
+  - April: requested/budget `289`, working days `22`, `AK9=13.14`, `empty=0`, min/max `2..16`.
+  - May: requested/budget `287`, working days `19`, `AK9=15.11`, `empty=0`, min/max `12..16`.
+  - June: requested/budget `287`, working days `21`, `AK9=13.67`, `empty=0`, min/max `4..16`.
+  - July: requested/budget `274`, working days `23`, `AK9=11.91`, `empty=0`, min/max `2..16`.
+  - August: requested/budget `290`, working days `21`, `AK9=13.81`, `empty=0`, min/max `6..16`.
+  - September: requested/budget `273`, working days `22`, `AK9=12.41`, `empty=0`, min/max `2..16`.
+  - October: requested/budget `282`, working days `22`, `AK9=12.82`, `empty=0`, min/max `6..16`.
+  - November: requested/budget `301`, working days `20`, `AK9=15.05`, `empty=0`, min/max `12..16`.
+  - December: requested/budget `281`, working days `22`, `AK9=12.77`, `empty=0`, min/max `2..16`.
+- `dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~KnowledgeBaseMaintenanceMonthlyPlannerServiceTests" /p:RunAnalyzers=false /p:WarningLevel=0`: passed after shift-limit/visit-queue refinement, 18 tests.
+- `dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~KnowledgeBaseMaintenance" /p:RunAnalyzers=false /p:WarningLevel=0`: passed after shift-limit/visit-queue refinement, 118 tests.
+- `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore`: passed after shift-limit/visit-queue refinement.
+- `dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore`: passed after shift-limit/visit-queue refinement.
+- `dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore`: passed after shift-limit/visit-queue refinement.
+- `dotnet build asutpKB.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0`: passed after shift-limit/visit-queue refinement with 0 warnings and 0 errors.
+- `dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0`: passed after shift-limit/visit-queue refinement, 402 tests.
+- `dotnet publish asutpKB.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts\publish\win-x64 /p:RunAnalyzers=false /p:WarningLevel=0`: passed after shift-limit/visit-queue refinement; manual-review executable is `C:\Users\Olga\AKB5\artifacts\publish\win-x64\asutpKB.exe`.
+- Final diagnostic read-only full-year KЦ run after publish passed for all 12 months; log: `artifacts\diagnostics\maintenance-full-year-check\full-year-kc-2026-final-shift-limit.log`. Results: January `AK9=18.67`, `empty=0`, min/max `9..20`; February `7..16`; March `4..16`; April `2..16`; May `12..16`; June `4..16`; July `2..16`; August `6..16`; September `2..16`; October `6..16`; November `12..16`; December `2..16`.
+- Codex-doc cleanup validation on `2026-05-24`: checked `git status --short --branch` and scoped doc diff before edits; compared Dicta docs in `C:\Users\Olga\Documents\VoiceHelper`; inspected historical AKB5/Net/network-topology candidates under `C:\Users\Olga\Documents\Codex\...`; confirmed common-rule search patterns no longer appear in AKB5 `AGENTS.md` / core continuity docs; `git diff --check` passed with only CRLF normalization warnings.
+- Lvl2 inventory field fix validation on `2026-05-24`: `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore` passed; `dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~KnowledgeBaseFormStateService" /p:RunAnalyzers=false /p:WarningLevel=0` passed, 16 tests; `dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\lvl2-inventory-field /p:RunAnalyzers=false /p:WarningLevel=0` passed with 0 warnings and 0 errors.
+- Maintenance no-fail fallback validation on `2026-05-24`: planner targeted tests passed, 19 tests; maintenance-focused tests passed, 119 tests; app/core/tests format checks passed; Release build passed with 0 warnings/errors; full core tests passed, 403 tests; publish passed to `C:\Users\Olga\AKB5\artifacts\publish\win-x64\asutpKB.exe`.
+- Read-only KЦ full-year diagnostic after fallback passed all 12 months; February `requested=275`, `working=19`, `empty=0`, range `7..16`. Generated February workbook: `C:\Users\Olga\Pictures\Купоросный цех (КЦ)_ГрафикТО_2026_02_fixed.xlsx`.
+- `dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~KnowledgeBaseMaintenance" /p:RunAnalyzers=false /p:WarningLevel=0`: passed after balance fix, 117 tests.
+- `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore`: passed after balance fix.
+- `dotnet format src\AsutpKnowledgeBase.Core\AsutpKnowledgeBase.Core.csproj --verify-no-changes --severity error --no-restore`: passed after balance fix.
+- `dotnet format tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --verify-no-changes --severity error --no-restore`: passed after balance fix.
+- `dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0`: passed after balance fix, 401 tests.
+- `dotnet build asutpKB.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0`: passed after balance fix with 0 warnings and 0 errors.
+- `dotnet publish asutpKB.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts\publish\win-x64 /p:RunAnalyzers=false /p:WarningLevel=0`: passed after balance fix; manual-review executable is `C:\Users\Olga\AKB5\artifacts\publish\win-x64\asutpKB.exe`.
 
 Not run:
 
-- Full core test suite was not run; the change is limited to a WinForms control.
-- Publish was not run.
 - Manual visual review was not run.
+- Manual double-launch behavior was not run.
+- Manual Excel open/edit/save smoke was not run.
 
 ## Decisions already made
 
 - Work only on `Net / origin/Net`.
 - Do not commit or push without fresh direct approval in the current chat.
 - Keep the Level 2 Network topology scope; do not broaden into PRONETA/CSV import, live scan, OCR/PDF import, plan/fact comparison, IP assignment automation, or embedded PDF preview.
+- Do not reintroduce hover/popup tooltips. Use visible labels, inline validation/status text, or modal validation messages instead.
 
 ## Files already relevant to the task
 
 - `Controls/KnowledgeBaseNetworkTopologyScreenControl.cs`
+- `Controls/KnowledgeBaseAdditionalEquipmentScreenControl.cs`
+- `Controls/KnowledgeBaseCompositionScreenControl.cs`
+- `Controls/KnowledgeBaseWorkspaceVisuals.cs`
+- `Forms/MainForm.Layout.cs`
+- `Forms/MainForm.cs`
+- `Program.cs`
+- `Models/KbMaintenanceMonthPlanAssignment.cs`
+- `Models/KbMaintenanceMonthWorkItem.cs`
+- `Services/KnowledgeBaseMaintenanceMonthWorkResolverService.cs`
+- `Services/KnowledgeBaseMaintenanceMonthlyPlannerService.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseMaintenanceMonthWorkResolverServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseMaintenanceMonthlyPlannerServiceTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseMaintenanceMonthlyPlannerIntegrationTests.cs`
+- `tests/AsutpKnowledgeBase.Core.Tests/KnowledgeBaseMaintenanceWorkbookGenerationServiceTests.cs`
+- `C:\Users\Olga\.codex\AGENTS.md`
+- `AGENTS.md`
+- `docs/decision-log.md`
 - `docs/codex-handoff.md`
 - `docs/plans.md`
 
 ## Known risks / open questions
 
-- Manual review is still needed for dragging a link endpoint to another object without deleting/recreating the link.
+- The single-instance guard is per Windows logon session (`Local\...` mutex), so it blocks duplicate launches by the same user/session without requiring global mutex permissions.
+- Route-flow planning can make a month fail if the number of required large-system visits exceeds the number of working days, or if one system/object needs more separate visits than there are working days. This is intentional to avoid silently generating a график with two large systems or a repeated object on one day.
+- User-facing Russian responses must remain gender-neutral; this is now recorded in `C:\Users\Olga\.codex\AGENTS.md` as a global rule.
+
+- The rejected XLSX files in `C:\Users\Olga\Pictures` were inspected but not overwritten by this session. Regenerate them manually from the published executable before final acceptance.
 - The current implementation treats Cancel in the add dialog as "do not add the element"; this matches the "enter IP before adding" flow but should be confirmed during manual use.
 
 ## Recommended next step
 
-Manually review link endpoint drag/reassignment using `artifacts\build-check\network-link-reassign-fix\asutpKB.exe`.
+Current likely next decision after push: manually review `C:\Users\Olga\AKB5\artifacts\publish\win-x64\asutpKB.exe` and `C:\Users\Olga\Pictures\Купоросный цех (КЦ)_ГрафикТО_2026_02_fixed.xlsx`.
 
 Preview artifact for choosing icons:
 
@@ -131,6 +298,13 @@ dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\bu
 dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\network-universal-ports /p:RunAnalyzers=false /p:WarningLevel=0
 dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\network-link-reassign /p:RunAnalyzers=false /p:WarningLevel=0
 dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\network-link-reassign-fix /p:RunAnalyzers=false /p:WarningLevel=0
+dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\network-scale-objects /p:RunAnalyzers=false /p:WarningLevel=0
+dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\network-ip-duplicates /p:RunAnalyzers=false /p:WarningLevel=0
+dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\single-instance /p:RunAnalyzers=false /p:WarningLevel=0
+dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\maintenance-same-system-day /p:RunAnalyzers=false /p:WarningLevel=0
+dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\maintenance-system-flow /p:RunAnalyzers=false /p:WarningLevel=0
+dotnet test tests/AsutpKnowledgeBase.Core.Tests/AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0
+dotnet publish asutpKB.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts\publish\win-x64 /p:RunAnalyzers=false /p:WarningLevel=0
 git diff --check
 git status --short --branch
 ```

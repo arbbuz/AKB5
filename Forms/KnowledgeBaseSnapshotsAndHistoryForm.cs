@@ -251,7 +251,8 @@ namespace AsutpKnowledgeBase
                 MultiSelect = multiSelect,
                 ReadOnly = true,
                 RowHeadersVisible = false,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                ShowCellToolTips = false
             };
             grid.DataError += (_, e) => e.ThrowException = false;
             return grid;

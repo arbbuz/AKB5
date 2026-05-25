@@ -12,6 +12,8 @@ namespace AsutpKnowledgeBase.Models
 
         public int OwnerPreorderIndex { get; set; } = int.MaxValue;
 
+        public int SystemLevel3NodeCount { get; set; }
+
         public KbMaintenanceWorkKind WorkKind { get; set; } = KbMaintenanceWorkKind.To1;
 
         public int Hours { get; set; }

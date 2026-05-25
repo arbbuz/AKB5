@@ -54,6 +54,7 @@ namespace AsutpKnowledgeBase
             listView.ForeColor = TextColor;
             listView.GridLines = false;
             listView.HideSelection = false;
+            listView.ShowItemToolTips = false;
         }
 
         public static void ConfigureGrid(DataGridView grid)
@@ -64,6 +65,7 @@ namespace AsutpKnowledgeBase
             grid.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single;
             grid.EnableHeadersVisualStyles = false;
             grid.GridColor = GridLineColor;
+            grid.ShowCellToolTips = false;
             grid.DefaultCellStyle.BackColor = SurfaceColor;
             grid.DefaultCellStyle.ForeColor = TextColor;
             grid.DefaultCellStyle.SelectionBackColor = AccentSoftColor;

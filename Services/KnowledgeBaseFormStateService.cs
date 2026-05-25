@@ -47,8 +47,6 @@ namespace AsutpKnowledgeBase.Services
     {
         public bool CanSave { get; init; }
 
-        public string SaveToolTip { get; init; } = string.Empty;
-
         public string WindowTitle { get; init; } = string.Empty;
 
         public string SessionStatusText { get; init; } = string.Empty;
@@ -116,7 +114,6 @@ namespace AsutpKnowledgeBase.Services
                     fileExists,
                     currentWorkshop,
                     lastSavedWorkshop),
-                SaveToolTip = $"Сохранить базу данных ({currentDataPath})",
                 WindowTitle = BuildWindowTitle(isDirty, currentDataFileName),
                 SessionStatusText = BuildSessionStatusText(currentDataFileName, saveStateText, currentWorkshop, totalNodes),
                 SelectionStatusText = BuildSelectionStatusText(selectedNodeState),

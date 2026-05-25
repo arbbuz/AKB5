@@ -10,6 +10,8 @@ namespace AsutpKnowledgeBase.Models
 
         public string SystemNodeId { get; set; } = string.Empty;
 
+        public int SystemLevel3NodeCount { get; set; }
+
         public KbMaintenanceWorkKind WorkKind { get; set; } = KbMaintenanceWorkKind.To1;
 
         public int Hours { get; set; }

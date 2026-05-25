@@ -136,7 +136,8 @@ namespace AsutpKnowledgeBase
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
                 BackgroundColor = SystemColors.Window,
-                BorderStyle = BorderStyle.FixedSingle
+                BorderStyle = BorderStyle.FixedSingle,
+                ShowCellToolTips = false
             };
             _gridDemand.Columns.Add("Month", "Месяц");
             _gridDemand.Columns.Add("To1", "ТО1");

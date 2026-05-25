@@ -97,10 +97,9 @@ public class KnowledgeBaseFormStateServiceTests
             lastSavedWorkshop: "Цех 7",
             totalNodes: 5,
             currentRoots: roots,
-            selectedNode: selectedNode);
+        selectedNode: selectedNode);
 
         Assert.True(state.CanSave);
-        Assert.Equal("Сохранить базу данных (/tmp/knowledge.json)", state.SaveToolTip);
         Assert.Equal("* База знаний АСУТП [knowledge.json]", state.WindowTitle);
         Assert.Equal("Есть несохраненные изменения", state.SessionStatusText);
         Assert.Equal(string.Empty, state.SelectionStatusText);

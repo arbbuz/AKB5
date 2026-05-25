@@ -58,7 +58,7 @@ Transform `AKB5` from a level-driven tree editor into a type-driven engineering 
 - User-facing interface text on `to` is now normalized to Russian; new UI work should keep Russian-only labels, prompts, and status text.
 - `Phase 6` is complete on `to`: `Network` now uses typed file references, image preview inside the form, and `Open original` for server/file paths.
 - The `Phase 6` `Network` screen uses separate `Файлы` and `Предпросмотр` tabs; node load returns to `Файлы`, and automatic switching to `Предпросмотр` is not part of the accepted UX.
-- On 2026-05-19 and 2026-05-20, branch `Net` extends the network work with typed topology/passport storage, CRUD for devices/interfaces/connections on `Сеть -> Паспорт`, manual scheme-entry fields, editable protocol presets (`PROFINET`, `PROFIBUS`, `MPI`), editable medium presets (`Медь`, `Оптика`), local passport filtering, scroll-safe network add/edit dialogs, PDF network scheme references classified as `PDF` with metadata/`Open original` behavior, visible manual-review columns, copy-friendly row/context-menu actions, filtered visible-table export, persistent selected-row visibility, row tooltips, add-similar manual-entry actions, and inline `Проверка` duplicate hints.
+- On 2026-05-19 and 2026-05-20, branch `Net` extends the network work with typed topology/passport storage, CRUD for devices/interfaces/connections on `Сеть -> Паспорт`, manual scheme-entry fields, editable protocol presets (`PROFINET`, `PROFIBUS`, `MPI`), editable medium presets (`Медь`, `Оптика`), local passport filtering, scroll-safe network add/edit dialogs, PDF network scheme references classified as `PDF` with metadata/`Open original` behavior, visible manual-review columns, copy-friendly row/context-menu actions, filtered visible-table export, persistent selected-row visibility, add-similar manual-entry actions, and inline `Проверка` duplicate hints.
 - The accepted `Net` manual-review ergonomics package is committed and pushed as `207b6b1 Improve network passport review ergonomics`.
 - The accepted `Net` manual-entry hints package is committed and pushed as `a89e593 Improve network passport manual entry hints`.
 - The accepted `Net` mutation-service validation package is committed and pushed as `b2ea12e Enforce network passport mutation validation`.
@@ -452,7 +452,7 @@ Acceptance:
 - the interface passport grid exposes speed/notes columns and supports copy-friendly manual checks: selected rows copy as tab-separated text, and interface summary/IP/`MPI/DP/PN` values can be copied separately
 - the passport filter area can copy all currently visible device/interface/connection rows with table headers for filtered manual review
 - each passport grid context menu can copy its own currently visible rows with headers
-- passport grids keep selected rows visible after focus changes and expose row tooltips for long manual-review values
+- passport grids keep selected rows visible after focus changes; long manual-review values must remain accessible without hover/popup tooltips
 - PDF network scheme references are accepted as `PDF` metadata/`Open original` sources; embedded PDF preview and OCR/import remain outside the current scope
 
 ### Phase 7. Maintenance schedule generation

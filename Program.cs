@@ -10,6 +10,21 @@ namespace AsutpKnowledgeBase
             IAppLogger appLogger = CreateLogger();
             SubscribeToUnhandledExceptions(appLogger);
 
+            using Mutex singleInstanceMutex = new(
+                initiallyOwned: true,
+                name: @"Local\AKB5.AsutpKnowledgeBase.SingleInstance",
+                createdNew: out bool isFirstInstance);
+
+            if (!isFirstInstance)
+            {
+                MessageBox.Show(
+                    "Программа АКБ5 уже запущена. Закройте текущий экземпляр перед повторным запуском.",
+                    "АКБ5 уже запущена",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
             appLogger.Log(
                 "AppStartup",
                 AppLogLevel.Information,

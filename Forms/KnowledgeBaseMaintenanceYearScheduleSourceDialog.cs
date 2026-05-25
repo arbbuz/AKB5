@@ -126,6 +126,7 @@ namespace AsutpKnowledgeBase
             _grid.MultiSelect = true;
             _grid.RowHeadersVisible = false;
             _grid.SelectionMode = DataGridViewSelectionMode.CellSelect;
+            _grid.ShowCellToolTips = false;
             _grid.RowTemplate.Height = 24;
 
             _grid.Columns.Add(CreateTextColumn(OwnerNodeIdColumnName, "OwnerNodeId", 120, readOnly: true, visible: false));

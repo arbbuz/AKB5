@@ -221,19 +221,23 @@ namespace AsutpKnowledgeBase
 
         private void SetInventoryNumberVisibility(bool visible)
         {
-            if (_txtNodeInventoryNumber.Parent is TableLayoutPanel summaryLayout && summaryLayout.RowStyles.Count > 2)
+            Control? inventoryFrame = _txtNodeInventoryNumber.Parent;
+            if (inventoryFrame?.Parent is TableLayoutPanel summaryLayout && summaryLayout.RowStyles.Count > 2)
+            {
                 summaryLayout.RowStyles[2].Height = visible ? 30F : 0F;
+                summaryLayout.PerformLayout();
+            }
 
             _lblNodeInventoryNumber.Visible = visible;
             _txtNodeInventoryNumber.Visible = visible;
             _txtNodeInventoryNumber.Enabled = visible;
-            _txtNodeInventoryNumber.Parent!.Visible = visible;
-            _txtNodeInventoryNumber.Parent.Enabled = visible;
+            inventoryFrame!.Visible = visible;
+            inventoryFrame.Enabled = visible;
 
             if (!visible)
                 _txtNodeInventoryNumber.Text = string.Empty;
 
-            _txtNodeInventoryNumber.Parent?.PerformLayout();
+            inventoryFrame.PerformLayout();
             _tblDetailsLeftColumn.PerformLayout();
         }
 

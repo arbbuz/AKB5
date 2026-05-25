@@ -84,6 +84,48 @@ public class KnowledgeBaseMaintenanceMonthWorkResolverServiceTests
         Assert.Equal("system-1", item.SystemNodeId);
         Assert.Equal(1, item.SystemPreorderIndex);
         Assert.Equal(2, item.OwnerPreorderIndex);
+        Assert.Equal(1, item.SystemLevel3NodeCount);
+    }
+
+    [Fact]
+    public void ResolveMonthWorkItems_PopulatesVisibleLevel3SystemSize()
+    {
+        var firstDevice = new KbNode
+        {
+            NodeId = "device-1",
+            Name = "Device 1",
+            NodeType = KbNodeType.Device
+        };
+        var secondDevice = new KbNode
+        {
+            NodeId = "device-2",
+            Name = "Device 2",
+            NodeType = KbNodeType.Device
+        };
+        var thirdDevice = new KbNode
+        {
+            NodeId = "device-3",
+            Name = "Device 3",
+            NodeType = KbNodeType.Device
+        };
+
+        IReadOnlyList<KbMaintenanceMonthWorkItem> items = _service.ResolveMonthWorkItems(
+            2026,
+            2,
+            CreateLevel3Roots(firstDevice, secondDevice, thirdDevice),
+            new[]
+            {
+                new KbMaintenanceScheduleProfile
+                {
+                    OwnerNodeId = "device-2",
+                    IsIncludedInSchedule = true,
+                    To1Hours = 3
+                }
+            });
+
+        KbMaintenanceMonthWorkItem item = Assert.Single(items);
+        Assert.Equal("system-1", item.SystemNodeId);
+        Assert.Equal(3, item.SystemLevel3NodeCount);
     }
 
     [Fact]

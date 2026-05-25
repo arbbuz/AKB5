@@ -138,7 +138,8 @@ namespace AsutpKnowledgeBase
                 MultiSelect = false,
                 ReadOnly = true,
                 RowHeadersVisible = false,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                ShowCellToolTips = false
             };
 
             grid.Columns.Add(CreateTextColumn("CatalogItemId", "Id", 80, visible: false, sortable: false));

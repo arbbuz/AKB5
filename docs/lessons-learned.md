@@ -19,7 +19,7 @@ Last updated: `2026-05-20`
 
 ## Network passport workflow
 
-- For network passport work, useful manual-review ergonomics can be more valuable than premature automation: visible endpoint context, copy-friendly rows, filtered export, selected-row visibility, and row tooltips help users compare AKB5 against external schemes without importing those schemes.
+- For network passport work, useful manual-review ergonomics can be more valuable than premature automation: visible endpoint context, copy-friendly rows, filtered export, and selected-row visibility help users compare AKB5 against external schemes without importing those schemes. Keep guidance visible or inline; do not use hover/popup tooltips.
 - Keep network PDF references as source metadata plus `Open original` until an embedded renderer is explicitly approved. Do not let accepting PDF references imply OCR, parsing, or embedded preview.
 - Treat OCR/PDF auto-import, PRONETA/CSV import, live scan, plan/fact comparison, quality-issue panels, and AKB5-driven IP/PROFINET-name assignment as separate future product decisions, not natural follow-ons from manual passport entry.
 - For WinForms Network UI changes, a source diff and unit tests are not enough; use non-invasive/offscreen layout-smoke to confirm controls remain visible and reachable without disturbing manual app work.

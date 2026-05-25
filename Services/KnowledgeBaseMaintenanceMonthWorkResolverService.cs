@@ -66,6 +66,7 @@ namespace AsutpKnowledgeBase.Services
                 visibleLevel: 1,
                 systemNodeId: string.Empty,
                 systemPreorderIndex: int.MaxValue,
+                systemLevel3NodeCount: 0,
                 contexts,
                 ref preorderIndex);
             return contexts;
@@ -76,6 +77,7 @@ namespace AsutpKnowledgeBase.Services
             int visibleLevel,
             string systemNodeId,
             int systemPreorderIndex,
+            int systemLevel3NodeCount,
             ICollection<NodeContext> contexts,
             ref int preorderIndex)
         {
@@ -85,11 +87,13 @@ namespace AsutpKnowledgeBase.Services
                 int currentPreorderIndex = preorderIndex++;
                 string currentSystemNodeId = systemNodeId;
                 int currentSystemPreorderIndex = systemPreorderIndex;
+                int currentSystemLevel3NodeCount = systemLevel3NodeCount;
                 string nodeId = node.NodeId?.Trim() ?? string.Empty;
                 if (currentVisibleLevel == 2)
                 {
                     currentSystemNodeId = nodeId;
                     currentSystemPreorderIndex = currentPreorderIndex;
+                    currentSystemLevel3NodeCount = CountVisibleLevel3Children(node, currentVisibleLevel);
                 }
 
                 contexts.Add(new NodeContext(
@@ -97,16 +101,31 @@ namespace AsutpKnowledgeBase.Services
                     currentVisibleLevel,
                     currentPreorderIndex,
                     currentSystemNodeId,
-                    currentSystemPreorderIndex));
+                    currentSystemPreorderIndex,
+                    currentSystemLevel3NodeCount));
 
                 AddNodeContexts(
                     node.Children,
                     currentVisibleLevel + 1,
                     currentSystemNodeId,
                     currentSystemPreorderIndex,
+                    currentSystemLevel3NodeCount,
                     contexts,
                     ref preorderIndex);
             }
+        }
+
+        private static int CountVisibleLevel3Children(KbNode node, int systemVisibleLevel)
+        {
+            int childVisibleLevel = systemVisibleLevel + 1;
+            int count = 0;
+            foreach (KbNode child in node.Children ?? new List<KbNode>())
+            {
+                if (GetEffectiveVisibleLevel(child, childVisibleLevel) == 3)
+                    count++;
+            }
+
+            return count;
         }
 
         private static int GetEffectiveVisibleLevel(KbNode node, int visibleLevel)
@@ -135,6 +154,7 @@ namespace AsutpKnowledgeBase.Services
                 SystemNodeId = context.SystemNodeId,
                 SystemPreorderIndex = context.SystemPreorderIndex,
                 OwnerPreorderIndex = context.PreorderIndex,
+                SystemLevel3NodeCount = context.SystemLevel3NodeCount,
                 WorkKind = workKind,
                 Hours = hours
             });
@@ -145,7 +165,8 @@ namespace AsutpKnowledgeBase.Services
             int VisibleLevel,
             int PreorderIndex,
             string SystemNodeId,
-            int SystemPreorderIndex);
+            int SystemPreorderIndex,
+            int SystemLevel3NodeCount);
 
         private static KbMaintenanceWorkKind ResolveDueWorkKind(
             KbMaintenanceScheduleProfile profile,

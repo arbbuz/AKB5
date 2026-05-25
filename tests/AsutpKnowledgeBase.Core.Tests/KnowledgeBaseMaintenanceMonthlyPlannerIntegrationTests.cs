@@ -48,10 +48,11 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerIntegrationTests
         Assert.True(result.IsSuccess);
         Assert.Equal(2, result.PlannedWorkItems.Count);
         Assert.Equal(8, result.RequestedHours);
-        Assert.Single(result.PlannedDays);
-        Assert.Equal(new DateOnly(2026, 1, 12), result.PlannedDays[0].Date);
-        Assert.Equal(8, result.PlannedDays[0].TotalHours);
-        Assert.Equal(2, result.PlannedDays[0].Assignments.Count);
+        KbMaintenanceMonthPlanDay day = Assert.Single(result.PlannedDays);
+        Assert.Equal(8, day.TotalHours);
+        Assert.Equal(2, day.Assignments.Count);
+        AssertRouteSystemMixRules(result);
+        AssertNoSameOwnerDateConflicts(result);
     }
 
     [Fact]
@@ -87,17 +88,17 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerIntegrationTests
         Assert.True(result.IsSuccess);
         Assert.Single(result.PlannedWorkItems);
         Assert.Equal(18, result.RequestedHours);
-        Assert.Equal(2, result.PlannedDays.Count);
-        Assert.Equal(16, result.PlannedDays[0].TotalHours);
-        Assert.Equal(2, result.PlannedDays[1].TotalHours);
+        Assert.Equal(3, result.PlannedDays.Count);
+        Assert.Equal(18, result.PlannedDays.Sum(static day => day.TotalHours));
 
         int[] splitHours = result.PlannedDays
             .SelectMany(static day => day.Assignments)
             .Select(static assignment => assignment.Hours)
             .ToArray();
         Assert.Equal(new[] { 8, 8, 2 }, splitHours);
-        Assert.Equal(2, result.PlannedDays[0].Assignments.Count);
-        Assert.Single(result.PlannedDays[1].Assignments);
+        Assert.All(result.PlannedDays, static day => Assert.Single(day.Assignments));
+        AssertRouteSystemMixRules(result);
+        AssertNoSameOwnerDateConflicts(result);
     }
 
     [Fact]
@@ -182,4 +183,39 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerIntegrationTests
                 }
             }
         };
+
+    private static void AssertNoSameOwnerDateConflicts(KnowledgeBaseMaintenanceMonthPlanResult result)
+    {
+        var conflicts = result.PlannedDays
+            .SelectMany(static day => day.Assignments.Select(assignment => new
+            {
+                day.Date,
+                assignment.OwnerNodeId
+            }))
+            .Where(static assignment => !string.IsNullOrWhiteSpace(assignment.OwnerNodeId))
+            .GroupBy(static assignment => (assignment.Date, assignment.OwnerNodeId))
+            .Where(static group => group.Count() > 1)
+            .ToList();
+
+        Assert.Empty(conflicts);
+    }
+
+    private static void AssertRouteSystemMixRules(KnowledgeBaseMaintenanceMonthPlanResult result)
+    {
+        Assert.All(
+            result.PlannedDays,
+            static day =>
+            {
+                int largeSystemCount = day.Assignments
+                    .Where(static assignment => assignment.SystemLevel3NodeCount > 2)
+                    .Select(static assignment => string.IsNullOrWhiteSpace(assignment.SystemNodeId)
+                        ? $"owner:{assignment.OwnerNodeId}"
+                        : $"system:{assignment.SystemNodeId}")
+                    .Where(static key => !string.IsNullOrWhiteSpace(key))
+                    .Distinct(StringComparer.Ordinal)
+                    .Count();
+
+                Assert.True(largeSystemCount <= 1, $"Expected at most 1 large system on {day.Date}, got {largeSystemCount}.");
+            });
+    }
 }

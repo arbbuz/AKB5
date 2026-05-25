@@ -9,7 +9,6 @@ namespace AsutpKnowledgeBase
     {
         private readonly TopologyCanvas _canvas;
         private readonly Label _lblSummary;
-        private readonly ToolTip _toolTip;
         private readonly ContextMenuStrip _canvasContextMenu;
         private readonly Button _btnLink;
         private readonly Button _btnEdit;
@@ -24,12 +23,6 @@ namespace AsutpKnowledgeBase
             Dock = DockStyle.Fill;
             BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor;
 
-            _toolTip = new ToolTip
-            {
-                InitialDelay = 400,
-                ReshowDelay = 100,
-                ShowAlways = true
-            };
             _canvasContextMenu = new ContextMenuStrip();
 
             var layout = new TableLayoutPanel
@@ -74,13 +67,10 @@ namespace AsutpKnowledgeBase
 
             _btnLink = CreateActionButton("Связь", NetworkIconPainter.CreateCommandIcon(NetworkCommandIconKind.Link));
             _btnLink.Click += (_, _) => BeginOrCancelLinkMode();
-            _toolTip.SetToolTip(_btnLink, "Создать связь между элементами");
             _btnEdit = CreateActionButton("Изменить", NetworkIconPainter.CreateCommandIcon(NetworkCommandIconKind.Edit));
             _btnEdit.Click += (_, _) => EditSelectedElement();
-            _toolTip.SetToolTip(_btnEdit, "Изменить выбранный элемент");
             _btnDelete = CreateActionButton("Удалить", NetworkIconPainter.CreateCommandIcon(NetworkCommandIconKind.Delete));
             _btnDelete.Click += (_, _) => DeleteSelectedElement();
-            _toolTip.SetToolTip(_btnDelete, "Удалить выбранный элемент");
             toolbar.Controls.Add(_btnLink);
             toolbar.Controls.Add(_btnEdit);
             toolbar.Controls.Add(_btnDelete);
@@ -128,7 +118,6 @@ namespace AsutpKnowledgeBase
         private Button CreateAddButton(string text, KbNetworkElementKind kind)
         {
             var button = CreateActionButton(text, NetworkIconPainter.CreateDeviceIcon(kind, 22));
-            _toolTip.SetToolTip(button, $"Добавить {text}");
             button.Click += (_, _) => AddElement(kind);
             return button;
         }
@@ -166,7 +155,7 @@ namespace AsutpKnowledgeBase
                 Y = location.Y
             };
 
-            using var dialog = new NetworkElementDialog(element, focusIpAddress: true);
+            using var dialog = new NetworkElementDialog(element, _topology.Elements, focusIpAddress: true);
             if (dialog.ShowDialog(FindForm()) != DialogResult.OK)
                 return;
 
@@ -265,8 +254,8 @@ namespace AsutpKnowledgeBase
         private Point FindNextElementLocation()
         {
             int index = _topology.Elements.Count;
-            int x = 32 + (index % 5) * 132;
-            int y = 32 + (index / 5) * 108;
+            int x = 32 + (index % 5) * 158;
+            int y = 32 + (index / 5) * 130;
             return new Point(x, y);
         }
 
@@ -367,7 +356,9 @@ namespace AsutpKnowledgeBase
             if (element == null)
                 return;
 
-            using var dialog = new NetworkElementDialog(element);
+            using var dialog = new NetworkElementDialog(
+                element,
+                _topology.Elements.Where(candidate => !string.Equals(candidate.ElementId, element.ElementId, StringComparison.Ordinal)));
             if (dialog.ShowDialog(FindForm()) != DialogResult.OK)
                 return;
 
@@ -432,7 +423,6 @@ namespace AsutpKnowledgeBase
             if (disposing)
             {
                 _canvasContextMenu.Dispose();
-                _toolTip.Dispose();
             }
 
             base.Dispose(disposing);
@@ -485,10 +475,15 @@ namespace AsutpKnowledgeBase
             private readonly ComboBox _cmbKind;
             private readonly TextBox _txtName;
             private readonly TextBox[] _txtIpOctets;
+            private readonly Dictionary<string, string> _reservedIpAddresses;
             private bool _updatingIpOctets;
 
-            public NetworkElementDialog(KbNetworkElement element, bool focusIpAddress = false)
+            public NetworkElementDialog(
+                KbNetworkElement element,
+                IEnumerable<KbNetworkElement> reservedElements,
+                bool focusIpAddress = false)
             {
+                _reservedIpAddresses = CreateReservedIpAddressMap(reservedElements);
                 Text = "Элемент сети";
                 ClientSize = new Size(360, 178);
                 StartPosition = FormStartPosition.CenterParent;
@@ -541,11 +536,11 @@ namespace AsutpKnowledgeBase
                 var btnOk = new Button
                 {
                     Text = "OK",
-                    DialogResult = DialogResult.OK,
                     AutoSize = true,
                     MinimumSize = new Size(82, 28),
                     Margin = new Padding(8, 0, 0, 0)
                 };
+                btnOk.Click += (_, _) => TryAccept();
                 var btnCancel = new Button
                 {
                     Text = "Отмена",
@@ -573,8 +568,7 @@ namespace AsutpKnowledgeBase
                 {
                     Shown += (_, _) =>
                     {
-                        _txtIpOctets[0].Focus();
-                        _txtIpOctets[0].SelectAll();
+                        FocusFirstIpOctet();
                     };
                 }
             }
@@ -588,14 +582,86 @@ namespace AsutpKnowledgeBase
             {
                 get
                 {
-                    string[] octets = _txtIpOctets
-                        .Select(static textBox => textBox.Text.Trim())
-                        .ToArray();
-
-                    return octets.All(static octet => octet.Length == 0)
-                        ? string.Empty
-                        : string.Join(".", octets);
+                    return TryBuildIpAddress(out string ipAddress, out _)
+                        ? ipAddress
+                        : BuildRawIpAddress();
                 }
+            }
+
+            private void TryAccept()
+            {
+                if (!TryBuildIpAddress(out string ipAddress, out string validationError))
+                {
+                    ShowValidationWarning(validationError);
+                    return;
+                }
+
+                if (!string.IsNullOrWhiteSpace(ipAddress) &&
+                    _reservedIpAddresses.TryGetValue(ipAddress, out string existingElementName))
+                {
+                    ShowValidationWarning(
+                        $"IP-адрес {ipAddress} уже используется элементом \"{existingElementName}\". Укажите другой IP-адрес.");
+                    return;
+                }
+
+                DialogResult = DialogResult.OK;
+                Close();
+            }
+
+            private void ShowValidationWarning(string message)
+            {
+                MessageBox.Show(
+                    this,
+                    message,
+                    "Проверка IP-адреса",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                FocusFirstIpOctet();
+            }
+
+            private bool TryBuildIpAddress(out string ipAddress, out string validationError)
+            {
+                string[] octets = _txtIpOctets
+                    .Select(static textBox => textBox.Text.Trim())
+                    .ToArray();
+
+                ipAddress = string.Empty;
+                validationError = string.Empty;
+
+                if (octets.All(static octet => octet.Length == 0))
+                    return true;
+
+                if (octets.Any(static octet => octet.Length == 0))
+                {
+                    validationError = "Заполните все 4 октета IP-адреса или оставьте IP пустым.";
+                    return false;
+                }
+
+                var normalizedOctets = new string[4];
+                for (int index = 0; index < octets.Length; index++)
+                {
+                    if (!int.TryParse(octets[index], out int value) || value < 0 || value > 255)
+                    {
+                        validationError = "Каждый октет IP-адреса должен быть числом от 0 до 255.";
+                        return false;
+                    }
+
+                    normalizedOctets[index] = value.ToString(CultureInfo.InvariantCulture);
+                }
+
+                ipAddress = string.Join(".", normalizedOctets);
+                return true;
+            }
+
+            private string BuildRawIpAddress()
+            {
+                string[] octets = _txtIpOctets
+                    .Select(static textBox => textBox.Text.Trim())
+                    .ToArray();
+
+                return octets.All(static octet => octet.Length == 0)
+                    ? string.Empty
+                    : string.Join(".", octets);
             }
 
             private TextBox[] CreateIpOctetBoxes(string ipAddress)
@@ -714,6 +780,51 @@ namespace AsutpKnowledgeBase
                     textBox.SelectionStart = textBox.Text.Length;
                 else
                     textBox.SelectAll();
+            }
+
+            private void FocusFirstIpOctet()
+            {
+                _txtIpOctets[0].Focus();
+                _txtIpOctets[0].SelectAll();
+            }
+
+            private static Dictionary<string, string> CreateReservedIpAddressMap(IEnumerable<KbNetworkElement> elements)
+            {
+                var result = new Dictionary<string, string>(StringComparer.Ordinal);
+                foreach (KbNetworkElement element in elements)
+                {
+                    if (!TryNormalizeIpAddress(element.IpAddress, out string normalizedIpAddress) ||
+                        string.IsNullOrWhiteSpace(normalizedIpAddress) ||
+                        result.ContainsKey(normalizedIpAddress))
+                    {
+                        continue;
+                    }
+
+                    result.Add(normalizedIpAddress, string.IsNullOrWhiteSpace(element.Name) ? "без названия" : element.Name.Trim());
+                }
+
+                return result;
+            }
+
+            private static bool TryNormalizeIpAddress(string ipAddress, out string normalizedIpAddress)
+            {
+                normalizedIpAddress = string.Empty;
+                string[] parts = ipAddress.Trim().Split('.');
+                if (parts.Length != 4)
+                    return false;
+
+                var normalizedParts = new string[4];
+                for (int index = 0; index < parts.Length; index++)
+                {
+                    string part = parts[index].Trim();
+                    if (part.Length == 0 || !int.TryParse(part, out int value) || value < 0 || value > 255)
+                        return false;
+
+                    normalizedParts[index] = value.ToString(CultureInfo.InvariantCulture);
+                }
+
+                normalizedIpAddress = string.Join(".", normalizedParts);
+                return true;
             }
 
             private static string[] SplitIpAddress(string ipAddress)
@@ -1221,12 +1332,12 @@ namespace AsutpKnowledgeBase
 
         private sealed class TopologyCanvas : Panel
         {
-            private const int ElementWidth = 112;
-            private const int ElementHeight = 84;
-            private const int IconSize = 38;
-            private const int LinkStubLength = 18;
-            private const int LinkObstaclePadding = 10;
-            private const int LinkPortInset = 18;
+            private const int ElementWidth = 134;
+            private const int ElementHeight = 101;
+            private const int IconSize = 46;
+            private const int LinkStubLength = 22;
+            private const int LinkObstaclePadding = 12;
+            private const int LinkPortInset = 22;
             private const double LinkHitTolerance = 7D;
 
             private string _dragElementId = string.Empty;
@@ -1474,21 +1585,21 @@ namespace AsutpKnowledgeBase
 
                 var shadowBounds = bounds;
                 shadowBounds.Offset(2, 2);
-                using (var shadowPath = CreateRoundedRectanglePath(shadowBounds, 7))
-                using (var path = CreateRoundedRectanglePath(bounds, 7))
+                using (var shadowPath = CreateRoundedRectanglePath(shadowBounds, 8))
+                using (var path = CreateRoundedRectanglePath(bounds, 8))
                 {
                     graphics.FillPath(shadow, shadowPath);
                     graphics.FillPath(fill, path);
                     graphics.DrawPath(border, path);
                 }
 
-                Rectangle iconBounds = new(bounds.X + (ElementWidth - IconSize) / 2, bounds.Y + 24, IconSize, IconSize);
+                Rectangle iconBounds = new(bounds.X + (ElementWidth - IconSize) / 2, bounds.Y + 33, IconSize, IconSize);
                 NetworkIconPainter.DrawDeviceIcon(graphics, element.Kind, iconBounds);
 
-                Rectangle ipBounds = new(bounds.X + 6, bounds.Y + 5, ElementWidth - 12, 17);
-                Rectangle nameBounds = new(bounds.X + 4, bounds.Y + 65, ElementWidth - 8, 16);
-                using var nameFont = new Font("Segoe UI Semibold", 8.2F, FontStyle.Bold);
-                using var ipFont = new Font("Segoe UI Semibold", 7.8F, FontStyle.Bold);
+                Rectangle ipBounds = new(bounds.X + 7, bounds.Y + 6, ElementWidth - 14, 22);
+                Rectangle nameBounds = new(bounds.X + 5, bounds.Y + 80, ElementWidth - 10, 19);
+                using var nameFont = new Font("Segoe UI Semibold", 9.8F, FontStyle.Bold);
+                using var ipFont = new Font("Segoe UI Semibold", 10.1F, FontStyle.Bold);
                 DrawIpAddress(graphics, element.IpAddress, ipFont, ipBounds);
                 TextRenderer.DrawText(
                     graphics,
@@ -1506,7 +1617,7 @@ namespace AsutpKnowledgeBase
 
                 using var badgeFill = new SolidBrush(Color.FromArgb(238, 246, 255));
                 using var badgeBorder = new Pen(Color.FromArgb(142, 177, 211));
-                using (var badgePath = CreateRoundedRectanglePath(bounds, 5))
+                using (var badgePath = CreateRoundedRectanglePath(bounds, 6))
                 {
                     graphics.FillPath(badgeFill, badgePath);
                     graphics.DrawPath(badgeBorder, badgePath);

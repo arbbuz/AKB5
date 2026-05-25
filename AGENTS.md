@@ -1,5 +1,7 @@
 # AGENTS.md
 
+Common Codex rules live in `C:\Users\Olga\.codex\AGENTS.md`. Do not duplicate them in this project file.
+
 ## Project snapshot
 
 - `AKB5` is a WinForms knowledge-base app for ASUTP on `.NET 8`.
@@ -10,20 +12,26 @@
 - Roadmap phases `0` through `7F.1` are implemented on `to`; the narrow `phase7g-annual-norm-hidden-rows` fix is committed/pushed on `to` as `7a4895d Fix annual maintenance norm import totals`.
 - `Phase 11. Object templates and equipment catalog` is accepted through `Phase 11G`; `Phase 11A. Equipment catalog model` passed manual review, `Phase 11B. Equipment catalog UI` is committed/pushed on `to`, `Phase 11C` / `Phase 11D` are accepted and committed/pushed on `to`, `Phase 11E` / `Phase 11F` are accepted and committed/pushed on `to`, and `Phase 11G. Template import/export` is accepted and committed/pushed on `to`. `Phase 12. Storage redesign, backups, snapshots, and change history` is accepted through `Phase 12S8. Change history` and committed/pushed on `to`.
 - Relevant completed follow-ups: annual maintenance norm import and hidden-row handling are complete on `to`; the first menu-rework iteration is committed/pushed on `to` as `8dfffbd Rework menu structure and safety prompts`; the `Net` branch network passport manual-review ergonomics package is accepted, committed, and pushed as `207b6b1 Improve network passport review ergonomics`; the `Net` manual-entry hints package is accepted and pushed as `a89e593`; the `Net` mutation-service validation package is accepted and pushed as `b2ea12e Enforce network passport mutation validation`.
-- Current accepted `Net` baseline is `b2ea12e` on `HEAD` and `origin/Net`. Current UI/UX polishing continues separately in `C:\Users\Olga\AKB5-design` on `design/network-ui-polish`, which remains based on `a89e593` until the user explicitly asks to merge or rebase.
+- Current accepted `Net` baseline is `1f87bb5 Improve network topology editing` on `HEAD` and `origin/Net`. Current UI/UX polishing continues separately in `C:\Users\Olga\AKB5-design` on `design/network-ui-polish`, which remains based on `a89e593` until the user explicitly asks to merge or rebase.
 - Current builds use portable-first SQLite single-file `.akb` storage: `akb5.settings.json` is stored next to `asutpKB.exe`, the default database is `database\knowledge-base.akb` next to the program, and JSON remains import/export plus first-launch migration compatibility. Excel exchange is a separate import/export layer.
 - Current Excel implementation uses `DocumentFormat.OpenXml` and `WorkbookFormatVersion = 3`. Legacy `v1/v2` import is no longer supported.
 - CI now enforces `dotnet format --verify-no-changes` for the WinForms app, core library, and tests before `build`/`test`.
 - The active task context is always kept in `docs/codex-handoff.md`. Read it before planning changes; it is the source of truth for current completed phase, validation status, and next step.
-- Chat progress must stay semantic and short. Do not add separate narrative after transcript/tool items such as `Ran`, `Running`, or `Edited`; without an explicit request, only send brief progress statements and the final result.
-- Current-task authorization is mandatory: never carry an older user approval for `git commit`, `git push`, destructive file operations, or broad database edits into a new request. Those actions require direct approval in the latest user request.
-- Before editing a real `.akb`/JSON data file, state the exact file path, target object count, and fields/records that will be changed. If a visible tree object is not found, check console encoding, the active data file, process state, and alternate storage before concluding that the object is absent.
-- Before final response, verify and report only the essential facts: changed files/data, validation result, whether git was touched, and whether the latest user request authorized it.
+- Do not add hover/popup tooltips to the AKB5 UI. Avoid WinForms `ToolTip`, `ToolTipText`, item/row hover tooltips, and automatic grid cell tooltips; use visible labels, inline validation/status text, or modal validation messages instead.
+- Before editing a real AKB5 `.akb`/JSON data file, identify the exact file path, target object count, and fields/records that will be changed.
 - The session knowledge harness is split by role:
   - `docs/codex-handoff.md` for current state
   - `docs/plans.md` for active plans
   - `docs/lessons-learned.md` for reusable patterns and insights
   - `docs/decision-log.md` for durable decisions and working agreements
+- Historical AKB5 worktrees/snapshots under `C:\Users\Olga\Documents\Codex\...` are reference material only. Do not use similarly named files there as the current source of truth for `C:\Users\Olga\AKB5`.
+
+## AKB5 final response contract
+
+- Before every final response after a code/data/doc change, run `C:\Users\Olga\.codex\scripts\codex-context-now.ps1` and include `Контекст: N%`.
+- If a build/review executable exists, the first line must be a clickable Markdown link whose label is the full Windows path, for example `[C:\...\asutpKB.exe](<C:/.../asutpKB.exe>)`.
+- Report only: what changed, validation run, unresolved gaps, git/data actions, and handoff status. Do not add apology/excuse paragraphs.
+- If no build/review executable was produced, state that explicitly instead of omitting the artifact line silently.
 
 ## Repository map
 
@@ -129,13 +137,6 @@ Use a short final report with these sections:
 - `Handoff updated`
 
 Be explicit about what was inspected, what was executed, and what was not verified.
-
-## User-visible communication and context budget
-
-- During implementation, user-visible updates must be short stage reports: current step, result, and next step.
-- Do not paste diagnostic commands, raw command transcripts, internal ids, owner mappings, large diffs, or code excerpts into chat unless the user explicitly asks for them.
-- Keep verbose logs, traces, and diagnostic details in `artifacts`; summarize only pass/fail status, key counts, changed files, and artifact paths.
-- If context usage is rising or a task needs heavy diagnostics, checkpoint the state and continue in a fresh/forked session instead of filling the chat.
 
 ## End-of-session handoff update rules
 

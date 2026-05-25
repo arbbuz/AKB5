@@ -97,7 +97,8 @@ namespace AsutpKnowledgeBase
                 MultiSelect = false,
                 ReadOnly = true,
                 RowHeadersVisible = false,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                ShowCellToolTips = false
             };
 
             grid.Columns.Add(CreateTextColumn("CreatedAt", "Время", 150));

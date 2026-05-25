@@ -96,7 +96,6 @@ namespace AsutpKnowledgeBase
         private ToolStripStatusLabel lblSessionInfo = null!;
         private ToolStripStatusLabel lblSelectionInfo = null!;
         private ToolStripStatusLabel lblLastAction = null!;
-        private ToolTip toolTip = null!;
         private ToolStripMenuItem ctxAdd = null!;
         private ToolStripMenuItem ctxAddChild = null!;
         private ToolStripMenuItem ctxTemplates = null!;
@@ -576,8 +575,6 @@ namespace AsutpKnowledgeBase
             menuRecalculateMaintenanceYearWorkbook.Enabled = hasCurrentWorkshop;
 
             menuSave.Enabled = formState.CanSave;
-            btnSave.ToolTipText = formState.SaveToolTip;
-            menuSave.ToolTipText = formState.SaveToolTip;
             Text = formState.WindowTitle;
             SetSessionStatusText(formState.SessionStatusText);
 

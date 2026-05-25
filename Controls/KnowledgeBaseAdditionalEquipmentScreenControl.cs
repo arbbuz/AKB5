@@ -130,8 +130,7 @@ namespace AsutpKnowledgeBase
                         entry.NotesText
                     ])
                     {
-                        Tag = entry,
-                        ToolTipText = entry.NotesText
+                        Tag = entry
                     };
 
                     _lvEntries.Items.Add(item);
@@ -213,7 +212,7 @@ namespace AsutpKnowledgeBase
                 HeaderStyle = ColumnHeaderStyle.Nonclickable,
                 HideSelection = false,
                 MultiSelect = false,
-                ShowItemToolTips = true,
+                ShowItemToolTips = false,
                 View = View.Details
             };
             KnowledgeBaseWorkspaceVisuals.ConfigureListView(listView);

@@ -1,6 +1,13 @@
 # Decision Log
 
-Last updated: `2026-05-21`
+Last updated: `2026-05-24`
+
+## 2026-05-24
+
+- AKB5 follows the same Codex-doc split as Dicta: common operating rules live only in `C:\Users\Olga\.codex\AGENTS.md`; `C:\Users\Olga\AKB5\AGENTS.md` keeps AKB5-specific project rules. The active source of truth is the main workspace docs in `C:\Users\Olga\AKB5\docs`; similarly named AKB5/Net/network-topology worktrees and snapshots under `C:\Users\Olga\Documents\Codex\...` are historical references only.
+- Hover/popup tooltips are not part of the AKB5 UI contract. Do not reintroduce WinForms `ToolTip`, `ToolTipText`, row/item hover tooltips, or automatic grid cell tooltips; use visible labels, inline validation text, status text, or modal validation messages when user guidance is needed.
+- Maintenance monthly schedule placement must optimize the whole working-month balance, not only the current assignment. Use `AK9 = monthly budget / working days` as the soft daily target, occupy the needed number of working days, avoid overloading a near-target day when an empty or lower-load feasible day exists, and place same-system continuations on the nearest next feasible working day.
+- Maintenance monthly schedule generation must not fail merely because no day satisfies all soft route/load preferences. Repeating the same owner object on one date remains a hard constraint while shift overload and same-day large-system mixing are last-resort penalties so every feasible month still produces a workbook.
 
 ## 2026-05-21
 
@@ -15,7 +22,7 @@ Last updated: `2026-05-21`
 - The previous accepted `Net` manual-entry baseline is `a89e593 Improve network passport manual entry hints`; it is committed and pushed to `origin/Net` after manual review.
 - The current accepted `Net` branch baseline is `b2ea12e Enforce network passport mutation validation`; it is committed and pushed to `origin/Net` after manual review.
 - The previous `Net` manual-review ergonomics baseline remains `207b6b1 Improve network passport review ergonomics`.
-- Network passport work stays manual-entry / manual-review first. The accepted scope includes typed devices/interfaces/connections, visible review columns, filtering, copy-friendly rows/endpoints/summaries, visible table export, selected-row visibility, and row tooltips.
+- Network passport work stays manual-entry / manual-review first. The accepted scope includes typed devices/interfaces/connections, visible review columns, filtering, copy-friendly rows/endpoints/summaries, visible table export, and selected-row visibility.
 - PDF network scheme references are metadata and `Open original` sources only. Embedded PDF preview/rendering remains a separate dependency decision and is not approved.
 - Do not start OCR/PDF auto-import, PRONETA/CSV import, live scan, plan/fact comparison, separate data-quality issue panels, or AKB5-driven IP/PROFINET-name assignment without a new explicit requirement.
 - Future `Net` manual-entry/UI refinements should be bundled into coherent review packages rather than split into tiny micro-stages. Use focused tests while developing and finish a package with full tests/build plus non-invasive/offscreen layout-smoke.

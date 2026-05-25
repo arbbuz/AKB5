@@ -21,7 +21,6 @@ namespace AsutpKnowledgeBase
             StartPosition = FormStartPosition.CenterScreen;
             MinimumSize = new Size(1080, 640);
 
-            toolTip = new ToolTip();
             InitializeToolbar();
             InitializeMainLayout();
             InitializeStatusBar();
@@ -46,7 +45,8 @@ namespace AsutpKnowledgeBase
                 Height = ToolbarHeight,
                 ImageScalingSize = new Size(ToolbarIconSize, ToolbarIconSize),
                 Padding = new Padding(4, 2, 4, 2),
-                Renderer = ModernToolbarRenderer.Instance
+                Renderer = ModernToolbarRenderer.Instance,
+                ShowItemToolTips = false
             };
 
             menuFile = CreateTopToolbarMenuButton("Файл");
@@ -145,7 +145,7 @@ namespace AsutpKnowledgeBase
                 menuMaintenanceWorkbookGeneration
             });
 
-            btnSave = CreatePrimaryToolbarButton("\ue161", "Сохранить", "Сохранить базу данных");
+            btnSave = CreatePrimaryToolbarButton("\ue161", "Сохранить");
             btnSave.Click += BtnSave_Click;
             toolStrip.Items.Add(btnSave);
 
@@ -263,13 +263,13 @@ namespace AsutpKnowledgeBase
                 Height = ToolbarHeight,
                 ImageScalingSize = new Size(ToolbarIconSize, ToolbarIconSize),
                 Padding = new Padding(0, 2, 0, 2),
-                Renderer = ModernSurfaceToolbarRenderer.Instance
+                Renderer = ModernSurfaceToolbarRenderer.Instance,
+                ShowItemToolTips = false
             };
             btnCollapseTree = CreateIconOnlyToolbarButton("\ue944", "Свернуть дерево до корневых элементов");
             btnCollapseTree.Alignment = ToolStripItemAlignment.Right;
             treeToolStrip.Items.Add(btnCollapseTree);
 
-            toolTip.SetToolTip(tvTree, "Перетаскивание для перемещения, правая кнопка мыши для меню");
             treeHeader.Controls.Add(treeTitle, 0, 0);
             treeHeader.Controls.Add(treeToolStrip, 1, 0);
             treeLayout.Controls.Add(treeHeader, 0, 0);
@@ -294,8 +294,7 @@ namespace AsutpKnowledgeBase
                 AutoSize = false,
                 Size = new Size(130, 25),
                 DropDownStyle = ComboBoxStyle.DropDownList,
-                Margin = new Padding(0, 1, 6, 1),
-                ToolTipText = "Область поиска"
+                Margin = new Padding(0, 1, 6, 1)
             };
             cmbSearchScope.Items.AddRange(new object[]
             {
@@ -312,8 +311,7 @@ namespace AsutpKnowledgeBase
                 Alignment = ToolStripItemAlignment.Right,
                 AutoSize = false,
                 Size = new Size(220, 25),
-                Margin = new Padding(0, 1, 4, 1),
-                ToolTipText = "Поиск по выбранной области"
+                Margin = new Padding(0, 1, 4, 1)
             };
             txtSearch.TextBox.PlaceholderText = "Поиск";
 
@@ -792,6 +790,7 @@ namespace AsutpKnowledgeBase
             {
                 AutoSize = false,
                 DisplayStyle = ToolStripItemDisplayStyle.Text,
+                AutoToolTip = false,
                 Margin = new Padding(0, 1, 1, 1),
                 Padding = new Padding(8, 0, 8, 0),
                 Size = new Size(textSize.Width + 28, ToolbarItemHeight),
@@ -805,13 +804,15 @@ namespace AsutpKnowledgeBase
             EventHandler? onClick = null) =>
             new(text, CreateMaterialSymbolIcon(materialSymbolCodePoint), onClick)
             {
+                AutoToolTip = false,
                 ImageScaling = ToolStripItemImageScaling.None
             };
 
-        private static ToolStripButton CreatePrimaryToolbarButton(string materialSymbolCodePoint, string text, string toolTipText) =>
+        private static ToolStripButton CreatePrimaryToolbarButton(string materialSymbolCodePoint, string text) =>
             new PressFeedbackToolStripButton(CreateMaterialSymbolIcon(materialSymbolCodePoint))
             {
                 AutoSize = false,
+                AutoToolTip = false,
                 DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
                 ImageAlign = ContentAlignment.MiddleLeft,
                 ImageScaling = ToolStripItemImageScaling.None,
@@ -823,21 +824,20 @@ namespace AsutpKnowledgeBase
                     ToolbarItemHeight),
                 Text = text,
                 TextAlign = ContentAlignment.MiddleRight,
-                TextImageRelation = TextImageRelation.ImageBeforeText,
-                ToolTipText = toolTipText
+                TextImageRelation = TextImageRelation.ImageBeforeText
             };
 
-        private static ToolStripButton CreateIconOnlyToolbarButton(string materialSymbolCodePoint, string toolTipText) =>
+        private static ToolStripButton CreateIconOnlyToolbarButton(string materialSymbolCodePoint, string accessibleText) =>
             new PressFeedbackToolStripButton(CreateMaterialSymbolIcon(materialSymbolCodePoint))
             {
                 AutoSize = false,
+                AutoToolTip = false,
                 DisplayStyle = ToolStripItemDisplayStyle.Image,
                 ImageAlign = ContentAlignment.MiddleCenter,
                 ImageScaling = ToolStripItemImageScaling.None,
                 Margin = new Padding(0, 1, 1, 1),
                 Size = new Size(ToolbarItemHeight, ToolbarItemHeight),
-                Text = toolTipText,
-                ToolTipText = toolTipText
+                Text = accessibleText
             };
 
         private static System.Drawing.Text.PrivateFontCollection? LoadMaterialSymbolsFontCollection()
@@ -1245,17 +1245,17 @@ namespace AsutpKnowledgeBase
             }
         }
 
-        private static ToolStripButton CreateSearchToolbarButton(Image image, string toolTipText) =>
+        private static ToolStripButton CreateSearchToolbarButton(Image image, string accessibleText) =>
             new()
             {
                 Alignment = ToolStripItemAlignment.Right,
                 AutoSize = false,
+                AutoToolTip = false,
                 DisplayStyle = ToolStripItemDisplayStyle.Image,
                 Image = image,
                 Margin = new Padding(0, 1, 0, 1),
                 Size = new Size(28, 28),
-                Text = toolTipText,
-                ToolTipText = toolTipText
+                Text = accessibleText
             };
 
         private static Bitmap CreateSearchIcon()
