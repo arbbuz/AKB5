@@ -1,13 +1,13 @@
 # Plans
 
-Last updated: `2026-05-24`
+Last updated: `2026-05-25`
 
 ## Active plan
 
 - Work in `C:\Users\Olga\AKB5` on branch `Net`, tracking `origin/Net`.
-- Current task: Codex-doc cleanup by the Dicta pattern. Keep common rules in `C:\Users\Olga\.codex\AGENTS.md`, keep AKB5 `AGENTS.md` project-specific, and keep active continuity in this workspace's `docs`.
-- Keep the accepted Network scale/IP changes, the single-instance startup guard, the no-hover-tooltip cleanup, the Lvl2 inventory-number field fix, and the balanced maintenance schedule no-fail fallback fix ready for commit/push.
-- Commit/push decision for the current uncommitted AKB5 package is pending user approval.
+- Current task: maintenance schedule rebalance follow-up after the February KЦ workbook review.
+- User approved commit/push for the maintenance schedule rebalance follow-up on `2026-05-25`.
+- After push, keep `Net` aligned with `origin/Net` and treat the generated `_rebalanced.xlsx` files in `C:\Users\Olga\Pictures` as old-source diagnostics, not final 3550 h review outputs.
 - Do not reintroduce hover/popup tooltips; guidance must be visible, inline, status-based, or modal.
 - Treat old AKB5/Net/network-topology worktrees and snapshots under `C:\Users\Olga\Documents\Codex\...` as historical references only, not as source of truth.
 
@@ -44,13 +44,14 @@ Last updated: `2026-05-24`
 - Tooltip regression cleanup passed format/build/full tests/publish on `2026-05-24`; explicit `ToolTip`, `ToolTipText`, and `SaveToolTip` references were removed, and item/grid automatic tooltips are disabled.
 - Lvl2 inventory-number field visibility fix passed app format check, targeted form-state tests, and isolated Release build on `2026-05-24`; manual-review executable: `C:\Users\Olga\AKB5\artifacts\build-check\lvl2-inventory-field\asutpKB.exe`.
 - Maintenance no-fail fallback fix passed planner tests, maintenance-focused tests, full test suite, Release build, publish, and KЦ full-year diagnostic on `2026-05-24`; generated February workbook: `C:\Users\Olga\Pictures\Купоросный цех (КЦ)_ГрафикТО_2026_02_fixed.xlsx`.
+- Maintenance rebalance follow-up passed targeted rebalance test, maintenance-focused tests, format checks, Release build, full test suite, publish, and read-only KЦ workbook generation on `2026-05-25`. The `_rebalanced.xlsx` files in `C:\Users\Olga\Pictures` prove the rebalance behavior but were generated from the old bin Release database (`3407` h); the actual database `C:\Users\Olga\Desktop\asutpKB\proj\database\knowledge-base.akb` gives KЦ 2026 total `3550` h and June `302` h.
 - Keep existing Level 2-only Network topology behavior unchanged.
 
 ## Not active / out of scope
 
 - PRONETA/CSV import, live scan, OCR/PDF import, plan/fact comparison, data-quality panels, AKB5-driven IP/PROFINET-name assignment, or embedded PDF preview.
 - Direct edits to real `.akb` or JSON user databases.
-- Commit/push of the current uncommitted AKB5 package before the user requests it.
+- Direct edits to real `.akb` or JSON user data files while investigating schedule totals.
 
 ## Update rule
 

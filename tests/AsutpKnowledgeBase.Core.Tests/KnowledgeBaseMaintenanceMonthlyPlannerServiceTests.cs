@@ -435,6 +435,54 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerServiceTests
     }
 
     [Fact]
+    public void PlanMonth_RebalancesLowDayWithoutBreakingRouteRules()
+    {
+        KbMaintenanceMonthWorkItem[] largeSystems = Enumerable.Range(1, 14)
+            .Select(index => CreateSystemWorkItem(
+                $"large-{index}-device",
+                $"Large {index}",
+                $"large-{index}",
+                index,
+                index,
+                systemLevel3NodeCount: 3,
+                hours: 12))
+            .ToArray();
+        KbMaintenanceMonthWorkItem[] smallFillers = Enumerable.Range(1, 14)
+            .Select(index => CreateSystemWorkItem(
+                $"small-{index}-device",
+                $"Small {index}",
+                $"small-{index}",
+                100 + index,
+                100 + index,
+                systemLevel3NodeCount: 1,
+                hours: 4))
+            .ToArray();
+        KbMaintenanceMonthWorkItem lowDayWork = CreateSystemWorkItem(
+            "small-low-device",
+            "Small low",
+            "small-low",
+            200,
+            200,
+            systemLevel3NodeCount: 1,
+            hours: 7);
+
+        KnowledgeBaseMaintenanceMonthPlanResult result = _service.PlanMonth(
+            2026,
+            1,
+            totalMonthlyHourBudget: 300,
+            largeSystems.Concat(smallFillers).Append(lowDayWork).ToArray());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(231, result.RequestedHours);
+        Assert.Equal(15, result.WorkingDayCount);
+        Assert.Equal(15, result.PlannedDays.Count);
+        Assert.All(result.PlannedDays, static day => Assert.InRange(day.TotalHours, 11, 16));
+        Assert.DoesNotContain(result.PlannedDays, static day => day.TotalHours == 7);
+        AssertRouteSystemMixRules(result);
+        AssertNoSameOwnerDateConflicts(result);
+    }
+
+    [Fact]
     public void PlanMonth_PacksSameSystemMajorAndLightWorkIntoSingleSystemDay()
     {
         KnowledgeBaseMaintenanceMonthPlanResult result = _service.PlanMonth(
@@ -801,7 +849,8 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerServiceTests
         int systemPreorderIndex,
         int ownerPreorderIndex,
         int systemLevel3NodeCount,
-        int hours) =>
+        int hours,
+        KbMaintenanceWorkKind workKind = KbMaintenanceWorkKind.To1) =>
         new()
         {
             OwnerNodeId = ownerNodeId,
@@ -810,7 +859,7 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerServiceTests
             SystemPreorderIndex = systemPreorderIndex,
             OwnerPreorderIndex = ownerPreorderIndex,
             SystemLevel3NodeCount = systemLevel3NodeCount,
-            WorkKind = KbMaintenanceWorkKind.To1,
+            WorkKind = workKind,
             Hours = hours
         };
 

@@ -178,24 +178,11 @@ namespace AsutpKnowledgeBase.Services
                         normalizedWorkItems);
                 }
 
-                foreach (WorkAssignmentDraft assignmentDraft in visitPlan.Assignments)
-                {
-                    selectedDay.Assignments.Add(new KbMaintenanceMonthPlanAssignment
-                    {
-                        Date = selectedDay.Date,
-                        OwnerNodeId = assignmentDraft.OwnerNodeId,
-                        NodeName = assignmentDraft.NodeName,
-                        SystemNodeId = assignmentDraft.SystemNodeId,
-                        SystemLevel3NodeCount = assignmentDraft.SystemLevel3NodeCount,
-                        WorkKind = assignmentDraft.WorkKind,
-                        Hours = assignmentDraft.Hours
-                    });
-                }
-
-                selectedDay.TotalHours += visitPlan.TotalHours;
-                selectedDay.Register(visitPlan);
+                selectedDay.AddVisit(visitPlan);
                 selectedVisitGroupState.MarkScheduled(selectedDay);
             }
+
+            RebalanceDayLoads(dayBuilders, dailyBalanceTargetHours, dailyPackingTargetHours);
 
             static MaintenanceVisitGroupScheduleState? SelectNextVisitGroupState(
                 IReadOnlyList<MaintenanceVisitGroupScheduleState> visitGroupStates,
@@ -549,6 +536,142 @@ namespace AsutpKnowledgeBase.Services
                 : dayCount + dayIndex - previousDayIndex;
         }
 
+        private static void RebalanceDayLoads(
+            IReadOnlyList<DayPlanBuilder> dayBuilders,
+            double dailyBalanceTargetHours,
+            int dailyLoadLimitHours)
+        {
+            if (dailyBalanceTargetHours <= 0 || dayBuilders.Count < 2)
+                return;
+
+            int maxMoveCount = dayBuilders.Sum(static day => day.Visits.Count) * dayBuilders.Count;
+            for (int moveIndex = 0; moveIndex < maxMoveCount; moveIndex++)
+            {
+                DayLoadRebalanceMove? bestMove = FindBestDayLoadRebalanceMove(
+                    dayBuilders,
+                    dailyBalanceTargetHours,
+                    dailyLoadLimitHours);
+                if (bestMove == null)
+                    break;
+
+                bestMove.Source.MoveVisitTo(bestMove.Visit, bestMove.Target);
+            }
+        }
+
+        private static DayLoadRebalanceMove? FindBestDayLoadRebalanceMove(
+            IReadOnlyList<DayPlanBuilder> dayBuilders,
+            double dailyBalanceTargetHours,
+            int dailyLoadLimitHours)
+        {
+            DayLoadRebalanceMove? bestMove = null;
+            foreach (DayPlanBuilder sourceDay in dayBuilders
+                .Where(day => day.TotalHours > dailyBalanceTargetHours && day.Visits.Count > 1)
+                .OrderByDescending(static day => day.TotalHours)
+                .ThenBy(static day => day.Date))
+            {
+                foreach (ScheduledMaintenanceVisit visit in sourceDay.Visits
+                    .OrderBy(static visit => visit.TotalHours)
+                    .ThenBy(static visit => visit.OrderIndex))
+                {
+                    foreach (DayPlanBuilder targetDay in dayBuilders
+                        .Where(day => !ReferenceEquals(day, sourceDay) && day.TotalHours < dailyBalanceTargetHours)
+                        .OrderBy(static day => day.TotalHours)
+                        .ThenBy(static day => day.Date))
+                    {
+                        if (!CanMoveVisitForRebalance(sourceDay, targetDay, visit, dailyLoadLimitHours))
+                            continue;
+
+                        double currentScore =
+                            CalculateDayLoadBalanceScore(sourceDay.TotalHours, dailyBalanceTargetHours) +
+                            CalculateDayLoadBalanceScore(targetDay.TotalHours, dailyBalanceTargetHours);
+                        int projectedSourceHours = sourceDay.TotalHours - visit.TotalHours;
+                        int projectedTargetHours = targetDay.TotalHours + visit.TotalHours;
+                        double projectedScore =
+                            CalculateDayLoadBalanceScore(projectedSourceHours, dailyBalanceTargetHours) +
+                            CalculateDayLoadBalanceScore(projectedTargetHours, dailyBalanceTargetHours);
+                        double improvement = currentScore - projectedScore;
+                        if (improvement <= 0.0001)
+                            continue;
+
+                        var move = new DayLoadRebalanceMove(
+                            sourceDay,
+                            targetDay,
+                            visit,
+                            improvement,
+                            Math.Abs(projectedTargetHours - dailyBalanceTargetHours),
+                            Math.Abs(projectedSourceHours - dailyBalanceTargetHours));
+                        if (bestMove == null || IsBetterRebalanceMove(move, bestMove))
+                            bestMove = move;
+                    }
+                }
+            }
+
+            return bestMove;
+        }
+
+        private static bool IsBetterRebalanceMove(
+            DayLoadRebalanceMove candidate,
+            DayLoadRebalanceMove currentBest)
+        {
+            int improvementComparison = candidate.Improvement.CompareTo(currentBest.Improvement);
+            if (improvementComparison != 0)
+                return improvementComparison > 0;
+
+            int targetDeviationComparison = candidate.TargetDeviationAfter.CompareTo(currentBest.TargetDeviationAfter);
+            if (targetDeviationComparison != 0)
+                return targetDeviationComparison < 0;
+
+            int sourceDeviationComparison = candidate.SourceDeviationAfter.CompareTo(currentBest.SourceDeviationAfter);
+            if (sourceDeviationComparison != 0)
+                return sourceDeviationComparison < 0;
+
+            int visitHoursComparison = candidate.Visit.TotalHours.CompareTo(currentBest.Visit.TotalHours);
+            if (visitHoursComparison != 0)
+                return visitHoursComparison < 0;
+
+            int sourceDateComparison = candidate.Source.Date.CompareTo(currentBest.Source.Date);
+            if (sourceDateComparison != 0)
+                return sourceDateComparison < 0;
+
+            return candidate.Target.Date < currentBest.Target.Date;
+        }
+
+        private static bool CanMoveVisitForRebalance(
+            DayPlanBuilder sourceDay,
+            DayPlanBuilder targetDay,
+            ScheduledMaintenanceVisit visit,
+            int dailyLoadLimitHours)
+        {
+            if (sourceDay.Visits.Count <= 1)
+                return false;
+
+            if (targetDay.TotalHours + visit.TotalHours > dailyLoadLimitHours)
+                return false;
+
+            if (visit.IsLargeSystem &&
+                targetDay.LargeSystemCount > 0 &&
+                !targetDay.HasLargeSystem(visit.SchedulingConflictKey))
+            {
+                return false;
+            }
+
+            foreach (string ownerNodeId in visit.OwnerNodeIds)
+            {
+                if (targetDay.HasOwner(ownerNodeId))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static double CalculateDayLoadBalanceScore(
+            int totalHours,
+            double dailyBalanceTargetHours)
+        {
+            double deviation = totalHours - dailyBalanceTargetHours;
+            return deviation * deviation;
+        }
+
         private static bool TryValidateVisitCapacity(
             int year,
             int month,
@@ -741,6 +864,14 @@ namespace AsutpKnowledgeBase.Services
             int OwnerAdjacencyRank,
             int SystemAdjacencyRank);
 
+        private sealed record DayLoadRebalanceMove(
+            DayPlanBuilder Source,
+            DayPlanBuilder Target,
+            ScheduledMaintenanceVisit Visit,
+            double Improvement,
+            double TargetDeviationAfter,
+            double SourceDeviationAfter);
+
         private sealed record WorkAssignmentDraft(
             string OwnerNodeId,
             string NodeName,
@@ -899,6 +1030,79 @@ namespace AsutpKnowledgeBase.Services
             public string SchedulingConflictName { get; }
         }
 
+        private sealed class ScheduledMaintenanceVisit
+        {
+            private ScheduledMaintenanceVisit(
+                int orderIndex,
+                IReadOnlyList<KbMaintenanceMonthPlanAssignment> assignments,
+                List<string> ownerNodeIds,
+                int totalHours,
+                bool isLargeSystem,
+                string schedulingConflictKey)
+            {
+                OrderIndex = orderIndex;
+                Assignments = assignments;
+                OwnerNodeIds = ownerNodeIds;
+                TotalHours = totalHours;
+                IsLargeSystem = isLargeSystem;
+                SchedulingConflictKey = schedulingConflictKey;
+            }
+
+            public int OrderIndex { get; }
+
+            public IReadOnlyList<KbMaintenanceMonthPlanAssignment> Assignments { get; }
+
+            public List<string> OwnerNodeIds { get; }
+
+            public int TotalHours { get; }
+
+            public bool IsLargeSystem { get; }
+
+            public string SchedulingConflictKey { get; }
+
+            public static ScheduledMaintenanceVisit Create(
+                MaintenanceVisitPlan visitPlan,
+                DateOnly date) =>
+                new(
+                    visitPlan.OrderIndex,
+                    visitPlan.Assignments
+                        .Select(assignmentDraft => new KbMaintenanceMonthPlanAssignment
+                        {
+                            Date = date,
+                            OwnerNodeId = assignmentDraft.OwnerNodeId,
+                            NodeName = assignmentDraft.NodeName,
+                            SystemNodeId = assignmentDraft.SystemNodeId,
+                            SystemLevel3NodeCount = assignmentDraft.SystemLevel3NodeCount,
+                            WorkKind = assignmentDraft.WorkKind,
+                            Hours = assignmentDraft.Hours
+                        })
+                        .ToList(),
+                    visitPlan.OwnerNodeIds.ToList(),
+                    visitPlan.TotalHours,
+                    visitPlan.IsLargeSystem,
+                    visitPlan.SchedulingConflictKey);
+
+            public ScheduledMaintenanceVisit CloneForDate(DateOnly date) =>
+                new(
+                    OrderIndex,
+                    Assignments
+                        .Select(assignment => new KbMaintenanceMonthPlanAssignment
+                        {
+                            Date = date,
+                            OwnerNodeId = assignment.OwnerNodeId,
+                            NodeName = assignment.NodeName,
+                            SystemNodeId = assignment.SystemNodeId,
+                            SystemLevel3NodeCount = assignment.SystemLevel3NodeCount,
+                            WorkKind = assignment.WorkKind,
+                            Hours = assignment.Hours
+                        })
+                        .ToList(),
+                    OwnerNodeIds.ToList(),
+                    TotalHours,
+                    IsLargeSystem,
+                    SchedulingConflictKey);
+        }
+
         private static List<int> BuildNonWorkingDayNumbers(
             int year,
             int month,
@@ -975,6 +1179,8 @@ namespace AsutpKnowledgeBase.Services
 
             public List<KbMaintenanceMonthPlanAssignment> Assignments { get; } = new();
 
+            public List<ScheduledMaintenanceVisit> Visits { get; } = new();
+
             private HashSet<string> OwnerNodeIds { get; } = new(StringComparer.Ordinal);
 
             private HashSet<string> SchedulingConflictKeys { get; } = new(StringComparer.Ordinal);
@@ -983,18 +1189,54 @@ namespace AsutpKnowledgeBase.Services
 
             public int LargeSystemCount => LargeSystemKeys.Count;
 
-            public void Register(MaintenanceVisitPlan visitPlan)
+            public void AddVisit(MaintenanceVisitPlan visitPlan) =>
+                AddVisit(ScheduledMaintenanceVisit.Create(visitPlan, Date));
+
+            public void AddVisit(ScheduledMaintenanceVisit visit)
             {
-                foreach (string ownerNodeId in visitPlan.OwnerNodeIds)
+                Visits.Add(visit);
+                RebuildFromVisits();
+            }
+
+            public void MoveVisitTo(
+                ScheduledMaintenanceVisit visit,
+                DayPlanBuilder targetDay)
+            {
+                if (!Visits.Remove(visit))
+                    return;
+
+                RebuildFromVisits();
+                targetDay.AddVisit(visit.CloneForDate(targetDay.Date));
+            }
+
+            private void Register(ScheduledMaintenanceVisit visit)
+            {
+                foreach (string ownerNodeId in visit.OwnerNodeIds)
                 {
                     OwnerNodeIds.Add(ownerNodeId);
                 }
 
-                if (!string.IsNullOrWhiteSpace(visitPlan.SchedulingConflictKey))
+                if (!string.IsNullOrWhiteSpace(visit.SchedulingConflictKey))
                 {
-                    SchedulingConflictKeys.Add(visitPlan.SchedulingConflictKey);
-                    if (visitPlan.IsLargeSystem)
-                        LargeSystemKeys.Add(visitPlan.SchedulingConflictKey);
+                    SchedulingConflictKeys.Add(visit.SchedulingConflictKey);
+                    if (visit.IsLargeSystem)
+                        LargeSystemKeys.Add(visit.SchedulingConflictKey);
+                }
+            }
+
+            private void RebuildFromVisits()
+            {
+                Assignments.Clear();
+                OwnerNodeIds.Clear();
+                SchedulingConflictKeys.Clear();
+                LargeSystemKeys.Clear();
+                TotalHours = 0;
+
+                foreach (ScheduledMaintenanceVisit visit in Visits.OrderBy(static item => item.OrderIndex))
+                {
+                    Assignments.AddRange(visit.Assignments);
+                    TotalHours += visit.TotalHours;
+                    Register(visit);
                 }
             }
 

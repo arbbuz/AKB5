@@ -1,10 +1,10 @@
 # Current State
 
-Last updated: `2026-05-24`
+Last updated: `2026-05-25`
 
 ## Current objective
 
-Codex-doc cleanup by the Dicta pattern is completed locally on `Net`: common operating rules belong in `C:\Users\Olga\.codex\AGENTS.md`, while the main AKB5 workspace keeps only AKB5-specific `AGENTS.md` rules and active continuity docs. Level 2 Network topology usability tweaks on `Net` are implemented, committed, pushed, and manually accepted through link endpoint drag/reassignment. Current uncommitted follow-ups are implemented and manually accepted: scaled Network canvas objects and IP duplicate/validity checks in the topology element dialog. A single-instance startup guard, a no-hover-tooltip UI regression cleanup, balanced maintenance schedule no-fail fallback fix, and Lvl2 inventory-number field visibility fix have also been implemented and validated locally. User approved commit/push to `Net`.
+Current active work is maintenance schedule balancing on `Net`: the no-fail route-flow planner is now followed by a conservative rebalance pass that moves already planned visits from high-load days to low-load days only when the move strictly improves daily-hour balance and preserves owner, large-system, and shift-limit constraints. The new review workbook fixes the February KЦ `24.02` low-load case from `7` hours to `13` hours without overwriting the old workbook.
 
 - SCALANCE: `ix:network-wired`;
 - HMI: `ix:panel-ipc`.
@@ -31,11 +31,13 @@ Do not commit, push, merge, rebase, or create/remove remote branches without exp
 - Tracking branch: `origin/Net`
 - Local `Net` was aligned to `origin/Net` after explicit user approval in the current chat.
 - Current upstream base before the scale follow-up: `1f87bb5 Improve network topology editing`.
-- Working tree has local edits ready for commit/push: the scale follow-up, the single-instance startup guard, the no-hover-tooltip cleanup, the balanced maintenance schedule no-fail fallback fix, Lvl2 inventory-number field visibility fix, and AKB5 Codex-doc cleanup.
+- User approved commit/push for the maintenance schedule rebalance follow-up on `2026-05-25`; after that push `Net` should be clean against `origin/Net`.
 - Global Codex rules were moved/expanded in `C:\Users\Olga\.codex\AGENTS.md` so AKB5 `AGENTS.md` can stay project-specific.
 - Historical AKB5/Net/network-topology worktrees and snapshots under `C:\Users\Olga\Documents\Codex\...` were inspected as references only; none were edited or deleted.
 - No real `.akb` or JSON user data files were edited.
-- No commit or push has been performed for this task.
+- No real `.akb` or JSON user data files were edited for this rebalance follow-up.
+- Current review executable: `C:\Users\Olga\AKB5\artifacts\publish\win-x64\asutpKB.exe`.
+- Important diagnostic: the existing `C:\Users\Olga\Pictures\Купоросный цех (КЦ)_ГрафикТО_2026_01_rebalanced.xlsx` through `...\_2026_12_rebalanced.xlsx` were generated from the old `C:\Users\Olga\AKB5\bin\Release\net8.0-windows\database\knowledge-base.akb` source and total `3407` h. The actual application database is `C:\Users\Olga\Desktop\asutpKB\proj\database\knowledge-base.akb`, totals `3550` h for KЦ 2026, and must be used for the next review workbook generation.
 
 ## Current package
 
@@ -117,6 +119,7 @@ Implemented behavior:
 - `AGENTS.md`, `docs/decision-log.md`, `docs/lessons-learned.md`, `docs/plans.md`, and `Roadmap.md` now document that hover/popup tooltips must not be reintroduced.
 - Lvl2 inventory-number field visibility is restored in the info screen. The inventory `TextBox` is wrapped in a field-frame panel; the row-height toggle now targets the actual summary `TableLayoutPanel`, so existing Lvl2 inventory data is visible/editable again.
 - Maintenance monthly planning no longer fails merely because no day satisfies every soft route/load preference. Repeating the same owner object on one date remains blocked; shift overload and same-day large-system mixing are last-resort penalties so a feasible month still produces a workbook.
+- Maintenance monthly planning now runs a post-scheduling rebalance pass. It moves planned visits from above-target days to below-target days only when the two-day squared deviation from `AK9` improves, the target day stays within the current shift-load limit, owner/date duplicates are not created, and a large system is not mixed with another large system.
 
 ## Validation status
 
@@ -229,6 +232,10 @@ Validation completed in `C:\Users\Olga\AKB5`:
 - `dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0`: passed after balance fix, 401 tests.
 - `dotnet build asutpKB.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0`: passed after balance fix with 0 warnings and 0 errors.
 - `dotnet publish asutpKB.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts\publish\win-x64 /p:RunAnalyzers=false /p:WarningLevel=0`: passed after balance fix; manual-review executable is `C:\Users\Olga\AKB5\artifacts\publish\win-x64\asutpKB.exe`.
+- Maintenance rebalance validation on `2026-05-25`: targeted new rebalance test passed; maintenance-focused tests passed, 120 tests; app/core/tests format checks passed; Release build passed with 0 warnings/errors; full core tests passed, 404 tests; publish passed to `C:\Users\Olga\AKB5\artifacts\publish\win-x64\asutpKB.exe`.
+- Read-only KЦ February workbook generation against `C:\Users\Olga\AKB5\bin\Release\net8.0-windows\database\knowledge-base.akb` produced `C:\Users\Olga\Pictures\Купоросный цех (КЦ)_ГрафикТО_2026_02_rebalanced.xlsx`: `requested=275`, `working=19`, `empty=0`, range `10..16`, `AC13=13`, `AC8=13`, `AK9=14.473684210526315`.
+- Read-only KЦ all-month workbook generation on `2026-05-25` produced 12 files in `C:\Users\Olga\Pictures` with suffix `_rebalanced.xlsx`. Month ranges: January `16..20`; February `10..16`; March `10..16`; April `8..16`; May `12..16`; June `10..16`; July `6..16`; August `10..16`; September `2..16`; October `8..16`; November `12..16`; December `8..16`; every month had `empty=0`.
+- Follow-up read-only source diagnostic on `2026-05-25`: actual database `C:\Users\Olga\Desktop\asutpKB\proj\database\knowledge-base.akb` gives KЦ monthly demands `[290, 285, 303, 299, 297, 302, 284, 300, 289, 292, 311, 298]`, total `3550` h. Existing `_rebalanced.xlsx` files in `C:\Users\Olga\Pictures` match the old bin Release database demands `[280, 275, 288, 289, 287, 287, 274, 290, 273, 282, 301, 281]`, total `3407` h. June loss is source-related: actual DB `302` h vs workbook `287` h.
 
 Not run:
 
@@ -269,15 +276,15 @@ Not run:
 ## Known risks / open questions
 
 - The single-instance guard is per Windows logon session (`Local\...` mutex), so it blocks duplicate launches by the same user/session without requiring global mutex permissions.
-- Route-flow planning can make a month fail if the number of required large-system visits exceeds the number of working days, or if one system/object needs more separate visits than there are working days. This is intentional to avoid silently generating a график with two large systems or a repeated object on one day.
+- The rebalance pass moves whole planned visits, not arbitrary Excel cells. This keeps route grouping conservative; it improves the February KЦ `24.02` case to `13` hours, while some days can still remain below `AK9` when further improvement would require splitting a grouped visit.
 - User-facing Russian responses must remain gender-neutral; this is now recorded in `C:\Users\Olga\.codex\AGENTS.md` as a global rule.
 
-- The rejected XLSX files in `C:\Users\Olga\Pictures` were inspected but not overwritten by this session. Regenerate them manually from the published executable before final acceptance.
+- The `_rebalanced.xlsx` files currently in `C:\Users\Olga\Pictures` are useful only as algorithm diagnostics for the old bin Release source. Regenerate the KЦ monthly workbooks from the published executable using `C:\Users\Olga\Desktop\asutpKB\proj\database\knowledge-base.akb` before reviewing the 3550 h annual balance.
 - The current implementation treats Cancel in the add dialog as "do not add the element"; this matches the "enter IP before adding" flow but should be confirmed during manual use.
 
 ## Recommended next step
 
-Current likely next decision after push: manually review `C:\Users\Olga\AKB5\artifacts\publish\win-x64\asutpKB.exe` and `C:\Users\Olga\Pictures\Купоросный цех (КЦ)_ГрафикТО_2026_02_fixed.xlsx`.
+Current likely next decision: regenerate and manually review 2026 KЦ monthly workbooks from `C:\Users\Olga\AKB5\artifacts\publish\win-x64\asutpKB.exe` using the actual database `C:\Users\Olga\Desktop\asutpKB\proj\database\knowledge-base.akb`; expected annual total is `3550` h and June demand is `302` h.
 
 Preview artifact for choosing icons:
 
