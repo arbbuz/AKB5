@@ -29,7 +29,7 @@ Common Codex rules live in `C:\Users\Olga\.codex\AGENTS.md`. Do not duplicate th
 ## AKB5 final response contract
 
 - Before every final response after a code/data/doc change, run `C:\Users\Olga\.codex\scripts\codex-context-now.ps1` and include `Контекст: N%`.
-- If a build/review executable exists, the first line must be a clickable Markdown link whose label is the full Windows path, for example `[C:\...\asutpKB.exe](<C:/.../asutpKB.exe>)`.
+- If a build/review executable exists, the first line must be a clickable Markdown link using the `C:/...` path as both label and target, without angle brackets, for example `[C:/Users/Olga/AKB5/artifacts/publish-fast/win-x64/asutpKB.exe](C:/Users/Olga/AKB5/artifacts/publish-fast/win-x64/asutpKB.exe)`. Do not use a plain code-formatted path for review executables, and do not use the `<C:/...>` markdown target form because it does not launch correctly in the Codex app.
 - Report only: what changed, validation run, unresolved gaps, git/data actions, and handoff status. Do not add apology/excuse paragraphs.
 - If no build/review executable was produced, state that explicitly instead of omitting the artifact line silently.
 

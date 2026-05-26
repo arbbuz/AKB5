@@ -82,14 +82,34 @@ namespace AsutpKnowledgeBase
 
             _canvas = new TopologyCanvas
             {
-                Dock = DockStyle.Fill,
+                Location = Point.Empty,
                 Topology = _topology
             };
+            var canvasShell = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor,
+                Margin = new Padding(3),
+                ColumnCount = 1,
+                RowCount = 2
+            };
+            canvasShell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            canvasShell.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            canvasShell.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            var canvasViewport = new Panel
+            {
+                Dock = DockStyle.Fill,
+                AutoScroll = true,
+                BackColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle,
+                Margin = Padding.Empty
+            };
+            canvasViewport.Controls.Add(_canvas);
             _linkKindPalette = CreateLinkKindPalette();
-            _canvas.Controls.Add(_linkKindPalette);
-            _linkKindPalette.BringToFront();
-            _canvas.Resize += (_, _) => PositionLinkKindPalette(_canvas, _linkKindPalette);
-            PositionLinkKindPalette(_canvas, _linkKindPalette);
+            canvasShell.Controls.Add(canvasViewport, 0, 0);
+            canvasShell.Controls.Add(_linkKindPalette, 0, 1);
+            canvasViewport.Resize += (_, _) => _canvas.UpdateViewportSize(canvasViewport.ClientSize);
+            _canvas.UpdateViewportSize(canvasViewport.ClientSize);
 
             _canvas.SelectionChanged += (_, e) =>
             {
@@ -118,11 +138,11 @@ namespace AsutpKnowledgeBase
             _canvas.ElementEditRequested += (_, e) => EditElement(e.ElementId);
             _canvas.LinkTargetSelected += (_, e) => CompleteLink(e.ElementId);
             _canvas.LinkEndpointMoved += (_, _) => CommitTopologyChange();
-            _canvas.CanvasContextMenuRequested += (_, e) => ShowCanvasContextMenu(e.Location, e.LinkId);
+            _canvas.CanvasContextMenuRequested += (_, e) => ShowCanvasContextMenu(e.Location, e.CanvasLocation, e.LinkId);
 
             layout.Controls.Add(_lblSummary, 0, 0);
             layout.Controls.Add(toolbar, 0, 1);
-            layout.Controls.Add(_canvas, 0, 2);
+            layout.Controls.Add(canvasShell, 0, 2);
             Controls.Add(layout);
 
             UpdateLinkKindButtons();
@@ -157,65 +177,55 @@ namespace AsutpKnowledgeBase
 
         private Panel CreateLinkKindPalette()
         {
-            var palette = new Panel
+            var palette = new FlowLayoutPanel
             {
-                Width = 560,
-                Height = 96,
+                Dock = DockStyle.Fill,
                 BackColor = Color.FromArgb(250, 252, 255),
-                BorderStyle = BorderStyle.FixedSingle
+                BorderStyle = BorderStyle.FixedSingle,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                AutoScroll = true,
+                Padding = new Padding(10, 7, 10, 5),
+                Margin = Padding.Empty
             };
 
+            var stripLabelFont = new Font("Segoe UI", 9F, FontStyle.Bold);
             palette.Controls.Add(new Label
             {
-                Text = "Тип связи",
-                AutoSize = true,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Text = "Тип связи:",
+                AutoSize = false,
+                Size = new Size(GetStripLabelWidth("Тип связи:", stripLabelFont), 28),
+                Font = stripLabelFont,
                 ForeColor = KnowledgeBaseWorkspaceVisuals.TextColor,
-                Location = new Point(14, 9)
+                TextAlign = ContentAlignment.MiddleLeft,
+                Margin = new Padding(0, 0, 8, 0)
             });
 
-            AddLinkKindGroupLabel(palette, "Profibus", 14, 34);
-            AddLinkKindButton(palette, KbNetworkLinkKind.FiberProfibus, "опт.", 14, 57, 82);
-            AddLinkKindButton(palette, KbNetworkLinkKind.CopperProfibus, "медь", 102, 57, 86);
-
-            AddLinkKindGroupLabel(palette, "MPI", 214, 34);
-            AddLinkKindButton(palette, KbNetworkLinkKind.CopperMpi, "медь", 214, 57, 86);
-
-            AddLinkKindGroupLabel(palette, "Profinet", 326, 34);
-            AddLinkKindButton(palette, KbNetworkLinkKind.FiberProfinet, "опт.", 326, 57, 82);
-            AddLinkKindButton(palette, KbNetworkLinkKind.CopperProfinet, "медь", 414, 57, 86);
+            AddLinkKindButton(palette, KbNetworkLinkKind.FiberProfibus, "Profibus, оптоволокно");
+            AddLinkKindButton(palette, KbNetworkLinkKind.CopperProfibus, "Profibus, медь");
+            AddLinkKindButton(palette, KbNetworkLinkKind.CopperMpi, "MPI, медь");
+            AddLinkKindButton(palette, KbNetworkLinkKind.FiberProfinet, "Profinet, оптоволокно");
+            AddLinkKindButton(palette, KbNetworkLinkKind.CopperProfinet, "Profinet, медь");
 
             return palette;
         }
 
-        private static void AddLinkKindGroupLabel(Control palette, string text, int x, int y)
+        private static int GetStripLabelWidth(string text, Font font)
         {
-            palette.Controls.Add(new Label
-            {
-                Text = text,
-                AutoSize = true,
-                Font = new Font("Segoe UI", 8F, FontStyle.Bold),
-                ForeColor = KnowledgeBaseWorkspaceVisuals.MutedTextColor,
-                Location = new Point(x, y)
-            });
+            Size textSize = TextRenderer.MeasureText(text, font, Size.Empty, TextFormatFlags.NoPadding);
+            return textSize.Width + 14;
         }
 
-        private void AddLinkKindButton(Control palette, KbNetworkLinkKind kind, string text, int x, int y, int width)
+        private void AddLinkKindButton(Control palette, KbNetworkLinkKind kind, string text)
         {
             var button = new LinkKindPaletteButton(kind, text)
             {
-                Location = new Point(x, y),
-                Size = new Size(width, 24)
+                Size = new Size(LinkKindPaletteButton.GetPreferredButtonWidth(text), 28),
+                Margin = new Padding(4, 0, 0, 0)
             };
             button.Click += (_, _) => SelectLinkKind(kind);
             _linkKindButtons.Add(button);
             palette.Controls.Add(button);
-        }
-
-        private static void PositionLinkKindPalette(Control canvasHost, Control palette)
-        {
-            int x = Math.Max(8, canvasHost.ClientSize.Width - palette.Width - 24);
-            palette.Location = new Point(x, 12);
         }
 
         private void SelectLinkKind(KbNetworkLinkKind kind)
@@ -291,11 +301,11 @@ namespace AsutpKnowledgeBase
             CommitTopologyChange();
         }
 
-        private void ShowCanvasContextMenu(Point location, string linkId)
+        private void ShowCanvasContextMenu(Point location, Point canvasLocation, string linkId)
         {
             _canvasContextMenu.Items.Clear();
 
-            ToolStripMenuItem addMenu = CreateAddContextMenu(location);
+            ToolStripMenuItem addMenu = CreateAddContextMenu(canvasLocation);
             _canvasContextMenu.Items.Add(addMenu);
             _canvasContextMenu.Items.Add(new ToolStripSeparator());
 
@@ -686,10 +696,10 @@ namespace AsutpKnowledgeBase
 
         private static string GetLinkKindDisplayName(KbNetworkLinkKind kind) => kind switch
         {
-            KbNetworkLinkKind.FiberProfibus => "Profibus, опт.",
+            KbNetworkLinkKind.FiberProfibus => "Profibus, оптоволокно",
             KbNetworkLinkKind.CopperProfibus => "Profibus, медь",
             KbNetworkLinkKind.CopperMpi => "MPI, медь",
-            KbNetworkLinkKind.FiberProfinet => "Profinet, опт.",
+            KbNetworkLinkKind.FiberProfinet => "Profinet, оптоволокно",
             _ => "Profinet, медь"
         };
 
@@ -709,6 +719,12 @@ namespace AsutpKnowledgeBase
 
         private sealed class LinkKindPaletteButton : Button
         {
+            private const int LineSampleLeft = 10;
+            private const int LineSampleRight = 42;
+            private const int TextLeft = 50;
+            private const int TextRightPadding = 16;
+            private const int MeasuredTextSafetyPadding = 14;
+
             private bool _selected;
 
             public LinkKindPaletteButton(KbNetworkLinkKind kind, string text)
@@ -723,6 +739,15 @@ namespace AsutpKnowledgeBase
             }
 
             public KbNetworkLinkKind Kind { get; }
+
+            public static int GetPreferredButtonWidth(string text)
+            {
+                using var regularFont = new Font("Segoe UI", 8F, FontStyle.Regular);
+                using var selectedFont = new Font("Segoe UI", 8F, FontStyle.Bold);
+                int regularWidth = TextRenderer.MeasureText(text, regularFont, Size.Empty, TextFormatFlags.NoPadding).Width;
+                int selectedWidth = TextRenderer.MeasureText(text, selectedFont, Size.Empty, TextFormatFlags.NoPadding).Width;
+                return TextLeft + Math.Max(regularWidth, selectedWidth) + TextRightPadding + MeasuredTextSafetyPadding;
+            }
 
             public bool Selected
             {
@@ -758,16 +783,16 @@ namespace AsutpKnowledgeBase
                     linePen.DashPattern = [4F, 3F];
 
                 int lineY = Height / 2;
-                e.Graphics.DrawLine(linePen, 8, lineY, 36, lineY);
+                e.Graphics.DrawLine(linePen, LineSampleLeft, lineY, LineSampleRight, lineY);
 
                 using var textFont = new Font(Font.FontFamily, Font.Size, Selected ? FontStyle.Bold : FontStyle.Regular);
                 TextRenderer.DrawText(
                     e.Graphics,
                     Text,
                     textFont,
-                    new Rectangle(40, 0, Width - 42, Height),
+                    new Rectangle(TextLeft, 0, Width - TextLeft - TextRightPadding, Height),
                     KnowledgeBaseWorkspaceVisuals.TextColor,
-                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
             }
         }
 
@@ -1717,8 +1742,13 @@ namespace AsutpKnowledgeBase
             private const int LinkStubLength = 22;
             private const int LinkObstaclePadding = 12;
             private const int LinkPortInset = 22;
+            private const int CanvasContentPadding = 96;
+            private const float MinZoomFactor = 0.35F;
+            private const float MaxZoomFactor = 2.5F;
+            private const float ZoomStepFactor = 1.1F;
             private const double LinkHitTolerance = 7D;
 
+            private KbNetworkTopology _topology = new();
             private string _dragElementId = string.Empty;
             private Point _dragOffset;
             private bool _dragMoved;
@@ -1726,16 +1756,31 @@ namespace AsutpKnowledgeBase
             private bool _dragLinkFromEndpoint;
             private Point _dragLinkCurrentPoint;
             private bool _dragLinkMoved;
+            private float _zoomFactor = 1F;
+            private Size _viewportSize = Size.Empty;
 
             public TopologyCanvas()
             {
                 DoubleBuffered = true;
                 BackColor = Color.White;
-                BorderStyle = BorderStyle.FixedSingle;
+                BorderStyle = BorderStyle.None;
                 Cursor = Cursors.Default;
+                TabStop = true;
+                SetStyle(ControlStyles.Selectable, true);
             }
 
-            public KbNetworkTopology Topology { get; set; } = new();
+            public KbNetworkTopology Topology
+            {
+                get => _topology;
+                set
+                {
+                    _topology = value ?? new KbNetworkTopology();
+                    UpdateCanvasSize();
+                    Invalidate();
+                }
+            }
+
+            public float ZoomFactor => _zoomFactor;
 
             public string SelectedElementId { get; set; } = string.Empty;
 
@@ -1759,10 +1804,21 @@ namespace AsutpKnowledgeBase
 
             public event EventHandler<NetworkCanvasContextMenuEventArgs>? CanvasContextMenuRequested;
 
+            public void UpdateViewportSize(Size viewportSize)
+            {
+                _viewportSize = viewportSize;
+                UpdateCanvasSize();
+                Invalidate();
+            }
+
+            public void ZoomAtScreenPoint(Point screenPoint, bool zoomIn) =>
+                ZoomAt(PointToClient(screenPoint), zoomIn);
+
             public Point GetElementDropLocation(Point location)
             {
-                int maxX = Math.Max(8, ClientSize.Width - ElementWidth - 8);
-                int maxY = Math.Max(8, ClientSize.Height - ElementHeight - 8);
+                Size logicalSize = GetLogicalCanvasSize();
+                int maxX = Math.Max(8, logicalSize.Width - ElementWidth - 8);
+                int maxY = Math.Max(8, logicalSize.Height - ElementHeight - 8);
                 return new Point(
                     Math.Clamp(location.X - ElementWidth / 2, 8, maxX),
                     Math.Clamp(location.Y - ElementHeight / 2, 8, maxY));
@@ -1772,6 +1828,7 @@ namespace AsutpKnowledgeBase
             {
                 base.OnPaint(e);
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                e.Graphics.ScaleTransform(_zoomFactor, _zoomFactor);
                 DrawGrid(e.Graphics);
                 DrawLinks(e.Graphics);
 
@@ -1781,24 +1838,49 @@ namespace AsutpKnowledgeBase
                 if (Topology.Elements.Count == 0)
                 {
                     using var emptyStateFont = new Font("Segoe UI", 14F, FontStyle.Regular);
-                    TextRenderer.DrawText(
-                        e.Graphics,
+                    using var emptyStateBrush = new SolidBrush(Color.FromArgb(117, 129, 141));
+                    using StringFormat emptyStateFormat = CreateSingleLineStringFormat(
+                        StringAlignment.Center,
+                        StringAlignment.Center);
+                    e.Graphics.DrawString(
                         "Сеть пока пуста",
                         emptyStateFont,
-                        ClientRectangle,
-                        Color.FromArgb(117, 129, 141),
-                        TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                        emptyStateBrush,
+                        GetLogicalClientRectangle(),
+                        emptyStateFormat);
                 }
+            }
+
+            protected override void OnMouseEnter(EventArgs e)
+            {
+                base.OnMouseEnter(e);
+                if (CanFocus)
+                    Focus();
+            }
+
+            protected override void OnMouseWheel(MouseEventArgs e)
+            {
+                if ((ModifierKeys & Keys.Control) == Keys.Control)
+                {
+                    ZoomAt(e.Location, e.Delta > 0);
+                    return;
+                }
+
+                ScrollParentByWheel(e.Delta);
             }
 
             protected override void OnMouseDown(MouseEventArgs e)
             {
                 base.OnMouseDown(e);
+                if (CanFocus)
+                    Focus();
+
+                Point location = ToLogicalPoint(e.Location);
                 if (e.Button == MouseButtons.Right)
                 {
-                    KbNetworkElement? contextElement = HitTestElement(e.Location);
+                    KbNetworkElement? contextElement = HitTestElement(location);
                     LinkHit? contextLink = contextElement == null
-                        ? HitTestLink(e.Location)
+                        ? HitTestLink(location)
                         : null;
                     if (contextElement != null || string.IsNullOrWhiteSpace(PendingLinkSourceElementId))
                     {
@@ -1813,6 +1895,7 @@ namespace AsutpKnowledgeBase
                         this,
                         new NetworkCanvasContextMenuEventArgs(
                             e.Location,
+                            location,
                             contextElement?.ElementId ?? string.Empty,
                             contextLink?.Link.LinkId ?? string.Empty));
                     return;
@@ -1821,7 +1904,7 @@ namespace AsutpKnowledgeBase
                 if (e.Button != MouseButtons.Left)
                     return;
 
-                KbNetworkElement? element = HitTestElement(e.Location);
+                KbNetworkElement? element = HitTestElement(location);
                 if (!string.IsNullOrWhiteSpace(PendingLinkSourceElementId))
                 {
                     if (element != null)
@@ -1831,7 +1914,7 @@ namespace AsutpKnowledgeBase
 
                 if (element == null)
                 {
-                    LinkHit? linkHit = HitTestLink(e.Location);
+                    LinkHit? linkHit = HitTestLink(location);
                     if (linkHit.HasValue)
                     {
                         SelectedElementId = string.Empty;
@@ -1839,7 +1922,7 @@ namespace AsutpKnowledgeBase
                         SelectionChanged?.Invoke(this, new NetworkElementEventArgs(SelectedElementId));
                         LinkSelectionChanged?.Invoke(this, new NetworkLinkEventArgs(SelectedLinkId));
                         Invalidate();
-                        BeginLinkEndpointDrag(linkHit.Value, e.Location);
+                        BeginLinkEndpointDrag(linkHit.Value, location);
                         return;
                     }
                 }
@@ -1855,7 +1938,7 @@ namespace AsutpKnowledgeBase
 
                 Rectangle bounds = GetElementBounds(element);
                 _dragElementId = element.ElementId;
-                _dragOffset = new Point(e.X - bounds.X, e.Y - bounds.Y);
+                _dragOffset = new Point(location.X - bounds.X, location.Y - bounds.Y);
                 _dragMoved = false;
                 Cursor = Cursors.SizeAll;
             }
@@ -1863,20 +1946,21 @@ namespace AsutpKnowledgeBase
             protected override void OnMouseMove(MouseEventArgs e)
             {
                 base.OnMouseMove(e);
+                Point location = ToLogicalPoint(e.Location);
                 if (!string.IsNullOrWhiteSpace(_dragLinkId))
                 {
-                    _dragLinkCurrentPoint = e.Location;
+                    _dragLinkCurrentPoint = location;
                     _dragLinkMoved = true;
-                    Cursor = IsValidLinkEndpointTarget(HitTestElement(e.Location)) ? Cursors.Cross : Cursors.No;
+                    Cursor = IsValidLinkEndpointTarget(HitTestElement(location)) ? Cursors.Cross : Cursors.No;
                     Invalidate();
                     return;
                 }
 
                 if (string.IsNullOrWhiteSpace(_dragElementId))
                 {
-                    Cursor = HitTestElement(e.Location) != null
+                    Cursor = HitTestElement(location) != null
                         ? Cursors.Hand
-                        : HitTestLink(e.Location).HasValue
+                        : HitTestLink(location).HasValue
                             ? Cursors.Cross
                             : Cursors.Default;
                     return;
@@ -1887,11 +1971,10 @@ namespace AsutpKnowledgeBase
                 if (element == null)
                     return;
 
-                int maxX = Math.Max(0, ClientSize.Width - ElementWidth - 8);
-                int maxY = Math.Max(0, ClientSize.Height - ElementHeight - 8);
-                element.X = Math.Clamp(e.X - _dragOffset.X, 8, maxX);
-                element.Y = Math.Clamp(e.Y - _dragOffset.Y, 8, maxY);
+                element.X = Math.Max(8, location.X - _dragOffset.X);
+                element.Y = Math.Max(8, location.Y - _dragOffset.Y);
                 _dragMoved = true;
+                UpdateCanvasSize();
                 Invalidate();
             }
 
@@ -1900,7 +1983,7 @@ namespace AsutpKnowledgeBase
                 base.OnMouseUp(e);
                 if (!string.IsNullOrWhiteSpace(_dragLinkId))
                 {
-                    CompleteLinkEndpointDrag(e.Location);
+                    CompleteLinkEndpointDrag(ToLogicalPoint(e.Location));
                     return;
                 }
 
@@ -1919,13 +2002,95 @@ namespace AsutpKnowledgeBase
                     ElementEditRequested?.Invoke(this, new NetworkElementEventArgs(SelectedElementId));
             }
 
+            private void ZoomAt(Point canvasPoint, bool zoomIn)
+            {
+                float nextZoom = Math.Clamp(
+                    _zoomFactor * (zoomIn ? ZoomStepFactor : 1F / ZoomStepFactor),
+                    MinZoomFactor,
+                    MaxZoomFactor);
+                if (Math.Abs(nextZoom - _zoomFactor) < 0.001F)
+                    return;
+
+                PointF logicalAnchor = ToLogicalPointF(canvasPoint);
+                ScrollableControl? viewport = Parent as ScrollableControl;
+                Point viewportPoint = viewport?.PointToClient(PointToScreen(canvasPoint)) ?? canvasPoint;
+
+                _zoomFactor = nextZoom;
+                UpdateCanvasSize();
+                if (viewport != null)
+                {
+                    int scrollX = Math.Max(0, (int)Math.Round(logicalAnchor.X * _zoomFactor) - viewportPoint.X);
+                    int scrollY = Math.Max(0, (int)Math.Round(logicalAnchor.Y * _zoomFactor) - viewportPoint.Y);
+                    viewport.AutoScrollPosition = new Point(scrollX, scrollY);
+                }
+
+                Invalidate();
+            }
+
+            private void ScrollParentByWheel(int delta)
+            {
+                if (Parent is not ScrollableControl viewport)
+                    return;
+
+                int lines = SystemInformation.MouseWheelScrollLines > 0
+                    ? SystemInformation.MouseWheelScrollLines
+                    : 3;
+                int step = Math.Max(48, lines * 24);
+                int currentX = -viewport.AutoScrollPosition.X;
+                int currentY = -viewport.AutoScrollPosition.Y;
+                int targetY = Math.Max(0, currentY + (delta > 0 ? -step : step));
+                viewport.AutoScrollPosition = new Point(currentX, targetY);
+            }
+
+            private Point ToLogicalPoint(Point point) =>
+                new(
+                    (int)Math.Round(point.X / _zoomFactor),
+                    (int)Math.Round(point.Y / _zoomFactor));
+
+            private PointF ToLogicalPointF(Point point) =>
+                new(point.X / _zoomFactor, point.Y / _zoomFactor);
+
+            private Rectangle GetLogicalClientRectangle()
+            {
+                Size logicalSize = GetLogicalCanvasSize();
+                return new Rectangle(Point.Empty, logicalSize);
+            }
+
+            private void UpdateCanvasSize()
+            {
+                Size logicalSize = GetLogicalCanvasSize();
+                Size scaledSize = new(
+                    Math.Max(1, (int)Math.Ceiling(logicalSize.Width * _zoomFactor)),
+                    Math.Max(1, (int)Math.Ceiling(logicalSize.Height * _zoomFactor)));
+                if (Size != scaledSize)
+                    Size = scaledSize;
+            }
+
+            private Size GetLogicalCanvasSize()
+            {
+                Size viewportSize = !_viewportSize.IsEmpty
+                    ? _viewportSize
+                    : Parent?.ClientSize ?? ClientSize;
+                int width = Math.Max(1, (int)Math.Ceiling(viewportSize.Width / _zoomFactor));
+                int height = Math.Max(1, (int)Math.Ceiling(viewportSize.Height / _zoomFactor));
+
+                foreach (KbNetworkElement element in Topology.Elements)
+                {
+                    width = Math.Max(width, element.X + ElementWidth + CanvasContentPadding);
+                    height = Math.Max(height, element.Y + ElementHeight + CanvasContentPadding);
+                }
+
+                return new Size(width, height);
+            }
+
             private void DrawGrid(Graphics graphics)
             {
+                Rectangle logicalBounds = GetLogicalClientRectangle();
                 using var pen = new Pen(Color.FromArgb(238, 242, 246), 1F);
-                for (int x = 0; x < Width; x += 24)
-                    graphics.DrawLine(pen, x, 0, x, Height);
-                for (int y = 0; y < Height; y += 24)
-                    graphics.DrawLine(pen, 0, y, Width, y);
+                for (int x = 0; x < logicalBounds.Width; x += 24)
+                    graphics.DrawLine(pen, x, 0, x, logicalBounds.Height);
+                for (int y = 0; y < logicalBounds.Height; y += 24)
+                    graphics.DrawLine(pen, 0, y, logicalBounds.Width, y);
             }
 
             private void DrawLinks(Graphics graphics)
@@ -2009,13 +2174,11 @@ namespace AsutpKnowledgeBase
                 using var nameFont = new Font("Segoe UI Semibold", 9.8F, FontStyle.Bold);
                 using var ipFont = new Font("Segoe UI Semibold", 10.1F, FontStyle.Bold);
                 DrawIpAddress(graphics, element.IpAddress, ipFont, ipBounds);
-                TextRenderer.DrawText(
-                    graphics,
-                    element.Name,
-                    nameFont,
-                    nameBounds,
-                    Color.FromArgb(21, 33, 45),
-                    TextFormatFlags.HorizontalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+                using var nameBrush = new SolidBrush(Color.FromArgb(21, 33, 45));
+                using StringFormat nameFormat = CreateSingleLineStringFormat(
+                    StringAlignment.Center,
+                    StringAlignment.Center);
+                graphics.DrawString(element.Name, nameFont, nameBrush, nameBounds, nameFormat);
             }
 
             private static void DrawIpAddress(Graphics graphics, string ipAddress, Font font, Rectangle bounds)
@@ -2031,17 +2194,23 @@ namespace AsutpKnowledgeBase
                     graphics.DrawPath(badgeBorder, badgePath);
                 }
 
-                TextRenderer.DrawText(
-                    graphics,
-                    ipAddress,
-                    font,
-                    bounds,
-                    Color.FromArgb(28, 55, 84),
-                    TextFormatFlags.HorizontalCenter |
-                    TextFormatFlags.VerticalCenter |
-                    TextFormatFlags.EndEllipsis |
-                    TextFormatFlags.NoPrefix);
+                using var textBrush = new SolidBrush(Color.FromArgb(28, 55, 84));
+                using StringFormat textFormat = CreateSingleLineStringFormat(
+                    StringAlignment.Center,
+                    StringAlignment.Center);
+                graphics.DrawString(ipAddress, font, textBrush, bounds, textFormat);
             }
+
+            private static StringFormat CreateSingleLineStringFormat(
+                StringAlignment alignment,
+                StringAlignment lineAlignment) =>
+                new()
+                {
+                    Alignment = alignment,
+                    LineAlignment = lineAlignment,
+                    Trimming = StringTrimming.EllipsisCharacter,
+                    FormatFlags = StringFormatFlags.NoWrap
+                };
 
             private KbNetworkElement? HitTestElement(Point point)
             {
@@ -2057,6 +2226,7 @@ namespace AsutpKnowledgeBase
 
             private LinkHit? HitTestLink(Point point)
             {
+                double hitTolerance = LinkHitTolerance / _zoomFactor;
                 for (int index = Topology.Links.Count - 1; index >= 0; index--)
                 {
                     KbNetworkLink link = Topology.Links[index];
@@ -2068,7 +2238,7 @@ namespace AsutpKnowledgeBase
                     Point[] points = GetOrthogonalLinkPoints(link, from, to, Topology.Elements, Topology.Links);
                     for (int segmentIndex = 0; segmentIndex < points.Length - 1; segmentIndex++)
                     {
-                        if (DistanceToSegment(point, points[segmentIndex], points[segmentIndex + 1]) <= LinkHitTolerance)
+                        if (DistanceToSegment(point, points[segmentIndex], points[segmentIndex + 1]) <= hitTolerance)
                         {
                             bool moveFromEndpoint = Distance(point, points[0]) <= Distance(point, points[^1]);
                             return new LinkHit(link, moveFromEndpoint);
@@ -2584,14 +2754,17 @@ namespace AsutpKnowledgeBase
 
         private sealed class NetworkCanvasContextMenuEventArgs : EventArgs
         {
-            public NetworkCanvasContextMenuEventArgs(Point location, string elementId, string linkId)
+            public NetworkCanvasContextMenuEventArgs(Point location, Point canvasLocation, string elementId, string linkId)
             {
                 Location = location;
+                CanvasLocation = canvasLocation;
                 ElementId = elementId;
                 LinkId = linkId;
             }
 
             public Point Location { get; }
+
+            public Point CanvasLocation { get; }
 
             public string ElementId { get; }
 
