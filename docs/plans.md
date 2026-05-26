@@ -5,12 +5,12 @@ Last updated: `2026-05-26`
 ## Active plan
 
 - Work in `C:\Users\Olga\AKB5` on branch `Net`, tracking `origin/Net`.
-- Current task: reduce/diagnose slow AKB5 exe startup and polish Network topology link-type selection.
+- Current task: startup diagnostics / fast publish / Network topology link-type selection package is accepted, committed, and pushed. Wait for the next user request.
 - Do not commit or push without fresh direct approval in the current chat.
 - Do not reintroduce hover/popup tooltips; guidance must be visible, inline, status-based, or modal.
 - Treat old AKB5/Net/network-topology worktrees and snapshots under `C:\Users\Olga\Documents\Codex\...` as historical references only, not as source of truth.
 
-## Current implementation plan
+## Completed package
 
 - Add startup timing checkpoints to existing file logs under `%LocalAppData%\AKB5\logs`.
 - Keep timing diagnostics non-invasive and operator-invisible.
@@ -21,7 +21,7 @@ Last updated: `2026-05-26`
 - Network topology link-type selection is moved from the equipment toolbar ComboBox into a grouped floating palette on the canvas: `Profibus` (`опт.` / `медь`), `MPI` (`медь`), and `Profinet` (`опт.` / `медь`).
 - Existing links can now be selected directly; pressing a palette button changes the selected link kind immediately. Without a selected link, the palette sets the type for the next new link.
 - Network palette validation passed app format, isolated Release build, offscreen layout-smoke PNG, full core tests, and `git diff --check`.
-- Next action is to wait for a fresh direct command before commit/push of the current startup package.
+- Next action is to wait for the next user request.
 - Next possible optimization after measurement: if cold logs repeatedly show `mainform-data-loaded` dominating while SQLite remains fast, add narrower UI binding/session-application timing first; defer database load until after first form display only if that is still justified.
 
 ## Not active / out of scope

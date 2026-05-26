@@ -4,9 +4,9 @@ Last updated: `2026-05-26`
 
 ## Current objective
 
-Current active work is startup-time diagnostics, an accepted faster working publish option, and a Network topology UI polish for link-type selection on `Net`; the package is waiting for an explicit commit/push command.
+Current startup diagnostics / fast publish / Network topology link-type selector package is accepted, committed, and pushed on `Net`. There is no active implementation step waiting after this package.
 
-Implemented in the current uncommitted package:
+Committed/pushed package includes:
 
 - Startup timing checkpoints are logged through the existing `IAppLogger` as `StartupTiming` events.
 - Timing checkpoints cover `Program.Main`, `MainForm` construction, startup storage selection, synchronous data load, SQLite schema/load/normalize phases, and file workflow storage load.
@@ -26,7 +26,7 @@ Do not commit, push, merge, rebase, or create/remove remote branches without exp
 - Main worktree: `C:\Users\Olga\AKB5`
 - Active branch: `Net`
 - Tracking branch: `origin/Net`
-- Latest pushed commit before this package: `af887fb Add network topology ET200 OLM links`.
+- Latest pushed code package commit: `d468e12 Improve startup publish and network link selector`.
 - No real `.akb` or JSON user data files were edited.
 - Current fast-publish review executable: `C:\Users\Olga\AKB5\artifacts\publish-fast\win-x64\asutpKB.exe`.
 - Current Network UI review executable: `C:\Users\Olga\AKB5\artifacts\build-check\network-link-kind-palette\asutpKB.exe`.
@@ -34,7 +34,7 @@ Do not commit, push, merge, rebase, or create/remove remote branches without exp
 
 ## Current package
 
-Changed tracked files:
+Committed package files:
 
 - `Program.cs`
 - `Controls/KnowledgeBaseNetworkTopologyScreenControl.cs`
@@ -109,7 +109,7 @@ Validation completed in `C:\Users\Olga\AKB5`:
 
 ## Recommended next step
 
-Manual review the Network link-type palette through `C:\Users\Olga\AKB5\artifacts\build-check\network-link-kind-palette\asutpKB.exe`, then wait for a fresh direct command before commit/push of the current package. If startup still feels slow after a truly cold launch, inspect another `StartupTiming` run and add narrower checkpoints around UI session application/binding before changing startup architecture.
+Wait for the next user request. If startup still feels slow after a truly cold launch, inspect another `StartupTiming` run and add narrower checkpoints around UI session application/binding before changing startup architecture.
 
 ## Commands to run before finishing future implementation work
 
