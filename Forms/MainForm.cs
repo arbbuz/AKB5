@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using AsutpKnowledgeBase.Models;
 using AsutpKnowledgeBase.Services;
 using AsutpKnowledgeBase.UiServices;
@@ -147,18 +148,27 @@ namespace AsutpKnowledgeBase
 
         public MainForm(IAppLogger appLogger)
         {
+            var startupStopwatch = Stopwatch.StartNew();
             _appLogger = appLogger ?? NullAppLogger.Instance;
+            LogStartupTiming("mainform-constructor-started", startupStopwatch);
             _storageSettingsService = new KnowledgeBasePortableStorageSettingsService(AppContext.BaseDirectory);
             _treeController = new KnowledgeBaseTreeController(_session);
             _windowLayoutStateService = new KnowledgeBaseWindowLayoutStateService(logger: _appLogger);
             InitializeComponent();
+            LogStartupTiming("mainform-components-initialized", startupStopwatch);
             InitializeTemplateContextMenuItem();
             AppIconProvider.Apply(this);
             _savedSplitterDistance = _windowLayoutStateService.LoadSplitterDistance();
             selectedNodeCompositionScreen.ApplyColumnWidths(
                 _windowLayoutStateService.LoadColumnWidths(CompositionRackDetailsColumnWidthsKey));
             RestoreSavedWindowLayout();
+            LogStartupTiming("mainform-layout-restored", startupStopwatch);
             var startupStorage = CreateStartupStorageService();
+            LogStartupTiming(
+                "mainform-startup-storage-created",
+                startupStopwatch,
+                ("storageType", startupStorage.StorageService.GetType().Name),
+                ("storageStatus", startupStorage.StatusText));
             var fileWorkflowService = new KnowledgeBaseFileWorkflowService(
                 _session,
                 startupStorage.StorageService,
@@ -182,9 +192,40 @@ namespace AsutpKnowledgeBase
             _treeMutationUiWorkflowService = new KnowledgeBaseTreeMutationUiWorkflowService(
                 _treeMutationWorkflowService);
             FormClosing += MainForm_FormClosing;
-            _fileUiWorkflowService.LoadData(CreateFileUiWorkflowContext());
+            LogStartupTiming("mainform-services-created", startupStopwatch);
+            KnowledgeBaseFileLoadResult loadResult = _fileUiWorkflowService.LoadData(CreateFileUiWorkflowContext());
+            LogStartupTiming(
+                "mainform-data-loaded",
+                startupStopwatch,
+                ("outcome", loadResult.Outcome),
+                ("sourcePath", loadResult.SourcePath));
             if (!string.IsNullOrWhiteSpace(startupStorage.StatusText))
                 SetLastActionText(startupStorage.StatusText);
+            LogStartupTiming("mainform-constructor-completed", startupStopwatch);
+        }
+
+        private void LogStartupTiming(
+            string stage,
+            Stopwatch stopwatch,
+            params (string Key, object? Value)[] values)
+        {
+            var properties = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["stage"] = stage,
+                ["elapsedMs"] = stopwatch.ElapsedMilliseconds
+            };
+
+            foreach ((string key, object? value) in values)
+            {
+                if (!string.IsNullOrWhiteSpace(key) && value != null)
+                    properties[key] = value;
+            }
+
+            _appLogger.Log(
+                "StartupTiming",
+                AppLogLevel.Information,
+                "AKB5 startup timing checkpoint.",
+                properties: properties);
         }
 
         private static string GetDefaultJsonPath() =>

@@ -10,14 +10,17 @@ namespace AsutpKnowledgeBase
         private readonly TopologyCanvas _canvas;
         private readonly Label _lblSummary;
         private readonly ContextMenuStrip _canvasContextMenu;
-        private readonly ComboBox _cmbLinkKind;
+        private readonly Panel _linkKindPalette;
+        private readonly List<LinkKindPaletteButton> _linkKindButtons = [];
         private readonly Button _btnLink;
         private readonly Button _btnEdit;
         private readonly Button _btnDelete;
 
         private KbNetworkTopology _topology = new();
         private string _selectedElementId = string.Empty;
+        private string _selectedLinkId = string.Empty;
         private string _pendingLinkSourceElementId = string.Empty;
+        private KbNetworkLinkKind _selectedLinkKind = KbNetworkLinkKind.CopperProfinet;
 
         public KnowledgeBaseNetworkTopologyScreenControl()
         {
@@ -67,14 +70,12 @@ namespace AsutpKnowledgeBase
             toolbar.Controls.Add(CreateAddButton("ET200", KbNetworkElementKind.Et200));
             toolbar.Controls.Add(CreateAddButton("OLM", KbNetworkElementKind.Olm));
 
-            _cmbLinkKind = CreateLinkKindComboBox();
-            toolbar.Controls.Add(_cmbLinkKind);
             _btnLink = CreateActionButton("Связь", NetworkIconPainter.CreateCommandIcon(NetworkCommandIconKind.Link));
             _btnLink.Click += (_, _) => BeginOrCancelLinkMode();
             _btnEdit = CreateActionButton("Изменить", NetworkIconPainter.CreateCommandIcon(NetworkCommandIconKind.Edit));
             _btnEdit.Click += (_, _) => EditSelectedElement();
             _btnDelete = CreateActionButton("Удалить", NetworkIconPainter.CreateCommandIcon(NetworkCommandIconKind.Delete));
-            _btnDelete.Click += (_, _) => DeleteSelectedElement();
+            _btnDelete.Click += (_, _) => DeleteSelection();
             toolbar.Controls.Add(_btnLink);
             toolbar.Controls.Add(_btnEdit);
             toolbar.Controls.Add(_btnDelete);
@@ -84,9 +85,33 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Topology = _topology
             };
+            _linkKindPalette = CreateLinkKindPalette();
+            _canvas.Controls.Add(_linkKindPalette);
+            _linkKindPalette.BringToFront();
+            _canvas.Resize += (_, _) => PositionLinkKindPalette(_canvas, _linkKindPalette);
+            PositionLinkKindPalette(_canvas, _linkKindPalette);
+
             _canvas.SelectionChanged += (_, e) =>
             {
                 _selectedElementId = e.ElementId;
+                if (!string.IsNullOrWhiteSpace(e.ElementId))
+                    _selectedLinkId = string.Empty;
+                UpdateCommandState();
+            };
+            _canvas.LinkSelectionChanged += (_, e) =>
+            {
+                _selectedLinkId = e.LinkId;
+                if (!string.IsNullOrWhiteSpace(e.LinkId))
+                    _selectedElementId = string.Empty;
+
+                KbNetworkLink? selectedLink = FindLink(e.LinkId);
+                if (selectedLink != null)
+                {
+                    _selectedLinkKind = selectedLink.Kind;
+                    _canvas.PendingLinkKind = selectedLink.Kind;
+                    UpdateLinkKindButtons();
+                }
+
                 UpdateCommandState();
             };
             _canvas.ElementMoved += (_, _) => CommitTopologyChange();
@@ -100,6 +125,7 @@ namespace AsutpKnowledgeBase
             layout.Controls.Add(_canvas, 0, 2);
             Controls.Add(layout);
 
+            UpdateLinkKindButtons();
             UpdateCommandState();
         }
 
@@ -111,9 +137,11 @@ namespace AsutpKnowledgeBase
         {
             _topology = CloneTopology(topology);
             _selectedElementId = string.Empty;
+            _selectedLinkId = string.Empty;
             _pendingLinkSourceElementId = string.Empty;
             _canvas.Topology = _topology;
             _canvas.SelectedElementId = _selectedElementId;
+            _canvas.SelectedLinkId = _selectedLinkId;
             _canvas.PendingLinkSourceElementId = _pendingLinkSourceElementId;
             _canvas.PendingLinkKind = SelectedLinkKind;
             UpdateCommandState();
@@ -127,24 +155,91 @@ namespace AsutpKnowledgeBase
             return button;
         }
 
-        private ComboBox CreateLinkKindComboBox()
+        private Panel CreateLinkKindPalette()
         {
-            List<LinkKindOption> options = GetLinkKindOptions();
-            var comboBox = new ComboBox
+            var palette = new Panel
             {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Width = 260,
-                Height = 32,
-                Margin = new Padding(0, 0, 8, 6)
+                Width = 560,
+                Height = 96,
+                BackColor = Color.FromArgb(250, 252, 255),
+                BorderStyle = BorderStyle.FixedSingle
             };
-            comboBox.Items.AddRange(options.Cast<object>().ToArray());
-            comboBox.SelectedItem = options.First(option => option.Kind == KbNetworkLinkKind.CopperProfinet);
-            comboBox.SelectedIndexChanged += (_, _) =>
+
+            palette.Controls.Add(new Label
             {
-                _canvas.PendingLinkKind = SelectedLinkKind;
-                _canvas.Invalidate();
+                Text = "Тип связи",
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = KnowledgeBaseWorkspaceVisuals.TextColor,
+                Location = new Point(14, 9)
+            });
+
+            AddLinkKindGroupLabel(palette, "Profibus", 14, 34);
+            AddLinkKindButton(palette, KbNetworkLinkKind.FiberProfibus, "опт.", 14, 57, 82);
+            AddLinkKindButton(palette, KbNetworkLinkKind.CopperProfibus, "медь", 102, 57, 86);
+
+            AddLinkKindGroupLabel(palette, "MPI", 214, 34);
+            AddLinkKindButton(palette, KbNetworkLinkKind.CopperMpi, "медь", 214, 57, 86);
+
+            AddLinkKindGroupLabel(palette, "Profinet", 326, 34);
+            AddLinkKindButton(palette, KbNetworkLinkKind.FiberProfinet, "опт.", 326, 57, 82);
+            AddLinkKindButton(palette, KbNetworkLinkKind.CopperProfinet, "медь", 414, 57, 86);
+
+            return palette;
+        }
+
+        private static void AddLinkKindGroupLabel(Control palette, string text, int x, int y)
+        {
+            palette.Controls.Add(new Label
+            {
+                Text = text,
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8F, FontStyle.Bold),
+                ForeColor = KnowledgeBaseWorkspaceVisuals.MutedTextColor,
+                Location = new Point(x, y)
+            });
+        }
+
+        private void AddLinkKindButton(Control palette, KbNetworkLinkKind kind, string text, int x, int y, int width)
+        {
+            var button = new LinkKindPaletteButton(kind, text)
+            {
+                Location = new Point(x, y),
+                Size = new Size(width, 24)
             };
-            return comboBox;
+            button.Click += (_, _) => SelectLinkKind(kind);
+            _linkKindButtons.Add(button);
+            palette.Controls.Add(button);
+        }
+
+        private static void PositionLinkKindPalette(Control canvasHost, Control palette)
+        {
+            int x = Math.Max(8, canvasHost.ClientSize.Width - palette.Width - 24);
+            palette.Location = new Point(x, 12);
+        }
+
+        private void SelectLinkKind(KbNetworkLinkKind kind)
+        {
+            _selectedLinkKind = kind;
+            _canvas.PendingLinkKind = kind;
+            UpdateLinkKindButtons();
+
+            KbNetworkLink? selectedLink = FindLink(_selectedLinkId);
+            if (selectedLink != null && selectedLink.Kind != kind)
+            {
+                selectedLink.Kind = kind;
+                CommitTopologyChange();
+                return;
+            }
+
+            UpdateCommandState();
+            _canvas.Invalidate();
+        }
+
+        private void UpdateLinkKindButtons()
+        {
+            foreach (LinkKindPaletteButton button in _linkKindButtons)
+                button.Selected = button.Kind == _selectedLinkKind;
         }
 
         private static Button CreateActionButton(string text, Image? image = null)
@@ -167,9 +262,7 @@ namespace AsutpKnowledgeBase
         }
 
         private KbNetworkLinkKind SelectedLinkKind =>
-            _cmbLinkKind.SelectedItem is LinkKindOption option
-                ? option.Kind
-                : KbNetworkLinkKind.CopperProfinet;
+            _selectedLinkKind;
 
         private void AddElement(KbNetworkElementKind kind, Point? preferredCanvasLocation = null)
         {
@@ -286,12 +379,14 @@ namespace AsutpKnowledgeBase
 
         private void ChangeLinkKind(string linkId, KbNetworkLinkKind kind)
         {
-            KbNetworkLink? link = _topology.Links.FirstOrDefault(candidate =>
-                string.Equals(candidate.LinkId, linkId, StringComparison.Ordinal));
+            KbNetworkLink? link = FindLink(linkId);
             if (link == null || link.Kind == kind)
                 return;
 
             link.Kind = kind;
+            _selectedLinkKind = kind;
+            _canvas.PendingLinkKind = kind;
+            UpdateLinkKindButtons();
             CommitTopologyChange();
         }
 
@@ -393,13 +488,15 @@ namespace AsutpKnowledgeBase
                 LinksConnectSameElements(link, _pendingLinkSourceElementId, targetElementId));
             if (!exists)
             {
+                string linkId = Guid.NewGuid().ToString("N");
                 _topology.Links.Add(new KbNetworkLink
                 {
-                    LinkId = Guid.NewGuid().ToString("N"),
+                    LinkId = linkId,
                     FromElementId = _pendingLinkSourceElementId,
                     ToElementId = targetElementId,
                     Kind = SelectedLinkKind
                 });
+                _selectedLinkId = linkId;
                 CommitTopologyChange();
             }
 
@@ -448,8 +545,21 @@ namespace AsutpKnowledgeBase
                 string.Equals(link.FromElementId, _selectedElementId, StringComparison.Ordinal) ||
                 string.Equals(link.ToElementId, _selectedElementId, StringComparison.Ordinal));
             _pendingLinkSourceElementId = string.Empty;
+            _selectedLinkId = string.Empty;
             SelectElement(string.Empty);
             CommitTopologyChange();
+        }
+
+        private void DeleteSelection()
+        {
+            if (!string.IsNullOrWhiteSpace(_selectedElementId))
+            {
+                DeleteSelectedElement();
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_selectedLinkId))
+                DeleteLink(_selectedLinkId);
         }
 
         private void DeleteLink(string linkId)
@@ -462,12 +572,24 @@ namespace AsutpKnowledgeBase
             if (removed == 0)
                 return;
 
+            if (string.Equals(_selectedLinkId, linkId, StringComparison.Ordinal))
+            {
+                _selectedLinkId = string.Empty;
+                _canvas.SelectedLinkId = string.Empty;
+            }
+
             CommitTopologyChange();
         }
 
         private void SelectElement(string elementId)
         {
             _selectedElementId = elementId;
+            if (!string.IsNullOrWhiteSpace(elementId))
+            {
+                _selectedLinkId = string.Empty;
+                _canvas.SelectedLinkId = string.Empty;
+            }
+
             _canvas.SelectedElementId = elementId;
             UpdateCommandState();
             _canvas.Invalidate();
@@ -476,13 +598,19 @@ namespace AsutpKnowledgeBase
         private KbNetworkElement? FindElement(string elementId) =>
             _topology.Elements.FirstOrDefault(element => string.Equals(element.ElementId, elementId, StringComparison.Ordinal));
 
+        private KbNetworkLink? FindLink(string linkId) =>
+            _topology.Links.FirstOrDefault(link => string.Equals(link.LinkId, linkId, StringComparison.Ordinal));
+
         private void CommitTopologyChange()
         {
             _topology = KnowledgeBaseDataService.NormalizeNetworkTopology(_topology);
             _canvas.Topology = _topology;
             if (FindElement(_selectedElementId) == null)
                 _selectedElementId = string.Empty;
+            if (FindLink(_selectedLinkId) == null)
+                _selectedLinkId = string.Empty;
             _canvas.SelectedElementId = _selectedElementId;
+            _canvas.SelectedLinkId = _selectedLinkId;
             UpdateCommandState();
             _canvas.Invalidate();
             TopologyChangedByUser?.Invoke(this, EventArgs.Empty);
@@ -501,17 +629,23 @@ namespace AsutpKnowledgeBase
         private void UpdateCommandState()
         {
             bool hasSelection = !string.IsNullOrWhiteSpace(_selectedElementId);
+            bool hasSelectedLink = !string.IsNullOrWhiteSpace(_selectedLinkId);
             bool hasPendingLink = !string.IsNullOrWhiteSpace(_pendingLinkSourceElementId);
             _btnLink.Enabled = hasSelection || hasPendingLink;
             _btnEdit.Enabled = hasSelection;
-            _btnDelete.Enabled = hasSelection;
+            _btnDelete.Enabled = hasSelection || hasSelectedLink;
             _btnLink.Text = hasPendingLink
                 ? hasSelection && !string.Equals(_pendingLinkSourceElementId, _selectedElementId, StringComparison.Ordinal)
                     ? "Завершить связь"
                     : "Отмена связи"
                 : "Связь";
+            _btnDelete.Text = hasSelectedLink && !hasSelection
+                ? "Удалить связь"
+                : "Удалить";
             _lblSummary.Text = hasPendingLink
                 ? "Выберите второй элемент для связи."
+                : hasSelectedLink
+                    ? $"Выбрана связь: {GetLinkKindDisplayName(SelectedLinkKind)}."
                 : $"Элементов: {_topology.Elements.Count} | Связей: {_topology.Links.Count}";
         }
 
@@ -550,9 +684,91 @@ namespace AsutpKnowledgeBase
             new(KbNetworkLinkKind.CopperProfinet, "Медная линия Profinet")
         ];
 
+        private static string GetLinkKindDisplayName(KbNetworkLinkKind kind) => kind switch
+        {
+            KbNetworkLinkKind.FiberProfibus => "Profibus, опт.",
+            KbNetworkLinkKind.CopperProfibus => "Profibus, медь",
+            KbNetworkLinkKind.CopperMpi => "MPI, медь",
+            KbNetworkLinkKind.FiberProfinet => "Profinet, опт.",
+            _ => "Profinet, медь"
+        };
+
         private sealed record LinkKindOption(KbNetworkLinkKind Kind, string Label)
         {
             public override string ToString() => Label;
+        }
+
+        private static (Color Color, DashStyle DashStyle) GetLinkStyle(KbNetworkLinkKind kind) => kind switch
+        {
+            KbNetworkLinkKind.FiberProfibus => (Color.FromArgb(255, 0, 255), DashStyle.Dash),
+            KbNetworkLinkKind.CopperProfibus => (Color.FromArgb(255, 0, 255), DashStyle.Solid),
+            KbNetworkLinkKind.CopperMpi => (Color.FromArgb(255, 0, 0), DashStyle.Solid),
+            KbNetworkLinkKind.FiberProfinet => (Color.FromArgb(0, 217, 36), DashStyle.Dash),
+            _ => (Color.FromArgb(0, 217, 36), DashStyle.Solid)
+        };
+
+        private sealed class LinkKindPaletteButton : Button
+        {
+            private bool _selected;
+
+            public LinkKindPaletteButton(KbNetworkLinkKind kind, string text)
+            {
+                Kind = kind;
+                Text = text;
+                Cursor = Cursors.Hand;
+                FlatStyle = FlatStyle.Flat;
+                Font = new Font("Segoe UI", 8F, FontStyle.Regular);
+                TabStop = false;
+                UseVisualStyleBackColor = false;
+            }
+
+            public KbNetworkLinkKind Kind { get; }
+
+            public bool Selected
+            {
+                get => _selected;
+                set
+                {
+                    if (_selected == value)
+                        return;
+
+                    _selected = value;
+                    Invalidate();
+                }
+            }
+
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                Rectangle bounds = ClientRectangle;
+                bounds.Width--;
+                bounds.Height--;
+
+                using var fill = new SolidBrush(Selected ? Color.FromArgb(235, 244, 255) : Color.FromArgb(252, 253, 254));
+                using var border = new Pen(Selected ? Color.FromArgb(85, 135, 205) : Color.FromArgb(178, 184, 190), 1F);
+                e.Graphics.FillRectangle(fill, bounds);
+                e.Graphics.DrawRectangle(border, bounds);
+
+                (Color color, DashStyle dashStyle) = GetLinkStyle(Kind);
+                using var linePen = new Pen(color, 3F)
+                {
+                    DashStyle = dashStyle
+                };
+                if (linePen.DashStyle == DashStyle.Dash)
+                    linePen.DashPattern = [4F, 3F];
+
+                int lineY = Height / 2;
+                e.Graphics.DrawLine(linePen, 8, lineY, 36, lineY);
+
+                using var textFont = new Font(Font.FontFamily, Font.Size, Selected ? FontStyle.Bold : FontStyle.Regular);
+                TextRenderer.DrawText(
+                    e.Graphics,
+                    Text,
+                    textFont,
+                    new Rectangle(40, 0, Width - 42, Height),
+                    KnowledgeBaseWorkspaceVisuals.TextColor,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+            }
         }
 
         private sealed class NetworkElementDialog : Form
@@ -1523,11 +1739,15 @@ namespace AsutpKnowledgeBase
 
             public string SelectedElementId { get; set; } = string.Empty;
 
+            public string SelectedLinkId { get; set; } = string.Empty;
+
             public string PendingLinkSourceElementId { get; set; } = string.Empty;
 
             public KbNetworkLinkKind PendingLinkKind { get; set; } = KbNetworkLinkKind.CopperProfinet;
 
             public event EventHandler<NetworkElementEventArgs>? SelectionChanged;
+
+            public event EventHandler<NetworkLinkEventArgs>? LinkSelectionChanged;
 
             public event EventHandler? ElementMoved;
 
@@ -1583,7 +1803,9 @@ namespace AsutpKnowledgeBase
                     if (contextElement != null || string.IsNullOrWhiteSpace(PendingLinkSourceElementId))
                     {
                         SelectedElementId = contextElement?.ElementId ?? string.Empty;
+                        SelectedLinkId = contextLink?.Link.LinkId ?? string.Empty;
                         SelectionChanged?.Invoke(this, new NetworkElementEventArgs(SelectedElementId));
+                        LinkSelectionChanged?.Invoke(this, new NetworkLinkEventArgs(SelectedLinkId));
                         Invalidate();
                     }
 
@@ -1612,13 +1834,20 @@ namespace AsutpKnowledgeBase
                     LinkHit? linkHit = HitTestLink(e.Location);
                     if (linkHit.HasValue)
                     {
+                        SelectedElementId = string.Empty;
+                        SelectedLinkId = linkHit.Value.Link.LinkId;
+                        SelectionChanged?.Invoke(this, new NetworkElementEventArgs(SelectedElementId));
+                        LinkSelectionChanged?.Invoke(this, new NetworkLinkEventArgs(SelectedLinkId));
+                        Invalidate();
                         BeginLinkEndpointDrag(linkHit.Value, e.Location);
                         return;
                     }
                 }
 
                 SelectedElementId = element?.ElementId ?? string.Empty;
+                SelectedLinkId = string.Empty;
                 SelectionChanged?.Invoke(this, new NetworkElementEventArgs(SelectedElementId));
+                LinkSelectionChanged?.Invoke(this, new NetworkLinkEventArgs(SelectedLinkId));
                 Invalidate();
 
                 if (element == null)
@@ -1712,6 +1941,9 @@ namespace AsutpKnowledgeBase
                         continue;
 
                     using Pen linkPen = CreateLinkPen(link.Kind);
+                    if (string.Equals(link.LinkId, SelectedLinkId, StringComparison.Ordinal))
+                        linkPen.Width = 4F;
+
                     DrawOrthogonalLink(
                         graphics,
                         linkPen,
@@ -1738,7 +1970,7 @@ namespace AsutpKnowledgeBase
 
             private static Pen CreateLinkPen(KbNetworkLinkKind kind, bool forceDash = false)
             {
-                (Color color, DashStyle dashStyle) = GetLinkStyle(kind);
+                (Color color, DashStyle dashStyle) = KnowledgeBaseNetworkTopologyScreenControl.GetLinkStyle(kind);
                 var pen = new Pen(color, 2.4F)
                 {
                     StartCap = LineCap.Round,
@@ -1750,15 +1982,6 @@ namespace AsutpKnowledgeBase
                     pen.DashPattern = [4F, 3F];
                 return pen;
             }
-
-            private static (Color Color, DashStyle DashStyle) GetLinkStyle(KbNetworkLinkKind kind) => kind switch
-            {
-                KbNetworkLinkKind.FiberProfibus => (Color.FromArgb(255, 0, 255), DashStyle.Dash),
-                KbNetworkLinkKind.CopperProfibus => (Color.FromArgb(255, 0, 255), DashStyle.Solid),
-                KbNetworkLinkKind.CopperMpi => (Color.FromArgb(255, 0, 0), DashStyle.Solid),
-                KbNetworkLinkKind.FiberProfinet => (Color.FromArgb(0, 217, 36), DashStyle.Dash),
-                _ => (Color.FromArgb(0, 217, 36), DashStyle.Solid)
-            };
 
             private void DrawElement(Graphics graphics, KbNetworkElement element)
             {
@@ -2347,6 +2570,16 @@ namespace AsutpKnowledgeBase
             }
 
             public string ElementId { get; }
+        }
+
+        private sealed class NetworkLinkEventArgs : EventArgs
+        {
+            public NetworkLinkEventArgs(string linkId)
+            {
+                LinkId = linkId;
+            }
+
+            public string LinkId { get; }
         }
 
         private sealed class NetworkCanvasContextMenuEventArgs : EventArgs

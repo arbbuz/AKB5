@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -57,13 +58,23 @@ namespace AsutpKnowledgeBase.Services
 
             try
             {
+                var totalStopwatch = Stopwatch.StartNew();
                 using var connection = _connectionFactory.OpenConnection(SavePath);
+                var schemaStopwatch = Stopwatch.StartNew();
                 EnsureSchema(connection);
+                LogStartupTiming("sqlite-ensure-schema", schemaStopwatch.ElapsedMilliseconds);
 
+                var loadStopwatch = Stopwatch.StartNew();
                 var data = LoadData(connection);
+                LogStartupTiming("sqlite-load-data", loadStopwatch.ElapsedMilliseconds);
+
+                var normalizeStopwatch = Stopwatch.StartNew();
+                SavedData normalizedData = KnowledgeBaseDataService.NormalizeSavedData(data);
+                LogStartupTiming("sqlite-normalize-data", normalizeStopwatch.ElapsedMilliseconds);
+                LogStartupTiming("sqlite-load-total", totalStopwatch.ElapsedMilliseconds);
                 return new KnowledgeBaseStorageLoadResult
                 {
-                    Data = KnowledgeBaseDataService.NormalizeSavedData(data),
+                    Data = normalizedData,
                     SourcePath = SavePath
                 };
             }
@@ -1859,6 +1870,16 @@ namespace AsutpKnowledgeBase.Services
             string.IsNullOrWhiteSpace(json)
                 ? new T()
                 : JsonSerializer.Deserialize<T>(json, JsonOptions) ?? new T();
+
+        private void LogStartupTiming(string stage, long elapsedMs) =>
+            _logger.Log(
+                "StartupTiming",
+                AppLogLevel.Information,
+                "SQLite storage startup timing checkpoint.",
+                properties: CreateProperties(
+                    ("stage", stage),
+                    ("elapsedMs", elapsedMs),
+                    ("path", SavePath)));
 
         private Dictionary<string, object?> CreateProperties(params (string Key, object? Value)[] values)
         {

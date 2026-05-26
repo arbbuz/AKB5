@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using AsutpKnowledgeBase.Models;
 
 namespace AsutpKnowledgeBase.Services
@@ -89,7 +90,19 @@ namespace AsutpKnowledgeBase.Services
             bool createDefaultIfMissing = true,
             bool fallbackToDefaultOnError = true)
         {
+            var storageLoadStopwatch = Stopwatch.StartNew();
             var loadResult = _storage.Load();
+            Log(
+                "StartupTiming",
+                AppLogLevel.Information,
+                "Knowledge base storage load timing checkpoint.",
+                properties: CreateProperties(
+                    ("stage", "file-workflow-storage-load"),
+                    ("elapsedMs", storageLoadStopwatch.ElapsedMilliseconds),
+                    ("sourcePath", loadResult.SourcePath),
+                    ("fileMissing", loadResult.FileMissing),
+                    ("isSuccess", loadResult.IsSuccess),
+                    ("loadedFromBackup", loadResult.LoadedFromBackup)));
 
             if (loadResult.FileMissing)
             {

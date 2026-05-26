@@ -1,7 +1,10 @@
 param(
     [string]$Configuration = "Release",
     [string]$RuntimeIdentifier = "win-x64",
-    [string]$OutputDirectory = ""
+    [string]$OutputDirectory = "",
+    [ValidateSet("SingleFile", "Folder")]
+    [string]$PublishMode = "SingleFile",
+    [switch]$ReadyToRun
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,7 +42,8 @@ if (-not $dotnetPath) {
 }
 
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
-    $OutputDirectory = Join-Path $repoRoot "artifacts/publish/$RuntimeIdentifier"
+    $artifactName = if ($PublishMode -eq "Folder") { "publish-fast" } else { "publish" }
+    $OutputDirectory = Join-Path $repoRoot "artifacts/$artifactName/$RuntimeIdentifier"
 }
 
 if (Test-Path $OutputDirectory) {
@@ -57,13 +61,30 @@ $publishArgs = @(
     $RuntimeIdentifier,
     "--self-contained",
     "true",
-    "-p:PublishSingleFile=true",
-    "-p:IncludeNativeLibrariesForSelfExtract=true",
     "-p:PublishTrimmed=false",
     "-p:PublishAot=false",
+    "-p:RunAnalyzers=false",
+    "-p:WarningLevel=0",
     "-o",
     $OutputDirectory
 )
+
+if ($PublishMode -eq "SingleFile") {
+    $publishArgs += @(
+        "-p:PublishSingleFile=true",
+        "-p:IncludeNativeLibrariesForSelfExtract=true"
+    )
+}
+else {
+    $publishArgs += @(
+        "-p:PublishSingleFile=false",
+        "-p:IncludeNativeLibrariesForSelfExtract=false"
+    )
+}
+
+if ($ReadyToRun) {
+    $publishArgs += "-p:PublishReadyToRun=true"
+}
 
 Write-Host "Running: $dotnetPath $($publishArgs -join ' ')"
 & $dotnetPath @publishArgs
