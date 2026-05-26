@@ -1047,11 +1047,16 @@ namespace AsutpKnowledgeBase.Services
                 if (!usedPairs.Add(pairKey))
                     continue;
 
+                var linkKind = Enum.IsDefined(typeof(KbNetworkLinkKind), link.Kind)
+                    ? link.Kind
+                    : KbNetworkLinkKind.CopperProfinet;
+
                 normalized.Links.Add(new KbNetworkLink
                 {
                     LinkId = NormalizeStableId(link.LinkId, usedLinkIds),
                     FromElementId = link.FromElementId,
                     ToElementId = link.ToElementId,
+                    Kind = linkKind,
                     Label = NormalizeNetworkText(link.Label)
                 });
             }
@@ -1091,7 +1096,8 @@ namespace AsutpKnowledgeBase.Services
             KbNetworkElementKind.Arm => "АРМ",
             KbNetworkElementKind.Hmi => "HMI",
             KbNetworkElementKind.Server => "Сервер",
-            KbNetworkElementKind.Io => "I/O",
+            KbNetworkElementKind.Et200 => "ET200",
+            KbNetworkElementKind.Olm => "OLM",
             _ => "Устройство"
         };
 

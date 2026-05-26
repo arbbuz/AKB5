@@ -320,6 +320,92 @@ public class KnowledgeBaseDataServiceTests
     }
 
     [Fact]
+    public void NormalizeNetworkTopology_TreatsLegacyIoKindAsEt200()
+    {
+        var topology = new KbNetworkTopology
+        {
+            Elements =
+            {
+                new KbNetworkElement
+                {
+                    ElementId = "io-1",
+                    Kind = (KbNetworkElementKind)6,
+                    Name = "",
+                    X = 36,
+                    Y = 42
+                }
+            }
+        };
+
+        KbNetworkTopology normalized = KnowledgeBaseDataService.NormalizeNetworkTopology(topology);
+
+        KbNetworkElement element = Assert.Single(normalized.Elements);
+        Assert.Equal(KbNetworkElementKind.Et200, element.Kind);
+        Assert.Equal("ET200", element.Name);
+    }
+
+    [Fact]
+    public void NormalizeNetworkTopology_PreservesApprovedOlmKind()
+    {
+        var topology = new KbNetworkTopology
+        {
+            Elements =
+            {
+                new KbNetworkElement
+                {
+                    ElementId = "olm-1",
+                    Kind = KbNetworkElementKind.Olm,
+                    Name = "",
+                    X = 36,
+                    Y = 42
+                }
+            }
+        };
+
+        KbNetworkTopology normalized = KnowledgeBaseDataService.NormalizeNetworkTopology(topology);
+
+        KbNetworkElement element = Assert.Single(normalized.Elements);
+        Assert.Equal(KbNetworkElementKind.Olm, element.Kind);
+        Assert.Equal("OLM", element.Name);
+    }
+
+    [Fact]
+    public void NormalizeNetworkTopology_PreservesKnownLinkKindAndDefaultsUnknownLinkKind()
+    {
+        var topology = new KbNetworkTopology
+        {
+            Elements =
+            {
+                new KbNetworkElement { ElementId = "a", Kind = KbNetworkElementKind.Plc, Name = "PLC", X = 0, Y = 0 },
+                new KbNetworkElement { ElementId = "b", Kind = KbNetworkElementKind.Scalance, Name = "SCALANCE", X = 100, Y = 0 },
+                new KbNetworkElement { ElementId = "c", Kind = KbNetworkElementKind.Olm, Name = "OLM", X = 200, Y = 0 }
+            },
+            Links =
+            {
+                new KbNetworkLink
+                {
+                    LinkId = "fiber",
+                    FromElementId = "a",
+                    ToElementId = "b",
+                    Kind = KbNetworkLinkKind.FiberProfibus
+                },
+                new KbNetworkLink
+                {
+                    LinkId = "unknown",
+                    FromElementId = "b",
+                    ToElementId = "c",
+                    Kind = (KbNetworkLinkKind)99
+                }
+            }
+        };
+
+        KbNetworkTopology normalized = KnowledgeBaseDataService.NormalizeNetworkTopology(topology);
+
+        Assert.Equal(KbNetworkLinkKind.FiberProfibus, normalized.Links[0].Kind);
+        Assert.Equal(KbNetworkLinkKind.CopperProfinet, normalized.Links[1].Kind);
+    }
+
+    [Fact]
     public void NormalizeSavedData_PreservesInventoryNumberForVisibleLevel2NodeWithoutHiddenWrapper()
     {
         var normalized = KnowledgeBaseDataService.NormalizeSavedData(

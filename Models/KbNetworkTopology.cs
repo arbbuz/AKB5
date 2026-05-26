@@ -10,8 +10,20 @@ namespace AsutpKnowledgeBase.Models
         Arm = 3,
         Hmi = 4,
         Server = 5,
-        Io = 6,
+        Et200 = 6,
+        [System.Obsolete("Use Et200.")]
+        Io = Et200,
+        Olm = 8,
         Other = 99
+    }
+
+    public enum KbNetworkLinkKind
+    {
+        CopperProfinet = 0,
+        FiberProfibus = 1,
+        CopperProfibus = 2,
+        CopperMpi = 3,
+        FiberProfinet = 4
     }
 
     public class KbNetworkTopology
@@ -43,6 +55,8 @@ namespace AsutpKnowledgeBase.Models
         public string FromElementId { get; set; } = string.Empty;
 
         public string ToElementId { get; set; } = string.Empty;
+
+        public KbNetworkLinkKind Kind { get; set; } = KbNetworkLinkKind.CopperProfinet;
 
         public string Label { get; set; } = string.Empty;
     }

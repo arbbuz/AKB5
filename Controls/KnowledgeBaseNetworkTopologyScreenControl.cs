@@ -10,6 +10,7 @@ namespace AsutpKnowledgeBase
         private readonly TopologyCanvas _canvas;
         private readonly Label _lblSummary;
         private readonly ContextMenuStrip _canvasContextMenu;
+        private readonly ComboBox _cmbLinkKind;
         private readonly Button _btnLink;
         private readonly Button _btnEdit;
         private readonly Button _btnDelete;
@@ -63,8 +64,11 @@ namespace AsutpKnowledgeBase
             toolbar.Controls.Add(CreateAddButton("АРМ", KbNetworkElementKind.Arm));
             toolbar.Controls.Add(CreateAddButton("HMI", KbNetworkElementKind.Hmi));
             toolbar.Controls.Add(CreateAddButton("Сервер", KbNetworkElementKind.Server));
-            toolbar.Controls.Add(CreateAddButton("I/O", KbNetworkElementKind.Io));
+            toolbar.Controls.Add(CreateAddButton("ET200", KbNetworkElementKind.Et200));
+            toolbar.Controls.Add(CreateAddButton("OLM", KbNetworkElementKind.Olm));
 
+            _cmbLinkKind = CreateLinkKindComboBox();
+            toolbar.Controls.Add(_cmbLinkKind);
             _btnLink = CreateActionButton("Связь", NetworkIconPainter.CreateCommandIcon(NetworkCommandIconKind.Link));
             _btnLink.Click += (_, _) => BeginOrCancelLinkMode();
             _btnEdit = CreateActionButton("Изменить", NetworkIconPainter.CreateCommandIcon(NetworkCommandIconKind.Edit));
@@ -111,6 +115,7 @@ namespace AsutpKnowledgeBase
             _canvas.Topology = _topology;
             _canvas.SelectedElementId = _selectedElementId;
             _canvas.PendingLinkSourceElementId = _pendingLinkSourceElementId;
+            _canvas.PendingLinkKind = SelectedLinkKind;
             UpdateCommandState();
             _canvas.Invalidate();
         }
@@ -120,6 +125,26 @@ namespace AsutpKnowledgeBase
             var button = CreateActionButton(text, NetworkIconPainter.CreateDeviceIcon(kind, 22));
             button.Click += (_, _) => AddElement(kind);
             return button;
+        }
+
+        private ComboBox CreateLinkKindComboBox()
+        {
+            List<LinkKindOption> options = GetLinkKindOptions();
+            var comboBox = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Width = 260,
+                Height = 32,
+                Margin = new Padding(0, 0, 8, 6)
+            };
+            comboBox.Items.AddRange(options.Cast<object>().ToArray());
+            comboBox.SelectedItem = options.First(option => option.Kind == KbNetworkLinkKind.CopperProfinet);
+            comboBox.SelectedIndexChanged += (_, _) =>
+            {
+                _canvas.PendingLinkKind = SelectedLinkKind;
+                _canvas.Invalidate();
+            };
+            return comboBox;
         }
 
         private static Button CreateActionButton(string text, Image? image = null)
@@ -140,6 +165,11 @@ namespace AsutpKnowledgeBase
             button.Image = image;
             return button;
         }
+
+        private KbNetworkLinkKind SelectedLinkKind =>
+            _cmbLinkKind.SelectedItem is LinkKindOption option
+                ? option.Kind
+                : KbNetworkLinkKind.CopperProfinet;
 
         private void AddElement(KbNetworkElementKind kind, Point? preferredCanvasLocation = null)
         {
@@ -199,11 +229,15 @@ namespace AsutpKnowledgeBase
                 "Удалить связь",
                 () => DeleteLink(linkId),
                 hasContextLink);
+            ToolStripMenuItem linkKindMenu = CreateLinkKindContextMenu(linkId);
 
             _canvasContextMenu.Items.Add(editItem);
             _canvasContextMenu.Items.Add(linkItem);
             if (hasContextLink)
+            {
+                _canvasContextMenu.Items.Add(linkKindMenu);
                 _canvasContextMenu.Items.Add(deleteLinkItem);
+            }
             _canvasContextMenu.Items.Add(deleteItem);
 
             if (hasPendingLink)
@@ -228,6 +262,39 @@ namespace AsutpKnowledgeBase
             return item;
         }
 
+        private ToolStripMenuItem CreateLinkKindContextMenu(string linkId)
+        {
+            KbNetworkLink? link = _topology.Links.FirstOrDefault(candidate =>
+                string.Equals(candidate.LinkId, linkId, StringComparison.Ordinal));
+            var menu = new ToolStripMenuItem("Тип связи")
+            {
+                Enabled = link != null
+            };
+
+            foreach (LinkKindOption option in GetLinkKindOptions())
+            {
+                ToolStripMenuItem item = CreateContextMenuItem(
+                    option.Label,
+                    () => ChangeLinkKind(linkId, option.Kind),
+                    link != null);
+                item.Checked = link?.Kind == option.Kind;
+                menu.DropDownItems.Add(item);
+            }
+
+            return menu;
+        }
+
+        private void ChangeLinkKind(string linkId, KbNetworkLinkKind kind)
+        {
+            KbNetworkLink? link = _topology.Links.FirstOrDefault(candidate =>
+                string.Equals(candidate.LinkId, linkId, StringComparison.Ordinal));
+            if (link == null || link.Kind == kind)
+                return;
+
+            link.Kind = kind;
+            CommitTopologyChange();
+        }
+
         private ToolStripMenuItem CreateAddContextMenu(Point location)
         {
             var addMenu = new ToolStripMenuItem("Добавить");
@@ -248,7 +315,8 @@ namespace AsutpKnowledgeBase
             ("АРМ", KbNetworkElementKind.Arm),
             ("HMI", KbNetworkElementKind.Hmi),
             ("Сервер", KbNetworkElementKind.Server),
-            ("I/O", KbNetworkElementKind.Io)
+            ("ET200", KbNetworkElementKind.Et200),
+            ("OLM", KbNetworkElementKind.Olm)
         ];
 
         private Point FindNextElementLocation()
@@ -269,7 +337,8 @@ namespace AsutpKnowledgeBase
                 KbNetworkElementKind.Arm => "ARM",
                 KbNetworkElementKind.Hmi => "HMI",
                 KbNetworkElementKind.Server => "SRV",
-                KbNetworkElementKind.Io => "IO",
+                KbNetworkElementKind.Et200 => "ET200",
+                KbNetworkElementKind.Olm => "OLM",
                 _ => "DEV"
             };
             int number = _topology.Elements.Count(element => element.Kind == kind) + 1;
@@ -328,7 +397,8 @@ namespace AsutpKnowledgeBase
                 {
                     LinkId = Guid.NewGuid().ToString("N"),
                     FromElementId = _pendingLinkSourceElementId,
-                    ToElementId = targetElementId
+                    ToElementId = targetElementId,
+                    Kind = SelectedLinkKind
                 });
                 CommitTopologyChange();
             }
@@ -465,10 +535,25 @@ namespace AsutpKnowledgeBase
                         LinkId = link.LinkId,
                         FromElementId = link.FromElementId,
                         ToElementId = link.ToElementId,
+                        Kind = link.Kind,
                         Label = link.Label
                     })
                     .ToList() ?? new List<KbNetworkLink>()
             });
+
+        private static List<LinkKindOption> GetLinkKindOptions() =>
+        [
+            new(KbNetworkLinkKind.FiberProfibus, "Оптоволоконная линия Profibus"),
+            new(KbNetworkLinkKind.CopperProfibus, "Медная линия Profibus"),
+            new(KbNetworkLinkKind.CopperMpi, "Медная линия MPI"),
+            new(KbNetworkLinkKind.FiberProfinet, "Оптоволоконная линия Profinet"),
+            new(KbNetworkLinkKind.CopperProfinet, "Медная линия Profinet")
+        ];
+
+        private sealed record LinkKindOption(KbNetworkLinkKind Kind, string Label)
+        {
+            public override string ToString() => Label;
+        }
 
         private sealed class NetworkElementDialog : Form
         {
@@ -863,7 +948,8 @@ namespace AsutpKnowledgeBase
                 new(KbNetworkElementKind.Arm, "АРМ"),
                 new(KbNetworkElementKind.Hmi, "HMI"),
                 new(KbNetworkElementKind.Server, "Сервер"),
-                new(KbNetworkElementKind.Io, "I/O"),
+                new(KbNetworkElementKind.Et200, "ET200"),
+                new(KbNetworkElementKind.Olm, "OLM"),
                 new(KbNetworkElementKind.Other, "Другое")
             ];
 
@@ -890,7 +976,6 @@ namespace AsutpKnowledgeBase
             private const string ArmIconPath = "M6,2C4.89,2 4,2.89 4,4V12C4,13.11 4.89,14 6,14H18C19.11,14 20,13.11 20,12V4C20,2.89 19.11,2 18,2H6M6,4H18V12H6V4M4,15C2.89,15 2,15.89 2,17V20C2,21.11 2.89,22 4,22H20C21.11,22 22,21.11 22,20V17C22,15.89 21.11,15 20,15H4M8,17H20V20H8V17M9,17.75V19.25H13V17.75H9M15,17.75V19.25H19V17.75H15Z";
             private const string HmiIconPath = "M469.333 106.667v298.666H42.666V106.667zm-42.666 64H85.333v192h341.334zM149.333 128h-64v21.333h64z";
             private const string ServerIconPath = "M85.3333 64H320H362.667V106.667V149.333H320V106.667H85.3333V298.667H277.333V341.333H224V384H256V426.667H149.333V384H181.333V341.333H85.3333H42.6666V298.667V106.667V64H85.3333ZM277.333 159.549L202.667 116.43L128 159.549V245.785L202.667 288.905L277.333 245.785V159.549ZM149.333 233.47V183.242L192 207.867V258.11L149.333 233.47ZM213.333 258.11V207.867L256 183.242V233.47L213.333 258.11ZM202.667 141.065L244.521 165.236L202.667 189.392L160.812 165.236L202.667 141.065ZM469.333 170.667V448H298.667V170.667H469.333ZM426.667 213.333H341.333V256H426.667V213.333ZM341.333 405.333V277.333H426.667V405.333H341.333ZM405.333 320V362.667H362.667V320H405.333Z";
-            private const string IoIconPath = "M2,7V8.5H3V17H4.5V7C3.7,7 2.8,7 2,7M6,7V7L6,16H7V17H14V16H22V7H6M17.5,9A2.5,2.5 0 0,1 20,11.5A2.5,2.5 0 0,1 17.5,14A2.5,2.5 0 0,1 15,11.5A2.5,2.5 0 0,1 17.5,9Z";
 
             public static Bitmap CreateDeviceIcon(KbNetworkElementKind kind, int size)
             {
@@ -947,6 +1032,20 @@ namespace AsutpKnowledgeBase
                 GraphicsState state = graphics.Save();
                 graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
+                if (kind == KbNetworkElementKind.Et200)
+                {
+                    DrawEt200Icon(graphics, bounds);
+                    graphics.Restore(state);
+                    return;
+                }
+
+                if (kind == KbNetworkElementKind.Olm)
+                {
+                    DrawOlmIcon(graphics, bounds);
+                    graphics.Restore(state);
+                    return;
+                }
+
                 if (TryGetApprovedIcon(kind, out IconDefinition icon))
                 {
                     DrawSvgPathIcon(graphics, icon, bounds);
@@ -968,7 +1067,6 @@ namespace AsutpKnowledgeBase
                     KbNetworkElementKind.Arm => new IconDefinition(ArmIconPath, 24F, 24F, FillMode.Winding),
                     KbNetworkElementKind.Hmi => new IconDefinition(HmiIconPath, 512F, 512F, FillMode.Winding),
                     KbNetworkElementKind.Server => new IconDefinition(ServerIconPath, 512F, 512F, FillMode.Alternate),
-                    KbNetworkElementKind.Io => new IconDefinition(IoIconPath, 24F, 24F, FillMode.Winding),
                     _ => default
                 };
                 return kind is
@@ -977,8 +1075,7 @@ namespace AsutpKnowledgeBase
                     KbNetworkElementKind.Scalance or
                     KbNetworkElementKind.Arm or
                     KbNetworkElementKind.Hmi or
-                    KbNetworkElementKind.Server or
-                    KbNetworkElementKind.Io;
+                    KbNetworkElementKind.Server;
             }
 
             private static void DrawSvgPathIcon(Graphics graphics, IconDefinition icon, Rectangle bounds)
@@ -1000,6 +1097,42 @@ namespace AsutpKnowledgeBase
                 graphics.FillPath(brush, path);
             }
 
+            private static void DrawEt200Icon(Graphics graphics, Rectangle bounds)
+            {
+                using var fill = new SolidBrush(ApprovedIconColor);
+                using var cut = new SolidBrush(Color.White);
+                using (GraphicsPath body = CreateRoundedRectanglePath(ScaleRectangle(bounds, 8F, 19F, 48F, 26F), ScaleLength(bounds, 2F)))
+                    graphics.FillPath(fill, body);
+
+                graphics.FillRectangle(cut, ScaleRectangle(bounds, 12F, 23F, 10F, 18F));
+                graphics.FillRectangle(cut, ScaleRectangle(bounds, 25F, 23F, 5F, 18F));
+                graphics.FillRectangle(cut, ScaleRectangle(bounds, 33F, 23F, 5F, 18F));
+                graphics.FillRectangle(cut, ScaleRectangle(bounds, 41F, 23F, 5F, 18F));
+                graphics.FillRectangle(cut, ScaleRectangle(bounds, 49F, 23F, 3F, 18F));
+                graphics.FillEllipse(fill, ScaleRectangle(bounds, 13.4F, 26.4F, 3.2F, 3.2F));
+                graphics.FillEllipse(fill, ScaleRectangle(bounds, 13.4F, 34.4F, 3.2F, 3.2F));
+            }
+
+            private static void DrawOlmIcon(Graphics graphics, Rectangle bounds)
+            {
+                using var fill = new SolidBrush(ApprovedIconColor);
+                using var cut = new SolidBrush(Color.White);
+                using (GraphicsPath body = CreateRoundedRectanglePath(ScaleRectangle(bounds, 18F, 9F, 28F, 46F), ScaleLength(bounds, 4F)))
+                    graphics.FillPath(fill, body);
+
+                graphics.FillRectangle(cut, ScaleRectangle(bounds, 23F, 15F, 18F, 6F));
+                using (GraphicsPath topPort = CreateRoundedRectanglePath(ScaleRectangle(bounds, 24F, 27F, 16F, 5F), ScaleLength(bounds, 2F)))
+                using (GraphicsPath bottomPort = CreateRoundedRectanglePath(ScaleRectangle(bounds, 24F, 37F, 16F, 5F), ScaleLength(bounds, 2F)))
+                {
+                    graphics.FillPath(cut, topPort);
+                    graphics.FillPath(cut, bottomPort);
+                }
+
+                graphics.FillEllipse(cut, ScaleRectangle(bounds, 23.5F, 47.5F, 3F, 3F));
+                graphics.FillEllipse(cut, ScaleRectangle(bounds, 30.5F, 47.5F, 3F, 3F));
+                graphics.FillEllipse(cut, ScaleRectangle(bounds, 37.5F, 47.5F, 3F, 3F));
+            }
+
             private static void DrawOtherGlyph(Graphics graphics, Rectangle bounds)
             {
                 Rectangle glyph = bounds;
@@ -1013,6 +1146,36 @@ namespace AsutpKnowledgeBase
                 ];
                 using var brush = new SolidBrush(ApprovedIconColor);
                 graphics.FillPolygon(brush, points);
+            }
+
+            private static RectangleF ScaleRectangle(Rectangle bounds, float x, float y, float width, float height)
+            {
+                float scale = Math.Min(bounds.Width, bounds.Height) / 64F;
+                float left = bounds.X + ((bounds.Width - (64F * scale)) / 2F);
+                float top = bounds.Y + ((bounds.Height - (64F * scale)) / 2F);
+                return new RectangleF(left + (x * scale), top + (y * scale), width * scale, height * scale);
+            }
+
+            private static float ScaleLength(Rectangle bounds, float value) =>
+                value * (Math.Min(bounds.Width, bounds.Height) / 64F);
+
+            private static GraphicsPath CreateRoundedRectanglePath(RectangleF rectangle, float radius)
+            {
+                var path = new GraphicsPath();
+                float diameter = Math.Min(radius * 2F, Math.Min(rectangle.Width, rectangle.Height));
+                if (diameter <= 0F)
+                {
+                    path.AddRectangle(rectangle);
+                    path.CloseFigure();
+                    return path;
+                }
+
+                path.AddArc(rectangle.Left, rectangle.Top, diameter, diameter, 180F, 90F);
+                path.AddArc(rectangle.Right - diameter, rectangle.Top, diameter, diameter, 270F, 90F);
+                path.AddArc(rectangle.Right - diameter, rectangle.Bottom - diameter, diameter, diameter, 0F, 90F);
+                path.AddArc(rectangle.Left, rectangle.Bottom - diameter, diameter, diameter, 90F, 90F);
+                path.CloseFigure();
+                return path;
             }
 
             private readonly record struct IconDefinition(
@@ -1362,6 +1525,8 @@ namespace AsutpKnowledgeBase
 
             public string PendingLinkSourceElementId { get; set; } = string.Empty;
 
+            public KbNetworkLinkKind PendingLinkKind { get; set; } = KbNetworkLinkKind.CopperProfinet;
+
             public event EventHandler<NetworkElementEventArgs>? SelectionChanged;
 
             public event EventHandler? ElementMoved;
@@ -1536,12 +1701,6 @@ namespace AsutpKnowledgeBase
 
             private void DrawLinks(Graphics graphics)
             {
-                using var linkPen = new Pen(Color.FromArgb(27, 128, 48), 2F);
-                using var pendingPen = new Pen(Color.FromArgb(27, 128, 48), 2F)
-                {
-                    DashStyle = System.Drawing.Drawing2D.DashStyle.Dash
-                };
-
                 foreach (KbNetworkLink link in Topology.Links)
                 {
                     if (string.Equals(link.LinkId, _dragLinkId, StringComparison.Ordinal))
@@ -1552,6 +1711,7 @@ namespace AsutpKnowledgeBase
                     if (from == null || to == null)
                         continue;
 
+                    using Pen linkPen = CreateLinkPen(link.Kind);
                     DrawOrthogonalLink(
                         graphics,
                         linkPen,
@@ -1561,12 +1721,13 @@ namespace AsutpKnowledgeBase
                 KbNetworkElement? pendingSource = FindElement(PendingLinkSourceElementId);
                 if (pendingSource != null)
                 {
+                    using Pen pendingPen = CreateLinkPen(PendingLinkKind, forceDash: true);
                     Rectangle bounds = GetElementBounds(pendingSource);
                     bounds.Inflate(5, 5);
                     graphics.DrawRectangle(pendingPen, bounds);
                 }
 
-                DrawDraggedLinkEndpoint(graphics, pendingPen);
+                DrawDraggedLinkEndpoint(graphics);
             }
 
             private static void DrawOrthogonalLink(Graphics graphics, Pen pen, Point[] points)
@@ -1574,6 +1735,30 @@ namespace AsutpKnowledgeBase
                 if (points.Length >= 2)
                     graphics.DrawLines(pen, points);
             }
+
+            private static Pen CreateLinkPen(KbNetworkLinkKind kind, bool forceDash = false)
+            {
+                (Color color, DashStyle dashStyle) = GetLinkStyle(kind);
+                var pen = new Pen(color, 2.4F)
+                {
+                    StartCap = LineCap.Round,
+                    EndCap = LineCap.Round,
+                    LineJoin = LineJoin.Round,
+                    DashStyle = forceDash ? DashStyle.Dash : dashStyle
+                };
+                if (pen.DashStyle == DashStyle.Dash)
+                    pen.DashPattern = [4F, 3F];
+                return pen;
+            }
+
+            private static (Color Color, DashStyle DashStyle) GetLinkStyle(KbNetworkLinkKind kind) => kind switch
+            {
+                KbNetworkLinkKind.FiberProfibus => (Color.FromArgb(255, 0, 255), DashStyle.Dash),
+                KbNetworkLinkKind.CopperProfibus => (Color.FromArgb(255, 0, 255), DashStyle.Solid),
+                KbNetworkLinkKind.CopperMpi => (Color.FromArgb(255, 0, 0), DashStyle.Solid),
+                KbNetworkLinkKind.FiberProfinet => (Color.FromArgb(0, 217, 36), DashStyle.Dash),
+                _ => (Color.FromArgb(0, 217, 36), DashStyle.Solid)
+            };
 
             private void DrawElement(Graphics graphics, KbNetworkElement element)
             {
@@ -1748,7 +1933,7 @@ namespace AsutpKnowledgeBase
                 return !string.Equals(target.ElementId, fixedElementId, StringComparison.Ordinal);
             }
 
-            private void DrawDraggedLinkEndpoint(Graphics graphics, Pen pen)
+            private void DrawDraggedLinkEndpoint(Graphics graphics)
             {
                 if (string.IsNullOrWhiteSpace(_dragLinkId))
                     return;
@@ -1763,6 +1948,7 @@ namespace AsutpKnowledgeBase
                 if (fixedElement == null)
                     return;
 
+                using Pen pen = CreateLinkPen(link.Kind, forceDash: true);
                 LinkAnchor fixedAnchor = CreatePointerLinkAnchor(fixedElement, _dragLinkCurrentPoint);
                 Point fixedStub = OffsetPoint(fixedAnchor.Point, fixedAnchor.Direction, LinkStubLength);
                 Point[] route = NormalizeRoute(

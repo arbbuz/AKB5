@@ -523,7 +523,8 @@ public class SqliteKnowledgeBaseStorageServiceTests
                                             {
                                                 LinkId = "network-link-1",
                                                 FromElementId = "network-plc",
-                                                ToElementId = "network-switch"
+                                                ToElementId = "network-switch",
+                                                Kind = KbNetworkLinkKind.FiberProfinet
                                             }
                                         }
                                     }

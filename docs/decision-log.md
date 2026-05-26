@@ -1,6 +1,10 @@
 # Decision Log
 
-Last updated: `2026-05-24`
+Last updated: `2026-05-26`
+
+## 2026-05-26
+
+- Network topology extension decision: replace the visible `I/O` option with `ET200`, preserve the old stored enum value as a compatibility alias, add `OLM`, use the selected `ET200-A` and `OLM-C` graphics, and add the five scheme-legend link styles: optical/copper Profibus, copper MPI, and optical/copper Profinet.
 
 ## 2026-05-24
 
