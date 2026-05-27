@@ -2423,6 +2423,7 @@ namespace AsutpKnowledgeBase
             {
                 base.OnPaint(e);
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
                 e.Graphics.ScaleTransform(_zoomFactor, _zoomFactor);
                 DrawGrid(e.Graphics);
                 DrawLinks(e.Graphics);
@@ -2792,10 +2793,10 @@ namespace AsutpKnowledgeBase
                 Rectangle iconBounds = new(bounds.X + (ElementWidth - iconSize) / 2, bounds.Y + iconTop, iconSize, iconSize);
                 NetworkIconPainter.DrawDeviceIcon(graphics, element.Kind, iconBounds);
 
-                Rectangle ipBounds = new(bounds.X + 7, bounds.Y + 7, ElementWidth - 14, 22);
+                Rectangle ipBounds = new(bounds.X + 3, bounds.Y + 7, ElementWidth - 6, 22);
                 Rectangle nameBounds = new(bounds.X + 5, bounds.Y + (hasAdditionalIpAddresses ? 95 : 92), ElementWidth - 10, 20);
-                using var nameFont = new Font("Segoe UI Semibold", 9.8F, FontStyle.Bold);
-                using var ipFont = new Font("Segoe UI Semibold", 10.1F, FontStyle.Bold);
+                using var nameFont = new Font("Segoe UI", 9F, FontStyle.Regular);
+                using var ipFont = new Font("Segoe UI", 9F, FontStyle.Bold);
                 DrawIpAddresses(graphics, ipAddresses, ipFont, ipBounds);
                 using var nameBrush = new SolidBrush(Color.FromArgb(21, 33, 45));
                 using StringFormat nameFormat = CreateSingleLineStringFormat(
@@ -2808,7 +2809,7 @@ namespace AsutpKnowledgeBase
             {
                 Rectangle headerBounds = new(bounds.X + 8, bounds.Y + 8, ElementWidth - 16, 18);
                 Rectangle fieldBounds = new(bounds.X + 10, bounds.Y + 32, ElementWidth - 20, ElementHeight - 44);
-                using var headerFont = new Font("Segoe UI Semibold", 7.8F, FontStyle.Bold);
+                using var headerFont = new Font("Segoe UI", 8F, FontStyle.Regular);
                 using var headerBrush = new SolidBrush(Color.FromArgb(76, 91, 105));
                 using StringFormat headerFormat = CreateSingleLineStringFormat(
                     StringAlignment.Center,
@@ -2824,7 +2825,7 @@ namespace AsutpKnowledgeBase
                 }
 
                 Rectangle textBounds = new(fieldBounds.X + 6, fieldBounds.Y + 5, fieldBounds.Width - 12, fieldBounds.Height - 10);
-                using var textFont = new Font("Segoe UI Semibold", 9.2F, FontStyle.Bold);
+                using var textFont = new Font("Segoe UI", 9F, FontStyle.Bold);
                 using var textBrush = new SolidBrush(Color.FromArgb(21, 33, 45));
                 using StringFormat textFormat = CreateWrappedStringFormat(
                     StringAlignment.Center,
@@ -2870,8 +2871,8 @@ namespace AsutpKnowledgeBase
                 string secondaryText = ipAddresses.Count == 2
                     ? ipAddresses[1]
                     : FormattableString.Invariant($"{ipAddresses[1]} +{ipAddresses.Count - 2}");
-                Rectangle secondaryBounds = new(primaryBounds.X + 5, primaryBounds.Bottom + 4, primaryBounds.Width - 10, 20);
-                using var secondaryFont = new Font("Segoe UI Semibold", 8.1F, FontStyle.Bold);
+                Rectangle secondaryBounds = new(primaryBounds.X + 6, primaryBounds.Bottom + 4, primaryBounds.Width - 12, 20);
+                using var secondaryFont = new Font("Segoe UI", 8F, FontStyle.Bold);
                 DrawIpAddress(graphics, secondaryText, secondaryFont, secondaryBounds);
             }
 

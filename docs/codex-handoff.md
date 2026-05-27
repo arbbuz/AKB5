@@ -4,7 +4,7 @@ Last updated: `2026-05-27`
 
 ## Current objective
 
-Current active work is a follow-up on `Net` after pushed commit `2c9d598 Improve network topology viewport controls`: add compact visible Network topology zoom controls, show Network topology ET objects generically as `ET`, keep one optional additional IP inside the existing Network element dialog with duplicate checks, add a text-card Network topology object for external system links, keep `docs/decision-log.md` compact, and add a repo-level shell guard for small/localized tasks. The user manually accepted the current UI package and explicitly requested commit/push in the current chat.
+Current active work is a follow-up on `Net` after pushed commit `5f5a993 Improve network topology controls`: soften Network topology card font rendering after user reported jagged/ragged text. The lightweight font/rendering-hint fix plus IP badge fit adjustment passed manual review, and the user explicitly requested commit/push in the current chat.
 
 Previous committed/pushed package includes:
 
@@ -27,6 +27,7 @@ Current follow-up package:
 - In the Network tab only, visible object labels and new-object default prefixes changed from `ET200` to `ET`; the stored enum remains `KbNetworkElementKind.Et200` for compatibility with existing saved topology data.
 - The existing Network element dialog now has an optional `Доп. IP` row. Leaving it empty removes the additional IP; entering a value keeps duplicate checks across primary and additional IP addresses on all topology objects. The object context menu no longer exposes separate add/edit additional-IP dialogs.
 - Network topology now has a `Внешняя связь` object kind for external systems. It stores its visible text in the existing element `Name` field, appears in the toolbar/context add menu/type dropdown, draws as a card with an internal text field instead of an IP/device-icon card, and uses a text-entry dialog mode without `IP` / `Доп. IP` fields. New external-link elements open with an empty `Текст` field instead of the old default `Внешняя связь-01` text.
+- Network topology card text now uses `ClearTypeGridFit` in the canvas paint path and integer `Segoe UI` sizes. Object names use regular weight, IP badges remain bold with a wider badge and slightly smaller font to avoid clipping long addresses, and external-link card text is bold again so it matches the rest of the topology.
 - `docs/decision-log.md` was pruned from a dated project archive into 65 lines of domain-grouped durable decisions; build/test history and temporary phase status were removed from that file.
 - `scripts/codex-safe.ps1` was added as a repo-level shell guard: it blocks broad `git diff`, full `decision-log` reads, raw/wildcard docs reads, broad repo `rg`, recursive unfiltered enumeration, and destructive git/delete patterns; it also truncates command output.
 - Element/link hit testing, dragging, context-menu add position, link endpoint dragging, and link-kind strip behavior are translated through the current zoom.
@@ -47,6 +48,8 @@ Do not commit, push, merge, rebase, or create/remove remote branches without exp
 - Current Network external-connection build-check executable: `C:\Users\Olga\AKB5\artifacts\build-check\network-topology-external-connection\asutpKB.exe`.
 - Current Network external-connection text-dialog review executable: `C:\Users\Olga\AKB5\artifacts\publish-fast-external-text\win-x64\asutpKB.exe`.
 - Current Network final build-check executable: `C:\Users\Olga\AKB5\artifacts\build-check\network-topology-final\asutpKB.exe`.
+- Current Network font-softening build-check executable: `C:\Users\Olga\AKB5\artifacts\build-check\network-topology-font-softening\asutpKB.exe`.
+- Current Network font/IP-fit build-check executable: `C:\Users\Olga\AKB5\artifacts\build-check\network-topology-font-ip-fit\asutpKB.exe`.
 - Standard `artifacts\publish-fast\win-x64` was refreshed successfully after the final text-entry follow-up.
 - Fast publish is a folder package with 273 files, not a single-file exe.
 
@@ -77,6 +80,8 @@ Ignored validation artifacts:
 - `artifacts\build-check\network-topology-external-connection\asutpKB.exe`
 - `artifacts\build-check\network-topology-external-text-dialog\asutpKB.exe`
 - `artifacts\build-check\network-topology-final\asutpKB.exe`
+- `artifacts\build-check\network-topology-font-softening\asutpKB.exe`
+- `artifacts\build-check\network-topology-font-ip-fit\asutpKB.exe`
 - `artifacts\layout-smoke\network-topology-extensions\network-topology-extensions-smoke.png`
 - `artifacts\publish-fast\win-x64\asutpKB.exe`
 - `artifacts\publish-fast-external-text\win-x64\asutpKB.exe`
@@ -121,6 +126,8 @@ Validation completed in `C:\Users\Olga\AKB5`:
 - External-connection object follow-up: added `KbNetworkElementKind.ExternalConnection = 9`, default text `Внешняя связь`, toolbar/context menu/type-dropdown entries, toolbar icon, and a topology card that renders the element name inside an internal text-field rectangle for external system labels. Validation passed: app/core/tests `dotnet format`, Release build to `artifacts\build-check\network-topology-external-connection`, full core tests (`409/409`), layout-smoke with a sample `MES / LIMS` external card, and standard `scripts\publish-fast.ps1`.
 - External-connection text-dialog follow-up: when `Внешняя связь` is selected in `Элемент сети`, the dialog hides `IP` and `Доп. IP`, relabels `Название` to `Текст`, and uses a multiline text box for the card text. App format passed, Release build to `artifacts\build-check\network-topology-external-text-dialog` passed with 0 warnings and 0 errors, and layout-smoke passed. Standard `scripts\publish-fast.ps1` failed because a running `C:\Users\Olga\AKB5\artifacts\publish-fast\win-x64\asutpKB.exe` process locked a font file; a separate review publish succeeded at `artifacts\publish-fast-external-text\win-x64`.
 - Final accepted Network topology package: new `Внешняя связь` elements now start with an empty `Текст` field so users can enter labels such as `КСПД`, `АКТ`, or `ВВК` immediately. Validation passed: app/core/tests `dotnet format`, Release build to `artifacts\build-check\network-topology-final` with 0 warnings and 0 errors, full core tests (`409/409`), layout-smoke, standard `scripts\publish-fast.ps1`, and `git diff --check` with CRLF normalization warnings only.
+- Network topology font-softening follow-up: canvas text rendering now sets `TextRenderingHint.ClearTypeGridFit`; topology card names/external text use integer `Segoe UI` regular fonts; IP badges use integer `Segoe UI` bold fonts. Validation passed: `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore`, Release build to `artifacts\build-check\network-topology-font-softening`, layout-smoke, explicit `dotnet restore asutpKB.csproj -r win-x64`, and standard `scripts\publish-fast.ps1`. Full core tests were not rerun after this UI-only paint/font adjustment.
+- Network topology IP/font fit follow-up: widened primary IP badges from 120 px to 128 px inside the existing 134 px card, reduced primary IP font from 10 bold to 9 bold, and made the external-link inner text bold again. Validation passed: Release build to `artifacts\build-check\network-topology-font-ip-fit`, layout-smoke, explicit `dotnet restore asutpKB.csproj -r win-x64`, and standard `scripts\publish-fast.ps1`. Full core tests were not rerun after this UI-only paint/font adjustment.
 - Decision-log cleanup: `docs\decision-log.md` was reduced from 216 lines of dated history to 65 lines of durable domain decisions. No app build/test was run for this documentation-only cleanup.
 - Shell guard follow-up: `scripts\codex-safe.ps1` was added and `AGENTS.md` now requires using it by default for small/localized shell diagnostics. Verified allowed `git status --short --branch`; verified blocked full `git diff`; verified blocked full `Get-Content docs\decision-log.md`. No app build/test was run for this guard/documentation-only change.
 
@@ -165,7 +172,7 @@ Validation completed in `C:\Users\Olga\AKB5`:
 
 ## Recommended next step
 
-After commit/push, continue from the next user request on `Net`. Use `C:\Users\Olga\AKB5\artifacts\publish-fast\win-x64\asutpKB.exe` for review, and keep using `scripts\codex-safe.ps1` for future small-task diagnostics.
+After commit/push, continue from the next user request on `Net`. If topology text later still feels jagged, proceed to option 1: draw card text through `TextRenderer` in rounded screen coordinates instead of scaled `Graphics.DrawString`.
 
 ## Commands to run before finishing future implementation work
 
@@ -181,6 +188,8 @@ dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\bu
 dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\network-topology-zoom-controls /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
 dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\network-topology-external-connection /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
 dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\network-topology-final /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
+dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\network-topology-font-softening /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
+dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\network-topology-font-ip-fit /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\publish-fast.ps1
 dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0
 dotnet run --project artifacts\layout-smoke\network-topology-extensions\NetworkTopologyExtensionsSmoke.csproj --configuration Release /p:RunAnalyzers=false /p:WarningLevel=0
