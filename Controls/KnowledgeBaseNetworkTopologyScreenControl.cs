@@ -12,6 +12,7 @@ namespace AsutpKnowledgeBase
         private readonly ContextMenuStrip _canvasContextMenu;
         private readonly Panel _linkKindPalette;
         private readonly List<LinkKindPaletteButton> _linkKindButtons = [];
+        private readonly ComboBox _cmbZoom = new();
         private readonly Button _btnLink;
         private readonly Button _btnEdit;
         private readonly Button _btnDelete;
@@ -21,6 +22,7 @@ namespace AsutpKnowledgeBase
         private string _selectedLinkId = string.Empty;
         private string _pendingLinkSourceElementId = string.Empty;
         private KbNetworkLinkKind _selectedLinkKind = KbNetworkLinkKind.CopperProfinet;
+        private bool _updatingZoomControls;
 
         public KnowledgeBaseNetworkTopologyScreenControl()
         {
@@ -67,8 +69,9 @@ namespace AsutpKnowledgeBase
             toolbar.Controls.Add(CreateAddButton("АРМ", KbNetworkElementKind.Arm));
             toolbar.Controls.Add(CreateAddButton("HMI", KbNetworkElementKind.Hmi));
             toolbar.Controls.Add(CreateAddButton("Сервер", KbNetworkElementKind.Server));
-            toolbar.Controls.Add(CreateAddButton("ET200", KbNetworkElementKind.Et200));
+            toolbar.Controls.Add(CreateAddButton("ET", KbNetworkElementKind.Et200));
             toolbar.Controls.Add(CreateAddButton("OLM", KbNetworkElementKind.Olm));
+            toolbar.Controls.Add(CreateAddButton("Внешняя связь", KbNetworkElementKind.ExternalConnection));
 
             _btnLink = CreateActionButton("Связь", NetworkIconPainter.CreateCommandIcon(NetworkCommandIconKind.Link));
             _btnLink.Click += (_, _) => BeginOrCancelLinkMode();
@@ -95,7 +98,7 @@ namespace AsutpKnowledgeBase
             };
             canvasShell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             canvasShell.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            canvasShell.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            canvasShell.RowStyles.Add(new RowStyle(SizeType.Absolute, 42F));
             var canvasViewport = new Panel
             {
                 Dock = DockStyle.Fill,
@@ -139,6 +142,7 @@ namespace AsutpKnowledgeBase
             _canvas.LinkTargetSelected += (_, e) => CompleteLink(e.ElementId);
             _canvas.LinkEndpointMoved += (_, _) => CommitTopologyChange();
             _canvas.CanvasContextMenuRequested += (_, e) => ShowCanvasContextMenu(e.Location, e.CanvasLocation, e.LinkId);
+            _canvas.ZoomFactorChanged += (_, _) => UpdateZoomControls();
 
             layout.Controls.Add(_lblSummary, 0, 0);
             layout.Controls.Add(toolbar, 0, 1);
@@ -146,6 +150,7 @@ namespace AsutpKnowledgeBase
             Controls.Add(layout);
 
             UpdateLinkKindButtons();
+            UpdateZoomControls();
             UpdateCommandState();
         }
 
@@ -177,15 +182,27 @@ namespace AsutpKnowledgeBase
 
         private Panel CreateLinkKindPalette()
         {
-            var palette = new FlowLayoutPanel
+            var strip = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 BackColor = Color.FromArgb(250, 252, 255),
                 BorderStyle = BorderStyle.FixedSingle,
+                ColumnCount = 2,
+                RowCount = 1,
+                Margin = Padding.Empty
+            };
+            strip.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            strip.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 132F));
+            strip.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            var palette = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(250, 252, 255),
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
-                AutoScroll = true,
-                Padding = new Padding(10, 7, 10, 5),
+                AutoScroll = false,
+                Padding = new Padding(10, 5, 10, 3),
                 Margin = Padding.Empty
             };
 
@@ -207,7 +224,9 @@ namespace AsutpKnowledgeBase
             AddLinkKindButton(palette, KbNetworkLinkKind.FiberProfinet, "Profinet, оптоволокно");
             AddLinkKindButton(palette, KbNetworkLinkKind.CopperProfinet, "Profinet, медь");
 
-            return palette;
+            strip.Controls.Add(palette, 0, 0);
+            strip.Controls.Add(CreateZoomControls(), 1, 0);
+            return strip;
         }
 
         private static int GetStripLabelWidth(string text, Font font)
@@ -226,6 +245,95 @@ namespace AsutpKnowledgeBase
             button.Click += (_, _) => SelectLinkKind(kind);
             _linkKindButtons.Add(button);
             palette.Controls.Add(button);
+        }
+
+        private Control CreateZoomControls()
+        {
+            var panel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(250, 252, 255),
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Padding = new Padding(4, 5, 4, 3),
+                Margin = Padding.Empty
+            };
+
+            Button zoomOutButton = CreateZoomButton("-", (_, _) => _canvas.ZoomOutFromCenter());
+            Button zoomInButton = CreateZoomButton("+", (_, _) => _canvas.ZoomInFromCenter());
+
+            _cmbZoom.DropDownStyle = ComboBoxStyle.DropDown;
+            _cmbZoom.FlatStyle = FlatStyle.Standard;
+            _cmbZoom.Font = new Font("Segoe UI", 8.5F, FontStyle.Regular);
+            _cmbZoom.Size = new Size(62, 28);
+            _cmbZoom.Margin = new Padding(2, 0, 2, 0);
+            _cmbZoom.Items.AddRange(["35%", "50%", "75%", "100%", "125%", "150%", "200%", "250%"]);
+            _cmbZoom.SelectedIndexChanged += (_, _) => ApplyZoomFromCombo();
+            _cmbZoom.Leave += (_, _) => ApplyZoomFromCombo();
+            _cmbZoom.KeyDown += (_, e) =>
+            {
+                if (e.KeyCode != Keys.Enter)
+                    return;
+
+                ApplyZoomFromCombo();
+                e.SuppressKeyPress = true;
+            };
+
+            panel.Controls.Add(zoomOutButton);
+            panel.Controls.Add(_cmbZoom);
+            panel.Controls.Add(zoomInButton);
+            return panel;
+        }
+
+        private static Button CreateZoomButton(string text, EventHandler clickHandler)
+        {
+            var button = new Button
+            {
+                Text = text,
+                Size = new Size(28, 28),
+                FlatStyle = FlatStyle.Standard,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+                Margin = new Padding(2, 0, 2, 0),
+                TabStop = false,
+                UseVisualStyleBackColor = true
+            };
+            button.Click += clickHandler;
+            return button;
+        }
+
+        private void UpdateZoomControls()
+        {
+            _updatingZoomControls = true;
+            _cmbZoom.Text = FormatZoomPercent(_canvas.ZoomFactor);
+            _updatingZoomControls = false;
+        }
+
+        private void ApplyZoomFromCombo()
+        {
+            if (_updatingZoomControls)
+                return;
+
+            if (TryParseZoomPercent(_cmbZoom.Text, out int zoomPercent))
+                _canvas.ZoomToPercent(zoomPercent);
+
+            UpdateZoomControls();
+        }
+
+        private static string FormatZoomPercent(float zoomFactor) =>
+            FormattableString.Invariant($"{(int)Math.Round(zoomFactor * 100F)}%");
+
+        private static bool TryParseZoomPercent(string text, out int zoomPercent)
+        {
+            string normalized = text.Trim().TrimEnd('%').Trim();
+            if (!float.TryParse(normalized, NumberStyles.Float, CultureInfo.CurrentCulture, out float value) &&
+                !float.TryParse(normalized, NumberStyles.Float, CultureInfo.InvariantCulture, out value))
+            {
+                zoomPercent = 100;
+                return false;
+            }
+
+            zoomPercent = Math.Clamp((int)Math.Round(value), 35, 250);
+            return true;
         }
 
         private void SelectLinkKind(KbNetworkLinkKind kind)
@@ -283,7 +391,7 @@ namespace AsutpKnowledgeBase
             {
                 ElementId = Guid.NewGuid().ToString("N"),
                 Kind = kind,
-                Name = BuildDefaultName(kind),
+                Name = kind == KbNetworkElementKind.ExternalConnection ? string.Empty : BuildDefaultName(kind),
                 X = location.X,
                 Y = location.Y
             };
@@ -295,6 +403,7 @@ namespace AsutpKnowledgeBase
             element.Kind = dialog.ElementKind;
             element.Name = dialog.ElementName;
             element.IpAddress = dialog.IpAddress;
+            element.AdditionalIpAddresses = dialog.AdditionalIpAddresses;
 
             _topology.Elements.Add(element);
             SelectElement(element.ElementId);
@@ -420,8 +529,9 @@ namespace AsutpKnowledgeBase
             ("АРМ", KbNetworkElementKind.Arm),
             ("HMI", KbNetworkElementKind.Hmi),
             ("Сервер", KbNetworkElementKind.Server),
-            ("ET200", KbNetworkElementKind.Et200),
-            ("OLM", KbNetworkElementKind.Olm)
+            ("ET", KbNetworkElementKind.Et200),
+            ("OLM", KbNetworkElementKind.Olm),
+            ("Внешняя связь", KbNetworkElementKind.ExternalConnection)
         ];
 
         private Point FindNextElementLocation()
@@ -442,8 +552,9 @@ namespace AsutpKnowledgeBase
                 KbNetworkElementKind.Arm => "ARM",
                 KbNetworkElementKind.Hmi => "HMI",
                 KbNetworkElementKind.Server => "SRV",
-                KbNetworkElementKind.Et200 => "ET200",
+                KbNetworkElementKind.Et200 => "ET",
                 KbNetworkElementKind.Olm => "OLM",
+                KbNetworkElementKind.ExternalConnection => "Внешняя связь",
                 _ => "DEV"
             };
             int number = _topology.Elements.Count(element => element.Kind == kind) + 1;
@@ -542,6 +653,7 @@ namespace AsutpKnowledgeBase
             element.Kind = dialog.ElementKind;
             element.Name = dialog.ElementName;
             element.IpAddress = dialog.IpAddress;
+            element.AdditionalIpAddresses = dialog.AdditionalIpAddresses;
             CommitTopologyChange();
         }
 
@@ -669,6 +781,7 @@ namespace AsutpKnowledgeBase
                         Kind = element.Kind,
                         Name = element.Name,
                         IpAddress = element.IpAddress,
+                        AdditionalIpAddresses = element.AdditionalIpAddresses?.ToList() ?? [],
                         X = element.X,
                         Y = element.Y
                     })
@@ -684,6 +797,107 @@ namespace AsutpKnowledgeBase
                     })
                     .ToList() ?? new List<KbNetworkLink>()
             });
+
+        private static List<string> NormalizeAdditionalIpAddresses(IEnumerable<string>? ipAddresses)
+        {
+            var result = new List<string>();
+            var used = new HashSet<string>(StringComparer.Ordinal);
+            foreach (string? ipAddress in ipAddresses ?? Enumerable.Empty<string>())
+            {
+                if (!TryNormalizeIpAddress(ipAddress ?? string.Empty, out string normalizedIpAddress) ||
+                    !used.Add(normalizedIpAddress))
+                {
+                    continue;
+                }
+
+                result.Add(normalizedIpAddress);
+            }
+
+            return result;
+        }
+
+        private static Dictionary<string, string> CreateReservedIpAddressMap(
+            IEnumerable<KbNetworkElement> elements,
+            string excludedElementId = "",
+            string excludedIpAddress = "")
+        {
+            var result = new Dictionary<string, string>(StringComparer.Ordinal);
+            TryNormalizeIpAddress(excludedIpAddress, out string normalizedExcludedIpAddress);
+            foreach (KbNetworkElement element in elements)
+            {
+                string elementName = string.IsNullOrWhiteSpace(element.Name) ? "без названия" : element.Name.Trim();
+                AddReservedIpAddress(result, element, element.IpAddress, elementName, excludedElementId, normalizedExcludedIpAddress);
+                foreach (string additionalIpAddress in element.AdditionalIpAddresses ?? [])
+                    AddReservedIpAddress(result, element, additionalIpAddress, elementName, excludedElementId, normalizedExcludedIpAddress);
+            }
+
+            return result;
+        }
+
+        private static void AddReservedIpAddress(
+            Dictionary<string, string> reservedIpAddresses,
+            KbNetworkElement element,
+            string ipAddress,
+            string elementName,
+            string excludedElementId,
+            string normalizedExcludedIpAddress)
+        {
+            if (!TryNormalizeIpAddress(ipAddress, out string normalizedIpAddress) ||
+                string.IsNullOrWhiteSpace(normalizedIpAddress) ||
+                reservedIpAddresses.ContainsKey(normalizedIpAddress))
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(normalizedExcludedIpAddress) &&
+                string.Equals(element.ElementId, excludedElementId, StringComparison.Ordinal) &&
+                string.Equals(normalizedIpAddress, normalizedExcludedIpAddress, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            reservedIpAddresses.Add(normalizedIpAddress, elementName);
+        }
+
+        private static bool TryNormalizeIpAddress(string ipAddress, out string normalizedIpAddress)
+        {
+            normalizedIpAddress = string.Empty;
+            string[] parts = ipAddress.Trim().Split('.');
+            if (parts.Length != 4)
+                return false;
+
+            var normalizedParts = new string[4];
+            for (int index = 0; index < parts.Length; index++)
+            {
+                string part = parts[index].Trim();
+                if (part.Length == 0 || !int.TryParse(part, out int value) || value < 0 || value > 255)
+                    return false;
+
+                normalizedParts[index] = value.ToString(CultureInfo.InvariantCulture);
+            }
+
+            normalizedIpAddress = string.Join(".", normalizedParts);
+            return true;
+        }
+
+        private static string[] SplitIpAddress(string ipAddress)
+        {
+            string[] result = ["", "", "", ""];
+            string[] parts = ipAddress.Trim().Split('.');
+            if (parts.Length != result.Length)
+                return result;
+
+            for (int index = 0; index < parts.Length; index++)
+            {
+                string part = parts[index].Trim();
+                if (part.Length is 0 or > 3 || part.Any(static value => !char.IsDigit(value)))
+                    return ["", "", "", ""];
+
+                result[index] = part;
+            }
+
+            return result;
+        }
 
         private static List<LinkKindOption> GetLinkKindOptions() =>
         [
@@ -796,22 +1010,20 @@ namespace AsutpKnowledgeBase
             }
         }
 
-        private sealed class NetworkElementDialog : Form
+        private sealed class NetworkIpAddressDialog : Form
         {
-            private readonly ComboBox _cmbKind;
-            private readonly TextBox _txtName;
             private readonly TextBox[] _txtIpOctets;
             private readonly Dictionary<string, string> _reservedIpAddresses;
             private bool _updatingIpOctets;
 
-            public NetworkElementDialog(
-                KbNetworkElement element,
-                IEnumerable<KbNetworkElement> reservedElements,
-                bool focusIpAddress = false)
+            public NetworkIpAddressDialog(
+                Dictionary<string, string> reservedIpAddresses,
+                string initialIpAddress = "",
+                string title = "Добавить IP-адрес")
             {
-                _reservedIpAddresses = CreateReservedIpAddressMap(reservedElements);
-                Text = "Элемент сети";
-                ClientSize = new Size(360, 178);
+                _reservedIpAddresses = reservedIpAddresses;
+                Text = title;
+                ClientSize = new Size(360, 118);
                 StartPosition = FormStartPosition.CenterParent;
                 FormBorderStyle = FormBorderStyle.FixedDialog;
                 MaximizeBox = false;
@@ -823,33 +1035,14 @@ namespace AsutpKnowledgeBase
                 {
                     Dock = DockStyle.Fill,
                     ColumnCount = 2,
-                    RowCount = 4
+                    RowCount = 2
                 };
                 layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 86F));
                 layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
                 layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
                 layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-                List<KindOption> kindOptions = GetKindOptions();
-                _cmbKind = new ComboBox
-                {
-                    Dock = DockStyle.Top,
-                    DropDownStyle = ComboBoxStyle.DropDownList,
-                    Margin = new Padding(0, 0, 0, 8)
-                };
-                _cmbKind.Items.AddRange(kindOptions.Cast<object>().ToArray());
-                _cmbKind.SelectedItem = kindOptions.FirstOrDefault(option => option.Kind == element.Kind) ??
-                    kindOptions.First(option => option.Kind == KbNetworkElementKind.Other);
-
-                _txtName = new TextBox
-                {
-                    Dock = DockStyle.Top,
-                    Text = element.Name,
-                    Margin = new Padding(0, 0, 0, 8)
-                };
-                _txtIpOctets = CreateIpOctetBoxes(element.IpAddress);
+                _txtIpOctets = CreateIpOctetBoxes(initialIpAddress);
                 FlowLayoutPanel ipAddressPanel = CreateIpAddressPanel(_txtIpOctets);
 
                 var buttons = new FlowLayoutPanel
@@ -878,41 +1071,17 @@ namespace AsutpKnowledgeBase
                 buttons.Controls.Add(btnCancel);
                 buttons.Controls.Add(btnOk);
 
-                layout.Controls.Add(CreateLabel("Тип"), 0, 0);
-                layout.Controls.Add(_cmbKind, 1, 0);
-                layout.Controls.Add(CreateLabel("Название"), 0, 1);
-                layout.Controls.Add(_txtName, 1, 1);
-                layout.Controls.Add(CreateLabel("IP"), 0, 2);
-                layout.Controls.Add(ipAddressPanel, 1, 2);
-                layout.Controls.Add(buttons, 1, 3);
+                layout.Controls.Add(CreateLabel("IP"), 0, 0);
+                layout.Controls.Add(ipAddressPanel, 1, 0);
+                layout.Controls.Add(buttons, 1, 1);
                 Controls.Add(layout);
 
                 AcceptButton = btnOk;
                 CancelButton = btnCancel;
-
-                if (focusIpAddress)
-                {
-                    Shown += (_, _) =>
-                    {
-                        FocusFirstIpOctet();
-                    };
-                }
+                Shown += (_, _) => FocusFirstIpOctet(_txtIpOctets);
             }
 
-            public KbNetworkElementKind ElementKind =>
-                _cmbKind.SelectedItem is KindOption option ? option.Kind : KbNetworkElementKind.Other;
-
-            public string ElementName => _txtName.Text.Trim();
-
-            public string IpAddress
-            {
-                get
-                {
-                    return TryBuildIpAddress(out string ipAddress, out _)
-                        ? ipAddress
-                        : BuildRawIpAddress();
-                }
-            }
+            public string IpAddress { get; private set; } = string.Empty;
 
             private void TryAccept()
             {
@@ -922,14 +1091,20 @@ namespace AsutpKnowledgeBase
                     return;
                 }
 
-                if (!string.IsNullOrWhiteSpace(ipAddress) &&
-                    _reservedIpAddresses.TryGetValue(ipAddress, out string existingElementName))
+                if (string.IsNullOrWhiteSpace(ipAddress))
+                {
+                    ShowValidationWarning("Укажите IP-адрес.");
+                    return;
+                }
+
+                if (_reservedIpAddresses.TryGetValue(ipAddress, out string existingElementName))
                 {
                     ShowValidationWarning(
                         $"IP-адрес {ipAddress} уже используется элементом \"{existingElementName}\". Укажите другой IP-адрес.");
                     return;
                 }
 
+                IpAddress = ipAddress;
                 DialogResult = DialogResult.OK;
                 Close();
             }
@@ -942,7 +1117,7 @@ namespace AsutpKnowledgeBase
                     "Проверка IP-адреса",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
-                FocusFirstIpOctet();
+                FocusFirstIpOctet(_txtIpOctets);
             }
 
             private bool TryBuildIpAddress(out string ipAddress, out string validationError)
@@ -959,7 +1134,7 @@ namespace AsutpKnowledgeBase
 
                 if (octets.Any(static octet => octet.Length == 0))
                 {
-                    validationError = "Заполните все 4 октета IP-адреса или оставьте IP пустым.";
+                    validationError = "Заполните все 4 октета IP-адреса.";
                     return false;
                 }
 
@@ -979,22 +1154,10 @@ namespace AsutpKnowledgeBase
                 return true;
             }
 
-            private string BuildRawIpAddress()
-            {
-                string[] octets = _txtIpOctets
-                    .Select(static textBox => textBox.Text.Trim())
-                    .ToArray();
-
-                return octets.All(static octet => octet.Length == 0)
-                    ? string.Empty
-                    : string.Join(".", octets);
-            }
-
             private TextBox[] CreateIpOctetBoxes(string ipAddress)
             {
                 string[] values = SplitIpAddress(ipAddress);
                 var textBoxes = new TextBox[4];
-
                 for (int index = 0; index < textBoxes.Length; index++)
                 {
                     int octetIndex = index;
@@ -1013,8 +1176,8 @@ namespace AsutpKnowledgeBase
                         if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar))
                             e.Handled = true;
                     };
-                    textBox.KeyDown += (_, e) => HandleIpOctetKeyDown(octetIndex, e);
-                    textBox.TextChanged += (_, _) => HandleIpOctetTextChanged(octetIndex);
+                    textBox.KeyDown += (_, e) => HandleIpOctetKeyDown(textBoxes, octetIndex, e);
+                    textBox.TextChanged += (_, _) => HandleIpOctetTextChanged(textBoxes, octetIndex);
 
                     textBoxes[index] = textBox;
                 }
@@ -1052,12 +1215,12 @@ namespace AsutpKnowledgeBase
                     Margin = new Padding(0, 4, 4, 0)
                 };
 
-            private void HandleIpOctetTextChanged(int octetIndex)
+            private void HandleIpOctetTextChanged(TextBox[] ipOctets, int octetIndex)
             {
                 if (_updatingIpOctets)
                     return;
 
-                TextBox textBox = _txtIpOctets[octetIndex];
+                TextBox textBox = ipOctets[octetIndex];
                 string digits = new(textBox.Text.Where(char.IsDigit).Take(3).ToArray());
                 if (!string.Equals(textBox.Text, digits, StringComparison.Ordinal))
                 {
@@ -1068,38 +1231,38 @@ namespace AsutpKnowledgeBase
                     _updatingIpOctets = false;
                 }
 
-                if (digits.Length == 3 && octetIndex < _txtIpOctets.Length - 1)
+                if (digits.Length == 3 && octetIndex < ipOctets.Length - 1)
                 {
-                    _txtIpOctets[octetIndex + 1].Focus();
-                    _txtIpOctets[octetIndex + 1].SelectAll();
+                    ipOctets[octetIndex + 1].Focus();
+                    ipOctets[octetIndex + 1].SelectAll();
                 }
             }
 
-            private void HandleIpOctetKeyDown(int octetIndex, KeyEventArgs e)
+            private void HandleIpOctetKeyDown(TextBox[] ipOctets, int octetIndex, KeyEventArgs e)
             {
                 if (e.KeyCode == Keys.OemPeriod || e.KeyCode == Keys.Decimal)
                 {
-                    FocusIpOctet(octetIndex + 1);
+                    FocusIpOctet(ipOctets, octetIndex + 1);
                     e.SuppressKeyPress = true;
                     return;
                 }
 
                 if (e.KeyCode == Keys.Back &&
                     octetIndex > 0 &&
-                    _txtIpOctets[octetIndex].SelectionStart == 0 &&
-                    _txtIpOctets[octetIndex].SelectionLength == 0)
+                    ipOctets[octetIndex].SelectionStart == 0 &&
+                    ipOctets[octetIndex].SelectionLength == 0)
                 {
-                    FocusIpOctet(octetIndex - 1, selectEnd: true);
+                    FocusIpOctet(ipOctets, octetIndex - 1, selectEnd: true);
                     e.SuppressKeyPress = true;
                 }
             }
 
-            private void FocusIpOctet(int octetIndex, bool selectEnd = false)
+            private static void FocusIpOctet(TextBox[] ipOctets, int octetIndex, bool selectEnd = false)
             {
-                if (octetIndex < 0 || octetIndex >= _txtIpOctets.Length)
+                if (octetIndex < 0 || octetIndex >= ipOctets.Length)
                     return;
 
-                TextBox textBox = _txtIpOctets[octetIndex];
+                TextBox textBox = ipOctets[octetIndex];
                 textBox.Focus();
 
                 if (selectEnd)
@@ -1108,68 +1271,435 @@ namespace AsutpKnowledgeBase
                     textBox.SelectAll();
             }
 
-            private void FocusFirstIpOctet()
+            private static void FocusFirstIpOctet(TextBox[] ipOctets)
             {
-                _txtIpOctets[0].Focus();
-                _txtIpOctets[0].SelectAll();
+                ipOctets[0].Focus();
+                ipOctets[0].SelectAll();
             }
 
-            private static Dictionary<string, string> CreateReservedIpAddressMap(IEnumerable<KbNetworkElement> elements)
-            {
-                var result = new Dictionary<string, string>(StringComparer.Ordinal);
-                foreach (KbNetworkElement element in elements)
+            private static Label CreateLabel(string text) =>
+                new()
                 {
-                    if (!TryNormalizeIpAddress(element.IpAddress, out string normalizedIpAddress) ||
-                        string.IsNullOrWhiteSpace(normalizedIpAddress) ||
-                        result.ContainsKey(normalizedIpAddress))
+                    Text = text,
+                    AutoSize = true,
+                    Dock = DockStyle.Top,
+                    Margin = new Padding(0, 3, 8, 8)
+                };
+        }
+
+        private sealed class NetworkElementDialog : Form
+        {
+            private readonly ComboBox _cmbKind;
+            private readonly Label _lblName;
+            private readonly Label _lblIp;
+            private readonly Label _lblAdditionalIp;
+            private readonly TextBox _txtName;
+            private readonly TextBox[] _txtIpOctets;
+            private readonly TextBox[] _txtAdditionalIpOctets;
+            private readonly FlowLayoutPanel _ipAddressPanel;
+            private readonly FlowLayoutPanel _additionalIpAddressPanel;
+            private readonly Dictionary<string, string> _reservedIpAddresses;
+            private bool _updatingIpOctets;
+
+            public NetworkElementDialog(
+                KbNetworkElement element,
+                IEnumerable<KbNetworkElement> reservedElements,
+                bool focusIpAddress = false)
+            {
+                _reservedIpAddresses = CreateReservedIpAddressMap(reservedElements);
+                Text = "Элемент сети";
+                ClientSize = new Size(360, 212);
+                StartPosition = FormStartPosition.CenterParent;
+                FormBorderStyle = FormBorderStyle.FixedDialog;
+                MaximizeBox = false;
+                MinimizeBox = false;
+                Padding = new Padding(16);
+                AppIconProvider.Apply(this);
+
+                var layout = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    ColumnCount = 2,
+                    RowCount = 5
+                };
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 86F));
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+                List<KindOption> kindOptions = GetKindOptions();
+                _cmbKind = new ComboBox
+                {
+                    Dock = DockStyle.Top,
+                    DropDownStyle = ComboBoxStyle.DropDownList,
+                    Margin = new Padding(0, 0, 0, 8)
+                };
+                _cmbKind.Items.AddRange(kindOptions.Cast<object>().ToArray());
+                _cmbKind.SelectedItem = kindOptions.FirstOrDefault(option => option.Kind == element.Kind) ??
+                    kindOptions.First(option => option.Kind == KbNetworkElementKind.Other);
+
+                _txtName = new TextBox
+                {
+                    Dock = DockStyle.Top,
+                    Text = element.Name,
+                    Margin = new Padding(0, 0, 0, 8)
+                };
+                _txtIpOctets = CreateIpOctetBoxes(element.IpAddress);
+                _ipAddressPanel = CreateIpAddressPanel(_txtIpOctets);
+                _txtAdditionalIpOctets = CreateIpOctetBoxes(element.AdditionalIpAddresses?.FirstOrDefault() ?? string.Empty);
+                _additionalIpAddressPanel = CreateIpAddressPanel(_txtAdditionalIpOctets);
+
+                var buttons = new FlowLayoutPanel
+                {
+                    Dock = DockStyle.Top,
+                    AutoSize = true,
+                    FlowDirection = FlowDirection.RightToLeft,
+                    Margin = new Padding(0)
+                };
+                var btnOk = new Button
+                {
+                    Text = "OK",
+                    AutoSize = true,
+                    MinimumSize = new Size(82, 28),
+                    Margin = new Padding(8, 0, 0, 0)
+                };
+                btnOk.Click += (_, _) => TryAccept();
+                var btnCancel = new Button
+                {
+                    Text = "Отмена",
+                    DialogResult = DialogResult.Cancel,
+                    AutoSize = true,
+                    MinimumSize = new Size(86, 28),
+                    Margin = new Padding(0)
+                };
+                buttons.Controls.Add(btnCancel);
+                buttons.Controls.Add(btnOk);
+
+                _lblName = CreateLabel("Название");
+                _lblIp = CreateLabel("IP");
+                _lblAdditionalIp = CreateLabel("Доп. IP");
+
+                layout.Controls.Add(CreateLabel("Тип"), 0, 0);
+                layout.Controls.Add(_cmbKind, 1, 0);
+                layout.Controls.Add(_lblName, 0, 1);
+                layout.Controls.Add(_txtName, 1, 1);
+                layout.Controls.Add(_lblIp, 0, 2);
+                layout.Controls.Add(_ipAddressPanel, 1, 2);
+                layout.Controls.Add(_lblAdditionalIp, 0, 3);
+                layout.Controls.Add(_additionalIpAddressPanel, 1, 3);
+                layout.Controls.Add(buttons, 1, 4);
+                Controls.Add(layout);
+
+                AcceptButton = btnOk;
+                CancelButton = btnCancel;
+                _cmbKind.SelectedIndexChanged += (_, _) => UpdateElementFieldMode();
+                UpdateElementFieldMode();
+
+                if (focusIpAddress)
+                {
+                    Shown += (_, _) =>
                     {
-                        continue;
+                        if (IsExternalConnectionSelected)
+                            FocusNameText();
+                        else
+                            FocusFirstIpOctet(_txtIpOctets);
+                    };
+                }
+            }
+
+            public KbNetworkElementKind ElementKind =>
+                _cmbKind.SelectedItem is KindOption option ? option.Kind : KbNetworkElementKind.Other;
+
+            public string ElementName => _txtName.Text.Trim();
+
+            public string IpAddress
+            {
+                get
+                {
+                    if (IsExternalConnectionSelected)
+                        return string.Empty;
+
+                    return TryBuildIpAddress(_txtIpOctets, allowEmpty: true, out string ipAddress, out _)
+                        ? ipAddress
+                        : BuildRawIpAddress(_txtIpOctets);
+                }
+            }
+
+            public List<string> AdditionalIpAddresses
+            {
+                get
+                {
+                    if (IsExternalConnectionSelected)
+                        return [];
+
+                    return TryBuildIpAddress(_txtAdditionalIpOctets, allowEmpty: true, out string ipAddress, out _) &&
+                        !string.IsNullOrWhiteSpace(ipAddress)
+                        ? [ipAddress]
+                        : [];
+                }
+            }
+
+            private void TryAccept()
+            {
+                if (IsExternalConnectionSelected)
+                {
+                    DialogResult = DialogResult.OK;
+                    Close();
+                    return;
+                }
+
+                if (!TryBuildIpAddress(_txtIpOctets, allowEmpty: true, out string ipAddress, out string validationError))
+                {
+                    ShowValidationWarning(validationError, _txtIpOctets);
+                    return;
+                }
+
+                if (!TryBuildIpAddress(_txtAdditionalIpOctets, allowEmpty: true, out string additionalIpAddress, out validationError))
+                {
+                    ShowValidationWarning(validationError, _txtAdditionalIpOctets);
+                    return;
+                }
+
+                if (!string.IsNullOrWhiteSpace(ipAddress) &&
+                    string.Equals(ipAddress, additionalIpAddress, StringComparison.Ordinal))
+                {
+                    ShowValidationWarning("Дополнительный IP-адрес совпадает с основным IP-адресом.", _txtAdditionalIpOctets);
+                    return;
+                }
+
+                if (!string.IsNullOrWhiteSpace(ipAddress) &&
+                    _reservedIpAddresses.TryGetValue(ipAddress, out string existingElementName))
+                {
+                    ShowValidationWarning(
+                        $"IP-адрес {ipAddress} уже используется элементом \"{existingElementName}\". Укажите другой IP-адрес.",
+                        _txtIpOctets);
+                    return;
+                }
+
+                if (!string.IsNullOrWhiteSpace(additionalIpAddress) &&
+                    _reservedIpAddresses.TryGetValue(additionalIpAddress, out existingElementName))
+                {
+                    ShowValidationWarning(
+                        $"IP-адрес {additionalIpAddress} уже используется элементом \"{existingElementName}\". Укажите другой IP-адрес.",
+                        _txtAdditionalIpOctets);
+                    return;
+                }
+
+                DialogResult = DialogResult.OK;
+                Close();
+            }
+
+            private bool IsExternalConnectionSelected =>
+                ElementKind == KbNetworkElementKind.ExternalConnection;
+
+            private void UpdateElementFieldMode()
+            {
+                bool isExternalConnection = IsExternalConnectionSelected;
+                _lblName.Text = isExternalConnection ? "Текст" : "Название";
+                _txtName.Multiline = isExternalConnection;
+                _txtName.AcceptsReturn = isExternalConnection;
+                _txtName.WordWrap = isExternalConnection;
+                _txtName.ScrollBars = isExternalConnection ? ScrollBars.Vertical : ScrollBars.None;
+                _txtName.Height = isExternalConnection ? 72 : 23;
+
+                _lblIp.Visible = !isExternalConnection;
+                _ipAddressPanel.Visible = !isExternalConnection;
+                _lblAdditionalIp.Visible = !isExternalConnection;
+                _additionalIpAddressPanel.Visible = !isExternalConnection;
+                ClientSize = new Size(360, isExternalConnection ? 184 : 212);
+            }
+
+            private void FocusNameText()
+            {
+                _txtName.Focus();
+                _txtName.SelectAll();
+            }
+
+            private void ShowValidationWarning(string message, TextBox[]? focusOctets = null)
+            {
+                MessageBox.Show(
+                    this,
+                    message,
+                    "Проверка IP-адреса",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                FocusFirstIpOctet(focusOctets ?? _txtIpOctets);
+            }
+
+            private static bool TryBuildIpAddress(
+                TextBox[] ipOctets,
+                bool allowEmpty,
+                out string ipAddress,
+                out string validationError)
+            {
+                string[] octets = ipOctets
+                    .Select(static textBox => textBox.Text.Trim())
+                    .ToArray();
+
+                ipAddress = string.Empty;
+                validationError = string.Empty;
+
+                if (octets.All(static octet => octet.Length == 0) && allowEmpty)
+                    return true;
+
+                if (octets.Any(static octet => octet.Length == 0))
+                {
+                    validationError = "Заполните все 4 октета IP-адреса или оставьте IP пустым.";
+                    return false;
+                }
+
+                var normalizedOctets = new string[4];
+                for (int index = 0; index < octets.Length; index++)
+                {
+                    if (!int.TryParse(octets[index], out int value) || value < 0 || value > 255)
+                    {
+                        validationError = "Каждый октет IP-адреса должен быть числом от 0 до 255.";
+                        return false;
                     }
 
-                    result.Add(normalizedIpAddress, string.IsNullOrWhiteSpace(element.Name) ? "без названия" : element.Name.Trim());
+                    normalizedOctets[index] = value.ToString(CultureInfo.InvariantCulture);
                 }
 
-                return result;
-            }
-
-            private static bool TryNormalizeIpAddress(string ipAddress, out string normalizedIpAddress)
-            {
-                normalizedIpAddress = string.Empty;
-                string[] parts = ipAddress.Trim().Split('.');
-                if (parts.Length != 4)
-                    return false;
-
-                var normalizedParts = new string[4];
-                for (int index = 0; index < parts.Length; index++)
-                {
-                    string part = parts[index].Trim();
-                    if (part.Length == 0 || !int.TryParse(part, out int value) || value < 0 || value > 255)
-                        return false;
-
-                    normalizedParts[index] = value.ToString(CultureInfo.InvariantCulture);
-                }
-
-                normalizedIpAddress = string.Join(".", normalizedParts);
+                ipAddress = string.Join(".", normalizedOctets);
                 return true;
             }
 
-            private static string[] SplitIpAddress(string ipAddress)
+            private static string BuildRawIpAddress(TextBox[] ipOctets)
             {
-                string[] result = ["", "", "", ""];
-                string[] parts = ipAddress.Trim().Split('.');
-                if (parts.Length != result.Length)
-                    return result;
+                string[] octets = ipOctets
+                    .Select(static textBox => textBox.Text.Trim())
+                    .ToArray();
 
-                for (int index = 0; index < parts.Length; index++)
+                return octets.All(static octet => octet.Length == 0)
+                    ? string.Empty
+                    : string.Join(".", octets);
+            }
+
+            private TextBox[] CreateIpOctetBoxes(string ipAddress)
+            {
+                string[] values = SplitIpAddress(ipAddress);
+                var textBoxes = new TextBox[4];
+
+                for (int index = 0; index < textBoxes.Length; index++)
                 {
-                    string part = parts[index].Trim();
-                    if (part.Length is 0 or > 3 || part.Any(static value => !char.IsDigit(value)))
-                        return ["", "", "", ""];
+                    int octetIndex = index;
+                    var textBox = new TextBox
+                    {
+                        Dock = DockStyle.None,
+                        Width = 42,
+                        MaxLength = 3,
+                        Text = values[index],
+                        TextAlign = HorizontalAlignment.Center,
+                        Margin = new Padding(0, 0, 4, 0)
+                    };
 
-                    result[index] = part;
+                    textBox.KeyPress += (_, e) =>
+                    {
+                        if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar))
+                            e.Handled = true;
+                    };
+                    textBox.KeyDown += (_, e) => HandleIpOctetKeyDown(textBoxes, octetIndex, e);
+                    textBox.TextChanged += (_, _) => HandleIpOctetTextChanged(textBoxes, octetIndex);
+
+                    textBoxes[index] = textBox;
                 }
 
-                return result;
+                return textBoxes;
+            }
+
+            private static FlowLayoutPanel CreateIpAddressPanel(TextBox[] octets)
+            {
+                var panel = new FlowLayoutPanel
+                {
+                    Dock = DockStyle.Top,
+                    AutoSize = true,
+                    WrapContents = false,
+                    FlowDirection = FlowDirection.LeftToRight,
+                    Margin = new Padding(0, 0, 0, 12)
+                };
+
+                for (int index = 0; index < octets.Length; index++)
+                {
+                    panel.Controls.Add(octets[index]);
+                    if (index < octets.Length - 1)
+                        panel.Controls.Add(CreateIpSeparator());
+                }
+
+                return panel;
+            }
+
+            private static Label CreateIpSeparator() =>
+                new()
+                {
+                    Text = ".",
+                    AutoSize = true,
+                    Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold),
+                    Margin = new Padding(0, 4, 4, 0)
+                };
+
+            private void HandleIpOctetTextChanged(TextBox[] ipOctets, int octetIndex)
+            {
+                if (_updatingIpOctets)
+                    return;
+
+                TextBox textBox = ipOctets[octetIndex];
+                string digits = new(textBox.Text.Where(char.IsDigit).Take(3).ToArray());
+                if (!string.Equals(textBox.Text, digits, StringComparison.Ordinal))
+                {
+                    _updatingIpOctets = true;
+                    int selectionStart = Math.Min(textBox.SelectionStart, digits.Length);
+                    textBox.Text = digits;
+                    textBox.SelectionStart = selectionStart;
+                    _updatingIpOctets = false;
+                }
+
+                if (digits.Length == 3 && octetIndex < ipOctets.Length - 1)
+                {
+                    ipOctets[octetIndex + 1].Focus();
+                    ipOctets[octetIndex + 1].SelectAll();
+                }
+            }
+
+            private void HandleIpOctetKeyDown(TextBox[] ipOctets, int octetIndex, KeyEventArgs e)
+            {
+                if (e.KeyCode == Keys.OemPeriod || e.KeyCode == Keys.Decimal)
+                {
+                    FocusIpOctet(ipOctets, octetIndex + 1);
+                    e.SuppressKeyPress = true;
+                    return;
+                }
+
+                if (e.KeyCode == Keys.Back &&
+                    octetIndex > 0 &&
+                    ipOctets[octetIndex].SelectionStart == 0 &&
+                    ipOctets[octetIndex].SelectionLength == 0)
+                {
+                    FocusIpOctet(ipOctets, octetIndex - 1, selectEnd: true);
+                    e.SuppressKeyPress = true;
+                }
+            }
+
+            private static void FocusIpOctet(TextBox[] ipOctets, int octetIndex, bool selectEnd = false)
+            {
+                if (octetIndex < 0 || octetIndex >= ipOctets.Length)
+                    return;
+
+                TextBox textBox = ipOctets[octetIndex];
+                textBox.Focus();
+
+                if (selectEnd)
+                    textBox.SelectionStart = textBox.Text.Length;
+                else
+                    textBox.SelectAll();
+            }
+
+            private static void FocusFirstIpOctet(TextBox[] ipOctets)
+            {
+                ipOctets[0].Focus();
+                ipOctets[0].SelectAll();
             }
 
             private static Label CreateLabel(string text) =>
@@ -1189,8 +1719,9 @@ namespace AsutpKnowledgeBase
                 new(KbNetworkElementKind.Arm, "АРМ"),
                 new(KbNetworkElementKind.Hmi, "HMI"),
                 new(KbNetworkElementKind.Server, "Сервер"),
-                new(KbNetworkElementKind.Et200, "ET200"),
+                new(KbNetworkElementKind.Et200, "ET"),
                 new(KbNetworkElementKind.Olm, "OLM"),
+                new(KbNetworkElementKind.ExternalConnection, "Внешняя связь"),
                 new(KbNetworkElementKind.Other, "Другое")
             ];
 
@@ -1287,6 +1818,13 @@ namespace AsutpKnowledgeBase
                     return;
                 }
 
+                if (kind == KbNetworkElementKind.ExternalConnection)
+                {
+                    DrawExternalConnectionIcon(graphics, bounds);
+                    graphics.Restore(state);
+                    return;
+                }
+
                 if (TryGetApprovedIcon(kind, out IconDefinition icon))
                 {
                     DrawSvgPathIcon(graphics, icon, bounds);
@@ -1372,6 +1910,49 @@ namespace AsutpKnowledgeBase
                 graphics.FillEllipse(cut, ScaleRectangle(bounds, 23.5F, 47.5F, 3F, 3F));
                 graphics.FillEllipse(cut, ScaleRectangle(bounds, 30.5F, 47.5F, 3F, 3F));
                 graphics.FillEllipse(cut, ScaleRectangle(bounds, 37.5F, 47.5F, 3F, 3F));
+            }
+
+            private static void DrawExternalConnectionIcon(Graphics graphics, Rectangle bounds)
+            {
+                using var pen = new Pen(ApprovedIconColor, Math.Max(1.6F, bounds.Width / 18F))
+                {
+                    StartCap = LineCap.Round,
+                    EndCap = LineCap.Round,
+                    LineJoin = LineJoin.Round
+                };
+                using var fill = new SolidBrush(ApprovedIconColor);
+
+                RectangleF sourceBounds = ScaleRectangle(bounds, 9F, 18F, 23F, 28F);
+                RectangleF targetBounds = ScaleRectangle(bounds, 35F, 14F, 20F, 18F);
+                RectangleF lowerTargetBounds = ScaleRectangle(bounds, 35F, 36F, 20F, 14F);
+                graphics.DrawRectangle(pen, sourceBounds.X, sourceBounds.Y, sourceBounds.Width, sourceBounds.Height);
+                graphics.DrawRectangle(pen, targetBounds.X, targetBounds.Y, targetBounds.Width, targetBounds.Height);
+                graphics.DrawRectangle(pen, lowerTargetBounds.X, lowerTargetBounds.Y, lowerTargetBounds.Width, lowerTargetBounds.Height);
+
+                PointF from = new(
+                    sourceBounds.Right,
+                    sourceBounds.Top + sourceBounds.Height * 0.5F);
+                PointF to = new(
+                    targetBounds.Left,
+                    targetBounds.Top + targetBounds.Height * 0.5F);
+                graphics.DrawLine(pen, from, to);
+
+                float arrowSize = Math.Max(4F, bounds.Width / 9F);
+                PointF[] arrow =
+                [
+                    to,
+                    new PointF(to.X - arrowSize, to.Y - arrowSize * 0.55F),
+                    new PointF(to.X - arrowSize, to.Y + arrowSize * 0.55F)
+                ];
+                graphics.FillPolygon(fill, arrow);
+
+                PointF branchStart = new(
+                    sourceBounds.Right,
+                    sourceBounds.Top + sourceBounds.Height * 0.72F);
+                PointF branchEnd = new(
+                    lowerTargetBounds.Left,
+                    lowerTargetBounds.Top + lowerTargetBounds.Height * 0.5F);
+                graphics.DrawLine(pen, branchStart, branchEnd);
             }
 
             private static void DrawOtherGlyph(Graphics graphics, Rectangle bounds)
@@ -1737,7 +2318,7 @@ namespace AsutpKnowledgeBase
         private sealed class TopologyCanvas : Panel
         {
             private const int ElementWidth = 134;
-            private const int ElementHeight = 101;
+            private const int ElementHeight = 118;
             private const int IconSize = 46;
             private const int LinkStubLength = 22;
             private const int LinkObstaclePadding = 12;
@@ -1804,6 +2385,8 @@ namespace AsutpKnowledgeBase
 
             public event EventHandler<NetworkCanvasContextMenuEventArgs>? CanvasContextMenuRequested;
 
+            public event EventHandler? ZoomFactorChanged;
+
             public void UpdateViewportSize(Size viewportSize)
             {
                 _viewportSize = viewportSize;
@@ -1813,6 +2396,18 @@ namespace AsutpKnowledgeBase
 
             public void ZoomAtScreenPoint(Point screenPoint, bool zoomIn) =>
                 ZoomAt(PointToClient(screenPoint), zoomIn);
+
+            public void ZoomInFromCenter() =>
+                ZoomAt(GetViewportCenterPoint(), zoomIn: true);
+
+            public void ZoomOutFromCenter() =>
+                ZoomAt(GetViewportCenterPoint(), zoomIn: false);
+
+            public void ResetZoom() =>
+                ZoomToPercent(100);
+
+            public void ZoomToPercent(int zoomPercent) =>
+                SetZoomFactor(zoomPercent / 100F, GetViewportCenterPoint());
 
             public Point GetElementDropLocation(Point location)
             {
@@ -2008,6 +2603,12 @@ namespace AsutpKnowledgeBase
                     _zoomFactor * (zoomIn ? ZoomStepFactor : 1F / ZoomStepFactor),
                     MinZoomFactor,
                     MaxZoomFactor);
+                SetZoomFactor(nextZoom, canvasPoint);
+            }
+
+            private void SetZoomFactor(float zoomFactor, Point canvasPoint)
+            {
+                float nextZoom = Math.Clamp(zoomFactor, MinZoomFactor, MaxZoomFactor);
                 if (Math.Abs(nextZoom - _zoomFactor) < 0.001F)
                     return;
 
@@ -2025,6 +2626,18 @@ namespace AsutpKnowledgeBase
                 }
 
                 Invalidate();
+                ZoomFactorChanged?.Invoke(this, EventArgs.Empty);
+            }
+
+            private Point GetViewportCenterPoint()
+            {
+                if (Parent is ScrollableControl viewport)
+                {
+                    Point center = new(viewport.ClientSize.Width / 2, viewport.ClientSize.Height / 2);
+                    return PointToClient(viewport.PointToScreen(center));
+                }
+
+                return new Point(ClientSize.Width / 2, ClientSize.Height / 2);
             }
 
             private void ScrollParentByWheel(int delta)
@@ -2166,19 +2779,100 @@ namespace AsutpKnowledgeBase
                     graphics.DrawPath(border, path);
                 }
 
-                Rectangle iconBounds = new(bounds.X + (ElementWidth - IconSize) / 2, bounds.Y + 33, IconSize, IconSize);
+                if (element.Kind == KbNetworkElementKind.ExternalConnection)
+                {
+                    DrawExternalConnectionElement(graphics, element, bounds);
+                    return;
+                }
+
+                IReadOnlyList<string> ipAddresses = GetDisplayIpAddresses(element);
+                bool hasAdditionalIpAddresses = ipAddresses.Count > 1;
+                int iconSize = hasAdditionalIpAddresses ? 36 : IconSize;
+                int iconTop = hasAdditionalIpAddresses ? 56 : 36;
+                Rectangle iconBounds = new(bounds.X + (ElementWidth - iconSize) / 2, bounds.Y + iconTop, iconSize, iconSize);
                 NetworkIconPainter.DrawDeviceIcon(graphics, element.Kind, iconBounds);
 
-                Rectangle ipBounds = new(bounds.X + 7, bounds.Y + 6, ElementWidth - 14, 22);
-                Rectangle nameBounds = new(bounds.X + 5, bounds.Y + 80, ElementWidth - 10, 19);
+                Rectangle ipBounds = new(bounds.X + 7, bounds.Y + 7, ElementWidth - 14, 22);
+                Rectangle nameBounds = new(bounds.X + 5, bounds.Y + (hasAdditionalIpAddresses ? 95 : 92), ElementWidth - 10, 20);
                 using var nameFont = new Font("Segoe UI Semibold", 9.8F, FontStyle.Bold);
                 using var ipFont = new Font("Segoe UI Semibold", 10.1F, FontStyle.Bold);
-                DrawIpAddress(graphics, element.IpAddress, ipFont, ipBounds);
+                DrawIpAddresses(graphics, ipAddresses, ipFont, ipBounds);
                 using var nameBrush = new SolidBrush(Color.FromArgb(21, 33, 45));
                 using StringFormat nameFormat = CreateSingleLineStringFormat(
                     StringAlignment.Center,
                     StringAlignment.Center);
                 graphics.DrawString(element.Name, nameFont, nameBrush, nameBounds, nameFormat);
+            }
+
+            private static void DrawExternalConnectionElement(Graphics graphics, KbNetworkElement element, Rectangle bounds)
+            {
+                Rectangle headerBounds = new(bounds.X + 8, bounds.Y + 8, ElementWidth - 16, 18);
+                Rectangle fieldBounds = new(bounds.X + 10, bounds.Y + 32, ElementWidth - 20, ElementHeight - 44);
+                using var headerFont = new Font("Segoe UI Semibold", 7.8F, FontStyle.Bold);
+                using var headerBrush = new SolidBrush(Color.FromArgb(76, 91, 105));
+                using StringFormat headerFormat = CreateSingleLineStringFormat(
+                    StringAlignment.Center,
+                    StringAlignment.Center);
+                graphics.DrawString("Внешняя связь", headerFont, headerBrush, headerBounds, headerFormat);
+
+                using var fieldFill = new SolidBrush(Color.FromArgb(247, 250, 252));
+                using var fieldBorder = new Pen(Color.FromArgb(145, 168, 190), 1F);
+                using (GraphicsPath fieldPath = CreateRoundedRectanglePath(fieldBounds, 6))
+                {
+                    graphics.FillPath(fieldFill, fieldPath);
+                    graphics.DrawPath(fieldBorder, fieldPath);
+                }
+
+                Rectangle textBounds = new(fieldBounds.X + 6, fieldBounds.Y + 5, fieldBounds.Width - 12, fieldBounds.Height - 10);
+                using var textFont = new Font("Segoe UI Semibold", 9.2F, FontStyle.Bold);
+                using var textBrush = new SolidBrush(Color.FromArgb(21, 33, 45));
+                using StringFormat textFormat = CreateWrappedStringFormat(
+                    StringAlignment.Center,
+                    StringAlignment.Center);
+                graphics.DrawString(element.Name, textFont, textBrush, textBounds, textFormat);
+            }
+
+            private static IReadOnlyList<string> GetDisplayIpAddresses(KbNetworkElement element)
+            {
+                var result = new List<string>();
+                AddDisplayIpAddress(result, element.IpAddress);
+                foreach (string additionalIpAddress in element.AdditionalIpAddresses ?? [])
+                    AddDisplayIpAddress(result, additionalIpAddress);
+
+                return result;
+            }
+
+            private static void AddDisplayIpAddress(List<string> result, string ipAddress)
+            {
+                string normalized = ipAddress.Trim();
+                if (string.IsNullOrWhiteSpace(normalized) ||
+                    result.Contains(normalized, StringComparer.Ordinal))
+                {
+                    return;
+                }
+
+                result.Add(normalized);
+            }
+
+            private static void DrawIpAddresses(
+                Graphics graphics,
+                IReadOnlyList<string> ipAddresses,
+                Font primaryFont,
+                Rectangle primaryBounds)
+            {
+                if (ipAddresses.Count == 0)
+                    return;
+
+                DrawIpAddress(graphics, ipAddresses[0], primaryFont, primaryBounds);
+                if (ipAddresses.Count == 1)
+                    return;
+
+                string secondaryText = ipAddresses.Count == 2
+                    ? ipAddresses[1]
+                    : FormattableString.Invariant($"{ipAddresses[1]} +{ipAddresses.Count - 2}");
+                Rectangle secondaryBounds = new(primaryBounds.X + 5, primaryBounds.Bottom + 4, primaryBounds.Width - 10, 20);
+                using var secondaryFont = new Font("Segoe UI Semibold", 8.1F, FontStyle.Bold);
+                DrawIpAddress(graphics, secondaryText, secondaryFont, secondaryBounds);
             }
 
             private static void DrawIpAddress(Graphics graphics, string ipAddress, Font font, Rectangle bounds)
@@ -2210,6 +2904,17 @@ namespace AsutpKnowledgeBase
                     LineAlignment = lineAlignment,
                     Trimming = StringTrimming.EllipsisCharacter,
                     FormatFlags = StringFormatFlags.NoWrap
+                };
+
+            private static StringFormat CreateWrappedStringFormat(
+                StringAlignment alignment,
+                StringAlignment lineAlignment) =>
+                new()
+                {
+                    Alignment = alignment,
+                    LineAlignment = lineAlignment,
+                    Trimming = StringTrimming.EllipsisWord,
+                    FormatFlags = StringFormatFlags.LineLimit
                 };
 
             private KbNetworkElement? HitTestElement(Point point)

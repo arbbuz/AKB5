@@ -1020,6 +1020,7 @@ namespace AsutpKnowledgeBase.Services
                     Kind = kind,
                     Name = NormalizeNetworkText(element.Name, GetDefaultNetworkElementName(kind)),
                     IpAddress = NormalizeNetworkText(element.IpAddress),
+                    AdditionalIpAddresses = NormalizeNetworkIpAddresses(element.AdditionalIpAddresses),
                     X = Math.Clamp(element.X, 0, 5000),
                     Y = Math.Clamp(element.Y, 0, 5000)
                 });
@@ -1088,6 +1089,22 @@ namespace AsutpKnowledgeBase.Services
                 : normalized;
         }
 
+        private static List<string> NormalizeNetworkIpAddresses(IEnumerable<string>? values)
+        {
+            var result = new List<string>();
+            var used = new HashSet<string>(StringComparer.Ordinal);
+            foreach (string? value in values ?? Enumerable.Empty<string>())
+            {
+                string normalized = NormalizeNetworkText(value);
+                if (string.IsNullOrWhiteSpace(normalized) || !used.Add(normalized))
+                    continue;
+
+                result.Add(normalized);
+            }
+
+            return result;
+        }
+
         private static string GetDefaultNetworkElementName(KbNetworkElementKind kind) => kind switch
         {
             KbNetworkElementKind.Plc => "PLC",
@@ -1098,6 +1115,7 @@ namespace AsutpKnowledgeBase.Services
             KbNetworkElementKind.Server => "Сервер",
             KbNetworkElementKind.Et200 => "ET200",
             KbNetworkElementKind.Olm => "OLM",
+            KbNetworkElementKind.ExternalConnection => "Внешняя связь",
             _ => "Устройство"
         };
 

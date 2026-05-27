@@ -24,6 +24,7 @@ Common Codex rules live in `C:\Users\Olga\.codex\AGENTS.md`. Do not duplicate th
   - `docs/plans.md` for active plans
   - `docs/lessons-learned.md` for reusable patterns and insights
   - `docs/decision-log.md` for durable decisions and working agreements
+- For small/localized tasks, run shell diagnostics through `scripts\codex-safe.ps1 -Command "<command>"` by default. The guard blocks broad reads and broad diffs; bypass it only after explaining the need and getting explicit user approval in the current chat.
 - Historical AKB5 worktrees/snapshots under `C:\Users\Olga\Documents\Codex\...` are reference material only. Do not use similarly named files there as the current source of truth for `C:\Users\Olga\AKB5`.
 
 ## AKB5 final response contract

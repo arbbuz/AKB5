@@ -345,6 +345,39 @@ public class KnowledgeBaseDataServiceTests
     }
 
     [Fact]
+    public void NormalizeNetworkTopology_TrimsAdditionalIpAddresses()
+    {
+        var topology = new KbNetworkTopology
+        {
+            Elements =
+            {
+                new KbNetworkElement
+                {
+                    ElementId = "plc-1",
+                    Kind = KbNetworkElementKind.Plc,
+                    Name = "PLC",
+                    IpAddress = " 10.10.0.1 ",
+                    AdditionalIpAddresses =
+                    {
+                        " 10.10.0.2 ",
+                        "",
+                        "10.10.0.2",
+                        " 10.10.0.3 "
+                    },
+                    X = 36,
+                    Y = 42
+                }
+            }
+        };
+
+        KbNetworkTopology normalized = KnowledgeBaseDataService.NormalizeNetworkTopology(topology);
+
+        KbNetworkElement element = Assert.Single(normalized.Elements);
+        Assert.Equal("10.10.0.1", element.IpAddress);
+        Assert.Equal(new[] { "10.10.0.2", "10.10.0.3" }, element.AdditionalIpAddresses);
+    }
+
+    [Fact]
     public void NormalizeNetworkTopology_PreservesApprovedOlmKind()
     {
         var topology = new KbNetworkTopology
@@ -367,6 +400,31 @@ public class KnowledgeBaseDataServiceTests
         KbNetworkElement element = Assert.Single(normalized.Elements);
         Assert.Equal(KbNetworkElementKind.Olm, element.Kind);
         Assert.Equal("OLM", element.Name);
+    }
+
+    [Fact]
+    public void NormalizeNetworkTopology_PreservesExternalConnectionKind()
+    {
+        var topology = new KbNetworkTopology
+        {
+            Elements =
+            {
+                new KbNetworkElement
+                {
+                    ElementId = "external-1",
+                    Kind = KbNetworkElementKind.ExternalConnection,
+                    Name = "",
+                    X = 36,
+                    Y = 42
+                }
+            }
+        };
+
+        KbNetworkTopology normalized = KnowledgeBaseDataService.NormalizeNetworkTopology(topology);
+
+        KbNetworkElement element = Assert.Single(normalized.Elements);
+        Assert.Equal(KbNetworkElementKind.ExternalConnection, element.Kind);
+        Assert.Equal("Внешняя связь", element.Name);
     }
 
     [Fact]

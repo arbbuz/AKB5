@@ -14,6 +14,7 @@ namespace AsutpKnowledgeBase.Models
         [System.Obsolete("Use Et200.")]
         Io = Et200,
         Olm = 8,
+        ExternalConnection = 9,
         Other = 99
     }
 
@@ -42,6 +43,8 @@ namespace AsutpKnowledgeBase.Models
         public string Name { get; set; } = string.Empty;
 
         public string IpAddress { get; set; } = string.Empty;
+
+        public List<string> AdditionalIpAddresses { get; set; } = [];
 
         public int X { get; set; }
 
