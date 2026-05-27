@@ -1,3 +1,4 @@
+using System.Globalization;
 using AsutpKnowledgeBase.Services;
 
 namespace AsutpKnowledgeBase
@@ -6,13 +7,13 @@ namespace AsutpKnowledgeBase
     {
         private readonly KnowledgeBaseCompositionState _emptyState = new();
 
-        private Label _lblSource = null!;
-        private Label _lblSummary = null!;
         private Button _btnAdd = null!;
         private Button _btnEditSelected = null!;
         private Button _btnDeleteSelected = null!;
-        private ListView _lvEntries = null!;
+        private DataGridView _gridEntries = null!;
         private Label _lblEmptyState = null!;
+        private FlowLayoutPanel _entriesPanel = null!;
+        private KnowledgeBaseWorkspaceVisuals.SectionPanel _entriesGroup = null!;
 
         private KnowledgeBaseCompositionState _currentState = new();
         private bool _isSynchronizingSelection;
@@ -25,32 +26,13 @@ namespace AsutpKnowledgeBase
             {
                 Dock = DockStyle.Fill,
                 BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor,
-                Padding = new Padding(16),
+                Padding = new Padding(12),
                 ColumnCount = 1,
-                RowCount = 4
+                RowCount = 2
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-
-            _lblSource = new Label
-            {
-                Dock = DockStyle.Top,
-                AutoSize = true,
-                Font = new Font("Segoe UI", 9F, FontStyle.Regular),
-                ForeColor = KnowledgeBaseWorkspaceVisuals.MutedTextColor,
-                Margin = new Padding(0, 0, 0, 8)
-            };
-
-            _lblSummary = new Label
-            {
-                Dock = DockStyle.Top,
-                AutoSize = true,
-                Font = new Font("Segoe UI Semibold", 10F, FontStyle.Bold),
-                Margin = new Padding(0, 0, 0, 12)
-            };
 
             var actionsPanel = new FlowLayoutPanel
             {
@@ -59,7 +41,7 @@ namespace AsutpKnowledgeBase
                 WrapContents = true,
                 AutoSize = true,
                 BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor,
-                Margin = new Padding(0, 0, 0, 12)
+                Margin = new Padding(0, 0, 0, 8)
             };
 
             _btnAdd = CreateActionButton("Добавить доп. оборудование");
@@ -73,9 +55,11 @@ namespace AsutpKnowledgeBase
             actionsPanel.Controls.Add(_btnEditSelected);
             actionsPanel.Controls.Add(_btnDeleteSelected);
 
-            _lvEntries = CreateEntriesListView();
-            _lvEntries.SelectedIndexChanged += (_, _) => HandleSelectionChanged();
-            _lvEntries.DoubleClick += (_, _) =>
+            _gridEntries = CreateEntriesGrid();
+            _gridEntries.ContextMenuStrip = CreateEntriesContextMenu();
+            _gridEntries.SelectionChanged += (_, _) => HandleSelectionChanged();
+            _gridEntries.MouseDown += HandleGridMouseDown;
+            _gridEntries.CellDoubleClick += (_, _) =>
             {
                 if (!string.IsNullOrWhiteSpace(SelectedEntryId))
                     EditSelectedRequested?.Invoke(this, EventArgs.Empty);
@@ -83,10 +67,21 @@ namespace AsutpKnowledgeBase
 
             _lblEmptyState = CreateEmptyStateLabel("Доп. оборудование пока не добавлено.");
 
-            layout.Controls.Add(_lblSource, 0, 0);
-            layout.Controls.Add(_lblSummary, 0, 1);
-            layout.Controls.Add(actionsPanel, 0, 2);
-            layout.Controls.Add(CreateEntriesGroup(), 0, 3);
+            _entriesPanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                AutoScroll = true,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                Margin = new Padding(0),
+                Padding = new Padding(0, 0, 2, 0),
+                BackColor = KnowledgeBaseWorkspaceVisuals.SurfaceColor
+            };
+            _entriesPanel.SizeChanged += (_, _) => UpdateEntriesCardSize();
+            _entriesPanel.Controls.Add(CreateEntriesGroup());
+
+            layout.Controls.Add(actionsPanel, 0, 0);
+            layout.Controls.Add(_entriesPanel, 0, 1);
             Controls.Add(layout);
 
             ApplyState(_emptyState);
@@ -105,65 +100,110 @@ namespace AsutpKnowledgeBase
             _currentState = state ?? _emptyState;
             string previouslySelectedEntryId = SelectedEntryId;
 
-            _lblSource.Text = BuildSourceText(_currentState);
-            _lblSummary.Text = BuildSummaryText(_currentState);
-
             PopulateEntries(previouslySelectedEntryId);
             UpdateButtonStates();
+            UpdateEntriesGroupTitle();
+            UpdateEntriesCardSize();
         }
 
         private void PopulateEntries(string preferredSelectedEntryId)
         {
             _isSynchronizingSelection = true;
-            _lvEntries.BeginUpdate();
             try
             {
-                _lvEntries.Items.Clear();
-                foreach (var entry in _currentState.AuxiliaryEntryStates)
+                _gridEntries.Rows.Clear();
+                DataGridViewRow? preferredRow = null;
+                for (int entryIndex = 0; entryIndex < _currentState.AuxiliaryEntryStates.Count; entryIndex++)
                 {
-                    var item = new ListViewItem(
-                    [
-                        entry.PositionText,
+                    var entry = _currentState.AuxiliaryEntryStates[entryIndex];
+                    int rowIndex = _gridEntries.Rows.Add(
+                        (entryIndex + 1).ToString(CultureInfo.InvariantCulture),
                         entry.ComponentTypeText,
                         entry.ComponentText,
-                        entry.IpAddressText,
-                        entry.NotesText
-                    ])
-                    {
-                        Tag = entry
-                    };
+                        entry.NotesText);
+                    DataGridViewRow row = _gridEntries.Rows[rowIndex];
+                    row.Tag = entry;
 
-                    _lvEntries.Items.Add(item);
                     if (!string.IsNullOrWhiteSpace(preferredSelectedEntryId) &&
                         string.Equals(entry.EntryId, preferredSelectedEntryId, StringComparison.Ordinal))
                     {
-                        item.Selected = true;
+                        preferredRow = row;
                     }
+                }
+
+                _gridEntries.ClearSelection();
+                _gridEntries.CurrentCell = null;
+                if (preferredRow != null)
+                {
+                    preferredRow.Selected = true;
+                    _gridEntries.CurrentCell = preferredRow.Cells[0];
                 }
             }
             finally
             {
-                _lvEntries.EndUpdate();
                 _isSynchronizingSelection = false;
             }
 
-            SelectedEntryId = _lvEntries.SelectedItems.Count > 0 &&
-                _lvEntries.SelectedItems[0].Tag is KnowledgeBaseCompositionEntryState selectedState &&
+            SelectedEntryId = _gridEntries.SelectedRows.Count > 0 &&
+                _gridEntries.SelectedRows[0].Tag is KnowledgeBaseCompositionEntryState selectedState &&
                 !selectedState.IsPlaceholder
                     ? selectedState.EntryId
                     : string.Empty;
 
             bool hasEntries = _currentState.AuxiliaryEntryStates.Count > 0;
-            _lvEntries.Visible = hasEntries;
+            _gridEntries.Visible = hasEntries;
             _lblEmptyState.Visible = !hasEntries;
+        }
+
+        private void HandleGridMouseDown(object? sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Right)
+                return;
+
+            var hit = _gridEntries.HitTest(e.X, e.Y);
+            _isSynchronizingSelection = true;
+            try
+            {
+                _gridEntries.ClearSelection();
+
+                if (hit.RowIndex >= 0 && hit.RowIndex < _gridEntries.Rows.Count)
+                {
+                    DataGridViewRow row = _gridEntries.Rows[hit.RowIndex];
+                    row.Selected = true;
+                    _gridEntries.CurrentCell = row.Cells[0];
+
+                    SelectedEntryId = row.Tag is KnowledgeBaseCompositionEntryState state && !state.IsPlaceholder
+                        ? state.EntryId
+                        : string.Empty;
+                }
+                else
+                {
+                    _gridEntries.CurrentCell = null;
+                    SelectedEntryId = string.Empty;
+                }
+
+                _gridEntries.Focus();
+                UpdateButtonStates();
+            }
+            finally
+            {
+                _isSynchronizingSelection = false;
+            }
         }
 
         private void HandleSelectionChanged()
         {
-            if (_isSynchronizingSelection || _lvEntries.SelectedItems.Count == 0)
+            if (_isSynchronizingSelection)
                 return;
 
-            var state = _lvEntries.SelectedItems[0].Tag as KnowledgeBaseCompositionEntryState;
+            if (_gridEntries.SelectedRows.Count == 0)
+            {
+                SelectedEntryId = string.Empty;
+                UpdateButtonStates();
+                return;
+            }
+
+            var state = _gridEntries.SelectedRows[0].Tag as KnowledgeBaseCompositionEntryState;
             SelectedEntryId = state == null || state.IsPlaceholder
                 ? string.Empty
                 : state.EntryId;
@@ -183,12 +223,14 @@ namespace AsutpKnowledgeBase
 
         private Control CreateEntriesGroup()
         {
-            var groupBox = new KnowledgeBaseWorkspaceVisuals.SectionPanel
+            _entriesGroup = new KnowledgeBaseWorkspaceVisuals.SectionPanel
             {
                 Text = "Доп. оборудование",
-                Dock = DockStyle.Fill,
+                Width = 720,
+                Height = 300,
                 Padding = new Padding(10, 20, 10, 10),
-                Margin = new Padding(0)
+                Margin = new Padding(0, 0, 0, 6),
+                MinimumSize = new Size(520, 220)
             };
 
             var container = new KnowledgeBaseWorkspaceVisuals.BorderPanel
@@ -196,50 +238,107 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Padding = new Padding(1)
             };
-            container.Controls.Add(_lvEntries);
+            container.Controls.Add(_gridEntries);
             container.Controls.Add(_lblEmptyState);
-            groupBox.Controls.Add(container);
-            return groupBox;
+            _entriesGroup.Controls.Add(container);
+            return _entriesGroup;
         }
 
-        private static ListView CreateEntriesListView()
+        private static DataGridView CreateEntriesGrid()
         {
-            var listView = new ListView
+            var grid = new DataGridView
             {
                 Dock = DockStyle.Fill,
-                FullRowSelect = true,
-                GridLines = true,
-                HeaderStyle = ColumnHeaderStyle.Nonclickable,
-                HideSelection = false,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AllowUserToResizeRows = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                EditMode = DataGridViewEditMode.EditProgrammatically,
                 MultiSelect = false,
-                ShowItemToolTips = false,
-                View = View.Details
+                ReadOnly = true,
+                RowHeadersVisible = false,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect
             };
-            KnowledgeBaseWorkspaceVisuals.ConfigureListView(listView);
-            listView.Columns.Add("Позиция", 110);
-            listView.Columns.Add("Тип", 120);
-            listView.Columns.Add("Компонент", 200);
-            listView.Columns.Add("IP-адрес", 120);
-            listView.Columns.Add("Примечание", 260);
-            return listView;
+            KnowledgeBaseWorkspaceVisuals.ConfigureGrid(grid);
+            grid.DefaultCellStyle.SelectionBackColor = SystemColors.Highlight;
+            grid.DefaultCellStyle.SelectionForeColor = SystemColors.HighlightText;
+            grid.RowsDefaultCellStyle.SelectionBackColor = SystemColors.Highlight;
+            grid.RowsDefaultCellStyle.SelectionForeColor = SystemColors.HighlightText;
+            grid.AlternatingRowsDefaultCellStyle.SelectionBackColor = SystemColors.Highlight;
+            grid.AlternatingRowsDefaultCellStyle.SelectionForeColor = SystemColors.HighlightText;
+            grid.Columns.Add(CreateGridColumn("Number", "№", 44));
+            grid.Columns.Add(CreateGridColumn("Type", "Тип", 700));
+            grid.Columns.Add(CreateGridColumn("Component", "Компонент", 240));
+            grid.Columns.Add(CreateGridColumn("Notes", "Примечание", 230));
+            return grid;
         }
 
-        private static string BuildSourceText(KnowledgeBaseCompositionState state)
-        {
-            if (!state.SupportsEditing)
-                return state.EmptyStateText;
+        private static DataGridViewTextBoxColumn CreateGridColumn(string name, string headerText, int fillWeight) =>
+            new()
+            {
+                Name = name,
+                HeaderText = headerText,
+                Width = fillWeight,
+                MinimumWidth = Math.Min(80, fillWeight),
+                FillWeight = fillWeight,
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
+            };
 
-            return state.AuxiliaryEntries > 0
-                ? "Показано доп. оборудование выбранного шкафа или щита."
-                : "Доп. оборудование выбранного шкафа или щита пока не заполнено.";
+        private void UpdateEntriesGroupTitle()
+        {
+            if (_entriesGroup != null)
+                _entriesGroup.Text = $"Доп. оборудование   ({_currentState.AuxiliaryEntries})";
         }
 
-        private static string BuildSummaryText(KnowledgeBaseCompositionState state)
+        private void UpdateEntriesCardSize()
         {
-            if (!state.SupportsEditing)
-                return state.EmptyStateText;
+            if (_entriesPanel == null || _entriesPanel.IsDisposed || _entriesGroup == null)
+                return;
 
-            return $"Всего: {state.AuxiliaryEntries}";
+            int verticalScrollbarWidth = _entriesPanel.VerticalScroll.Visible
+                ? SystemInformation.VerticalScrollBarWidth
+                : 0;
+            int availableWidth = _entriesPanel.ClientSize.Width -
+                _entriesPanel.Padding.Horizontal -
+                verticalScrollbarWidth -
+                2;
+            int targetWidth = Math.Max(520, availableWidth);
+
+            int targetHeight = Math.Max(
+                220,
+                _entriesPanel.ClientSize.Height - _entriesPanel.Padding.Vertical - 2);
+
+            _entriesGroup.Width = targetWidth;
+            _entriesGroup.Height = targetHeight;
+        }
+
+        private ContextMenuStrip CreateEntriesContextMenu()
+        {
+            var menu = new ContextMenuStrip();
+            ToolStripMenuItem editItem = CreateContextMenuItem("Изменить", () => EditSelectedRequested?.Invoke(this, EventArgs.Empty));
+            ToolStripMenuItem addItem = CreateContextMenuItem("Добавить", () => AddRequested?.Invoke(this, EventArgs.Empty));
+            ToolStripMenuItem deleteItem = CreateContextMenuItem("Удалить", () => DeleteSelectedRequested?.Invoke(this, EventArgs.Empty));
+
+            menu.Items.Add(editItem);
+            menu.Items.Add(addItem);
+            menu.Items.Add(deleteItem);
+            menu.Opening += (_, _) =>
+            {
+                bool canEdit = _currentState.SupportsEditing;
+                bool hasSelection = !string.IsNullOrWhiteSpace(SelectedEntryId);
+                editItem.Enabled = canEdit && hasSelection;
+                addItem.Enabled = canEdit;
+                deleteItem.Enabled = canEdit && hasSelection;
+            };
+
+            return menu;
+        }
+
+        private static ToolStripMenuItem CreateContextMenuItem(string text, Action action)
+        {
+            var item = new ToolStripMenuItem(text);
+            item.Click += (_, _) => action();
+            return item;
         }
 
         private static Label CreateEmptyStateLabel(string text) =>

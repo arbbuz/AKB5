@@ -93,6 +93,8 @@ namespace AsutpKnowledgeBase
 
         public event EventHandler? EditSelectedRequested;
 
+        public event EventHandler? DeleteSelectedRequested;
+
         public event EventHandler? ColumnWidthsChanged;
 
         public string SelectedEntryId { get; private set; } = string.Empty;
@@ -158,8 +160,10 @@ namespace AsutpKnowledgeBase
                 {
                     var grid = CreateRackDetailsGrid();
                     grid.Tag = rack;
+                    grid.ContextMenuStrip = CreateRackDetailsContextMenu();
                     grid.ColumnWidthChanged += HandleRackDetailsColumnWidthChanged;
                     grid.SelectionChanged += HandleRackDetailsSelectionChanged;
+                    grid.MouseDown += HandleRackDetailsMouseDown;
                     grid.CellDoubleClick += (_, _) =>
                     {
                         if (!string.IsNullOrWhiteSpace(SelectedEntryId))
@@ -209,12 +213,7 @@ namespace AsutpKnowledgeBase
                     entry.SlotRoleText,
                     entry.ComponentTypeText,
                     entry.ComponentText,
-                    entry.OrderNumberText,
-                    entry.FirmwareText,
-                    entry.MpiDpPnAddressText,
-                    entry.InputAddressText,
-                    entry.OutputAddressText,
-                    entry.IpAddressText);
+                    entry.OrderNumberText);
                 var row = grid.Rows[rowIndex];
                 row.Tag = entry;
                 ApplyGridRowStyle(row, entry);
@@ -257,6 +256,58 @@ namespace AsutpKnowledgeBase
             return _currentState.RackStates.Count > 0
                 ? _currentState.RackStates[0].RackNumber
                 : 0;
+        }
+
+        private void HandleRackDetailsMouseDown(object? sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Right || sender is not DataGridView source)
+                return;
+
+            var hit = source.HitTest(e.X, e.Y);
+            var rack = source.Tag as KnowledgeBaseCompositionRackState;
+
+            _isSynchronizingSelection = true;
+            try
+            {
+                ClearOtherRackSelections(source);
+                source.ClearSelection();
+
+                if (hit.RowIndex >= 0 && hit.RowIndex < source.Rows.Count)
+                {
+                    DataGridViewRow row = source.Rows[hit.RowIndex];
+                    row.Selected = true;
+                    source.CurrentCell = row.Cells[0];
+
+                    if (row.Tag is KnowledgeBaseCompositionEntryState state)
+                    {
+                        ApplySelectedEntryState(state);
+                    }
+                    else
+                    {
+                        SelectedEntryId = string.Empty;
+                        SelectedRackNumber = rack?.RackNumber ?? 0;
+                        SelectedSlotNumber = null;
+                    }
+                }
+                else
+                {
+                    source.CurrentCell = null;
+                    SelectedEntryId = string.Empty;
+                    if (rack != null)
+                    {
+                        SelectedRackNumber = rack.RackNumber;
+                        SelectedSlotNumber = null;
+                    }
+                }
+
+                source.Focus();
+            }
+            finally
+            {
+                _isSynchronizingSelection = false;
+            }
+
+            UpdateButtonStates();
         }
 
         private void HandleRackDetailsSelectionChanged(object? sender, EventArgs e)
@@ -415,7 +466,7 @@ namespace AsutpKnowledgeBase
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
                 AllowUserToResizeRows = false,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
                 EditMode = DataGridViewEditMode.EditProgrammatically,
                 MultiSelect = false,
                 ReadOnly = true,
@@ -423,17 +474,18 @@ namespace AsutpKnowledgeBase
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect
             };
             KnowledgeBaseWorkspaceVisuals.ConfigureGrid(grid);
+            grid.DefaultCellStyle.SelectionBackColor = SystemColors.Highlight;
+            grid.DefaultCellStyle.SelectionForeColor = SystemColors.HighlightText;
+            grid.RowsDefaultCellStyle.SelectionBackColor = SystemColors.Highlight;
+            grid.RowsDefaultCellStyle.SelectionForeColor = SystemColors.HighlightText;
+            grid.AlternatingRowsDefaultCellStyle.SelectionBackColor = SystemColors.Highlight;
+            grid.AlternatingRowsDefaultCellStyle.SelectionForeColor = SystemColors.HighlightText;
 
             grid.Columns.Add(CreateGridColumn("Slot", "Slot", 55));
             grid.Columns.Add(CreateGridColumn("Role", "Роль", 80));
             grid.Columns.Add(CreateGridColumn("Type", "Тип", 120));
             grid.Columns.Add(CreateGridColumn("Module", "Модуль", 220));
             grid.Columns.Add(CreateGridColumn("OrderNumber", "Заказной номер", 150));
-            grid.Columns.Add(CreateGridColumn("Firmware", "Firmware", 100));
-            grid.Columns.Add(CreateGridColumn("MpiDpPnAddress", "MPI/DP/PN", 110));
-            grid.Columns.Add(CreateGridColumn("InputAddress", "I address", 100));
-            grid.Columns.Add(CreateGridColumn("OutputAddress", "Q address", 100));
-            grid.Columns.Add(CreateGridColumn("IpAddress", "IP-адрес", 120));
             ApplyGridColumnWidths(grid, _rackDetailsColumnWidths);
 
             return grid;
@@ -464,8 +516,38 @@ namespace AsutpKnowledgeBase
                 HeaderText = headerText,
                 Width = fillWeight,
                 MinimumWidth = Math.Min(80, fillWeight),
-                FillWeight = fillWeight
+                FillWeight = fillWeight,
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
             };
+
+        private ContextMenuStrip CreateRackDetailsContextMenu()
+        {
+            var menu = new ContextMenuStrip();
+            ToolStripMenuItem editItem = CreateContextMenuItem("Изменить", () => EditSelectedRequested?.Invoke(this, EventArgs.Empty));
+            ToolStripMenuItem addItem = CreateContextMenuItem("Добавить слот", () => AddSlottedRequested?.Invoke(this, EventArgs.Empty));
+            ToolStripMenuItem deleteItem = CreateContextMenuItem("Удалить", () => DeleteSelectedRequested?.Invoke(this, EventArgs.Empty));
+
+            menu.Items.Add(editItem);
+            menu.Items.Add(addItem);
+            menu.Items.Add(deleteItem);
+            menu.Opening += (_, _) =>
+            {
+                bool canEdit = _currentState.SupportsEditing;
+                bool hasSelection = !string.IsNullOrWhiteSpace(SelectedEntryId);
+                editItem.Enabled = canEdit && hasSelection;
+                addItem.Enabled = canEdit && SelectedRackState != null;
+                deleteItem.Enabled = canEdit && hasSelection;
+            };
+
+            return menu;
+        }
+
+        private static ToolStripMenuItem CreateContextMenuItem(string text, Action action)
+        {
+            var item = new ToolStripMenuItem(text);
+            item.Click += (_, _) => action();
+            return item;
+        }
 
         private void UpdateRackCardSizes()
         {
@@ -498,6 +580,9 @@ namespace AsutpKnowledgeBase
 
         private static void ApplyGridColumnWidths(DataGridView grid, IReadOnlyDictionary<string, int> columnWidths)
         {
+            if (grid.AutoSizeColumnsMode == DataGridViewAutoSizeColumnsMode.Fill)
+                return;
+
             foreach (DataGridViewColumn column in grid.Columns)
             {
                 if (columnWidths.TryGetValue(column.Name, out int width) && width > 0)

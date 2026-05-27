@@ -118,6 +118,9 @@ namespace AsutpKnowledgeBase
             _lvSchemes = CreateDocumentListView();
             _lvDocuments = CreateDocumentListView();
             _lvSoftware = CreateSoftwareListView();
+            _lvSchemes.ContextMenuStrip = CreateEntriesContextMenu(() => AddSchemeRequested?.Invoke(this, EventArgs.Empty));
+            _lvDocuments.ContextMenuStrip = CreateEntriesContextMenu(() => AddDocumentRequested?.Invoke(this, EventArgs.Empty));
+            _lvSoftware.ContextMenuStrip = CreateEntriesContextMenu(() => AddSoftwareRequested?.Invoke(this, EventArgs.Empty));
             _lblSchemesEmptyState = CreateEmptyStateLabel("Схемы для этого узла пока не добавлены.");
             _lblDocumentsEmptyState = CreateEmptyStateLabel("Инструкции для этого узла пока не добавлены.");
             _lblSoftwareEmptyState = CreateEmptyStateLabel("Ссылки на ПО для этого узла пока не добавлены.");
@@ -237,6 +240,7 @@ namespace AsutpKnowledgeBase
             listView.Visible = hasEntries;
             emptyStateLabel.Visible = !hasEntries;
             emptyStateLabel.Text = emptyStateText;
+            AdjustEntriesColumnWidths(listView);
         }
 
         private void PopulateSoftwareEntries(
@@ -284,12 +288,48 @@ namespace AsutpKnowledgeBase
             listView.Visible = hasEntries;
             emptyStateLabel.Visible = !hasEntries;
             emptyStateLabel.Text = emptyStateText;
+            AdjustEntriesColumnWidths(listView);
         }
 
         private void WireSelectionEvents(ListView source, params ListView[] others)
         {
             source.SelectedIndexChanged += (_, _) => HandleSelectionChanged(source, others);
             source.ItemActivate += (_, _) => OpenSelectedRequested?.Invoke(this, EventArgs.Empty);
+            source.MouseDown += (_, e) => HandleListViewMouseDown(source, others, e);
+        }
+
+        private void HandleListViewMouseDown(ListView source, IReadOnlyList<ListView> others, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Right)
+                return;
+
+            ListViewItem? item = source.GetItemAt(e.X, e.Y);
+            _isSynchronizingSelection = true;
+            try
+            {
+                foreach (var other in others)
+                {
+                    if (other.SelectedItems.Count > 0)
+                        other.SelectedItems.Clear();
+                }
+
+                if (source.SelectedItems.Count > 0)
+                    source.SelectedItems.Clear();
+
+                if (item != null)
+                {
+                    item.Selected = true;
+                    item.Focused = true;
+                    source.Focus();
+                }
+
+                (SelectedItemKind, SelectedItemId) = ResolveSelectedItem();
+                UpdateButtonStates();
+            }
+            finally
+            {
+                _isSynchronizingSelection = false;
+            }
         }
 
         private void HandleSelectionChanged(ListView source, IReadOnlyList<ListView> others)
@@ -383,18 +423,18 @@ namespace AsutpKnowledgeBase
         private static ListView CreateDocumentListView()
         {
             var listView = CreateBaseListView();
-            listView.Columns.Add("Наименование", 220);
-            listView.Columns.Add("Путь", 320);
-            listView.Columns.Add("Обновлено", 110);
+            listView.Columns.Add("Наименование", 700);
+            listView.Columns.Add("Путь", 330);
+            listView.Columns.Add("Обновлено", 160);
             return listView;
         }
 
         private static ListView CreateSoftwareListView()
         {
             var listView = CreateBaseListView();
-            listView.Columns.Add("Наименование", 220);
-            listView.Columns.Add("Путь", 320);
-            listView.Columns.Add("Добавлено", 110);
+            listView.Columns.Add("Наименование", 700);
+            listView.Columns.Add("Путь", 330);
+            listView.Columns.Add("Добавлено", 160);
             return listView;
         }
 
@@ -413,7 +453,75 @@ namespace AsutpKnowledgeBase
         private static ListView ConfigureBaseListView(ListView listView)
         {
             KnowledgeBaseWorkspaceVisuals.ConfigureListView(listView);
+            listView.Resize += (_, _) => AdjustEntriesColumnWidths(listView);
             return listView;
+        }
+
+        private static void AdjustEntriesColumnWidths(ListView listView)
+        {
+            if (listView.Columns.Count < 3)
+                return;
+
+            int availableWidth = Math.Max(0, listView.ClientSize.Width - 4);
+            if (availableWidth <= 0)
+                return;
+
+            const int minimumTitleWidth = 280;
+            const int minimumPathWidth = 180;
+            const int minimumDateWidth = 110;
+            int minimumTotal = minimumTitleWidth + minimumPathWidth + minimumDateWidth;
+
+            if (availableWidth <= minimumTotal)
+            {
+                int compactTitleWidth = Math.Max(1, availableWidth * 58 / 100);
+                int compactDateWidth = Math.Max(1, availableWidth * 14 / 100);
+
+                listView.Columns[0].Width = compactTitleWidth;
+                listView.Columns[1].Width = Math.Max(1, availableWidth - compactTitleWidth - compactDateWidth);
+                listView.Columns[2].Width = compactDateWidth;
+                return;
+            }
+
+            int titleWidth = Math.Max(minimumTitleWidth, availableWidth * 58 / 100);
+            int dateWidth = Math.Max(minimumDateWidth, availableWidth * 14 / 100);
+            int pathWidth = Math.Max(minimumPathWidth, availableWidth - titleWidth - dateWidth);
+
+            listView.Columns[0].Width = titleWidth;
+            listView.Columns[1].Width = pathWidth;
+            listView.Columns[2].Width = Math.Max(minimumDateWidth, availableWidth - titleWidth - pathWidth);
+        }
+
+        private ContextMenuStrip CreateEntriesContextMenu(Action addAction)
+        {
+            var menu = new ContextMenuStrip();
+            ToolStripMenuItem openItem = CreateContextMenuItem("Открыть", () => OpenSelectedRequested?.Invoke(this, EventArgs.Empty));
+            ToolStripMenuItem editItem = CreateContextMenuItem("Изменить", () => EditSelectedRequested?.Invoke(this, EventArgs.Empty));
+            ToolStripMenuItem addItem = CreateContextMenuItem("Добавить", addAction);
+            ToolStripMenuItem deleteItem = CreateContextMenuItem("Удалить", () => DeleteSelectedRequested?.Invoke(this, EventArgs.Empty));
+
+            menu.Items.Add(openItem);
+            menu.Items.Add(editItem);
+            menu.Items.Add(addItem);
+            menu.Items.Add(deleteItem);
+            menu.Opening += (_, _) =>
+            {
+                bool hasSelection =
+                    SelectedItemKind != KnowledgeBaseDocsAndSoftwareSelectionKind.None &&
+                    !string.IsNullOrWhiteSpace(SelectedItemId);
+                openItem.Enabled = hasSelection;
+                editItem.Enabled = _currentState.SupportsEditing && hasSelection;
+                addItem.Enabled = _currentState.SupportsEditing;
+                deleteItem.Enabled = _currentState.SupportsEditing && hasSelection;
+            };
+
+            return menu;
+        }
+
+        private static ToolStripMenuItem CreateContextMenuItem(string text, Action action)
+        {
+            var item = new ToolStripMenuItem(text);
+            item.Click += (_, _) => action();
+            return item;
         }
 
         private static Label CreateEmptyStateLabel(string text) =>

@@ -18,11 +18,11 @@ namespace AsutpKnowledgeBase
         private TextBox _txtComponentType = null!;
         private TextBox _txtModel = null!;
         private TextBox _txtOrderNumber = null!;
-        private TextBox _txtFirmware = null!;
-        private TextBox _txtMpiDpPnAddress = null!;
-        private TextBox _txtInputAddress = null!;
-        private TextBox _txtOutputAddress = null!;
-        private TextBox _txtIpAddress = null!;
+        private readonly string _existingFirmware;
+        private readonly string _existingMpiDpPnAddress;
+        private readonly string _existingInputAddress;
+        private readonly string _existingOutputAddress;
+        private readonly string _existingIpAddress;
         private readonly DateTime? _existingLastCalibrationAt;
         private readonly DateTime? _existingNextCalibrationAt;
         private readonly string _existingComment;
@@ -36,6 +36,11 @@ namespace AsutpKnowledgeBase
         {
             _entryId = existingEntry?.EntryId?.Trim() ?? string.Empty;
             _catalogItems = catalogItems ?? Array.Empty<KbEquipmentCatalogItem>();
+            _existingFirmware = existingEntry?.Firmware ?? string.Empty;
+            _existingMpiDpPnAddress = existingEntry?.MpiDpPnAddress ?? string.Empty;
+            _existingInputAddress = existingEntry?.InputAddress ?? string.Empty;
+            _existingOutputAddress = existingEntry?.OutputAddress ?? string.Empty;
+            _existingIpAddress = existingEntry?.IpAddress ?? string.Empty;
             _existingLastCalibrationAt = existingEntry?.LastCalibrationAt;
             _existingNextCalibrationAt = existingEntry?.NextCalibrationAt;
             _existingComment = existingEntry?.Comment ?? string.Empty;
@@ -48,7 +53,7 @@ namespace AsutpKnowledgeBase
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(700, 500);
+            ClientSize = new Size(700, 390);
             AppIconProvider.Apply(this);
 
             var layout = new TableLayoutPanel
@@ -56,11 +61,11 @@ namespace AsutpKnowledgeBase
                 Dock = DockStyle.Fill,
                 Padding = new Padding(12),
                 ColumnCount = 2,
-                RowCount = 14
+                RowCount = 10
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            for (int rowIndex = 0; rowIndex < 14; rowIndex++)
+            for (int rowIndex = 0; rowIndex < 10; rowIndex++)
                 layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             _cmbEntryKind = new ComboBox
@@ -145,53 +150,13 @@ namespace AsutpKnowledgeBase
             layout.Controls.Add(CreateLabel("Заказной номер"), 0, 8);
             layout.Controls.Add(_txtOrderNumber, 1, 8);
 
-            _txtFirmware = new TextBox
-            {
-                Dock = DockStyle.Fill,
-                Text = existingEntry?.Firmware ?? string.Empty
-            };
-            layout.Controls.Add(CreateLabel("Firmware"), 0, 9);
-            layout.Controls.Add(_txtFirmware, 1, 9);
-
-            _txtMpiDpPnAddress = new TextBox
-            {
-                Dock = DockStyle.Fill,
-                Text = existingEntry?.MpiDpPnAddress ?? string.Empty
-            };
-            layout.Controls.Add(CreateLabel("MPI/DP/PN"), 0, 10);
-            layout.Controls.Add(_txtMpiDpPnAddress, 1, 10);
-
-            _txtInputAddress = new TextBox
-            {
-                Dock = DockStyle.Fill,
-                Text = existingEntry?.InputAddress ?? string.Empty
-            };
-            layout.Controls.Add(CreateLabel("I address"), 0, 11);
-            layout.Controls.Add(_txtInputAddress, 1, 11);
-
-            _txtOutputAddress = new TextBox
-            {
-                Dock = DockStyle.Fill,
-                Text = existingEntry?.OutputAddress ?? string.Empty
-            };
-            layout.Controls.Add(CreateLabel("Q address"), 0, 12);
-            layout.Controls.Add(_txtOutputAddress, 1, 12);
-
-            _txtIpAddress = new TextBox
-            {
-                Dock = DockStyle.Fill,
-                Text = existingEntry?.IpAddress ?? string.Empty
-            };
-            layout.Controls.Add(CreateLabel("IP-адрес"), 0, 13);
-            layout.Controls.Add(_txtIpAddress, 1, 13);
-
             var buttonsPanel = new FlowLayoutPanel
             {
-                Dock = DockStyle.Bottom,
+                Dock = DockStyle.Fill,
                 FlowDirection = FlowDirection.RightToLeft,
                 WrapContents = false,
                 AutoSize = true,
-                Padding = new Padding(12, 0, 12, 12)
+                Padding = new Padding(0, 12, 0, 0)
             };
 
             var btnCancel = new Button
@@ -210,8 +175,10 @@ namespace AsutpKnowledgeBase
             buttonsPanel.Controls.Add(btnCancel);
             buttonsPanel.Controls.Add(btnOk);
 
+            layout.Controls.Add(buttonsPanel, 0, 9);
+            layout.SetColumnSpan(buttonsPanel, 2);
+
             Controls.Add(layout);
-            Controls.Add(buttonsPanel);
 
             AcceptButton = btnOk;
             CancelButton = btnCancel;
@@ -261,13 +228,13 @@ namespace AsutpKnowledgeBase
                 ComponentType = componentType,
                 Model = model,
                 OrderNumber = _txtOrderNumber.Text.Trim(),
-                Firmware = _txtFirmware.Text.Trim(),
-                MpiDpPnAddress = _txtMpiDpPnAddress.Text.Trim(),
-                InputAddress = _txtInputAddress.Text.Trim(),
-                OutputAddress = _txtOutputAddress.Text.Trim(),
+                Firmware = _existingFirmware,
+                MpiDpPnAddress = _existingMpiDpPnAddress,
+                InputAddress = _existingInputAddress,
+                OutputAddress = _existingOutputAddress,
                 Comment = _existingComment,
                 InterfaceRows = _existingInterfaceRows,
-                IpAddress = _txtIpAddress.Text.Trim(),
+                IpAddress = _existingIpAddress,
                 LastCalibrationAt = _existingLastCalibrationAt,
                 NextCalibrationAt = _existingNextCalibrationAt,
                 Notes = _existingNotes

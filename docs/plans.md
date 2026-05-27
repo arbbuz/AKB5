@@ -5,7 +5,7 @@ Last updated: `2026-05-27`
 ## Active plan
 
 - Work in `C:\Users\Olga\AKB5` on branch `Net`, tracking `origin/Net`.
-- Current task: Network topology font rendering follow-up is implemented locally after pushed commit `5f5a993 Improve network topology controls`. User reported jagged/ragged text in the topology; option 2 was requested first: ClearType rendering hint plus less aggressive integer-sized fonts. Follow-up feedback said IP badges were clipped and external-link text should stay bold. Manual review is accepted and commit/push is explicitly authorized in the current chat.
+- Current task: Lvl2/Lvl3 UI follow-up after pushed commit `5e16a87 Soften network topology fonts`. Lvl2 Docs/Software lists and Lvl3 Composition / Additional Equipment tabs have right-click selection and add/edit/delete menus; Lvl2 Docs/Software and Lvl3 Additional Equipment now use the reviewed default column widths; Lvl3 Composition / Additional Equipment no longer show unconfirmed technical columns; Lvl3 Additional Equipment visually follows the Composition tab structure without replacing its content, and selected Lvl3 rows use the same explicit system highlight style as Docs/Software lists. Manual review is accepted, and commit/push was authorized in the current chat.
 - Do not commit or push without fresh direct approval in the current chat.
 - Do not reintroduce hover/popup tooltips; guidance must be visible, inline, status-based, or modal.
 - Treat old AKB5/Net/network-topology worktrees and snapshots under `C:\Users\Olga\Documents\Codex\...` as historical references only, not as source of truth.
@@ -21,11 +21,34 @@ Last updated: `2026-05-27`
 - Network topology link-type selection is moved from the equipment toolbar ComboBox into a bottom strip below the topology viewport with full choices: `Profibus, оптоволокно`, `Profibus, медь`, `MPI, медь`, `Profinet, оптоволокно`, and `Profinet, медь`.
 - Existing links can now be selected directly; pressing a strip button changes the selected link kind immediately. Without a selected link, the strip sets the type for the next new link.
 - Network palette validation passed app format, isolated Release build, offscreen layout-smoke PNG, full core tests, and `git diff --check`.
-- Next action is to wait for the next user request.
+- Lvl2 Docs/Software context menus are implemented locally and validated with app format, isolated Release build, and standard fast publish.
+- Lvl2 Docs/Software column default follow-up is implemented locally and validated with app format, isolated Release build to `artifacts\build-check\docs-software-column-defaults`, and standard fast publish.
+- Lvl3 Composition / Additional Equipment context menus are implemented locally and validated with app format, isolated Release build to `artifacts\build-check\lvl3-context-menus`, and standard fast publish.
+- Lvl3 Composition / Additional Equipment column cleanup is implemented locally and validated with app format, isolated Release build to `artifacts\build-check\composition-columns`, and standard fast publish.
+- Lvl3 column-fill and dialog cleanup is implemented locally and validated with app format, isolated Release build to `artifacts\build-check\composition-column-fill`, and standard fast publish.
+- Lvl3 dialog IP cleanup is implemented locally and validated with app format, isolated Release build to `artifacts\build-check\composition-dialog-ip-hidden`, and standard fast publish.
+- Lvl3 dialog layout fix is implemented locally and validated with app format, isolated Release build to `artifacts\build-check\composition-dialog-layout`, and standard fast publish.
+- Additional-equipment column default follow-up is implemented locally and validated with app format, isolated Release build to `artifacts\build-check\additional-equipment-column-defaults`, and standard fast publish.
+- Additional-equipment visual-alignment follow-up is implemented locally and validated with app format, isolated Release build to `artifacts\build-check\additional-equipment-composition-visual`, and standard fast publish.
+- Additional-equipment selection-color revert is implemented locally and validated with app format, isolated Release build to `artifacts\build-check\additional-equipment-selection-revert`, and standard fast publish.
+- Additional-equipment system-highlight follow-up is implemented locally and validated with app format, isolated Release build to `artifacts\build-check\additional-equipment-system-highlight`, and standard fast publish.
+- Composition system-highlight follow-up is implemented locally and validated with app format, isolated Release build to `artifacts\build-check\composition-system-highlight`, and standard fast publish.
+- Next action after this accepted package is to start any future implementation from synced `Net` / `origin/Net`.
 - Next possible optimization after measurement: if cold logs repeatedly show `mainform-data-loaded` dominating while SQLite remains fast, add narrower UI binding/session-application timing first; defer database load until after first form display only if that is still justified.
 
 ## Current implementation plan
 
+- Keep the context-menu follow-up local until manual review and explicit git authorization.
+- Lvl2 Docs/Software menus reuse the existing selected-link workflow.
+- Keep Lvl2 Docs/Software list widths screenshot-like: wide `Наименование`, medium `Путь`, narrow `Обновлено` / `Добавлено`.
+- Lvl3 Composition right-click selects the Rack-grid row before opening the menu; edit/delete require a real slot entry, and add-slot stays available when a Rack is selected.
+- Lvl3 Additional Equipment right-click selects the row before opening the menu; edit/delete require a selected row, and add stays available when editing is supported.
+- Keep removed Lvl3 columns hidden in these views: `Состав` hides `Firmware`, `MPI/DP/PN`, `I address`, `Q address`, `IP-адрес`; `Доп. оборудование` hides `IP-адрес`. This is a UI display cleanup, not a model/data removal.
+- Keep Lvl3 list/grid columns full-width: `Состав` uses fill-mode DataGridView columns with `Модуль` widest. `Доп. оборудование` uses the screenshot-reviewed proportions: narrow `№`, wide `Тип`, then `Компонент`, then `Примечание`; row values in the first column are simple numbers.
+- Keep `Доп. оборудование` visually aligned with `Состав`: action row, scrollable section card, DataGridView in a bordered panel, but preserve additional-equipment row content and columns.
+- Keep selected rows in Lvl3 `Состав` and `Доп. оборудование` explicit like `Документация и ПО`: use system highlight blue with system highlight text, not the softer shared grid accent.
+- Keep `Firmware`, `MPI/DP/PN`, `I address`, `Q address`, and `IP-адрес` hidden in `KnowledgeBaseCompositionEntryDialog`; preserve existing saved values for these fields when editing entries.
+- Keep `KnowledgeBaseCompositionEntryDialog` buttons inside the table layout, not as a bottom-docked overlay, so `Заказной номер` stays visible.
 - Keep topology element coordinates logical and persisted as-is.
 - Put the topology canvas inside a scrollable viewport so elements placed lower/right on a large monitor remain reachable on smaller screens.
 - Add `Ctrl + mouse wheel` zoom around the pointer; keep ordinary mouse-wheel scrolling for vertical viewport movement.
