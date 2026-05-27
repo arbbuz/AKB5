@@ -5,7 +5,7 @@ Last updated: `2026-05-27`
 ## Active plan
 
 - Work in `C:\Users\Olga\AKB5` on branch `Net`, tracking `origin/Net`.
-- Current task: Lvl2/Lvl3 UI follow-up after pushed commit `5e16a87 Soften network topology fonts`. Lvl2 Docs/Software lists and Lvl3 Composition / Additional Equipment tabs have right-click selection and add/edit/delete menus; Lvl2 Docs/Software and Lvl3 Additional Equipment now use the reviewed default column widths; Lvl3 Composition / Additional Equipment no longer show unconfirmed technical columns; Lvl3 Additional Equipment visually follows the Composition tab structure without replacing its content, and selected Lvl3 rows use the same explicit system highlight style as Docs/Software lists. Manual review is accepted, and commit/push was authorized in the current chat.
+- Current task: Network topology grid-snap/fan-link follow-up after pushed commit `cdf375d Polish Lvl2 and Lvl3 list interactions`. Toolbar/context-created objects and dragged objects now snap to the existing 24 px canvas grid; multiple same-level objects linked to one common block now route through separate orthogonal lanes. Local validation passed; manual review is accepted, and commit/push was authorized in the current chat.
 - Do not commit or push without fresh direct approval in the current chat.
 - Do not reintroduce hover/popup tooltips; guidance must be visible, inline, status-based, or modal.
 - Treat old AKB5/Net/network-topology worktrees and snapshots under `C:\Users\Olga\Documents\Codex\...` as historical references only, not as source of truth.
@@ -38,7 +38,9 @@ Last updated: `2026-05-27`
 
 ## Current implementation plan
 
-- Keep the context-menu follow-up local until manual review and explicit git authorization.
+- Commit/push the accepted Network grid-snap/fan-link follow-up, then start future work from synced `Net` / `origin/Net`.
+- Keep object snapping tied to the visible 24 px topology grid. Snap newly placed and dragged top-left coordinates; do not migrate existing untouched stored coordinates.
+- Keep aligned fan-in/fan-out links separated by route lanes only in the draw path; do not add new persisted link routing metadata.
 - Lvl2 Docs/Software menus reuse the existing selected-link workflow.
 - Keep Lvl2 Docs/Software list widths screenshot-like: wide `Наименование`, medium `Путь`, narrow `Обновлено` / `Добавлено`.
 - Lvl3 Composition right-click selects the Rack-grid row before opening the menu; edit/delete require a real slot entry, and add-slot stays available when a Rack is selected.

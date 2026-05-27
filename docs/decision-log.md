@@ -51,6 +51,8 @@ handoff transcript, validation log, or phase archive.
 - Link-type selection belongs in a fixed bottom strip below the topology viewport, not in a long toolbar ComboBox or floating canvas overlay.
 - Link-type choices use full labels plus the real line color/dash sample. Button widths should be measured from full text so labels are not clipped or ellipsized.
 - Clicking a link selects it; clicking a bottom-strip link kind edits the selected link immediately. With no selected link, the strip sets the kind for the next new link.
+- Topology object placement snaps to the existing 24 px grid when objects are created or dragged. Untouched stored coordinates are not migrated.
+- Multiple topology links from aligned same-level objects to one common block should use separated orthogonal lanes so visible segments do not overlap.
 - The visible old `I/O` topology object option is replaced by generic `ET` in the Network tab. Keep the stored `Et200` enum name/value for compatibility with existing saved topology data.
 - `OLM` remains a first-class topology object kind. The scheme legend includes optical/copper Profibus, copper MPI, and optical/copper Profinet link styles.
 - External system relationships are represented by the `Внешняя связь` topology object kind. Its visible text is stored in the existing element `Name`, edited through a text field instead of IP fields, starts empty for new elements, and is drawn inside the card rather than as a regular device icon/IP layout.

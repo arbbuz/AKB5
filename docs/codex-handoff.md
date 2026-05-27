@@ -4,7 +4,7 @@ Last updated: `2026-05-27`
 
 ## Current objective
 
-Current active work is a Lvl2/Lvl3 UI follow-up on `Net` after pushed commit `5e16a87 Soften network topology fonts`: right-click actions were added for the Lvl2 `Документация и ПО` lists and for the Lvl3 `Состав` / `Доп. оборудование` tabs; unconfirmed technical columns were removed from the Lvl3 composition views; Lvl2/Lvl3 list columns now use the requested widths; Lvl3 `Доп. оборудование` now visually follows the `Состав` tab structure without replacing its content, and selected rows in Lvl3 `Состав` / `Доп. оборудование` use system highlight colors like `Документация и ПО`. Manual review is accepted, and the current chat authorized commit/push for this package.
+Current active work is a Network topology grid-snap/fan-link follow-up on `Net` after pushed commit `cdf375d Polish Lvl2 and Lvl3 list interactions`: topology objects created from the toolbar/context menu and objects moved by drag now snap their top-left coordinate to the existing 24 px canvas grid; links from multiple objects on the same horizontal/vertical level to one common block now route through separate orthogonal lanes instead of sharing the same segment. The implementation is local and validated with app format, Release build, `git diff --check`, and offscreen topology layout-smoke. Manual review is accepted, and the current chat authorized commit/push for this package.
 
 Previous committed/pushed package includes:
 
@@ -33,6 +33,8 @@ Current follow-up package:
 - Element/link hit testing, dragging, context-menu add position, link endpoint dragging, and link-kind strip behavior are translated through the current zoom.
 - Node IP/name text is drawn through the same scaled graphics pipeline as cards/icons, so labels scale with the topology instead of staying at screen size.
 - The link-kind selector is now a thin fixed strip under the scrollable viewport, so it stays visible without covering topology nodes or links.
+- Topology objects created from the toolbar/context menu and dragged objects now snap their top-left coordinate to the existing 24 px canvas grid.
+- Links from multiple topology objects on the same horizontal/vertical level to one common block now route through separate orthogonal lanes, so their visible segments do not overlap.
 - Lvl2 `Документация и ПО` link lists now have a right-click menu with `Открыть`, `Изменить`, `Добавить`, and `Удалить`. Right-clicking a row selects it before opening the menu; right-clicking empty list space clears selection. `Добавить` is list-specific for schemes, instructions, or software, while open/edit/delete reuse the existing selected-link workflow.
 - Lvl2 `Документация и ПО` link lists now resize columns to screenshot-like proportions: wide `Наименование`, medium `Путь`, narrow `Обновлено` / `Добавлено`.
 - Lvl3 `Состав` Rack grids now have a right-click menu with `Изменить`, `Добавить слот`, and `Удалить`. Right-clicking a row selects it before opening the menu; right-clicking empty grid space selects the Rack and clears the entry selection so only add-slot remains available.
@@ -53,9 +55,12 @@ Do not commit, push, merge, rebase, or create/remove remote branches without exp
 - Main worktree: `C:\Users\Olga\AKB5`
 - Active branch: `Net`
 - Tracking branch: `origin/Net`
-- Base commit before this follow-up: `5e16a87 Soften network topology fonts`.
-- Manual review for the current Lvl2/Lvl3 UI package is accepted; commit/push was authorized in the current chat.
+- Base commit before this follow-up: `cdf375d Polish Lvl2 and Lvl3 list interactions`.
+- Manual review for the current Network grid-snap/fan-link package is accepted.
+- Commit/push is authorized in the current chat.
 - No real `.akb` or JSON user data files were edited.
+- Existing local `AGENTS.md` edits are present and were not made or touched as part of this task.
+- Current grid-snap build-check executable: `C:\Users\Olga\AKB5\artifacts\build-check\network-topology-grid-snap\asutpKB.exe`.
 - Current fast-publish review executable: `C:\Users\Olga\AKB5\artifacts\publish-fast\win-x64\asutpKB.exe`.
 - Current Docs/Software context-menu build-check executable: `C:\Users\Olga\AKB5\artifacts\build-check\docs-software-context-menu\asutpKB.exe`.
 - Current Docs/Software column default build-check executable: `C:\Users\Olga\AKB5\artifacts\build-check\docs-software-column-defaults\asutpKB.exe`.
@@ -76,15 +81,16 @@ Do not commit, push, merge, rebase, or create/remove remote branches without exp
 
 Current changed tracked files:
 
-- `Controls/KnowledgeBaseDocsAndSoftwareScreenControl.cs`
-- `Controls/KnowledgeBaseCompositionScreenControl.cs`
-- `Controls/KnowledgeBaseAdditionalEquipmentScreenControl.cs`
-- `Forms/MainForm.Events.cs`
+- `AGENTS.md` (pre-existing local change, not part of this task)
+- `Controls/KnowledgeBaseNetworkTopologyScreenControl.cs`
 - `docs/codex-handoff.md`
 - `docs/plans.md`
+- `docs/decision-log.md`
 
 Ignored validation artifacts:
 
+- `artifacts\build-check\network-topology-grid-snap\asutpKB.exe`
+- `artifacts\layout-smoke\network-topology-extensions\network-topology-extensions-smoke.png`
 - `artifacts\build-check\docs-software-context-menu\asutpKB.exe`
 - `artifacts\build-check\docs-software-column-defaults\asutpKB.exe`
 - `artifacts\build-check\lvl3-context-menus\asutpKB.exe`
@@ -156,6 +162,11 @@ Validation completed in `C:\Users\Olga\AKB5`:
 - Additional-equipment system-highlight follow-up: Lvl3 `Доп. оборудование` now uses system selection colors like the Lvl2 `Документация и ПО` ListView rows (`SystemColors.Highlight` and `SystemColors.HighlightText`) instead of the softer shared grid accent. Validation passed: `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore`, Release build to `artifacts\build-check\additional-equipment-system-highlight` with 0 warnings and 0 errors, and standard `scripts\publish-fast.ps1`.
 - Composition system-highlight follow-up: Lvl3 `Состав` Rack grids now use the same explicit system selection colors as `Доп. оборудование` and the Lvl2 `Документация и ПО` ListView rows (`SystemColors.Highlight` and `SystemColors.HighlightText`) instead of the softer shared grid accent. Validation passed: `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore`, Release build to `artifacts\build-check\composition-system-highlight` with 0 warnings and 0 errors, and standard `scripts\publish-fast.ps1`.
 - Manual review for the Lvl2/Lvl3 UI package was accepted by the user before commit/push. Full core tests were not rerun after the final UI-only selection-highlight changes.
+- Network grid-snap/fan-link follow-up: `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore` passed.
+- Network grid-snap/fan-link follow-up: `dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\network-topology-grid-snap /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false` passed with 0 warnings and 0 errors.
+- Network grid-snap/fan-link follow-up: `git diff --check` passed with CRLF normalization warnings for `AGENTS.md` and `Controls/KnowledgeBaseNetworkTopologyScreenControl.cs`.
+- Network grid-snap/fan-link follow-up: `dotnet run --project artifacts\layout-smoke\network-topology-extensions\NetworkTopologyExtensionsSmoke.csproj --configuration Release /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false` passed and refreshed `artifacts\layout-smoke\network-topology-extensions\network-topology-extensions-smoke.png`; the smoke now checks 24 px snap and separated fan-link lanes.
+- Full core tests and publish-fast were not rerun after this UI-only topology routing/dragging change.
 
 ## Decisions already made
 
@@ -169,10 +180,13 @@ Validation completed in `C:\Users\Olga\AKB5`:
 - In the Network tab, display the ET object kind as `ET` rather than `ET200`; keep the stored `Et200` enum name/value unchanged for compatibility.
 - In the Network topology, represent external system relationships with the `Внешняя связь` object kind and draw its `Name` as text inside the card.
 - For Network topology, keep stored element coordinates logical and resolution-independent; adapt to screen size with viewport scrolling and zoom instead of rewriting coordinates.
+- For Network topology, snap newly placed and dragged objects to the existing 24 px grid; do not migrate untouched stored coordinates.
+- For Network topology, route multiple same-level links to a common block through separate orthogonal lanes.
 
 ## Files already relevant to the task
 
 - `Program.cs`
+- `Controls\KnowledgeBaseNetworkTopologyScreenControl.cs`
 - `Controls\KnowledgeBaseDocsAndSoftwareScreenControl.cs`
 - `Controls\KnowledgeBaseCompositionScreenControl.cs`
 - `Controls\KnowledgeBaseAdditionalEquipmentScreenControl.cs`
@@ -198,6 +212,7 @@ Validation completed in `C:\Users\Olga\AKB5`:
 - If `mainform-data-loaded` repeatedly dominates cold startup while SQLite remains fast, first add narrower timing around loaded-session UI application/binding; then consider deferred/asynchronous database load after first form display.
 - Manual review should check right-click behavior on existing rows and empty space in each Lvl2 `Документация и ПО` list and in the Lvl3 `Состав` / `Доп. оборудование` tabs, confirm Lvl2/Lvl3 list widths match the reviewed proportions, confirm removed Lvl3 columns are no longer visible, confirm `Доп. оборудование` visually matches `Состав` while keeping its additional-equipment content, and confirm the add/edit dialog shows all remaining fields without button overlap.
 - Targeted inspection of `C:\Users\Olga\.codex\config.toml` did not reveal an active command/tool policy key, so `scripts\codex-safe.ps1` is a repo-level guard rather than a dispatcher-level hard guarantee.
+- Manual review for the current Network change should check that toolbar-created, context-created, and dragged topology objects visually snap to grid intersections, and that several same-row objects connected to one common block draw as separate lanes at normal and changed zoom levels.
 
 ## Recommended next step
 
@@ -230,6 +245,7 @@ dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\bu
 dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\additional-equipment-selection-revert /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
 dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\additional-equipment-system-highlight /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
 dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\composition-system-highlight /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
+dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\network-topology-grid-snap /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\publish-fast.ps1
 dotnet test tests\AsutpKnowledgeBase.Core.Tests\AsutpKnowledgeBase.Core.Tests.csproj --configuration Release --no-restore /p:RunAnalyzers=false /p:WarningLevel=0
 dotnet run --project artifacts\layout-smoke\network-topology-extensions\NetworkTopologyExtensionsSmoke.csproj --configuration Release /p:RunAnalyzers=false /p:WarningLevel=0

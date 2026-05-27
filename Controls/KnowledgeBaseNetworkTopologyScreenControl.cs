@@ -539,7 +539,7 @@ namespace AsutpKnowledgeBase
             int index = _topology.Elements.Count;
             int x = 32 + (index % 5) * 158;
             int y = 32 + (index / 5) * 130;
-            return new Point(x, y);
+            return _canvas.GetSnappedElementLocation(new Point(x, y));
         }
 
         private string BuildDefaultName(KbNetworkElementKind kind)
@@ -2320,10 +2320,14 @@ namespace AsutpKnowledgeBase
             private const int ElementWidth = 134;
             private const int ElementHeight = 118;
             private const int IconSize = 46;
+            private const int GridSize = 24;
             private const int LinkStubLength = 22;
             private const int LinkObstaclePadding = 12;
             private const int LinkPortInset = 22;
+            private const int LinkParallelLanePadding = 10;
+            private const int LinkAlignmentTolerance = GridSize / 2;
             private const int CanvasContentPadding = 96;
+            private const int ElementMinCoordinate = 0;
             private const float MinZoomFactor = 0.35F;
             private const float MaxZoomFactor = 2.5F;
             private const float ZoomStepFactor = 1.1F;
@@ -2411,12 +2415,17 @@ namespace AsutpKnowledgeBase
 
             public Point GetElementDropLocation(Point location)
             {
+                return GetSnappedElementLocation(new Point(
+                    location.X - ElementWidth / 2,
+                    location.Y - ElementHeight / 2));
+            }
+
+            public Point GetSnappedElementLocation(Point location)
+            {
                 Size logicalSize = GetLogicalCanvasSize();
-                int maxX = Math.Max(8, logicalSize.Width - ElementWidth - 8);
-                int maxY = Math.Max(8, logicalSize.Height - ElementHeight - 8);
-                return new Point(
-                    Math.Clamp(location.X - ElementWidth / 2, 8, maxX),
-                    Math.Clamp(location.Y - ElementHeight / 2, 8, maxY));
+                int maxX = Math.Max(ElementMinCoordinate, logicalSize.Width - ElementWidth - ElementMinCoordinate);
+                int maxY = Math.Max(ElementMinCoordinate, logicalSize.Height - ElementHeight - ElementMinCoordinate);
+                return ClampAndSnapElementLocation(location, maxX, maxY);
             }
 
             protected override void OnPaint(PaintEventArgs e)
@@ -2567,8 +2576,14 @@ namespace AsutpKnowledgeBase
                 if (element == null)
                     return;
 
-                element.X = Math.Max(8, location.X - _dragOffset.X);
-                element.Y = Math.Max(8, location.Y - _dragOffset.Y);
+                Point nextLocation = SnapElementLocation(new Point(
+                    location.X - _dragOffset.X,
+                    location.Y - _dragOffset.Y));
+                if (element.X == nextLocation.X && element.Y == nextLocation.Y)
+                    return;
+
+                element.X = nextLocation.X;
+                element.Y = nextLocation.Y;
                 _dragMoved = true;
                 UpdateCanvasSize();
                 Invalidate();
@@ -2697,13 +2712,39 @@ namespace AsutpKnowledgeBase
                 return new Size(width, height);
             }
 
+            private static Point ClampAndSnapElementLocation(Point location, int maxX, int maxY) =>
+                new(
+                    SnapElementCoordinate(location.X, ElementMinCoordinate, maxX),
+                    SnapElementCoordinate(location.Y, ElementMinCoordinate, maxY));
+
+            private static Point SnapElementLocation(Point location) =>
+                new(
+                    Math.Max(ElementMinCoordinate, SnapToGrid(location.X)),
+                    Math.Max(ElementMinCoordinate, SnapToGrid(location.Y)));
+
+            private static int SnapElementCoordinate(int value, int min, int max)
+            {
+                if (max < min)
+                    return min;
+
+                int bounded = Math.Clamp(value, min, max);
+                int snapped = SnapToGrid(bounded);
+                if (snapped > max)
+                    snapped = (max / GridSize) * GridSize;
+
+                return Math.Clamp(snapped, min, max);
+            }
+
+            private static int SnapToGrid(int value) =>
+                (int)Math.Round(value / (double)GridSize, MidpointRounding.AwayFromZero) * GridSize;
+
             private void DrawGrid(Graphics graphics)
             {
                 Rectangle logicalBounds = GetLogicalClientRectangle();
                 using var pen = new Pen(Color.FromArgb(238, 242, 246), 1F);
-                for (int x = 0; x < logicalBounds.Width; x += 24)
+                for (int x = 0; x < logicalBounds.Width; x += GridSize)
                     graphics.DrawLine(pen, x, 0, x, logicalBounds.Height);
-                for (int y = 0; y < logicalBounds.Height; y += 24)
+                for (int y = 0; y < logicalBounds.Height; y += GridSize)
                     graphics.DrawLine(pen, 0, y, logicalBounds.Width, y);
             }
 
@@ -3097,7 +3138,175 @@ namespace AsutpKnowledgeBase
                     })
                     .ToList();
 
+                if (TryBuildAlignedFanRoute(
+                    link,
+                    from,
+                    to,
+                    fromAnchor,
+                    toAnchor,
+                    fromStub,
+                    toStub,
+                    elements,
+                    links,
+                    obstacles,
+                    out Point[] fanRoute))
+                {
+                    return fanRoute;
+                }
+
                 return BuildBestOrthogonalRoute(fromAnchor.Point, fromStub, toStub, toAnchor.Point, obstacles);
+            }
+
+            private static bool TryBuildAlignedFanRoute(
+                KbNetworkLink link,
+                KbNetworkElement from,
+                KbNetworkElement to,
+                LinkAnchor fromAnchor,
+                LinkAnchor toAnchor,
+                Point fromStub,
+                Point toStub,
+                IReadOnlyCollection<KbNetworkElement> elements,
+                IReadOnlyCollection<KbNetworkLink> links,
+                IReadOnlyList<Rectangle> obstacles,
+                out Point[] route)
+            {
+                if (TryBuildAlignedFanRouteForEndpoint(
+                    link,
+                    commonElement: from,
+                    otherElement: to,
+                    fromAnchor,
+                    toAnchor,
+                    fromStub,
+                    toStub,
+                    elements,
+                    links,
+                    obstacles,
+                    out route))
+                {
+                    return true;
+                }
+
+                if (TryBuildAlignedFanRouteForEndpoint(
+                    link,
+                    commonElement: to,
+                    otherElement: from,
+                    fromAnchor,
+                    toAnchor,
+                    fromStub,
+                    toStub,
+                    elements,
+                    links,
+                    obstacles,
+                    out route))
+                {
+                    return true;
+                }
+
+                route = [];
+                return false;
+            }
+
+            private static bool TryBuildAlignedFanRouteForEndpoint(
+                KbNetworkLink link,
+                KbNetworkElement commonElement,
+                KbNetworkElement otherElement,
+                LinkAnchor fromAnchor,
+                LinkAnchor toAnchor,
+                Point fromStub,
+                Point toStub,
+                IReadOnlyCollection<KbNetworkElement> elements,
+                IReadOnlyCollection<KbNetworkLink> links,
+                IReadOnlyList<Rectangle> obstacles,
+                out Point[] route)
+            {
+                Rectangle commonBounds = GetElementBounds(commonElement);
+                Point otherCenter = GetRectangleCenter(GetElementBounds(otherElement));
+                LinkSide commonSide = ResolveLinkSide(commonBounds, otherCenter);
+                List<AlignedFanLinkCandidate> candidates = links
+                    .Select(candidate => TryCreateAlignedFanCandidate(candidate, commonElement, otherElement, commonSide, elements))
+                    .Where(static candidate => candidate.HasValue)
+                    .Select(static candidate => candidate!.Value)
+                    .OrderBy(static candidate => candidate.SortCoordinate)
+                    .ThenBy(static candidate => candidate.LinkId, StringComparer.Ordinal)
+                    .ToList();
+
+                if (candidates.Count <= 1)
+                {
+                    route = [];
+                    return false;
+                }
+
+                int index = candidates.FindIndex(candidate => string.Equals(candidate.LinkId, link.LinkId, StringComparison.Ordinal));
+                if (index < 0)
+                {
+                    route = [];
+                    return false;
+                }
+
+                if (commonSide is LinkSide.Top or LinkSide.Bottom)
+                {
+                    int laneY = ResolveParallelLaneCoordinate(fromStub.Y, toStub.Y, index, candidates.Count);
+                    route = NormalizeRoute(
+                    [
+                        fromAnchor.Point,
+                        fromStub,
+                        new Point(fromStub.X, laneY),
+                        new Point(toStub.X, laneY),
+                        toStub,
+                        toAnchor.Point
+                    ]);
+                }
+                else
+                {
+                    int laneX = ResolveParallelLaneCoordinate(fromStub.X, toStub.X, index, candidates.Count);
+                    route = NormalizeRoute(
+                    [
+                        fromAnchor.Point,
+                        fromStub,
+                        new Point(laneX, fromStub.Y),
+                        new Point(laneX, toStub.Y),
+                        toStub,
+                        toAnchor.Point
+                    ]);
+                }
+
+                return !RouteIntersectsAnyObstacle(route, obstacles);
+            }
+
+            private static AlignedFanLinkCandidate? TryCreateAlignedFanCandidate(
+                KbNetworkLink link,
+                KbNetworkElement commonElement,
+                KbNetworkElement referenceOtherElement,
+                LinkSide commonSide,
+                IReadOnlyCollection<KbNetworkElement> elements)
+            {
+                string otherElementId;
+                if (string.Equals(link.FromElementId, commonElement.ElementId, StringComparison.Ordinal))
+                    otherElementId = link.ToElementId;
+                else if (string.Equals(link.ToElementId, commonElement.ElementId, StringComparison.Ordinal))
+                    otherElementId = link.FromElementId;
+                else
+                    return null;
+
+                KbNetworkElement? otherElement = elements.FirstOrDefault(candidate =>
+                    string.Equals(candidate.ElementId, otherElementId, StringComparison.Ordinal));
+                if (otherElement == null)
+                    return null;
+
+                Rectangle commonBounds = GetElementBounds(commonElement);
+                Point otherCenter = GetRectangleCenter(GetElementBounds(otherElement));
+                if (ResolveLinkSide(commonBounds, otherCenter) != commonSide)
+                    return null;
+
+                Point referenceCenter = GetRectangleCenter(GetElementBounds(referenceOtherElement));
+                bool aligned = commonSide is LinkSide.Top or LinkSide.Bottom
+                    ? Math.Abs(otherCenter.Y - referenceCenter.Y) <= LinkAlignmentTolerance
+                    : Math.Abs(otherCenter.X - referenceCenter.X) <= LinkAlignmentTolerance;
+                if (!aligned)
+                    return null;
+
+                int sortCoordinate = commonSide is LinkSide.Top or LinkSide.Bottom ? otherCenter.X : otherCenter.Y;
+                return new AlignedFanLinkCandidate(link.LinkId, sortCoordinate);
             }
 
             private static LinkAnchor CreateLinkAnchor(
@@ -3243,6 +3452,24 @@ namespace AsutpKnowledgeBase
             private static Point OffsetPoint(Point point, Size direction, int distance) =>
                 new(point.X + (direction.Width * distance), point.Y + (direction.Height * distance));
 
+            private static int ResolveParallelLaneCoordinate(int firstStubCoordinate, int secondStubCoordinate, int index, int count)
+            {
+                int low = Math.Min(firstStubCoordinate, secondStubCoordinate);
+                int high = Math.Max(firstStubCoordinate, secondStubCoordinate);
+                int distance = high - low;
+                if (distance <= 0)
+                    return firstStubCoordinate;
+
+                int padding = Math.Min(LinkParallelLanePadding, distance / 3);
+                int min = low + padding;
+                int max = high - padding;
+                if (min >= max)
+                    return low + (distance / 2);
+
+                double step = (max - min) / (double)(count + 1);
+                return (int)Math.Round(min + ((index + 1) * step), MidpointRounding.AwayFromZero);
+            }
+
             private static Point[] BuildBestOrthogonalRoute(
                 Point start,
                 Point startStub,
@@ -3359,6 +3586,22 @@ namespace AsutpKnowledgeBase
                 return (collisions * 1_000_000D) + (bends * 2_000D) + length;
             }
 
+            private static bool RouteIntersectsAnyObstacle(Point[] route, IReadOnlyList<Rectangle> obstacles)
+            {
+                for (int index = 0; index < route.Length - 1; index++)
+                {
+                    Point start = route[index];
+                    Point end = route[index + 1];
+                    foreach (Rectangle obstacle in obstacles)
+                    {
+                        if (SegmentIntersectsRectangle(start, end, obstacle))
+                            return true;
+                    }
+                }
+
+                return false;
+            }
+
             private static bool SegmentIntersectsRectangle(Point start, Point end, Rectangle rectangle)
             {
                 if (start.X == end.X)
@@ -3417,6 +3660,8 @@ namespace AsutpKnowledgeBase
             private readonly record struct LinkAnchor(Point Point, Size Direction);
 
             private readonly record struct LinkPortCandidate(string LinkId, int SortCoordinate);
+
+            private readonly record struct AlignedFanLinkCandidate(string LinkId, int SortCoordinate);
 
             private readonly record struct LinkHit(KbNetworkLink Link, bool MoveFromEndpoint);
 
