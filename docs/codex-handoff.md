@@ -1,10 +1,10 @@
 # Current State
 
-Last updated: `2026-05-27`
+Last updated: `2026-05-28`
 
 ## Current objective
 
-Current active work is a Network topology keyboard-move follow-up on `Net` after pushed commit `7d00a6e Improve network topology grid routing`: selected topology objects can now be moved with keyboard arrows; one key press moves the object by one existing grid division (`24 px`). The implementation is local and validated with app format, Release build, `git diff --check`, and offscreen topology layout-smoke. Manual review is accepted, and the current chat authorized commit/push for this package.
+Current active work is a Lvl2/Lvl3 UI table follow-up on `Net` after pushed commit `d3bc568 Add network topology keyboard movement`: the previous Lvl3 `Состав` cell-copy/column cleanup was manually accepted, the `Доп. оборудование` `Компонент` column was renamed to `Заказной номер` and now shows only the saved order number, user-adjusted column widths for `Состав`, `Доп. оборудование`, and Lvl2 `Документация и ПО` now apply globally across the tree and persist through the existing window-layout state, column-header sorting is disabled for both Lvl3 grids, and both Lvl3 grids support right-click `Копировать ячейку` for the exact cell under the mouse. The implementation is local and validated with app format, Release build, and `git diff --check`; manual review for the latest table behavior is still pending. Commit/push is not authorized in the current chat.
 
 Previous committed/pushed package includes:
 
@@ -38,13 +38,20 @@ Current follow-up package:
 - Selected topology objects can now be nudged with keyboard arrows by one existing grid division (`24 px`) per key press.
 - Lvl2 `Документация и ПО` link lists now have a right-click menu with `Открыть`, `Изменить`, `Добавить`, and `Удалить`. Right-clicking a row selects it before opening the menu; right-clicking empty list space clears selection. `Добавить` is list-specific for schemes, instructions, or software, while open/edit/delete reuse the existing selected-link workflow.
 - Lvl2 `Документация и ПО` link lists now resize columns to screenshot-like proportions: wide `Наименование`, medium `Путь`, narrow `Обновлено` / `Добавлено`.
+- Lvl2 `Документация и ПО` link-list column widths set by the user are saved as global view layout state and reapplied across tree node switches/rebuilds.
 - Lvl3 `Состав` Rack grids now have a right-click menu with `Изменить`, `Добавить слот`, and `Удалить`. Right-clicking a row selects it before opening the menu; right-clicking empty grid space selects the Rack and clears the entry selection so only add-slot remains available.
 - Lvl3 `Состав` Rack-grid selected rows use `SystemColors.Highlight` / `SystemColors.HighlightText`, so selection is visually explicit like the Lvl2 `Документация и ПО` lists.
 - Lvl3 `Доп. оборудование` now uses the same visual structure as `Состав`: top action row, scrollable section card, and `DataGridView` inside the bordered panel. Its content remains the additional-equipment rows and columns.
 - Lvl3 `Доп. оборудование` now has a right-click menu with `Изменить`, `Добавить`, and `Удалить`. Right-clicking a row selects it before opening the menu; right-clicking empty grid space clears selection so only add remains available.
 - Lvl3 `Состав` no longer displays columns `Firmware`, `MPI/DP/PN`, `I address`, `Q address`, or `IP-адрес`; Lvl3 `Доп. оборудование` no longer displays `IP-адрес`. This is display-only: saved model fields and dialogs were not removed.
-- Lvl3 `Состав` Rack grids use fill-width columns with `Модуль` as the widest column. Lvl3 `Доп. оборудование` uses fill-width `DataGridView` columns with the reviewed screenshot proportions.
+- Lvl3 `Состав` Rack grids use fill-width columns without the former `Модуль` column. Lvl3 `Доп. оборудование` uses fill-width `DataGridView` columns with the reviewed screenshot proportions.
+- Lvl3 `Состав` Rack grids no longer show the visible `Модуль` column; `Заказной номер` remains visible and takes the reclaimed width.
+- Lvl3 `Состав` Rack-grid right-click menu now includes `Копировать ячейку`; the copied text is taken from the exact cell under the right-click, not from the whole selected row.
 - Lvl3 `Доп. оборудование` now shows the left column as `№` with simple row numbers `1`, `2`, `3`, etc. Its default widths follow the reviewed screenshot: narrow number column, wide `Тип`, then `Компонент`, then `Примечание`.
+- Lvl3 `Доп. оборудование` now shows `Заказной номер` instead of `Компонент`; the cell value is the saved order number only, without the Siemens-prefixed model text.
+- Lvl3 `Состав` and `Доп. оборудование` column widths set by the user are saved as global view layout state and reapplied across tree node switches/rebuilds.
+- Lvl3 `Состав` and `Доп. оборудование` grid columns are not sortable; clicking headers such as `Slot`, `Роль`, or `Тип` must not change row order.
+- Lvl3 `Доп. оборудование` right-click menu also includes `Копировать ячейку`; both Lvl3 grid-style tabs now copy the exact clicked cell value.
 - Lvl3 `Доп. оборудование` selected rows use `SystemColors.Highlight` / `SystemColors.HighlightText`, so selection is visually explicit like the Lvl2 `Документация и ПО` lists.
 - `KnowledgeBaseCompositionEntryDialog` no longer shows `Firmware`, `MPI/DP/PN`, `I address`, `Q address`, or `IP-адрес` for adding/editing slots or additional equipment. Existing saved values for those fields are preserved when an entry is edited.
 - `KnowledgeBaseCompositionEntryDialog` button panel is now part of the dialog table layout instead of a bottom-docked overlay, so `Заказной номер` remains visible and is not covered by `Сохранить` / `Отмена`.
@@ -56,11 +63,17 @@ Do not commit, push, merge, rebase, or create/remove remote branches without exp
 - Main worktree: `C:\Users\Olga\AKB5`
 - Active branch: `Net`
 - Tracking branch: `origin/Net`
-- Base commit before this follow-up: `7d00a6e Improve network topology grid routing`.
-- Manual review for the current Network keyboard-move package is accepted.
-- Commit/push is authorized in the current chat.
+- Base commit before this follow-up: `d3bc568 Add network topology keyboard movement`.
+- Manual review for the current Lvl2/Lvl3 table behavior package is pending.
+- Commit/push is not authorized in the current chat.
 - No real `.akb` or JSON user data files were edited.
 - Existing local `AGENTS.md` edits are present and were not made or touched as part of this task.
+- Current additional-equipment order-number build-check executable: `C:\Users\Olga\AKB5\artifacts\build-check\additional-equipment-order-number\asutpKB.exe`.
+- Current composition/additional-equipment column-width build-check executable: `C:\Users\Olga\AKB5\artifacts\build-check\composition-column-width-persistence\asutpKB.exe`.
+- Current composition/additional-equipment no-sort build-check executable: `C:\Users\Olga\AKB5\artifacts\build-check\composition-column-sort-disabled\asutpKB.exe`.
+- Current composition/additional-equipment all-cell-copy build-check executable: `C:\Users\Olga\AKB5\artifacts\build-check\composition-cell-copy-all\asutpKB.exe`.
+- Current Docs/Software column-width persistence build-check executable: `C:\Users\Olga\AKB5\artifacts\build-check\docs-software-column-width-persistence\asutpKB.exe`.
+- Current composition cell-copy build-check executable: `C:\Users\Olga\AKB5\artifacts\build-check\composition-cell-copy\asutpKB.exe`.
 - Current keyboard-move build-check executable: `C:\Users\Olga\AKB5\artifacts\build-check\network-topology-keyboard-move\asutpKB.exe`.
 - Current grid-snap build-check executable: `C:\Users\Olga\AKB5\artifacts\build-check\network-topology-grid-snap\asutpKB.exe`.
 - Current fast-publish review executable: `C:\Users\Olga\AKB5\artifacts\publish-fast\win-x64\asutpKB.exe`.
@@ -84,13 +97,23 @@ Do not commit, push, merge, rebase, or create/remove remote branches without exp
 Current changed tracked files:
 
 - `AGENTS.md` (pre-existing local change, not part of this task)
-- `Controls/KnowledgeBaseNetworkTopologyScreenControl.cs`
+- `Controls/KnowledgeBaseAdditionalEquipmentScreenControl.cs`
+- `Controls/KnowledgeBaseCompositionScreenControl.cs`
+- `Controls/KnowledgeBaseDocsAndSoftwareScreenControl.cs`
+- `Forms/MainForm.cs`
+- `Forms/MainForm.Events.cs`
 - `docs/codex-handoff.md`
 - `docs/plans.md`
 - `docs/decision-log.md`
 
 Ignored validation artifacts:
 
+- `artifacts\build-check\additional-equipment-order-number\asutpKB.exe`
+- `artifacts\build-check\composition-column-width-persistence\asutpKB.exe`
+- `artifacts\build-check\composition-column-sort-disabled\asutpKB.exe`
+- `artifacts\build-check\composition-cell-copy-all\asutpKB.exe`
+- `artifacts\build-check\docs-software-column-width-persistence\asutpKB.exe`
+- `artifacts\build-check\composition-cell-copy\asutpKB.exe`
 - `artifacts\build-check\network-topology-keyboard-move\asutpKB.exe`
 - `artifacts\build-check\network-topology-grid-snap\asutpKB.exe`
 - `artifacts\layout-smoke\network-topology-extensions\network-topology-extensions-smoke.png`
@@ -154,6 +177,10 @@ Validation completed in `C:\Users\Olga\AKB5`:
 - Shell guard follow-up: `scripts\codex-safe.ps1` was added and `AGENTS.md` now requires using it by default for small/localized shell diagnostics. Verified allowed `git status --short --branch`; verified blocked full `git diff`; verified blocked full `Get-Content docs\decision-log.md`. No app build/test was run for this guard/documentation-only change.
 - Docs/Software context-menu follow-up: added right-click menus to the scheme, instruction, and software link lists on the Lvl2 `Документация и ПО` tab. Validation passed: `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore`, Release build to `artifacts\build-check\docs-software-context-menu` with 0 warnings and 0 errors, and standard `scripts\publish-fast.ps1`. Full core tests were not rerun after this UI-only context-menu change.
 - Docs/Software column default follow-up: set Lvl2 `Документация и ПО` default/resized column widths to wide `Наименование`, medium `Путь`, and narrow date columns. Validation passed: `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore`, Release build to `artifacts\build-check\docs-software-column-defaults` with 0 warnings and 0 errors, and standard `scripts\publish-fast.ps1`. Full core tests were not rerun after this UI-only display change.
+- Docs/Software column-width persistence follow-up: `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore` passed.
+- Docs/Software column-width persistence follow-up: `dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\docs-software-column-width-persistence /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false` passed with 0 warnings and 0 errors.
+- Docs/Software column-width persistence follow-up: `git diff --check` passed with CRLF normalization warnings only.
+- Full core tests and publish-fast were not rerun after this UI/layout-state change.
 - Lvl3 context-menu follow-up: added right-click selection and menus to the `Состав` Rack grids and the `Доп. оборудование` list. Validation passed: `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore`, Release build to `artifacts\build-check\lvl3-context-menus` with 0 warnings and 0 errors, and standard `scripts\publish-fast.ps1`. Full core tests were not rerun after this UI-only context-menu change.
 - Lvl3 column-cleanup follow-up: removed unconfirmed technical columns from the visible `Состав` and `Доп. оборудование` lists. Validation passed: `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore`, Release build to `artifacts\build-check\composition-columns` with 0 warnings and 0 errors, and standard `scripts\publish-fast.ps1`. Full core tests were not rerun after this UI-only display change.
 - Lvl3 column-fill/dialog-cleanup follow-up: remaining columns now fill available width (`Модуль` widest in `Состав`, `Компонент` widest in `Доп. оборудование`), and `Firmware` / `MPI/DP/PN` / `I address` / `Q address` were removed from the composition entry dialog. Validation passed: `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore`, Release build to `artifacts\build-check\composition-column-fill` with 0 warnings and 0 errors, and standard `scripts\publish-fast.ps1`. Full core tests were not rerun after this UI-only display/dialog change.
@@ -175,6 +202,26 @@ Validation completed in `C:\Users\Olga\AKB5`:
 - Network keyboard-move follow-up: `git diff --check` passed with CRLF normalization warnings for `AGENTS.md` and `Controls/KnowledgeBaseNetworkTopologyScreenControl.cs`.
 - Network keyboard-move follow-up: `dotnet run --project artifacts\layout-smoke\network-topology-extensions\NetworkTopologyExtensionsSmoke.csproj --configuration Release /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false` passed and refreshed `artifacts\layout-smoke\network-topology-extensions\network-topology-extensions-smoke.png`; the smoke now checks arrow-key movement by one 24 px grid cell.
 - Full core tests and publish-fast were not rerun after this UI-only keyboard movement change.
+- Lvl3 composition cell-copy follow-up: `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore` passed.
+- Lvl3 composition cell-copy follow-up: `dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\composition-cell-copy /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false` passed with 0 warnings and 0 errors.
+- Lvl3 composition cell-copy follow-up: `git diff --check` passed with CRLF normalization warnings for `AGENTS.md` and `Controls/KnowledgeBaseCompositionScreenControl.cs`.
+- Full core tests and publish-fast were not rerun after this UI-only composition-grid/context-menu change.
+- Additional-equipment order-number follow-up: `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore` passed.
+- Additional-equipment order-number follow-up: `dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\additional-equipment-order-number /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false` passed with 0 warnings and 0 errors.
+- Additional-equipment order-number follow-up: `git diff --check` passed with CRLF normalization warnings for `AGENTS.md`, `Controls/KnowledgeBaseAdditionalEquipmentScreenControl.cs`, `Controls/KnowledgeBaseCompositionScreenControl.cs`, and docs files.
+- Full core tests and publish-fast were not rerun after this UI-only additional-equipment display change.
+- Composition/additional-equipment column-width persistence follow-up: `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore` passed.
+- Composition/additional-equipment column-width persistence follow-up: `dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\composition-column-width-persistence /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false` passed with 0 warnings and 0 errors.
+- Composition/additional-equipment column-width persistence follow-up: `git diff --check` passed with CRLF normalization warnings for `AGENTS.md`, the touched controls, `Forms/MainForm*.cs`, and docs files.
+- Full core tests and publish-fast were not rerun after this UI/layout-state change.
+- Composition/additional-equipment no-sort follow-up: `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore` passed.
+- Composition/additional-equipment no-sort follow-up: `dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\composition-column-sort-disabled /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false` passed with 0 warnings and 0 errors.
+- Composition/additional-equipment no-sort follow-up: `git diff --check` passed with CRLF normalization warnings only.
+- Full core tests and publish-fast were not rerun after this UI-only grid-column behavior change.
+- Composition/additional-equipment all-cell-copy follow-up: `dotnet format asutpKB.csproj --verify-no-changes --severity error --no-restore` passed.
+- Composition/additional-equipment all-cell-copy follow-up: `dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\composition-cell-copy-all /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false` passed with 0 warnings and 0 errors.
+- Composition/additional-equipment all-cell-copy follow-up: `git diff --check` passed with CRLF normalization warnings only.
+- Full core tests and publish-fast were not rerun after this UI-only context-menu change.
 
 ## Decisions already made
 
@@ -191,10 +238,20 @@ Validation completed in `C:\Users\Olga\AKB5`:
 - For Network topology, snap newly placed and dragged objects to the existing 24 px grid; do not migrate untouched stored coordinates.
 - For Network topology, route multiple same-level links to a common block through separate orthogonal lanes.
 - For Network topology, selected objects can be moved with keyboard arrows by exactly one existing grid division (`24 px`) per key press.
+- For Lvl3 `Состав`, keep the Rack grid focused on actionable columns; the visible `Модуль` column is removed because `Заказной номер` carries the useful entered identifier.
+- For Lvl3 `Состав`, right-click copying must copy the clicked cell value, not the full row.
+- For Lvl3 `Доп. оборудование`, show the saved order number as `Заказной номер`; do not use the Siemens-prefixed model/component text in that column.
+- For Lvl3 `Состав` and `Доп. оборудование`, user-adjusted column widths are view-level preferences: apply them across all selected tree nodes and persist them through `KnowledgeBaseWindowLayoutStateService`.
+- For Lvl3 `Состав` and `Доп. оборудование`, disable DataGridView column sorting entirely; row order is domain order and should not change when a header is clicked.
+- For Lvl3 grid-style tables (`Состав` and `Доп. оборудование`), right-click cell copying must copy the clicked cell value, not the full row.
 
 ## Files already relevant to the task
 
 - `Program.cs`
+- `Controls\KnowledgeBaseAdditionalEquipmentScreenControl.cs`
+- `Controls\KnowledgeBaseCompositionScreenControl.cs`
+- `Forms\MainForm.cs`
+- `Forms\MainForm.Events.cs`
 - `Controls\KnowledgeBaseNetworkTopologyScreenControl.cs`
 - `Controls\KnowledgeBaseDocsAndSoftwareScreenControl.cs`
 - `Controls\KnowledgeBaseCompositionScreenControl.cs`
@@ -223,10 +280,16 @@ Validation completed in `C:\Users\Olga\AKB5`:
 - Targeted inspection of `C:\Users\Olga\.codex\config.toml` did not reveal an active command/tool policy key, so `scripts\codex-safe.ps1` is a repo-level guard rather than a dispatcher-level hard guarantee.
 - Manual review for the current Network change should check that toolbar-created, context-created, and dragged topology objects visually snap to grid intersections, and that several same-row objects connected to one common block draw as separate lanes at normal and changed zoom levels.
 - Manual review for the current keyboard follow-up should check that after selecting a topology object, `Left` / `Right` / `Up` / `Down` move it by one visible grid cell per key press and save the changed position.
+- Manual review for the current Lvl3 `Состав` follow-up should check that the `Модуль` column is absent, `Заказной номер` remains readable, and `Копировать ячейку` copies the value from the exact right-clicked cell.
+- Manual review for the current Lvl3 `Доп. оборудование` follow-up should check that the former `Компонент` column is now `Заказной номер` and contains only the entered number without a `Siemens` prefix.
+- Manual review for the current column-width follow-up should resize columns in `Состав` and `Доп. оборудование`, switch between different tree elements, and restart the app if needed to confirm widths are preserved globally.
+- Manual review should also click headers in `Состав` and `Доп. оборудование` and confirm row order does not change.
+- Manual review should also right-click individual cells in both `Состав` and `Доп. оборудование`, use `Копировать ячейку`, and confirm only that cell's value is copied.
+- Manual review should also resize columns in Lvl2 `Документация и ПО`, switch between different tree elements, and restart the app if needed to confirm widths are preserved globally.
 
 ## Recommended next step
 
-After commit/push, start the next implementation from synced `Net` / `origin/Net` and confirm `git status --short --branch` before editing. Future commit/push still requires fresh explicit approval in the active chat.
+Run manual review from `C:\Users\Olga\AKB5\artifacts\build-check\docs-software-column-width-persistence\asutpKB.exe`; if accepted, request fresh explicit commit/push approval in the active chat. Future implementation should still start from `Net` / `origin/Net` and confirm `git status --short --branch` before editing.
 
 ## Commands to run before finishing future implementation work
 
@@ -254,7 +317,13 @@ dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\bu
 dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\additional-equipment-composition-visual /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
 dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\additional-equipment-selection-revert /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
 dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\additional-equipment-system-highlight /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
+dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\additional-equipment-order-number /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
 dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\composition-system-highlight /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
+dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\composition-cell-copy /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
+dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\composition-column-width-persistence /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
+dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\composition-column-sort-disabled /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
+dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\composition-cell-copy-all /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
+dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\docs-software-column-width-persistence /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
 dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\network-topology-grid-snap /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
 dotnet build asutpKB.csproj --configuration Release --no-restore -o artifacts\build-check\network-topology-keyboard-move /p:RunAnalyzers=false /p:WarningLevel=0 /nodeReuse:false
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\publish-fast.ps1

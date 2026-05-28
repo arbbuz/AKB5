@@ -11,6 +11,10 @@ namespace AsutpKnowledgeBase
 
     public sealed class KnowledgeBaseDocsAndSoftwareScreenControl : UserControl
     {
+        private const string TitleColumnKey = "Title";
+        private const string PathColumnKey = "Path";
+        private const string DateColumnKey = "Date";
+
         private sealed class ListItemTag
         {
             public KnowledgeBaseDocsAndSoftwareSelectionKind SelectionKind { get; init; }
@@ -37,6 +41,8 @@ namespace AsutpKnowledgeBase
 
         private KnowledgeBaseDocsAndSoftwareState _currentState = new();
         private bool _isSynchronizingSelection;
+        private bool _isApplyingColumnWidths;
+        private Dictionary<string, int> _columnWidths = new(StringComparer.Ordinal);
 
         public KnowledgeBaseDocsAndSoftwareScreenControl()
         {
@@ -154,6 +160,8 @@ namespace AsutpKnowledgeBase
 
         public event EventHandler? DeleteSelectedRequested;
 
+        public event EventHandler? ColumnWidthsChanged;
+
         public KnowledgeBaseDocsAndSoftwareSelectionKind SelectedItemKind { get; private set; }
 
         public string SelectedItemId { get; private set; } = string.Empty;
@@ -194,6 +202,18 @@ namespace AsutpKnowledgeBase
             (SelectedItemKind, SelectedItemId) = ResolveSelectedItem();
             UpdateButtonStates();
         }
+
+        public void ApplyColumnWidths(IReadOnlyDictionary<string, int>? columnWidths)
+        {
+            _columnWidths = NormalizeColumnWidths(columnWidths);
+
+            ApplyEntriesColumnWidths(_lvSchemes);
+            ApplyEntriesColumnWidths(_lvDocuments);
+            ApplyEntriesColumnWidths(_lvSoftware);
+        }
+
+        public Dictionary<string, int> GetColumnWidths() =>
+            new(_columnWidths, StringComparer.Ordinal);
 
         private void PopulateDocumentEntries(
             ListView listView,
@@ -240,7 +260,7 @@ namespace AsutpKnowledgeBase
             listView.Visible = hasEntries;
             emptyStateLabel.Visible = !hasEntries;
             emptyStateLabel.Text = emptyStateText;
-            AdjustEntriesColumnWidths(listView);
+            ApplyEntriesColumnWidths(listView);
         }
 
         private void PopulateSoftwareEntries(
@@ -288,7 +308,7 @@ namespace AsutpKnowledgeBase
             listView.Visible = hasEntries;
             emptyStateLabel.Visible = !hasEntries;
             emptyStateLabel.Text = emptyStateText;
-            AdjustEntriesColumnWidths(listView);
+            ApplyEntriesColumnWidths(listView);
         }
 
         private void WireSelectionEvents(ListView source, params ListView[] others)
@@ -420,25 +440,45 @@ namespace AsutpKnowledgeBase
             return groupBox;
         }
 
-        private static ListView CreateDocumentListView()
+        private ListView CreateDocumentListView()
         {
             var listView = CreateBaseListView();
-            listView.Columns.Add("Наименование", 700);
-            listView.Columns.Add("Путь", 330);
-            listView.Columns.Add("Обновлено", 160);
+            _isApplyingColumnWidths = true;
+            try
+            {
+                listView.Columns.Add("Наименование", 700);
+                listView.Columns.Add("Путь", 330);
+                listView.Columns.Add("Обновлено", 160);
+                SetColumnKeys(listView);
+            }
+            finally
+            {
+                _isApplyingColumnWidths = false;
+            }
+
             return listView;
         }
 
-        private static ListView CreateSoftwareListView()
+        private ListView CreateSoftwareListView()
         {
             var listView = CreateBaseListView();
-            listView.Columns.Add("Наименование", 700);
-            listView.Columns.Add("Путь", 330);
-            listView.Columns.Add("Добавлено", 160);
+            _isApplyingColumnWidths = true;
+            try
+            {
+                listView.Columns.Add("Наименование", 700);
+                listView.Columns.Add("Путь", 330);
+                listView.Columns.Add("Добавлено", 160);
+                SetColumnKeys(listView);
+            }
+            finally
+            {
+                _isApplyingColumnWidths = false;
+            }
+
             return listView;
         }
 
-        private static ListView CreateBaseListView() =>
+        private ListView CreateBaseListView() =>
             ConfigureBaseListView(
                 new()
                 {
@@ -450,14 +490,31 @@ namespace AsutpKnowledgeBase
                     View = View.Details
                 });
 
-        private static ListView ConfigureBaseListView(ListView listView)
+        private ListView ConfigureBaseListView(ListView listView)
         {
             KnowledgeBaseWorkspaceVisuals.ConfigureListView(listView);
-            listView.Resize += (_, _) => AdjustEntriesColumnWidths(listView);
+            listView.Resize += (_, _) => ApplyEntriesColumnWidths(listView);
+            listView.ColumnWidthChanged += HandleColumnWidthChanged;
             return listView;
         }
 
-        private static void AdjustEntriesColumnWidths(ListView listView)
+        private void ApplyEntriesColumnWidths(ListView listView)
+        {
+            _isApplyingColumnWidths = true;
+            try
+            {
+                if (_columnWidths.Count > 0)
+                    ApplyListViewColumnWidths(listView, _columnWidths);
+                else
+                    ApplyDefaultEntriesColumnWidths(listView);
+            }
+            finally
+            {
+                _isApplyingColumnWidths = false;
+            }
+        }
+
+        private static void ApplyDefaultEntriesColumnWidths(ListView listView)
         {
             if (listView.Columns.Count < 3)
                 return;
@@ -489,6 +546,79 @@ namespace AsutpKnowledgeBase
             listView.Columns[0].Width = titleWidth;
             listView.Columns[1].Width = pathWidth;
             listView.Columns[2].Width = Math.Max(minimumDateWidth, availableWidth - titleWidth - pathWidth);
+        }
+
+        private void HandleColumnWidthChanged(object? sender, ColumnWidthChangedEventArgs e)
+        {
+            if (_isApplyingColumnWidths || sender is not ListView source)
+                return;
+
+            _columnWidths = GetListViewColumnWidths(source);
+
+            _isApplyingColumnWidths = true;
+            try
+            {
+                ApplyListViewColumnWidths(_lvSchemes, _columnWidths);
+                ApplyListViewColumnWidths(_lvDocuments, _columnWidths);
+                ApplyListViewColumnWidths(_lvSoftware, _columnWidths);
+            }
+            finally
+            {
+                _isApplyingColumnWidths = false;
+            }
+
+            ColumnWidthsChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private static void SetColumnKeys(ListView listView)
+        {
+            if (listView.Columns.Count < 3)
+                return;
+
+            listView.Columns[0].Name = TitleColumnKey;
+            listView.Columns[1].Name = PathColumnKey;
+            listView.Columns[2].Name = DateColumnKey;
+        }
+
+        private static void ApplyListViewColumnWidths(ListView listView, IReadOnlyDictionary<string, int> columnWidths)
+        {
+            foreach (ColumnHeader column in listView.Columns)
+            {
+                if (!string.IsNullOrWhiteSpace(column.Name) &&
+                    columnWidths.TryGetValue(column.Name, out int width) &&
+                    width > 0)
+                {
+                    column.Width = width;
+                }
+            }
+        }
+
+        private static Dictionary<string, int> GetListViewColumnWidths(ListView listView)
+        {
+            var widths = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (ColumnHeader column in listView.Columns)
+            {
+                if (!string.IsNullOrWhiteSpace(column.Name) && column.Width > 0)
+                    widths[column.Name] = column.Width;
+            }
+
+            return widths;
+        }
+
+        private static Dictionary<string, int> NormalizeColumnWidths(IReadOnlyDictionary<string, int>? columnWidths)
+        {
+            var normalized = new Dictionary<string, int>(StringComparer.Ordinal);
+            if (columnWidths == null)
+                return normalized;
+
+            foreach (var pair in columnWidths)
+            {
+                string columnName = pair.Key?.Trim() ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(columnName) && pair.Value > 0)
+                    normalized[columnName] = pair.Value;
+            }
+
+            return normalized;
         }
 
         private ContextMenuStrip CreateEntriesContextMenu(Action addAction)

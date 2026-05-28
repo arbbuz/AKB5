@@ -20,6 +20,7 @@ handoff transcript, validation log, or phase archive.
 - The selected object context belongs in one shared right-workspace header above the tab host, not duplicated inside each tab.
 - Search is a typed domain workflow with fixed scopes: `All`, `Tree`, `Card`, `Composition`, and `Docs/Software`; navigation resolves to the owning tree node and may switch to the matched domain tab.
 - `Documentation and Software` remains separate from `Composition`; file references use dedicated schemes, instructions, and software workflows.
+- User-resized columns in repeated table/list views should persist as global view layout state and reapply across tree node switches/rebuilds instead of resetting to defaults.
 
 ## Storage And Files
 
@@ -61,6 +62,12 @@ handoff transcript, validation log, or phase archive.
 ## Composition And Templates
 
 - The `Lvl3` `Состав` implementation uses a staged hybrid: keep composition on the right panel, group slotted components by Siemens-style `Rack0+`, and do not expand cabinet/board contents into `Lvl4` tree nodes by default.
+- The `Lvl3` `Состав` Rack grid does not show a separate `Модуль` column; use `Заказной номер` as the visible entered identifier column.
+- The `Lvl3` `Состав` Rack-grid copy action copies the exact right-clicked cell value, not the whole row.
+- The `Lvl3` `Доп. оборудование` grid shows `Заказной номер` for the saved order number only; do not display the Siemens-prefixed component/model text in that column.
+- The `Lvl3` `Состав` and `Доп. оборудование` grid column widths are global persisted view preferences, not per tree node.
+- The `Lvl3` `Состав` and `Доп. оборудование` grids are not sortable by column headers; preserve domain row order.
+- The Lvl3 grid-style tabs (`Состав` and `Доп. оборудование`) support right-click cell copying for the exact clicked cell value.
 - Rack rows may be empty without fake components; rack metadata stays with the composition workflow.
 - Siemens slot rules are advisory: show S7-300-style hints/warnings, but do not hard-block real-world cabinet layouts.
 - Object templates create fresh node ids during instantiation and remap typed records by template node id.

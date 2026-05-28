@@ -5,7 +5,7 @@ Last updated: `2026-05-27`
 ## Active plan
 
 - Work in `C:\Users\Olga\AKB5` on branch `Net`, tracking `origin/Net`.
-- Current task: Network topology keyboard-move follow-up after pushed commit `7d00a6e Improve network topology grid routing`. Selected topology objects can now be moved with keyboard arrows by one existing grid division (`24 px`) per key press. Local validation passed; manual review is accepted, and commit/push was authorized in the current chat.
+- Current task: Lvl2/Lvl3 UI table follow-up after pushed commit `d3bc568 Add network topology keyboard movement`. The previous Lvl3 `Состав` cell-copy/column cleanup was manually accepted, but commit/push was not authorized. In `Доп. оборудование`, the former `Компонент` column is now `Заказной номер` and displays only the saved order number without the Siemens-prefixed model text. User-adjusted column widths for `Состав`, `Доп. оборудование`, and Lvl2 `Документация и ПО` now apply globally across the tree and persist through window-layout state. Header sorting is disabled for both Lvl3 grids so row order cannot change after clicking `Slot`, `Роль`, `Тип`, or other headers. Both Lvl3 grid-style tabs now support right-click `Копировать ячейку` for the exact clicked cell. Local validation passed; manual review for the latest table behavior is pending.
 - Do not commit or push without fresh direct approval in the current chat.
 - Do not reintroduce hover/popup tooltips; guidance must be visible, inline, status-based, or modal.
 - Treat old AKB5/Net/network-topology worktrees and snapshots under `C:\Users\Olga\Documents\Codex\...` as historical references only, not as source of truth.
@@ -23,6 +23,7 @@ Last updated: `2026-05-27`
 - Network palette validation passed app format, isolated Release build, offscreen layout-smoke PNG, full core tests, and `git diff --check`.
 - Lvl2 Docs/Software context menus are implemented locally and validated with app format, isolated Release build, and standard fast publish.
 - Lvl2 Docs/Software column default follow-up is implemented locally and validated with app format, isolated Release build to `artifacts\build-check\docs-software-column-defaults`, and standard fast publish.
+- Lvl2 Docs/Software user column-width persistence is implemented locally and validated with app format, isolated Release build to `artifacts\build-check\docs-software-column-width-persistence`, and `git diff --check`.
 - Lvl3 Composition / Additional Equipment context menus are implemented locally and validated with app format, isolated Release build to `artifacts\build-check\lvl3-context-menus`, and standard fast publish.
 - Lvl3 Composition / Additional Equipment column cleanup is implemented locally and validated with app format, isolated Release build to `artifacts\build-check\composition-columns`, and standard fast publish.
 - Lvl3 column-fill and dialog cleanup is implemented locally and validated with app format, isolated Release build to `artifacts\build-check\composition-column-fill`, and standard fast publish.
@@ -38,12 +39,19 @@ Last updated: `2026-05-27`
 
 ## Current implementation plan
 
-- Commit/push the accepted Network keyboard-move follow-up, then start future work from synced `Net` / `origin/Net`.
+- Keep the Lvl3 `Состав` composition-grid follow-up and Lvl3 `Доп. оборудование` order-number follow-up local until explicit git authorization.
+- Keep the Rack detail grid without the visible `Модуль` column; `Заказной номер` remains the user-facing identifier column.
+- Keep `Копировать ячейку` tied to the cell under the right-click position, not the whole selected row.
+- Keep Lvl3 `Доп. оборудование` displaying saved order numbers only in the renamed `Заказной номер` column.
+- Keep Lvl3 `Состав` and `Доп. оборудование` column widths as global persisted view preferences, not per selected tree node.
+- Keep Lvl3 `Состав` and `Доп. оборудование` columns non-sortable; preserve domain row order regardless of header clicks.
+- Keep right-click `Копировать ячейку` available in both Lvl3 grid-style tabs and tied to the clicked cell value.
 - Move selected Network topology objects with arrow keys by exactly one visible grid division (`24 px`) per key press; keep the behavior tied to the existing grid size.
 - Keep object snapping tied to the visible 24 px topology grid. Snap newly placed and dragged top-left coordinates; do not migrate existing untouched stored coordinates.
 - Keep aligned fan-in/fan-out links separated by route lanes only in the draw path; do not add new persisted link routing metadata.
 - Lvl2 Docs/Software menus reuse the existing selected-link workflow.
 - Keep Lvl2 Docs/Software list widths screenshot-like: wide `Наименование`, medium `Путь`, narrow `Обновлено` / `Добавлено`.
+- Keep Lvl2 Docs/Software user-resized list widths in global window-layout state and apply the same widths to schemes, instructions, and software lists.
 - Lvl3 Composition right-click selects the Rack-grid row before opening the menu; edit/delete require a real slot entry, and add-slot stays available when a Rack is selected.
 - Lvl3 Additional Equipment right-click selects the row before opening the menu; edit/delete require a selected row, and add stays available when editing is supported.
 - Keep removed Lvl3 columns hidden in these views: `Состав` hides `Firmware`, `MPI/DP/PN`, `I address`, `Q address`, `IP-адрес`; `Доп. оборудование` hides `IP-адрес`. This is a UI display cleanup, not a model/data removal.

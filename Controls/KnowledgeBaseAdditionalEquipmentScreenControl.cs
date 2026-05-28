@@ -17,6 +17,9 @@ namespace AsutpKnowledgeBase
 
         private KnowledgeBaseCompositionState _currentState = new();
         private bool _isSynchronizingSelection;
+        private bool _isApplyingColumnWidths;
+        private Dictionary<string, int> _columnWidths = new(StringComparer.Ordinal);
+        private string _contextCellText = string.Empty;
 
         public KnowledgeBaseAdditionalEquipmentScreenControl()
         {
@@ -57,6 +60,7 @@ namespace AsutpKnowledgeBase
 
             _gridEntries = CreateEntriesGrid();
             _gridEntries.ContextMenuStrip = CreateEntriesContextMenu();
+            _gridEntries.ColumnWidthChanged += HandleColumnWidthChanged;
             _gridEntries.SelectionChanged += (_, _) => HandleSelectionChanged();
             _gridEntries.MouseDown += HandleGridMouseDown;
             _gridEntries.CellDoubleClick += (_, _) =>
@@ -95,6 +99,8 @@ namespace AsutpKnowledgeBase
 
         public string SelectedEntryId { get; private set; } = string.Empty;
 
+        public event EventHandler? ColumnWidthsChanged;
+
         public void ApplyState(KnowledgeBaseCompositionState state)
         {
             _currentState = state ?? _emptyState;
@@ -105,6 +111,24 @@ namespace AsutpKnowledgeBase
             UpdateEntriesGroupTitle();
             UpdateEntriesCardSize();
         }
+
+        public void ApplyColumnWidths(IReadOnlyDictionary<string, int>? columnWidths)
+        {
+            _columnWidths = NormalizeColumnWidths(columnWidths);
+
+            _isApplyingColumnWidths = true;
+            try
+            {
+                ApplyGridColumnWidths(_gridEntries, _columnWidths);
+            }
+            finally
+            {
+                _isApplyingColumnWidths = false;
+            }
+        }
+
+        public Dictionary<string, int> GetColumnWidths() =>
+            new(_columnWidths, StringComparer.Ordinal);
 
         private void PopulateEntries(string preferredSelectedEntryId)
         {
@@ -119,7 +143,7 @@ namespace AsutpKnowledgeBase
                     int rowIndex = _gridEntries.Rows.Add(
                         (entryIndex + 1).ToString(CultureInfo.InvariantCulture),
                         entry.ComponentTypeText,
-                        entry.ComponentText,
+                        entry.OrderNumberText,
                         entry.NotesText);
                     DataGridViewRow row = _gridEntries.Rows[rowIndex];
                     row.Tag = entry;
@@ -161,6 +185,7 @@ namespace AsutpKnowledgeBase
                 return;
 
             var hit = _gridEntries.HitTest(e.X, e.Y);
+            _contextCellText = GetCellText(_gridEntries, hit);
             _isSynchronizingSelection = true;
             try
             {
@@ -170,7 +195,10 @@ namespace AsutpKnowledgeBase
                 {
                     DataGridViewRow row = _gridEntries.Rows[hit.RowIndex];
                     row.Selected = true;
-                    _gridEntries.CurrentCell = row.Cells[0];
+                    int currentColumnIndex = hit.ColumnIndex >= 0 && hit.ColumnIndex < _gridEntries.Columns.Count
+                        ? hit.ColumnIndex
+                        : 0;
+                    _gridEntries.CurrentCell = row.Cells[currentColumnIndex];
 
                     SelectedEntryId = row.Tag is KnowledgeBaseCompositionEntryState state && !state.IsPlaceholder
                         ? state.EntryId
@@ -244,7 +272,7 @@ namespace AsutpKnowledgeBase
             return _entriesGroup;
         }
 
-        private static DataGridView CreateEntriesGrid()
+        private DataGridView CreateEntriesGrid()
         {
             var grid = new DataGridView
             {
@@ -268,8 +296,9 @@ namespace AsutpKnowledgeBase
             grid.AlternatingRowsDefaultCellStyle.SelectionForeColor = SystemColors.HighlightText;
             grid.Columns.Add(CreateGridColumn("Number", "№", 44));
             grid.Columns.Add(CreateGridColumn("Type", "Тип", 700));
-            grid.Columns.Add(CreateGridColumn("Component", "Компонент", 240));
+            grid.Columns.Add(CreateGridColumn("OrderNumber", "Заказной номер", 240));
             grid.Columns.Add(CreateGridColumn("Notes", "Примечание", 230));
+            ApplyGridColumnWidths(grid, _columnWidths);
             return grid;
         }
 
@@ -281,13 +310,72 @@ namespace AsutpKnowledgeBase
                 Width = fillWeight,
                 MinimumWidth = Math.Min(80, fillWeight),
                 FillWeight = fillWeight,
-                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
+                SortMode = DataGridViewColumnSortMode.NotSortable
             };
 
         private void UpdateEntriesGroupTitle()
         {
             if (_entriesGroup != null)
                 _entriesGroup.Text = $"Доп. оборудование   ({_currentState.AuxiliaryEntries})";
+        }
+
+        private void HandleColumnWidthChanged(object? sender, DataGridViewColumnEventArgs e)
+        {
+            if (_isApplyingColumnWidths || sender is not DataGridView source)
+                return;
+
+            _columnWidths = GetGridColumnWidths(source);
+            ColumnWidthsChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private static void ApplyGridColumnWidths(DataGridView grid, IReadOnlyDictionary<string, int> columnWidths)
+        {
+            foreach (DataGridViewColumn column in grid.Columns)
+            {
+                if (columnWidths.TryGetValue(column.Name, out int width) && width > 0)
+                    ApplyGridColumnWidth(column, width);
+            }
+        }
+
+        private static void ApplyGridColumnWidth(DataGridViewColumn column, int width)
+        {
+            if (column.DataGridView?.AutoSizeColumnsMode == DataGridViewAutoSizeColumnsMode.Fill ||
+                column.AutoSizeMode == DataGridViewAutoSizeColumnMode.Fill)
+            {
+                column.FillWeight = Math.Max(1F, width);
+                return;
+            }
+
+            column.Width = width;
+        }
+
+        private static Dictionary<string, int> GetGridColumnWidths(DataGridView grid)
+        {
+            var widths = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (DataGridViewColumn column in grid.Columns)
+            {
+                if (column.Visible && !string.IsNullOrWhiteSpace(column.Name) && column.Width > 0)
+                    widths[column.Name] = column.Width;
+            }
+
+            return widths;
+        }
+
+        private static Dictionary<string, int> NormalizeColumnWidths(IReadOnlyDictionary<string, int>? columnWidths)
+        {
+            var normalized = new Dictionary<string, int>(StringComparer.Ordinal);
+            if (columnWidths == null)
+                return normalized;
+
+            foreach (var pair in columnWidths)
+            {
+                string columnName = pair.Key?.Trim() ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(columnName) && pair.Value > 0)
+                    normalized[columnName] = pair.Value;
+            }
+
+            return normalized;
         }
 
         private void UpdateEntriesCardSize()
@@ -315,10 +403,13 @@ namespace AsutpKnowledgeBase
         private ContextMenuStrip CreateEntriesContextMenu()
         {
             var menu = new ContextMenuStrip();
+            ToolStripMenuItem copyCellItem = CreateContextMenuItem("Копировать ячейку", CopyContextCell);
             ToolStripMenuItem editItem = CreateContextMenuItem("Изменить", () => EditSelectedRequested?.Invoke(this, EventArgs.Empty));
             ToolStripMenuItem addItem = CreateContextMenuItem("Добавить", () => AddRequested?.Invoke(this, EventArgs.Empty));
             ToolStripMenuItem deleteItem = CreateContextMenuItem("Удалить", () => DeleteSelectedRequested?.Invoke(this, EventArgs.Empty));
 
+            menu.Items.Add(copyCellItem);
+            menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(editItem);
             menu.Items.Add(addItem);
             menu.Items.Add(deleteItem);
@@ -326,12 +417,33 @@ namespace AsutpKnowledgeBase
             {
                 bool canEdit = _currentState.SupportsEditing;
                 bool hasSelection = !string.IsNullOrWhiteSpace(SelectedEntryId);
+                copyCellItem.Enabled = !string.IsNullOrWhiteSpace(_contextCellText);
                 editItem.Enabled = canEdit && hasSelection;
                 addItem.Enabled = canEdit;
                 deleteItem.Enabled = canEdit && hasSelection;
             };
 
             return menu;
+        }
+
+        private void CopyContextCell()
+        {
+            if (!string.IsNullOrWhiteSpace(_contextCellText))
+                Clipboard.SetText(_contextCellText);
+        }
+
+        private static string GetCellText(DataGridView grid, DataGridView.HitTestInfo hit)
+        {
+            if (hit.RowIndex < 0 ||
+                hit.RowIndex >= grid.Rows.Count ||
+                hit.ColumnIndex < 0 ||
+                hit.ColumnIndex >= grid.Columns.Count)
+            {
+                return string.Empty;
+            }
+
+            object? formattedValue = grid.Rows[hit.RowIndex].Cells[hit.ColumnIndex].FormattedValue;
+            return formattedValue?.ToString()?.Trim() ?? string.Empty;
         }
 
         private static ToolStripMenuItem CreateContextMenuItem(string text, Action action)

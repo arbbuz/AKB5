@@ -14,6 +14,8 @@ namespace AsutpKnowledgeBase
         private const int NavigationPanelMinSize = 260;
         private const int DetailsPanelMinSize = 480;
         private const string CompositionRackDetailsColumnWidthsKey = "composition.rack-details";
+        private const string AdditionalEquipmentColumnWidthsKey = "composition.additional-equipment";
+        private const string DocsAndSoftwareColumnWidthsKey = "docs-and-software.entries";
 
         private readonly IAppLogger _appLogger;
         private readonly KnowledgeBaseSessionService _session = new();
@@ -161,6 +163,10 @@ namespace AsutpKnowledgeBase
             _savedSplitterDistance = _windowLayoutStateService.LoadSplitterDistance();
             selectedNodeCompositionScreen.ApplyColumnWidths(
                 _windowLayoutStateService.LoadColumnWidths(CompositionRackDetailsColumnWidthsKey));
+            selectedNodeAdditionalEquipmentScreen.ApplyColumnWidths(
+                _windowLayoutStateService.LoadColumnWidths(AdditionalEquipmentColumnWidthsKey));
+            selectedNodeDocsAndSoftwareScreen.ApplyColumnWidths(
+                _windowLayoutStateService.LoadColumnWidths(DocsAndSoftwareColumnWidthsKey));
             RestoreSavedWindowLayout();
             LogStartupTiming("mainform-layout-restored", startupStopwatch);
             var startupStorage = CreateStartupStorageService();
@@ -672,6 +678,20 @@ namespace AsutpKnowledgeBase
             _windowLayoutStateService.SaveColumnWidths(
                 CompositionRackDetailsColumnWidthsKey,
                 selectedNodeCompositionScreen.GetRackDetailsColumnWidths());
+        }
+
+        private void SaveAdditionalEquipmentColumnWidths(object? sender, EventArgs e)
+        {
+            _windowLayoutStateService.SaveColumnWidths(
+                AdditionalEquipmentColumnWidthsKey,
+                selectedNodeAdditionalEquipmentScreen.GetColumnWidths());
+        }
+
+        private void SaveDocsAndSoftwareColumnWidths(object? sender, EventArgs e)
+        {
+            _windowLayoutStateService.SaveColumnWidths(
+                DocsAndSoftwareColumnWidthsKey,
+                selectedNodeDocsAndSoftwareScreen.GetColumnWidths());
         }
 
         private void RestoreSavedWindowLayout()

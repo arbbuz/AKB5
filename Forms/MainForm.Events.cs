@@ -31,6 +31,8 @@ namespace AsutpKnowledgeBase
             selectedNodeAdditionalEquipmentScreen.AddRequested += AddAuxiliaryCompositionEntry;
             selectedNodeAdditionalEquipmentScreen.EditSelectedRequested += EditSelectedAuxiliaryCompositionEntry;
             selectedNodeAdditionalEquipmentScreen.DeleteSelectedRequested += DeleteSelectedAuxiliaryCompositionEntry;
+            selectedNodeAdditionalEquipmentScreen.ColumnWidthsChanged += SaveAdditionalEquipmentColumnWidths;
+            selectedNodeDocsAndSoftwareScreen.ColumnWidthsChanged += SaveDocsAndSoftwareColumnWidths;
             selectedNodeDocsAndSoftwareScreen.AddSchemeRequested += AddSchemeDocumentLink;
             selectedNodeDocsAndSoftwareScreen.AddDocumentRequested += AddManualOrInstructionLink;
             selectedNodeDocsAndSoftwareScreen.AddSoftwareRequested += AddSoftwareRecord;
