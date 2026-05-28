@@ -2606,6 +2606,35 @@ namespace AsutpKnowledgeBase
                     ElementMoved?.Invoke(this, EventArgs.Empty);
             }
 
+            protected override bool IsInputKey(Keys keyData)
+            {
+                Keys keyCode = keyData & Keys.KeyCode;
+                return keyCode is Keys.Left or Keys.Right or Keys.Up or Keys.Down ||
+                    base.IsInputKey(keyData);
+            }
+
+            protected override void OnKeyDown(KeyEventArgs e)
+            {
+                base.OnKeyDown(e);
+                Size offset = e.KeyCode switch
+                {
+                    Keys.Left => new Size(-GridSize, 0),
+                    Keys.Right => new Size(GridSize, 0),
+                    Keys.Up => new Size(0, -GridSize),
+                    Keys.Down => new Size(0, GridSize),
+                    _ => Size.Empty
+                };
+                if (offset.IsEmpty)
+                    return;
+
+                bool hasSelectedElement = !string.IsNullOrWhiteSpace(SelectedElementId);
+                if (TryMoveSelectedElementByKeyboard(offset) || hasSelectedElement)
+                {
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                }
+            }
+
             protected override void OnDoubleClick(EventArgs e)
             {
                 base.OnDoubleClick(e);
@@ -2737,6 +2766,34 @@ namespace AsutpKnowledgeBase
 
             private static int SnapToGrid(int value) =>
                 (int)Math.Round(value / (double)GridSize, MidpointRounding.AwayFromZero) * GridSize;
+
+            private bool TryMoveSelectedElementByKeyboard(Size offset)
+            {
+                if (string.IsNullOrWhiteSpace(SelectedElementId) ||
+                    !string.IsNullOrWhiteSpace(_dragElementId) ||
+                    !string.IsNullOrWhiteSpace(_dragLinkId))
+                {
+                    return false;
+                }
+
+                KbNetworkElement? element = Topology.Elements.FirstOrDefault(candidate =>
+                    string.Equals(candidate.ElementId, SelectedElementId, StringComparison.Ordinal));
+                if (element == null)
+                    return false;
+
+                Point nextLocation = SnapElementLocation(new Point(
+                    element.X + offset.Width,
+                    element.Y + offset.Height));
+                if (element.X == nextLocation.X && element.Y == nextLocation.Y)
+                    return false;
+
+                element.X = nextLocation.X;
+                element.Y = nextLocation.Y;
+                UpdateCanvasSize();
+                Invalidate();
+                ElementMoved?.Invoke(this, EventArgs.Empty);
+                return true;
+            }
 
             private void DrawGrid(Graphics graphics)
             {
