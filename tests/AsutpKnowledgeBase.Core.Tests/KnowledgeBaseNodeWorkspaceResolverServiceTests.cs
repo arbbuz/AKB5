@@ -45,7 +45,7 @@ public class KnowledgeBaseNodeWorkspaceResolverServiceTests
     }
 
     [Fact]
-    public void Resolve_ForLevel3Cabinet_ReturnsCompositionAndMaintenanceTabs()
+    public void Resolve_ForLevel3Cabinet_ReturnsCompositionAndMaintenanceTabsWithoutInfo()
     {
         var workspace = _service.Resolve(KbNodeType.Cabinet, visibleLevel: 3);
 
@@ -53,7 +53,6 @@ public class KnowledgeBaseNodeWorkspaceResolverServiceTests
         Assert.Equal(
             new[]
             {
-                KnowledgeBaseNodeWorkspaceTabKind.Info,
                 KnowledgeBaseNodeWorkspaceTabKind.Composition,
                 KnowledgeBaseNodeWorkspaceTabKind.AdditionalEquipment,
                 KnowledgeBaseNodeWorkspaceTabKind.Maintenance

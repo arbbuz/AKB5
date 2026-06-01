@@ -42,11 +42,14 @@ namespace AsutpKnowledgeBase.Services
         public KnowledgeBaseNodeWorkspaceState Resolve(KbNodeType nodeType, int visibleLevel = 0)
         {
             var tabs = CreateWorkspaceTabs(nodeType, visibleLevel);
+            var layoutKind = tabs.Count > 1 ||
+                (tabs.Count == 1 && tabs[0].Kind != KnowledgeBaseNodeWorkspaceTabKind.Info)
+                    ? KnowledgeBaseNodeWorkspaceLayoutKind.TabHost
+                    : KnowledgeBaseNodeWorkspaceLayoutKind.InfoOnly;
+
             return new KnowledgeBaseNodeWorkspaceState
             {
-                LayoutKind = tabs.Count > 1
-                    ? KnowledgeBaseNodeWorkspaceLayoutKind.TabHost
-                    : KnowledgeBaseNodeWorkspaceLayoutKind.InfoOnly,
+                LayoutKind = layoutKind,
                 Tabs = tabs
             };
         }
@@ -55,14 +58,16 @@ namespace AsutpKnowledgeBase.Services
             KbNodeType nodeType,
             int visibleLevel)
         {
-            var tabs = new List<KnowledgeBaseNodeWorkspaceTabState>
+            var tabs = new List<KnowledgeBaseNodeWorkspaceTabState>();
+
+            if (visibleLevel != 3)
             {
-                new()
+                tabs.Add(new KnowledgeBaseNodeWorkspaceTabState
                 {
                     Kind = KnowledgeBaseNodeWorkspaceTabKind.Info,
                     Title = "Карточка"
-                }
-            };
+                });
+            }
 
             if (KnowledgeBaseCompositionStateService.SupportsComposition(nodeType, visibleLevel))
             {
