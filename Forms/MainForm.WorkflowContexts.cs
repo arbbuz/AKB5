@@ -140,7 +140,8 @@ namespace AsutpKnowledgeBase
                 GetSelectedSearchScope(),
                 _session.CompositionEntries,
                 _session.DocumentLinks,
-                _session.SoftwareRecords);
+                _session.SoftwareRecords,
+                _session.MaintenanceScheduleProfiles);
             UpdateSearchButtons();
         }
 

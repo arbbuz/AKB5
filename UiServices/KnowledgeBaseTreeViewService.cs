@@ -78,7 +78,10 @@ namespace AsutpKnowledgeBase.UiServices
             if (clearSearch)
                 ClearSearch();
             else
+            {
                 ResetSearchResults();
+                _treeSearchService.InvalidateIndexCache();
+            }
 
             if (selectedTreeNode != null)
             {
@@ -115,7 +118,8 @@ namespace AsutpKnowledgeBase.UiServices
             KnowledgeBaseSearchScope scope,
             IReadOnlyList<KbCompositionEntry>? compositionEntries,
             IReadOnlyList<KbDocumentLink>? documentLinks,
-            IReadOnlyList<KbSoftwareRecord>? softwareRecords)
+            IReadOnlyList<KbSoftwareRecord>? softwareRecords,
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
         {
             string normalizedSearch = searchText.Trim();
             if (string.IsNullOrEmpty(normalizedSearch))
@@ -129,13 +133,14 @@ namespace AsutpKnowledgeBase.UiServices
             ResetSearchResults();
 
             var matches = _treeSearchService.FindMatches(
-                GetVisibleTreeData(treeView),
+                _currentProjection.VisibleRoots,
                 config,
                 normalizedSearch,
                 scope,
                 compositionEntries,
                 documentLinks,
-                softwareRecords);
+                softwareRecords,
+                maintenanceScheduleProfiles);
 
             foreach (var match in matches)
             {
@@ -179,7 +184,8 @@ namespace AsutpKnowledgeBase.UiServices
             KnowledgeBaseSearchScope scope,
             IReadOnlyList<KbCompositionEntry>? compositionEntries,
             IReadOnlyList<KbDocumentLink>? documentLinks,
-            IReadOnlyList<KbSoftwareRecord>? softwareRecords)
+            IReadOnlyList<KbSoftwareRecord>? softwareRecords,
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
         {
             if (string.IsNullOrWhiteSpace(searchText))
             {
@@ -187,6 +193,7 @@ namespace AsutpKnowledgeBase.UiServices
                 return;
             }
 
+            _treeSearchService.InvalidateIndexCache();
             PerformSearch(
                 treeView,
                 config,
@@ -194,12 +201,14 @@ namespace AsutpKnowledgeBase.UiServices
                 scope,
                 compositionEntries,
                 documentLinks,
-                softwareRecords);
+                softwareRecords,
+                maintenanceScheduleProfiles);
         }
 
         public string ClearSearch()
         {
             ResetSearchResults();
+            _treeSearchService.InvalidateIndexCache();
             return "Поиск очищен";
         }
 
@@ -364,7 +373,10 @@ namespace AsutpKnowledgeBase.UiServices
                 KnowledgeBaseSearchScope.Tree => "Дерево",
                 KnowledgeBaseSearchScope.Card => "Карточка",
                 KnowledgeBaseSearchScope.Composition => "Состав",
+                KnowledgeBaseSearchScope.AdditionalEquipment => "Доп. оборудование",
                 KnowledgeBaseSearchScope.DocsAndSoftware => "Документация и ПО",
+                KnowledgeBaseSearchScope.Network => "Сеть",
+                KnowledgeBaseSearchScope.Maintenance => "График ТО",
                 _ => "Все"
             };
 
@@ -374,7 +386,10 @@ namespace AsutpKnowledgeBase.UiServices
                 KnowledgeBaseSearchDomain.Tree => "Дерево",
                 KnowledgeBaseSearchDomain.Card => "Карточка",
                 KnowledgeBaseSearchDomain.Composition => "Состав",
+                KnowledgeBaseSearchDomain.AdditionalEquipment => "Доп. оборудование",
                 KnowledgeBaseSearchDomain.DocsAndSoftware => "Документация и ПО",
+                KnowledgeBaseSearchDomain.Network => "Сеть",
+                KnowledgeBaseSearchDomain.Maintenance => "График ТО",
                 _ => "Дерево"
             };
 

@@ -302,7 +302,10 @@ namespace AsutpKnowledgeBase
                 new SearchScopeOption(KnowledgeBaseSearchScope.Tree, "Дерево"),
                 new SearchScopeOption(KnowledgeBaseSearchScope.Card, "Карточка"),
                 new SearchScopeOption(KnowledgeBaseSearchScope.Composition, "Состав"),
-                new SearchScopeOption(KnowledgeBaseSearchScope.DocsAndSoftware, "Документация и ПО")
+                new SearchScopeOption(KnowledgeBaseSearchScope.AdditionalEquipment, "Доп. оборудование"),
+                new SearchScopeOption(KnowledgeBaseSearchScope.DocsAndSoftware, "Документация и ПО"),
+                new SearchScopeOption(KnowledgeBaseSearchScope.Network, "Сеть"),
+                new SearchScopeOption(KnowledgeBaseSearchScope.Maintenance, "График ТО")
             });
             cmbSearchScope.SelectedIndex = 0;
 
