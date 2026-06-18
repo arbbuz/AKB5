@@ -21,5 +21,6 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/AsutpKnowledgeBase.Core/AsutpKnowledgeBase.Core.csproj" />
+    <ProjectReference Include="../../src/AsutpKnowledgeBase.PdfImport/AsutpKnowledgeBase.PdfImport.csproj" />
   </ItemGroup>
 </Project>

@@ -101,6 +101,24 @@ namespace AsutpKnowledgeBase
         {
             SaveCurrentWorkshopState();
 
+            if (!_productionCalendarPdfImportPluginLoader.IsAvailable)
+            {
+                string message = string.Join(
+                    Environment.NewLine,
+                    "Модуль импорта PDF не найден.",
+                    string.Empty,
+                    "Ожидаемый файл:",
+                    _productionCalendarPdfImportPluginLoader.PluginAssemblyPath);
+                MessageBox.Show(
+                    this,
+                    message,
+                    "Производственный календарь",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                SetLastActionText("Импорт производственного календаря из PDF недоступен: модуль не найден.");
+                return;
+            }
+
             using var dialog = new OpenFileDialog
             {
                 Title = "Импортировать производственный календарь из PDF",
@@ -126,7 +144,7 @@ namespace AsutpKnowledgeBase
                     pdfBytes = memory.ToArray();
                 }
 
-                importResult = _productionCalendarPdfImportService.ImportPdf(pdfBytes);
+                importResult = _productionCalendarPdfImportPluginLoader.ImportPdf(pdfBytes);
             }
             catch (Exception ex)
             {

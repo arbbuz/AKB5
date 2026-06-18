@@ -7,20 +7,7 @@ using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
 
 namespace AsutpKnowledgeBase.Services
 {
-    public sealed class KnowledgeBaseProductionCalendarPdfImportResult
-    {
-        public bool IsSuccess { get; init; }
-
-        public string ErrorMessage { get; init; } = string.Empty;
-
-        public List<KbProductionCalendarYear> ProductionCalendarYears { get; init; } = new();
-
-        public int ImportedYearCount { get; init; }
-
-        public List<string> Warnings { get; init; } = new();
-    }
-
-    public sealed class KnowledgeBaseProductionCalendarPdfImportService
+    public sealed class KnowledgeBaseProductionCalendarPdfImportService : IKnowledgeBaseProductionCalendarPdfImporter
     {
         private static readonly RegexOptions CalendarRegexOptions =
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled;

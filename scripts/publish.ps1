@@ -17,6 +17,7 @@ if ($RuntimeIdentifier -ne "win-x64") {
 $scriptRoot = Split-Path -Parent $PSCommandPath
 $repoRoot = Split-Path -Parent $scriptRoot
 $projectPath = Join-Path $repoRoot "asutpKB.csproj"
+$pdfImportProjectPath = Join-Path $repoRoot "src/AsutpKnowledgeBase.PdfImport/AsutpKnowledgeBase.PdfImport.csproj"
 
 $dotnetCandidates = @()
 if ($env:DOTNET_EXE) {
@@ -72,7 +73,8 @@ $publishArgs = @(
 if ($PublishMode -eq "SingleFile") {
     $publishArgs += @(
         "-p:PublishSingleFile=true",
-        "-p:IncludeNativeLibrariesForSelfExtract=true"
+        "-p:IncludeNativeLibrariesForSelfExtract=true",
+        "-p:EnableCompressionInSingleFile=true"
     )
 }
 else {
@@ -93,9 +95,65 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
+$pdfImportOutputDirectory = Join-Path $OutputDirectory "pdf-import"
+New-Item -ItemType Directory -Path $pdfImportOutputDirectory -Force | Out-Null
+
+$pdfImportPublishArgs = @(
+    "publish",
+    $pdfImportProjectPath,
+    "-c",
+    $Configuration,
+    "-r",
+    $RuntimeIdentifier,
+    "--self-contained",
+    "false",
+    "-p:PublishTrimmed=false",
+    "-p:PublishAot=false",
+    "-p:PublishSingleFile=false",
+    "-p:IncludeNativeLibrariesForSelfExtract=false",
+    "-p:RunAnalyzers=false",
+    "-p:WarningLevel=0",
+    "-o",
+    $pdfImportOutputDirectory
+)
+
+Write-Host "Running: $dotnetPath $($pdfImportPublishArgs -join ' ')"
+& $dotnetPath @pdfImportPublishArgs
+
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
+
+$allowedPdfImportFiles = @(
+    "AsutpKnowledgeBase.PdfImport.deps.json",
+    "AsutpKnowledgeBase.PdfImport.dll",
+    "AsutpKnowledgeBase.PdfImport.pdb"
+)
+
+$removedPdfImportFiles = @()
+Get-ChildItem -LiteralPath $pdfImportOutputDirectory -File |
+    Where-Object {
+        $fileName = $_.Name
+        -not ($allowedPdfImportFiles -contains $fileName) -and
+        -not $fileName.StartsWith("UglyToad.PdfPig", [StringComparison]::OrdinalIgnoreCase)
+    } |
+    ForEach-Object {
+        $removedPdfImportFiles += $_.Name
+        Remove-Item -LiteralPath $_.FullName -Force
+    }
+
 $expectedExe = Join-Path $OutputDirectory "asutpKB.exe"
 if (-not (Test-Path $expectedExe)) {
     throw "Publish succeeded but expected executable was not found: $expectedExe"
 }
 
+$expectedPdfImportAssembly = Join-Path $pdfImportOutputDirectory "AsutpKnowledgeBase.PdfImport.dll"
+if (-not (Test-Path $expectedPdfImportAssembly)) {
+    throw "Publish succeeded but expected PDF import module was not found: $expectedPdfImportAssembly"
+}
+
 Write-Host "Publish output: $expectedExe"
+Write-Host "PDF import module output: $expectedPdfImportAssembly"
+if ($removedPdfImportFiles.Count -gt 0) {
+    Write-Host "Removed non-PDF module files: $($removedPdfImportFiles -join ', ')"
+}

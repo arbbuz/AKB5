@@ -1,6 +1,6 @@
 # Decision Log
 
-Last updated: `2026-05-27`
+Last updated: `2026-06-18`
 
 This file keeps durable AKB5 decisions only. Do not use it as a changelog,
 handoff transcript, validation log, or phase archive.
@@ -34,6 +34,9 @@ handoff transcript, validation log, or phase archive.
 
 - Keep `scripts\publish.ps1` backward-compatible as the supported single-file publish flow.
 - Keep `scripts\publish-fast.ps1` as the accepted faster working package: self-contained folder publish, ReadyToRun enabled, no single-file extraction.
+- Keep production-calendar PDF import out of the main app/core dependency graph. The main app loads it on demand from `pdf-import\AsutpKnowledgeBase.PdfImport.dll`; only that module should reference `PdfPig`.
+- Keep the PDF module publish lean by removing unused OpenXML/SQLite runtime files from `pdf-import` after publish; do not add a separate abstractions project unless this cleanup stops passing validation.
+- Keep single-file compression enabled for `scripts\publish.ps1` `SingleFile` mode so review exe size remains comparable to the existing compressed single-file package.
 - Startup timing diagnostics should go to existing file logs as `StartupTiming` events, not visible operator UI.
 - If cold-start logs repeatedly show `mainform-data-loaded` dominating while SQLite remains fast, add narrower timing around UI session application/binding before changing startup architecture.
 

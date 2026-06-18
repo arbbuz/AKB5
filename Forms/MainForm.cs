@@ -36,7 +36,7 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseMaintenanceYearScheduleSourceService _maintenanceYearScheduleSourceService = new();
         private readonly KnowledgeBaseMaintenanceYearScheduleSourceExchangeService _maintenanceYearScheduleSourceExchangeService = new();
         private readonly KnowledgeBaseProductionCalendarJsonImportService _productionCalendarJsonImportService = new();
-        private readonly KnowledgeBaseProductionCalendarPdfImportService _productionCalendarPdfImportService = new();
+        private readonly KnowledgeBaseProductionCalendarPdfImportPluginLoader _productionCalendarPdfImportPluginLoader = new();
         private readonly KnowledgeBaseCatalogTemplateExchangeService _catalogTemplateExchangeService = new();
         private readonly KnowledgeBaseFormStateService _formStateService = new();
         private readonly KnowledgeBaseNodePresentationService _nodePresentationService = new();
