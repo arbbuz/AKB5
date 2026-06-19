@@ -208,7 +208,7 @@ namespace AsutpKnowledgeBase
             Close();
         }
 
-        private DataGridView CreateSnapshotGrid()
+        private BufferedDataGridView CreateSnapshotGrid()
         {
             var grid = CreateBaseGrid(multiSelect: true);
             grid.Columns.Add(CreateTextColumn("CreatedAt", "Создан", 150));
@@ -225,7 +225,7 @@ namespace AsutpKnowledgeBase
             return grid;
         }
 
-        private DataGridView CreateHistoryGrid()
+        private BufferedDataGridView CreateHistoryGrid()
         {
             var grid = CreateBaseGrid(multiSelect: false);
             grid.Columns.Add(CreateTextColumn("CreatedAt", "Время", 150));
@@ -236,9 +236,9 @@ namespace AsutpKnowledgeBase
             return grid;
         }
 
-        private static DataGridView CreateBaseGrid(bool multiSelect)
+        private static BufferedDataGridView CreateBaseGrid(bool multiSelect)
         {
-            var grid = new DataGridView
+            var grid = new BufferedDataGridView
             {
                 Dock = DockStyle.Fill,
                 AllowUserToAddRows = false,

@@ -18,6 +18,8 @@ namespace AsutpKnowledgeBase
         private KnowledgeBaseCompositionState _currentState = new();
         private bool _isSynchronizingSelection;
         private bool _isApplyingColumnWidths;
+        private bool _isColumnWidthCommitScheduled;
+        private DataGridView? _pendingColumnWidthSource;
         private Dictionary<string, int> _columnWidths = new(StringComparer.Ordinal);
         private string _contextCellText = string.Empty;
 
@@ -109,7 +111,16 @@ namespace AsutpKnowledgeBase
             PopulateEntries(previouslySelectedEntryId);
             UpdateButtonStates();
             UpdateEntriesGroupTitle();
-            UpdateEntriesCardSize();
+
+            _isApplyingColumnWidths = true;
+            try
+            {
+                UpdateEntriesCardSize();
+            }
+            finally
+            {
+                _isApplyingColumnWidths = false;
+            }
         }
 
         public void ApplyColumnWidths(IReadOnlyDictionary<string, int>? columnWidths)
@@ -130,23 +141,44 @@ namespace AsutpKnowledgeBase
         public Dictionary<string, int> GetColumnWidths() =>
             new(_columnWidths, StringComparer.Ordinal);
 
+        public void CommitPendingColumnWidths()
+        {
+            if (_pendingColumnWidthSource == null)
+                return;
+
+            DataGridView source = _pendingColumnWidthSource;
+            _pendingColumnWidthSource = null;
+            _isColumnWidthCommitScheduled = false;
+
+            if (source.IsDisposed)
+                return;
+
+            CommitColumnWidths(source);
+        }
+
         private void PopulateEntries(string preferredSelectedEntryId)
         {
             _isSynchronizingSelection = true;
+            _isApplyingColumnWidths = true;
+            using var redrawScope = ControlRedrawScope.Suspend(_gridEntries);
+            _gridEntries.SuspendLayout();
             try
             {
                 _gridEntries.Rows.Clear();
                 DataGridViewRow? preferredRow = null;
+                var rows = new List<DataGridViewRow>(_currentState.AuxiliaryEntryStates.Count);
                 for (int entryIndex = 0; entryIndex < _currentState.AuxiliaryEntryStates.Count; entryIndex++)
                 {
                     var entry = _currentState.AuxiliaryEntryStates[entryIndex];
-                    int rowIndex = _gridEntries.Rows.Add(
+                    var row = new DataGridViewRow();
+                    row.CreateCells(
+                        _gridEntries,
                         (entryIndex + 1).ToString(CultureInfo.InvariantCulture),
                         entry.ComponentTypeText,
                         entry.OrderNumberText,
                         entry.NotesText);
-                    DataGridViewRow row = _gridEntries.Rows[rowIndex];
                     row.Tag = entry;
+                    rows.Add(row);
 
                     if (!string.IsNullOrWhiteSpace(preferredSelectedEntryId) &&
                         string.Equals(entry.EntryId, preferredSelectedEntryId, StringComparison.Ordinal))
@@ -154,6 +186,9 @@ namespace AsutpKnowledgeBase
                         preferredRow = row;
                     }
                 }
+
+                if (rows.Count > 0)
+                    _gridEntries.Rows.AddRange(rows.ToArray());
 
                 _gridEntries.ClearSelection();
                 _gridEntries.CurrentCell = null;
@@ -165,6 +200,8 @@ namespace AsutpKnowledgeBase
             }
             finally
             {
+                _gridEntries.ResumeLayout();
+                _isApplyingColumnWidths = false;
                 _isSynchronizingSelection = false;
             }
 
@@ -272,9 +309,9 @@ namespace AsutpKnowledgeBase
             return _entriesGroup;
         }
 
-        private DataGridView CreateEntriesGrid()
+        private BufferedDataGridView CreateEntriesGrid()
         {
-            var grid = new DataGridView
+            var grid = new BufferedDataGridView
             {
                 Dock = DockStyle.Fill,
                 AllowUserToAddRows = false,
@@ -325,6 +362,27 @@ namespace AsutpKnowledgeBase
             if (_isApplyingColumnWidths || sender is not DataGridView source)
                 return;
 
+            ScheduleColumnWidthCommit(source);
+        }
+
+        private void ScheduleColumnWidthCommit(DataGridView source)
+        {
+            _pendingColumnWidthSource = source;
+            if (_isColumnWidthCommitScheduled)
+                return;
+
+            _isColumnWidthCommitScheduled = true;
+            if (IsHandleCreated)
+            {
+                BeginInvoke((MethodInvoker)CommitPendingColumnWidths);
+                return;
+            }
+
+            CommitPendingColumnWidths();
+        }
+
+        private void CommitColumnWidths(DataGridView source)
+        {
             _columnWidths = GetGridColumnWidths(source);
             ColumnWidthsChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -355,11 +413,20 @@ namespace AsutpKnowledgeBase
             var widths = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (DataGridViewColumn column in grid.Columns)
             {
-                if (column.Visible && !string.IsNullOrWhiteSpace(column.Name) && column.Width > 0)
-                    widths[column.Name] = column.Width;
+                if (!column.Visible || string.IsNullOrWhiteSpace(column.Name))
+                    continue;
+
+                int width = GetGridColumnStoredWidth(column);
+                if (width > 0)
+                    widths[column.Name] = width;
             }
 
             return widths;
+        }
+
+        private static int GetGridColumnStoredWidth(DataGridViewColumn column)
+        {
+            return column.Width;
         }
 
         private static Dictionary<string, int> NormalizeColumnWidths(IReadOnlyDictionary<string, int>? columnWidths)

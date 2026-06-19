@@ -83,7 +83,7 @@ namespace AsutpKnowledgeBase
             layout.Controls.Add(summaryLayout, 0, 2);
             layout.SetColumnSpan(summaryLayout, 2);
 
-            _gridDemand = new DataGridView
+            _gridDemand = new BufferedDataGridView
             {
                 Dock = DockStyle.Fill,
                 ReadOnly = true,

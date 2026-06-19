@@ -48,6 +48,7 @@ namespace AsutpKnowledgeBase
                     ? tabKind
                     : null;
 
+            using var redrawScope = ControlRedrawScope.Suspend(tabSelectedNodeWorkspace);
             tabSelectedNodeWorkspace.SuspendLayout();
             try
             {

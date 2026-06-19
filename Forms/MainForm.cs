@@ -442,13 +442,22 @@ namespace AsutpKnowledgeBase
 
         private void UpdateUI(bool refreshSelectedNodeState = true)
         {
+            CommitPendingWorkspaceColumnWidths();
             var formState = BuildFormState();
             ApplyFormState(formState, refreshSelectedNodeState);
+        }
+
+        private void CommitPendingWorkspaceColumnWidths()
+        {
+            selectedNodeAdditionalEquipmentScreen.CommitPendingColumnWidths();
         }
 
         private void ApplySelectedNodeState(KnowledgeBaseSelectedNodeState selectedNodeState)
         {
             _isApplyingSelectedNodeState = true;
+            using var redrawScope = ControlRedrawScope.Suspend(pnlSelectedNodeWorkspaceHost);
+            pnlSelectedNodeWorkspaceHost.SuspendLayout();
+            pnlSelectedNodeWorkspaceSurface.SuspendLayout();
             try
             {
                 bool hasSelection = selectedNodeState.HasSelection;
@@ -483,6 +492,8 @@ namespace AsutpKnowledgeBase
             }
             finally
             {
+                pnlSelectedNodeWorkspaceSurface.ResumeLayout();
+                pnlSelectedNodeWorkspaceHost.ResumeLayout();
                 _isApplyingSelectedNodeState = false;
             }
         }

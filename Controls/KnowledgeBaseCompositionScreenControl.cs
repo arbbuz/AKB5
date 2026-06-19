@@ -146,6 +146,8 @@ namespace AsutpKnowledgeBase
             int? preferredSlotNumber)
         {
             _isSynchronizingSelection = true;
+            _isApplyingColumnWidths = true;
+            using var redrawScope = ControlRedrawScope.Suspend(_rackPanel);
             _rackPanel.SuspendLayout();
             try
             {
@@ -193,6 +195,7 @@ namespace AsutpKnowledgeBase
             finally
             {
                 _rackPanel.ResumeLayout();
+                _isApplyingColumnWidths = false;
                 _isSynchronizingSelection = false;
             }
         }
@@ -204,40 +207,55 @@ namespace AsutpKnowledgeBase
             int? preferredSlotNumber,
             bool shouldSelectRack)
         {
-            grid.Rows.Clear();
-
-            DataGridViewRow? preferredRow = null;
-            foreach (var entry in rack.SlotRows)
+            using var redrawScope = ControlRedrawScope.Suspend(grid);
+            grid.SuspendLayout();
+            try
             {
-                int rowIndex = grid.Rows.Add(
-                    entry.SlotText,
-                    entry.SlotRoleText,
-                    entry.ComponentTypeText,
-                    entry.OrderNumberText);
-                var row = grid.Rows[rowIndex];
-                row.Tag = entry;
-                ApplyGridRowStyle(row, entry);
+                grid.Rows.Clear();
 
-                if (shouldSelectRack &&
-                    preferredRow == null &&
-                    ShouldSelectEntry(entry, preferredSelectedEntryId, rack.RackNumber, preferredSlotNumber))
+                DataGridViewRow? preferredRow = null;
+                var rows = new List<DataGridViewRow>(rack.SlotRows.Count);
+                foreach (var entry in rack.SlotRows)
                 {
-                    preferredRow = row;
+                    var row = new DataGridViewRow();
+                    row.CreateCells(
+                        grid,
+                        entry.SlotText,
+                        entry.SlotRoleText,
+                        entry.ComponentTypeText,
+                        entry.OrderNumberText);
+                    row.Tag = entry;
+                    ApplyGridRowStyle(row, entry);
+                    rows.Add(row);
+
+                    if (shouldSelectRack &&
+                        preferredRow == null &&
+                        ShouldSelectEntry(entry, preferredSelectedEntryId, rack.RackNumber, preferredSlotNumber))
+                    {
+                        preferredRow = row;
+                    }
                 }
+
+                if (rows.Count > 0)
+                    grid.Rows.AddRange(rows.ToArray());
+
+                grid.ClearSelection();
+                grid.CurrentCell = null;
+                if (!shouldSelectRack)
+                    return null;
+
+                preferredRow ??= rows.Count > 0 ? rows[0] : null;
+                if (preferredRow == null)
+                    return null;
+
+                preferredRow.Selected = true;
+                grid.CurrentCell = preferredRow.Cells[0];
+                return preferredRow.Tag as KnowledgeBaseCompositionEntryState;
             }
-
-            grid.ClearSelection();
-            grid.CurrentCell = null;
-            if (!shouldSelectRack)
-                return null;
-
-            preferredRow ??= grid.Rows.Count > 0 ? grid.Rows[0] : null;
-            if (preferredRow == null)
-                return null;
-
-            preferredRow.Selected = true;
-            grid.CurrentCell = preferredRow.Cells[0];
-            return preferredRow.Tag as KnowledgeBaseCompositionEntryState;
+            finally
+            {
+                grid.ResumeLayout();
+            }
         }
 
         private int ResolvePreferredRackNumber(string preferredSelectedEntryId, int preferredRackNumber)
@@ -372,6 +390,11 @@ namespace AsutpKnowledgeBase
             if (_isApplyingColumnWidths || sender is not DataGridView source)
                 return;
 
+            CommitColumnWidths(source);
+        }
+
+        private void CommitColumnWidths(DataGridView source)
+        {
             _rackDetailsColumnWidths = GetGridColumnWidths(source);
             _isApplyingColumnWidths = true;
             try
@@ -462,15 +485,15 @@ namespace AsutpKnowledgeBase
             return groupBox;
         }
 
-        private DataGridView CreateRackDetailsGrid()
+        private BufferedDataGridView CreateRackDetailsGrid()
         {
-            var grid = new DataGridView
+            var grid = new BufferedDataGridView
             {
                 Dock = DockStyle.Fill,
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
                 AllowUserToResizeRows = false,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
                 EditMode = DataGridViewEditMode.EditProgrammatically,
                 MultiSelect = false,
                 ReadOnly = true,
@@ -512,15 +535,14 @@ namespace AsutpKnowledgeBase
                 row.DefaultCellStyle.ForeColor = Color.DimGray;
         }
 
-        private static DataGridViewTextBoxColumn CreateGridColumn(string name, string headerText, int fillWeight) =>
+        private static DataGridViewTextBoxColumn CreateGridColumn(string name, string headerText, int width) =>
             new()
             {
                 Name = name,
                 HeaderText = headerText,
-                Width = fillWeight,
-                MinimumWidth = Math.Min(80, fillWeight),
-                FillWeight = fillWeight,
-                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
+                Width = width,
+                MinimumWidth = Math.Min(80, width),
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.None,
                 SortMode = DataGridViewColumnSortMode.NotSortable
             };
 
@@ -617,13 +639,6 @@ namespace AsutpKnowledgeBase
 
         private static void ApplyGridColumnWidth(DataGridViewColumn column, int width)
         {
-            if (column.DataGridView?.AutoSizeColumnsMode == DataGridViewAutoSizeColumnsMode.Fill ||
-                column.AutoSizeMode == DataGridViewAutoSizeColumnMode.Fill)
-            {
-                column.FillWeight = Math.Max(1F, width);
-                return;
-            }
-
             column.Width = width;
         }
 
@@ -632,7 +647,13 @@ namespace AsutpKnowledgeBase
             var widths = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (DataGridViewColumn column in grid.Columns)
             {
-                if (column.Visible && !string.IsNullOrWhiteSpace(column.Name) && column.Width > 0)
+                if (!column.Visible ||
+                    string.IsNullOrWhiteSpace(column.Name))
+                {
+                    continue;
+                }
+
+                if (column.Width > 0)
                     widths[column.Name] = column.Width;
             }
 

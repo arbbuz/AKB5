@@ -82,9 +82,9 @@ namespace AsutpKnowledgeBase
             return layout;
         }
 
-        private DataGridView CreateGrid()
+        private BufferedDataGridView CreateGrid()
         {
-            var grid = new DataGridView
+            var grid = new BufferedDataGridView
             {
                 Dock = DockStyle.Fill,
                 AllowUserToAddRows = false,

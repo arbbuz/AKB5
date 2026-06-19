@@ -123,9 +123,9 @@ namespace AsutpKnowledgeBase
             return panel;
         }
 
-        private DataGridView CreateGrid()
+        private BufferedDataGridView CreateGrid()
         {
-            var grid = new DataGridView
+            var grid = new BufferedDataGridView
             {
                 Dock = DockStyle.Fill,
                 AllowUserToAddRows = false,
@@ -194,32 +194,52 @@ namespace AsutpKnowledgeBase
             List<KbEquipmentCatalogItem> visibleItems = SortItems(
                 _catalogService.Search(_items, _txtSearch?.Text));
 
-            _grid?.Rows.Clear();
             if (_grid != null)
             {
-                foreach (KbEquipmentCatalogItem item in visibleItems)
+                using var redrawScope = ControlRedrawScope.Suspend(_grid);
+                _grid.SuspendLayout();
+                try
                 {
-                    int rowIndex = _grid.Rows.Add();
-                    DataGridViewRow row = _grid.Rows[rowIndex];
-                    row.Tag = item;
-                    row.Cells["CatalogItemId"].Value = item.CatalogItemId;
-                    row.Cells[EquipmentKindColumnName].Value = item.EquipmentKind;
-                    row.Cells[ManufacturerColumnName].Value = item.Manufacturer;
-                    row.Cells[ModelColumnName].Value = item.Model;
-                    row.Cells[DescriptionColumnName].Value = item.Description;
+                    _grid.Rows.Clear();
+                    var rows = new List<DataGridViewRow>(visibleItems.Count);
+                    DataGridViewRow? preferredRow = null;
 
-                    if (!string.IsNullOrWhiteSpace(selectedId) &&
-                        string.Equals(item.CatalogItemId, selectedId, StringComparison.Ordinal))
+                    foreach (KbEquipmentCatalogItem item in visibleItems)
                     {
-                        row.Selected = true;
-                        _grid.CurrentCell = row.Cells[EquipmentKindColumnName];
+                        var row = new DataGridViewRow();
+                        row.CreateCells(
+                            _grid,
+                            item.CatalogItemId,
+                            item.EquipmentKind,
+                            item.Manufacturer,
+                            item.Model,
+                            item.Description);
+                        row.Tag = item;
+                        rows.Add(row);
+
+                        if (!string.IsNullOrWhiteSpace(selectedId) &&
+                            string.Equals(item.CatalogItemId, selectedId, StringComparison.Ordinal))
+                        {
+                            preferredRow = row;
+                        }
+                    }
+
+                    if (rows.Count > 0)
+                        _grid.Rows.AddRange(rows.ToArray());
+
+                    _grid.ClearSelection();
+                    _grid.CurrentCell = null;
+
+                    preferredRow ??= rows.Count > 0 ? rows[0] : null;
+                    if (preferredRow != null)
+                    {
+                        preferredRow.Selected = true;
+                        _grid.CurrentCell = preferredRow.Cells[EquipmentKindColumnName];
                     }
                 }
-
-                if (_grid.Rows.Count > 0 && _grid.SelectedRows.Count == 0)
+                finally
                 {
-                    _grid.Rows[0].Selected = true;
-                    _grid.CurrentCell = _grid.Rows[0].Cells[EquipmentKindColumnName];
+                    _grid.ResumeLayout();
                 }
 
                 UpdateSortGlyph();
