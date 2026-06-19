@@ -6,15 +6,18 @@ namespace AsutpKnowledgeBase.UiServices
 {
     public sealed class KnowledgeBaseMaintenanceWorkbookUiWorkflowService
     {
-        private readonly KnowledgeBaseMaintenanceWorkbookGenerationService? _generationService;
+        private readonly KnowledgeBaseExcelExchangePluginLoader _excelExchangePluginLoader;
+        private readonly IKnowledgeBaseMaintenanceWorkbookGenerator? _generationService;
         private readonly KnowledgeBaseMaintenanceMonthWorkResolverService _workResolverService;
         private readonly KnowledgeBaseMaintenanceMonthDemandSummaryService _demandSummaryService;
 
         public KnowledgeBaseMaintenanceWorkbookUiWorkflowService(
-            KnowledgeBaseMaintenanceWorkbookGenerationService? generationService = null,
+            KnowledgeBaseExcelExchangePluginLoader? excelExchangePluginLoader = null,
+            IKnowledgeBaseMaintenanceWorkbookGenerator? generationService = null,
             KnowledgeBaseMaintenanceMonthWorkResolverService? workResolverService = null,
             KnowledgeBaseMaintenanceMonthDemandSummaryService? demandSummaryService = null)
         {
+            _excelExchangePluginLoader = excelExchangePluginLoader ?? new KnowledgeBaseExcelExchangePluginLoader();
             _generationService = generationService;
             _workResolverService = workResolverService ?? new KnowledgeBaseMaintenanceMonthWorkResolverService();
             _demandSummaryService = demandSummaryService ?? new KnowledgeBaseMaintenanceMonthDemandSummaryService(_workResolverService);
@@ -39,6 +42,9 @@ namespace AsutpKnowledgeBase.UiServices
                     MessageBoxIcon.Information);
                 return;
             }
+
+            if (!TryEnsureExcelModuleAvailable(owner, setStatusText))
+                return;
 
             DateTime now = DateTime.Now;
             int initialYear = now.Year;
@@ -78,12 +84,13 @@ namespace AsutpKnowledgeBase.UiServices
             try
             {
                 KnowledgeBaseMaintenanceWorkbookGenerationResult generationResult =
-                    ResolveGenerationService(productionCalendarYears).GenerateSingleMonthWorkbook(
+                    GenerateSingleMonthWorkbook(
                         exportDialog.SelectedYear,
                         exportDialog.SelectedMonth,
                         exportDialog.MonthlyBudgetHours,
                         roots,
-                        maintenanceScheduleProfiles);
+                        maintenanceScheduleProfiles,
+                        productionCalendarYears);
 
                 if (!generationResult.IsSuccess || generationResult.WorkbookPackage == null)
                 {
@@ -142,6 +149,9 @@ namespace AsutpKnowledgeBase.UiServices
                 return;
             }
 
+            if (!TryEnsureExcelModuleAvailable(owner, setStatusText))
+                return;
+
             DateTime now = DateTime.Now;
             int initialYear = now.Year;
 
@@ -172,11 +182,12 @@ namespace AsutpKnowledgeBase.UiServices
             try
             {
                 KnowledgeBaseMaintenanceAnnualWorkbookGenerationResult generationResult =
-                    ResolveGenerationService(productionCalendarYears).GenerateAnnualWorkbook(
+                    GenerateAnnualWorkbook(
                         exportDialog.SelectedYear,
                         workshopName,
                         roots,
-                        maintenanceScheduleProfiles);
+                        maintenanceScheduleProfiles,
+                        productionCalendarYears);
 
                 if (!generationResult.IsSuccess || generationResult.WorkbookPackage == null)
                 {
@@ -235,6 +246,9 @@ namespace AsutpKnowledgeBase.UiServices
                 return;
             }
 
+            if (!TryEnsureExcelModuleAvailable(owner, setStatusText))
+                return;
+
             DateTime now = DateTime.Now;
             int initialYear = now.Year;
             int initialBudget = ResolveSuggestedYearlyMonthlyBudget(
@@ -275,12 +289,13 @@ namespace AsutpKnowledgeBase.UiServices
                     : null;
 
                 KnowledgeBaseMaintenanceYearWorkbookGenerationResult generationResult =
-                    ResolveGenerationService(productionCalendarYears).GenerateYearWorkbook(
+                    GenerateYearWorkbook(
                         existingWorkbookPackage,
                         exportDialog.SelectedYear,
                         exportDialog.MonthlyBudgetHours,
                         roots,
-                        maintenanceScheduleProfiles);
+                        maintenanceScheduleProfiles,
+                        productionCalendarYears);
 
                 if (!generationResult.IsSuccess || generationResult.WorkbookPackage == null)
                 {
@@ -339,6 +354,9 @@ namespace AsutpKnowledgeBase.UiServices
                 return;
             }
 
+            if (!TryEnsureExcelModuleAvailable(owner, setStatusText))
+                return;
+
             DateTime now = DateTime.Now;
             int initialYear = now.Year;
             int initialStartMonth = now.Month;
@@ -386,13 +404,14 @@ namespace AsutpKnowledgeBase.UiServices
                 byte[] existingWorkbookPackage = ReadWorkbookPackage(openDialog.FileName);
 
                 KnowledgeBaseMaintenanceYearWorkbookGenerationResult generationResult =
-                    ResolveGenerationService(productionCalendarYears).GenerateYearWorkbookFromMonth(
+                    GenerateYearWorkbookFromMonth(
                         existingWorkbookPackage,
                         recalculationDialog.SelectedYear,
                         recalculationDialog.SelectedStartMonth,
                         recalculationDialog.MonthlyBudgetHours,
                         roots,
-                        maintenanceScheduleProfiles);
+                        maintenanceScheduleProfiles,
+                        productionCalendarYears);
 
                 if (!generationResult.IsSuccess || generationResult.WorkbookPackage == null)
                 {
@@ -457,15 +476,110 @@ namespace AsutpKnowledgeBase.UiServices
             return maxMonthlyDemand;
         }
 
-        private KnowledgeBaseMaintenanceWorkbookGenerationService ResolveGenerationService(
-            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears)
-        {
-            if (_generationService != null)
-                return _generationService;
+        private KnowledgeBaseMaintenanceWorkbookGenerationResult GenerateSingleMonthWorkbook(
+            int year,
+            int month,
+            int totalMonthlyHourBudget,
+            IReadOnlyList<KbNode>? roots,
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears) =>
+            _generationService?.GenerateSingleMonthWorkbook(
+                year,
+                month,
+                totalMonthlyHourBudget,
+                roots,
+                maintenanceScheduleProfiles,
+                productionCalendarYears)
+            ?? _excelExchangePluginLoader.GenerateSingleMonthWorkbook(
+                year,
+                month,
+                totalMonthlyHourBudget,
+                roots,
+                maintenanceScheduleProfiles,
+                productionCalendarYears);
 
-            var calendarService = new KnowledgeBaseRussianProductionCalendarService(productionCalendarYears);
-            var plannerService = new KnowledgeBaseMaintenanceMonthlyPlannerService(calendarService);
-            return new KnowledgeBaseMaintenanceWorkbookGenerationService(plannerService);
+        private KnowledgeBaseMaintenanceAnnualWorkbookGenerationResult GenerateAnnualWorkbook(
+            int year,
+            string workshopName,
+            IReadOnlyList<KbNode>? roots,
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears) =>
+            _generationService?.GenerateAnnualWorkbook(
+                year,
+                workshopName,
+                roots,
+                maintenanceScheduleProfiles,
+                productionCalendarYears)
+            ?? _excelExchangePluginLoader.GenerateAnnualWorkbook(
+                year,
+                workshopName,
+                roots,
+                maintenanceScheduleProfiles,
+                productionCalendarYears);
+
+        private KnowledgeBaseMaintenanceYearWorkbookGenerationResult GenerateYearWorkbook(
+            byte[]? existingWorkbookPackage,
+            int year,
+            int totalMonthlyHourBudget,
+            IReadOnlyList<KbNode>? roots,
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears) =>
+            _generationService?.GenerateYearWorkbook(
+                existingWorkbookPackage,
+                year,
+                totalMonthlyHourBudget,
+                roots,
+                maintenanceScheduleProfiles,
+                productionCalendarYears)
+            ?? _excelExchangePluginLoader.GenerateYearWorkbook(
+                existingWorkbookPackage,
+                year,
+                totalMonthlyHourBudget,
+                roots,
+                maintenanceScheduleProfiles,
+                productionCalendarYears);
+
+        private KnowledgeBaseMaintenanceYearWorkbookGenerationResult GenerateYearWorkbookFromMonth(
+            byte[]? existingWorkbookPackage,
+            int year,
+            int startMonth,
+            int totalMonthlyHourBudget,
+            IReadOnlyList<KbNode>? roots,
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears) =>
+            _generationService?.GenerateYearWorkbookFromMonth(
+                existingWorkbookPackage,
+                year,
+                startMonth,
+                totalMonthlyHourBudget,
+                roots,
+                maintenanceScheduleProfiles,
+                productionCalendarYears)
+            ?? _excelExchangePluginLoader.GenerateYearWorkbookFromMonth(
+                existingWorkbookPackage,
+                year,
+                startMonth,
+                totalMonthlyHourBudget,
+                roots,
+                maintenanceScheduleProfiles,
+                productionCalendarYears);
+
+        private bool TryEnsureExcelModuleAvailable(IWin32Window owner, Action<string> setStatusText)
+        {
+            if (_generationService != null ||
+                _excelExchangePluginLoader.TryEnsureAvailable(out string errorMessage))
+            {
+                return true;
+            }
+
+            MessageBox.Show(
+                owner,
+                errorMessage,
+                "Excel",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            setStatusText($"Excel недоступен: {errorMessage}");
+            return false;
         }
 
         private static byte[] ReadWorkbookPackage(string path)

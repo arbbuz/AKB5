@@ -2,57 +2,7 @@ using AsutpKnowledgeBase.Models;
 
 namespace AsutpKnowledgeBase.Services
 {
-    public sealed class KnowledgeBaseMaintenanceYearScheduleSourceRow
-    {
-        public string OwnerNodeId { get; init; } = string.Empty;
-
-        public string Path { get; init; } = string.Empty;
-
-        public string NodeName { get; init; } = string.Empty;
-
-        public string InventoryNumber { get; init; } = string.Empty;
-
-        public int SequenceNumber { get; init; }
-
-        public string SystemNodeId { get; init; } = string.Empty;
-
-        public string SystemName { get; init; } = string.Empty;
-
-        public string SystemInventoryNumber { get; init; } = string.Empty;
-
-        public int SystemTreeOrder { get; init; }
-
-        public bool IsIncludedInSchedule { get; init; }
-
-        public List<KbMaintenanceYearScheduleEntry> YearScheduleEntries { get; init; } = new();
-
-        public int TreeOrder { get; init; }
-
-        public uint SourceRowNumber { get; init; }
-
-        public bool HasManualSchedule => YearScheduleEntries.Count > 0;
-    }
-
-    public sealed class KnowledgeBaseMaintenanceYearScheduleSourceApplyResult
-    {
-        public bool IsSuccess { get; init; }
-
-        public string ErrorMessage { get; init; } = string.Empty;
-
-        public List<KbMaintenanceScheduleProfile> MaintenanceScheduleProfiles { get; init; } = new();
-
-        public int EditedRowCount { get; init; }
-
-        public int UpdatedProfileCount { get; init; }
-
-        public int ClearedProfileCount { get; init; }
-
-        public int UnchangedProfileCount { get; init; }
-
-        public List<string> UnresolvedRows { get; init; } = new();
-    }
-
-    public sealed class KnowledgeBaseMaintenanceYearScheduleSourceService
+    public sealed class KnowledgeBaseMaintenanceYearScheduleSourceService : IKnowledgeBaseMaintenanceYearScheduleSourceService
     {
         private readonly KnowledgeBaseMaintenanceSystemOrderService _systemOrderService;
 

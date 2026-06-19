@@ -24,11 +24,11 @@ namespace AsutpKnowledgeBase.UiServices
     /// </summary>
     public class KnowledgeBaseExcelUiWorkflowService
     {
-        private readonly KnowledgeBaseExcelExchangeService _excelExchangeService;
+        private readonly KnowledgeBaseExcelExchangePluginLoader _excelExchangePluginLoader;
 
-        public KnowledgeBaseExcelUiWorkflowService(KnowledgeBaseExcelExchangeService excelExchangeService)
+        public KnowledgeBaseExcelUiWorkflowService(KnowledgeBaseExcelExchangePluginLoader excelExchangePluginLoader)
         {
-            _excelExchangeService = excelExchangeService;
+            _excelExchangePluginLoader = excelExchangePluginLoader;
         }
 
         public void Export(
@@ -37,6 +37,9 @@ namespace AsutpKnowledgeBase.UiServices
             string currentDataPath,
             Action<string> setStatusText)
         {
+            if (!TryEnsureExcelModuleAvailable(owner, setStatusText))
+                return;
+
             using var dialog = new SaveFileDialog
             {
                 Title = "Экспортировать базу в книгу Excel",
@@ -54,7 +57,7 @@ namespace AsutpKnowledgeBase.UiServices
             if (dialog.ShowDialog(owner) != DialogResult.OK)
                 return;
 
-            var result = _excelExchangeService.Export(data, dialog.FileName);
+            var result = _excelExchangePluginLoader.Export(data, dialog.FileName);
             if (result.IsSuccess)
             {
                 MessageBox.Show(
@@ -78,6 +81,9 @@ namespace AsutpKnowledgeBase.UiServices
 
         public void Import(KnowledgeBaseExcelImportUiWorkflowContext context)
         {
+            if (!TryEnsureExcelModuleAvailable(context.Owner, context.SetStatusText))
+                return;
+
             if (!context.ConfirmContinueBeforeImport("импортом базы из Excel"))
                 return;
 
@@ -95,7 +101,7 @@ namespace AsutpKnowledgeBase.UiServices
             if (dialog.ShowDialog(context.Owner) != DialogResult.OK)
                 return;
 
-            var importResult = _excelExchangeService.Import(dialog.FileName);
+            var importResult = _excelExchangePluginLoader.Import(dialog.FileName);
             if (!importResult.IsSuccess || importResult.Data == null)
             {
                 MessageBox.Show(
@@ -144,6 +150,21 @@ namespace AsutpKnowledgeBase.UiServices
                 return "ASUTP_KnowledgeBase.xlsx";
 
             return Path.ChangeExtension(fileName, "xlsx");
+        }
+
+        private bool TryEnsureExcelModuleAvailable(IWin32Window owner, Action<string> setStatusText)
+        {
+            if (_excelExchangePluginLoader.TryEnsureAvailable(out string errorMessage))
+                return true;
+
+            MessageBox.Show(
+                owner,
+                errorMessage,
+                "Excel",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            setStatusText($"Excel недоступен: {errorMessage}");
+            return false;
         }
     }
 }

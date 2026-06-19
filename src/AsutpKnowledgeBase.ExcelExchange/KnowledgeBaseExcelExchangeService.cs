@@ -2,27 +2,11 @@ using AsutpKnowledgeBase.Models;
 
 namespace AsutpKnowledgeBase.Services
 {
-    public class KnowledgeBaseExcelExportResult
-    {
-        public bool IsSuccess { get; init; }
-
-        public string? ErrorMessage { get; init; }
-    }
-
-    public class KnowledgeBaseExcelImportResult
-    {
-        public bool IsSuccess { get; init; }
-
-        public SavedData? Data { get; init; }
-
-        public string? ErrorMessage { get; init; }
-    }
-
     /// <summary>
     /// Экспортирует и импортирует базу знаний в xlsx workbook.
     /// Актуальный export-контракт: Meta, Levels, Workshops и отдельные листы узлов по цехам.
     /// </summary>
-    public class KnowledgeBaseExcelExchangeService
+    public class KnowledgeBaseExcelExchangeService : IKnowledgeBaseExcelExchangeService
     {
         public const string WorkbookFormatId = "AKB5.ExcelExchange";
         public const int WorkbookFormatVersion = 3;

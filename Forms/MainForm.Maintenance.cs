@@ -128,6 +128,9 @@ namespace AsutpKnowledgeBase
 
             SaveCurrentWorkshopState();
 
+            if (!TryEnsureExcelModuleAvailable("Импорт норм ТО из Excel недоступен"))
+                return;
+
             using var dialog = new OpenFileDialog
             {
                 Title = "Импортировать нормы ТО из Excel",
@@ -153,7 +156,7 @@ namespace AsutpKnowledgeBase
                     packageBytes = memory.ToArray();
                 }
 
-                importResult = _maintenanceScheduleNormImportService.ImportWorkbook(
+                importResult = _excelExchangePluginLoader.ImportMaintenanceScheduleNormWorkbook(
                     packageBytes,
                     GetPersistedTreeData(),
                     _session.MaintenanceScheduleProfiles);
@@ -287,8 +290,11 @@ namespace AsutpKnowledgeBase
 
             SaveCurrentWorkshopState();
 
+            if (!TryEnsureExcelModuleAvailable("Редактирование источника годового графика ТО недоступно"))
+                return;
+
             List<KnowledgeBaseMaintenanceYearScheduleSourceRow> rows =
-                _maintenanceYearScheduleSourceService.BuildRows(
+                _excelExchangePluginLoader.BuildMaintenanceYearScheduleSourceRows(
                     GetPersistedTreeData(),
                     _session.MaintenanceScheduleProfiles);
             if (rows.Count == 0)
@@ -307,7 +313,7 @@ namespace AsutpKnowledgeBase
                 return;
 
             KnowledgeBaseMaintenanceYearScheduleSourceApplyResult applyResult =
-                _maintenanceYearScheduleSourceService.ApplyRows(
+                _excelExchangePluginLoader.ApplyMaintenanceYearScheduleSourceRows(
                     dialog.ResultRows,
                     GetPersistedTreeData(),
                     _session.MaintenanceScheduleProfiles);
@@ -352,6 +358,9 @@ namespace AsutpKnowledgeBase
 
             SaveCurrentWorkshopState();
 
+            if (!TryEnsureExcelModuleAvailable("Экспорт источника годового графика ТО недоступен"))
+                return;
+
             using var dialog = new SaveFileDialog
             {
                 Title = "Экспортировать источник годового графика ТО",
@@ -368,7 +377,7 @@ namespace AsutpKnowledgeBase
                 return;
 
             KnowledgeBaseMaintenanceYearScheduleSourceExportResult exportResult =
-                _maintenanceYearScheduleSourceExchangeService.ExportWorkbook(
+                _excelExchangePluginLoader.ExportMaintenanceYearScheduleSourceWorkbook(
                     GetPersistedTreeData(),
                     _session.MaintenanceScheduleProfiles);
 
@@ -428,6 +437,9 @@ namespace AsutpKnowledgeBase
 
             SaveCurrentWorkshopState();
 
+            if (!TryEnsureExcelModuleAvailable("Импорт источника годового графика ТО недоступен"))
+                return;
+
             using var dialog = new OpenFileDialog
             {
                 Title = "Импортировать источник годового графика ТО из Excel",
@@ -453,7 +465,7 @@ namespace AsutpKnowledgeBase
                     packageBytes = memory.ToArray();
                 }
 
-                importResult = _maintenanceYearScheduleSourceExchangeService.ImportWorkbook(
+                importResult = _excelExchangePluginLoader.ImportMaintenanceYearScheduleSourceWorkbook(
                     packageBytes,
                     GetPersistedTreeData(),
                     _session.MaintenanceScheduleProfiles);
@@ -714,6 +726,21 @@ namespace AsutpKnowledgeBase
             }
 
             return string.Join(Environment.NewLine, lines);
+        }
+
+        private bool TryEnsureExcelModuleAvailable(string statusText)
+        {
+            if (_excelExchangePluginLoader.TryEnsureAvailable(out string errorMessage))
+                return true;
+
+            MessageBox.Show(
+                this,
+                errorMessage,
+                "Excel",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            SetLastActionText($"{statusText}: {errorMessage}");
+            return false;
         }
 
         private static string BuildSafeFileNamePart(string value)

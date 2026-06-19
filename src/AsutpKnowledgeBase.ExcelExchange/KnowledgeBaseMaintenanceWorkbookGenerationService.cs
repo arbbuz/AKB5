@@ -3,53 +3,6 @@ using AsutpKnowledgeBase.Models;
 
 namespace AsutpKnowledgeBase.Services
 {
-    public sealed class KnowledgeBaseMaintenanceWorkbookGenerationResult
-    {
-        public bool IsSuccess { get; init; }
-
-        public string ErrorMessage { get; init; } = string.Empty;
-
-        public KnowledgeBaseMaintenanceMonthPlanResult? PlanResult { get; init; }
-
-        public KbMaintenanceMonthSheetModel? SheetModel { get; init; }
-
-        public byte[]? WorkbookPackage { get; init; }
-    }
-
-    public sealed class KnowledgeBaseMaintenanceYearWorkbookGenerationMonthResult
-    {
-        public int Month { get; init; }
-
-        public KnowledgeBaseMaintenanceMonthPlanResult? PlanResult { get; init; }
-
-        public KbMaintenanceMonthSheetModel? SheetModel { get; init; }
-    }
-
-    public sealed class KnowledgeBaseMaintenanceYearWorkbookGenerationResult
-    {
-        public bool IsSuccess { get; init; }
-
-        public string ErrorMessage { get; init; } = string.Empty;
-
-        public int FailedMonth { get; init; }
-
-        public IReadOnlyList<KnowledgeBaseMaintenanceYearWorkbookGenerationMonthResult> MonthResults { get; init; } =
-            Array.Empty<KnowledgeBaseMaintenanceYearWorkbookGenerationMonthResult>();
-
-        public byte[]? WorkbookPackage { get; init; }
-    }
-
-    public sealed class KnowledgeBaseMaintenanceAnnualWorkbookGenerationResult
-    {
-        public bool IsSuccess { get; init; }
-
-        public string ErrorMessage { get; init; } = string.Empty;
-
-        public KbMaintenanceAnnualWorkbookModel? WorkbookModel { get; init; }
-
-        public byte[]? WorkbookPackage { get; init; }
-    }
-
     public sealed class KnowledgeBaseMaintenanceWorkbookGenerationService
     {
         private readonly KnowledgeBaseMaintenanceMonthlyPlannerService _plannerService;

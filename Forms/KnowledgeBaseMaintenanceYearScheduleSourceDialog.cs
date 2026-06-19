@@ -352,7 +352,7 @@ namespace AsutpKnowledgeBase
                 IsIncludedInSchedule = row.IsIncludedInSchedule,
                 TreeOrder = row.TreeOrder,
                 SourceRowNumber = row.SourceRowNumber,
-                YearScheduleEntries = KnowledgeBaseMaintenanceYearScheduleSourceService.CloneYearScheduleEntries(row.YearScheduleEntries)
+                YearScheduleEntries = KnowledgeBaseMaintenanceYearScheduleSourceRowUtilities.CloneYearScheduleEntries(row.YearScheduleEntries)
             };
 
         private static string FormatWorkKind(KbMaintenanceWorkKind workKind) => workKind switch

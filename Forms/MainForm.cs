@@ -19,6 +19,7 @@ namespace AsutpKnowledgeBase
 
         private readonly IAppLogger _appLogger;
         private readonly KnowledgeBaseSessionService _session = new();
+        private readonly KnowledgeBaseExcelExchangePluginLoader _excelExchangePluginLoader;
         private readonly KnowledgeBaseExcelUiWorkflowService _excelUiWorkflowService;
         private readonly KnowledgeBaseMaintenanceWorkbookUiWorkflowService _maintenanceWorkbookUiWorkflowService;
         private readonly KnowledgeBaseFileUiWorkflowService _fileUiWorkflowService;
@@ -32,9 +33,6 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseCompositionTemplateService _compositionTemplateService = new();
         private readonly KnowledgeBaseDocsAndSoftwareMutationService _docsAndSoftwareMutationService = new();
         private readonly KnowledgeBaseMaintenanceScheduleProfileMutationService _maintenanceScheduleProfileMutationService = new();
-        private readonly KnowledgeBaseMaintenanceScheduleNormImportService _maintenanceScheduleNormImportService = new();
-        private readonly KnowledgeBaseMaintenanceYearScheduleSourceService _maintenanceYearScheduleSourceService = new();
-        private readonly KnowledgeBaseMaintenanceYearScheduleSourceExchangeService _maintenanceYearScheduleSourceExchangeService = new();
         private readonly KnowledgeBaseProductionCalendarJsonImportService _productionCalendarJsonImportService = new();
         private readonly KnowledgeBaseProductionCalendarPdfImportPluginLoader _productionCalendarPdfImportPluginLoader = new();
         private readonly KnowledgeBaseCatalogTemplateExchangeService _catalogTemplateExchangeService = new();
@@ -179,9 +177,9 @@ namespace AsutpKnowledgeBase
                 _session,
                 startupStorage.StorageService,
                 _appLogger);
-            _excelUiWorkflowService = new KnowledgeBaseExcelUiWorkflowService(
-                new KnowledgeBaseExcelExchangeService(_appLogger));
-            _maintenanceWorkbookUiWorkflowService = new KnowledgeBaseMaintenanceWorkbookUiWorkflowService();
+            _excelExchangePluginLoader = new KnowledgeBaseExcelExchangePluginLoader(_appLogger);
+            _excelUiWorkflowService = new KnowledgeBaseExcelUiWorkflowService(_excelExchangePluginLoader);
+            _maintenanceWorkbookUiWorkflowService = new KnowledgeBaseMaintenanceWorkbookUiWorkflowService(_excelExchangePluginLoader);
             _fileUiWorkflowService = new KnowledgeBaseFileUiWorkflowService(
                 fileWorkflowService,
                 _formStateService);

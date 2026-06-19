@@ -36,6 +36,8 @@ handoff transcript, validation log, or phase archive.
 - Keep `scripts\publish-fast.ps1` as the accepted faster working package: self-contained folder publish, ReadyToRun enabled, no single-file extraction.
 - Keep production-calendar PDF import out of the main app/core dependency graph. The main app loads it on demand from `pdf-import\AsutpKnowledgeBase.PdfImport.dll`; only that module should reference `PdfPig`.
 - Keep the PDF module publish lean by removing unused OpenXML/SQLite runtime files from `pdf-import` after publish; do not add a separate abstractions project unless this cleanup stops passing validation.
+- Keep OpenXML/Excel exchange out of the main app/core dependency graph. The main app loads it on demand from `excel-exchange\AsutpKnowledgeBase.ExcelExchange.dll`; only that module should reference `DocumentFormat.OpenXml`.
+- Keep the Excel module publish lean by removing unused SQLite/core runtime files from `excel-exchange` after publish; the cleaned module folder should keep `AsutpKnowledgeBase.ExcelExchange.*`, `DocumentFormat.OpenXml*`, and `System.IO.Packaging.dll`.
 - Keep single-file compression enabled for `scripts\publish.ps1` `SingleFile` mode so review exe size remains comparable to the existing compressed single-file package.
 - Startup timing diagnostics should go to existing file logs as `StartupTiming` events, not visible operator UI.
 - If cold-start logs repeatedly show `mainform-data-loaded` dominating while SQLite remains fast, add narrower timing around UI session application/binding before changing startup architecture.
@@ -96,5 +98,5 @@ handoff transcript, validation log, or phase archive.
 ## Excel And Exchange
 
 - Live Excel exchange contract is version `3` only: workbook id `AKB5.ExcelExchange`, sheets `Meta`, `Levels`, `Workshops`, plus one node worksheet per workshop.
-- Excel exchange uses `DocumentFormat.OpenXml`; legacy `v1/v2` import is not supported.
+- Excel exchange implementation uses `DocumentFormat.OpenXml` inside the optional `AsutpKnowledgeBase.ExcelExchange` module; app/core keep only shared contracts and legacy `v1/v2` import is not supported.
 - Catalog/template exchange is separate JSON workflow and should not change the live Excel `v3` database exchange contract.

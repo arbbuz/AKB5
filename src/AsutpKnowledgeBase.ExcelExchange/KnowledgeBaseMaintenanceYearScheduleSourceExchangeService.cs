@@ -6,41 +6,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 
 namespace AsutpKnowledgeBase.Services
 {
-    public sealed class KnowledgeBaseMaintenanceYearScheduleSourceExportResult
-    {
-        public bool IsSuccess { get; init; }
-
-        public string ErrorMessage { get; init; } = string.Empty;
-
-        public byte[] WorkbookPackage { get; init; } = Array.Empty<byte>();
-
-        public int ExportedProfileCount { get; init; }
-
-        public int ManualScheduleProfileCount { get; init; }
-
-        public int AutomaticFallbackProfileCount { get; init; }
-    }
-
-    public sealed class KnowledgeBaseMaintenanceYearScheduleSourceImportResult
-    {
-        public bool IsSuccess { get; init; }
-
-        public string ErrorMessage { get; init; } = string.Empty;
-
-        public List<KbMaintenanceScheduleProfile> MaintenanceScheduleProfiles { get; init; } = new();
-
-        public int ImportedRowCount { get; init; }
-
-        public int UpdatedProfileCount { get; init; }
-
-        public int ClearedProfileCount { get; init; }
-
-        public int UnchangedProfileCount { get; init; }
-
-        public List<string> UnresolvedRows { get; init; } = new();
-    }
-
-    public sealed class KnowledgeBaseMaintenanceYearScheduleSourceExchangeService
+    public sealed class KnowledgeBaseMaintenanceYearScheduleSourceExchangeService : IKnowledgeBaseMaintenanceYearScheduleSourceExchange
     {
         private const string InstructionsSheetName = "Инструкция";
         private const string SourceSheetName = "YearScheduleSource";

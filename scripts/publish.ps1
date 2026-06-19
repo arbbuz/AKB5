@@ -18,6 +18,7 @@ $scriptRoot = Split-Path -Parent $PSCommandPath
 $repoRoot = Split-Path -Parent $scriptRoot
 $projectPath = Join-Path $repoRoot "asutpKB.csproj"
 $pdfImportProjectPath = Join-Path $repoRoot "src/AsutpKnowledgeBase.PdfImport/AsutpKnowledgeBase.PdfImport.csproj"
+$excelExchangeProjectPath = Join-Path $repoRoot "src/AsutpKnowledgeBase.ExcelExchange/AsutpKnowledgeBase.ExcelExchange.csproj"
 
 $dotnetCandidates = @()
 if ($env:DOTNET_EXE) {
@@ -124,6 +125,35 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
+$excelExchangeOutputDirectory = Join-Path $OutputDirectory "excel-exchange"
+New-Item -ItemType Directory -Path $excelExchangeOutputDirectory -Force | Out-Null
+
+$excelExchangePublishArgs = @(
+    "publish",
+    $excelExchangeProjectPath,
+    "-c",
+    $Configuration,
+    "-r",
+    $RuntimeIdentifier,
+    "--self-contained",
+    "false",
+    "-p:PublishTrimmed=false",
+    "-p:PublishAot=false",
+    "-p:PublishSingleFile=false",
+    "-p:IncludeNativeLibrariesForSelfExtract=false",
+    "-p:RunAnalyzers=false",
+    "-p:WarningLevel=0",
+    "-o",
+    $excelExchangeOutputDirectory
+)
+
+Write-Host "Running: $dotnetPath $($excelExchangePublishArgs -join ' ')"
+& $dotnetPath @excelExchangePublishArgs
+
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
+
 $allowedPdfImportFiles = @(
     "AsutpKnowledgeBase.PdfImport.deps.json",
     "AsutpKnowledgeBase.PdfImport.dll",
@@ -142,6 +172,25 @@ Get-ChildItem -LiteralPath $pdfImportOutputDirectory -File |
         Remove-Item -LiteralPath $_.FullName -Force
     }
 
+$allowedExcelExchangeFiles = @(
+    "AsutpKnowledgeBase.ExcelExchange.deps.json",
+    "AsutpKnowledgeBase.ExcelExchange.dll",
+    "AsutpKnowledgeBase.ExcelExchange.pdb",
+    "System.IO.Packaging.dll"
+)
+
+$removedExcelExchangeFiles = @()
+Get-ChildItem -LiteralPath $excelExchangeOutputDirectory -File |
+    Where-Object {
+        $fileName = $_.Name
+        -not ($allowedExcelExchangeFiles -contains $fileName) -and
+        -not $fileName.StartsWith("DocumentFormat.OpenXml", [StringComparison]::OrdinalIgnoreCase)
+    } |
+    ForEach-Object {
+        $removedExcelExchangeFiles += $_.Name
+        Remove-Item -LiteralPath $_.FullName -Force
+    }
+
 $expectedExe = Join-Path $OutputDirectory "asutpKB.exe"
 if (-not (Test-Path $expectedExe)) {
     throw "Publish succeeded but expected executable was not found: $expectedExe"
@@ -152,8 +201,17 @@ if (-not (Test-Path $expectedPdfImportAssembly)) {
     throw "Publish succeeded but expected PDF import module was not found: $expectedPdfImportAssembly"
 }
 
+$expectedExcelExchangeAssembly = Join-Path $excelExchangeOutputDirectory "AsutpKnowledgeBase.ExcelExchange.dll"
+if (-not (Test-Path $expectedExcelExchangeAssembly)) {
+    throw "Publish succeeded but expected Excel exchange module was not found: $expectedExcelExchangeAssembly"
+}
+
 Write-Host "Publish output: $expectedExe"
 Write-Host "PDF import module output: $expectedPdfImportAssembly"
+Write-Host "Excel exchange module output: $expectedExcelExchangeAssembly"
 if ($removedPdfImportFiles.Count -gt 0) {
     Write-Host "Removed non-PDF module files: $($removedPdfImportFiles -join ', ')"
+}
+if ($removedExcelExchangeFiles.Count -gt 0) {
+    Write-Host "Removed non-Excel module files: $($removedExcelExchangeFiles -join ', ')"
 }

@@ -6,8 +6,8 @@ namespace AsutpKnowledgeBase.Services
 {
     public sealed class KnowledgeBaseMaintenanceWorkbookTemplateService
     {
-        private const string TemplateResourceName = "AsutpKnowledgeBase.Core.Resources.MaintenanceYearTemplate.xlsx";
-        private const string AnnualTemplateResourceName = "AsutpKnowledgeBase.Core.Resources.MaintenanceAnnualTemplate.xlsx";
+        private const string TemplateResourceName = "AsutpKnowledgeBase.ExcelExchange.Resources.MaintenanceYearTemplate.xlsx";
+        private const string AnnualTemplateResourceName = "AsutpKnowledgeBase.ExcelExchange.Resources.MaintenanceAnnualTemplate.xlsx";
         private static readonly string[] ExpectedMonthSheetNames = Enumerable
             .Range(1, 12)
             .Select(static month => $"КЦ ({month})")
