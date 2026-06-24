@@ -19,19 +19,69 @@ public class KnowledgeBaseTreeSearchServiceTests
         Assert.Equal("имя узла", match.MatchFieldLabel);
         Assert.Equal("ШКМ1", match.MatchValue);
         Assert.Equal("Медное отделение / АСУ котельной / ШКМ1", match.NodePath);
+        AssertTarget(
+            match,
+            KnowledgeBaseSearchTargetKind.Node,
+            "cabinet-1",
+            "cabinet-1",
+            "tree.name");
     }
 
     [Fact]
-    public void FindMatches_WhenCardScopeMatchesLevel3Description_DoesNotPreferHiddenInfoTab()
+    public void FindMatches_WhenTreeScopeMatchesNodeType_ReturnsNoMatch()
     {
         var fixture = CreateFixture();
 
-        var match = Assert.Single(Search(fixture, "шкаф управления", KnowledgeBaseSearchScope.Card));
+        var matches = Search(fixture, "система", KnowledgeBaseSearchScope.Tree);
+
+        Assert.Empty(matches);
+    }
+
+    [Fact]
+    public void FindMatches_WhenCardScopeMatchesVisibleDescription_ReturnsCardMatch()
+    {
+        var fixture = CreateFixture();
+
+        var match = Assert.Single(Search(fixture, "система управления", KnowledgeBaseSearchScope.Card));
 
         Assert.Equal(KnowledgeBaseSearchDomain.Card, match.Domain);
-        Assert.Equal(KnowledgeBaseNodeWorkspaceTabKind.Composition, match.PreferredTabKind);
+        Assert.Equal(KnowledgeBaseNodeWorkspaceTabKind.Info, match.PreferredTabKind);
         Assert.Equal("описание", match.MatchFieldLabel);
-        Assert.Equal("ШКМ1", match.Node.Name);
+        Assert.Equal("АСУ котельной", match.Node.Name);
+        AssertTarget(
+            match,
+            KnowledgeBaseSearchTargetKind.Card,
+            "system-1",
+            "system-1",
+            "card.description");
+    }
+
+    [Fact]
+    public void FindMatches_WhenCardScopeMatchesLevel3Description_ReturnsNoMatch()
+    {
+        var fixture = CreateFixture();
+
+        var matches = Search(fixture, "шкаф управления", KnowledgeBaseSearchScope.Card);
+
+        Assert.Empty(matches);
+    }
+
+    [Fact]
+    public void FindMatches_WhenCardScopeMatchesInventoryNumber_ReturnsCardTechnicalFieldMatch()
+    {
+        var fixture = CreateFixture();
+
+        var match = Assert.Single(Search(fixture, "INV-42", KnowledgeBaseSearchScope.Card));
+
+        Assert.Equal(KnowledgeBaseSearchDomain.Card, match.Domain);
+        Assert.Equal("инвентарный номер", match.MatchFieldLabel);
+        Assert.Equal("АСУ котельной", match.Node.Name);
+        AssertTarget(
+            match,
+            KnowledgeBaseSearchTargetKind.Card,
+            "system-1",
+            "system-1",
+            "card.inventoryNumber");
     }
 
     [Fact]
@@ -45,6 +95,32 @@ public class KnowledgeBaseTreeSearchServiceTests
         Assert.Equal(KnowledgeBaseNodeWorkspaceTabKind.Composition, match.PreferredTabKind);
         Assert.Equal("заказной номер", match.MatchFieldLabel);
         Assert.Equal("ШКМ1", match.Node.Name);
+        AssertTarget(
+            match,
+            KnowledgeBaseSearchTargetKind.CompositionEntry,
+            "cabinet-1",
+            "slot-1",
+            "composition.orderNumber");
+    }
+
+    [Fact]
+    public void FindMatches_WhenCompositionScopeMatchesModel_ReturnsNoMatch()
+    {
+        var fixture = CreateFixture();
+
+        var matches = Search(fixture, "CPU 315", KnowledgeBaseSearchScope.Composition);
+
+        Assert.Empty(matches);
+    }
+
+    [Fact]
+    public void FindMatches_WhenCompositionScopeMatchesInterfaceRows_ReturnsNoMatch()
+    {
+        var fixture = CreateFixture();
+
+        var matches = Search(fixture, "X1 P2", KnowledgeBaseSearchScope.Composition);
+
+        Assert.Empty(matches);
     }
 
     [Fact]
@@ -58,6 +134,49 @@ public class KnowledgeBaseTreeSearchServiceTests
         Assert.Equal(KnowledgeBaseNodeWorkspaceTabKind.AdditionalEquipment, match.PreferredTabKind);
         Assert.Equal("заказной номер", match.MatchFieldLabel);
         Assert.Equal("ШКМ1", match.Node.Name);
+        AssertTarget(
+            match,
+            KnowledgeBaseSearchTargetKind.AdditionalEquipmentEntry,
+            "cabinet-1",
+            "additional-1",
+            "additionalEquipment.orderNumber");
+    }
+
+    [Fact]
+    public void FindMatches_WhenAdditionalEquipmentScopeMatchesNotes_ReturnsAdditionalEquipmentTarget()
+    {
+        var fixture = CreateFixture();
+
+        var match = Assert.Single(Search(fixture, "Profibus spare", KnowledgeBaseSearchScope.AdditionalEquipment));
+
+        Assert.Equal(KnowledgeBaseSearchDomain.AdditionalEquipment, match.Domain);
+        Assert.Equal("примечание", match.MatchFieldLabel);
+        AssertTarget(
+            match,
+            KnowledgeBaseSearchTargetKind.AdditionalEquipmentEntry,
+            "cabinet-1",
+            "additional-1",
+            "additionalEquipment.notes");
+    }
+
+    [Fact]
+    public void FindMatches_WhenAdditionalEquipmentScopeMatchesIpAddress_ReturnsNoMatch()
+    {
+        var fixture = CreateFixture();
+
+        var matches = Search(fixture, "192.168.100.20", KnowledgeBaseSearchScope.AdditionalEquipment);
+
+        Assert.Empty(matches);
+    }
+
+    [Fact]
+    public void FindMatches_WhenAdditionalEquipmentScopeMatchesInterfaceRows_ReturnsNoMatch()
+    {
+        var fixture = CreateFixture();
+
+        var matches = Search(fixture, "RS485-A", KnowledgeBaseSearchScope.AdditionalEquipment);
+
+        Assert.Empty(matches);
     }
 
     [Fact]
@@ -72,6 +191,39 @@ public class KnowledgeBaseTreeSearchServiceTests
         Assert.Equal("дата добавления ПО", match.MatchFieldLabel);
         Assert.Equal("27.04.2026", match.MatchValue);
         Assert.Equal("АСУ котельной", match.Node.Name);
+        AssertTarget(
+            match,
+            KnowledgeBaseSearchTargetKind.Software,
+            "system-1",
+            "soft-1",
+            "software.addedAt");
+    }
+
+    [Fact]
+    public void FindMatches_WhenDocsAndSoftwareScopeMatchesDocumentUpdatedDate_ReturnsDocumentTarget()
+    {
+        var fixture = CreateFixture();
+
+        var match = Assert.Single(Search(fixture, "01.04.2026", KnowledgeBaseSearchScope.DocsAndSoftware));
+
+        Assert.Equal(KnowledgeBaseSearchDomain.DocsAndSoftware, match.Domain);
+        Assert.Equal("дата обновления документа", match.MatchFieldLabel);
+        AssertTarget(
+            match,
+            KnowledgeBaseSearchTargetKind.Document,
+            "system-1",
+            "doc-1",
+            "document.updatedAt");
+    }
+
+    [Fact]
+    public void FindMatches_WhenDocsAndSoftwareScopeMatchesSoftwareNotes_ReturnsNoMatch()
+    {
+        var fixture = CreateFixture();
+
+        var matches = Search(fixture, "nightly backup", KnowledgeBaseSearchScope.DocsAndSoftware);
+
+        Assert.Empty(matches);
     }
 
     [Fact]
@@ -85,20 +237,105 @@ public class KnowledgeBaseTreeSearchServiceTests
         Assert.Equal(KnowledgeBaseNodeWorkspaceTabKind.Network, match.PreferredTabKind);
         Assert.Equal("доп. IP", match.MatchFieldLabel);
         Assert.Equal("АСУ котельной", match.Node.Name);
+        AssertTarget(
+            match,
+            KnowledgeBaseSearchTargetKind.NetworkElement,
+            "system-1",
+            "plc-1",
+            "networkElement.additionalIpAddress");
     }
 
     [Fact]
-    public void FindMatches_WhenMaintenanceScopeMatchesYearScheduleMonth_ReturnsMaintenanceMatch()
+    public void FindMatches_WhenNetworkScopeMatchesHiddenElementId_ReturnsNoMatch()
+    {
+        var fixture = CreateFixture();
+
+        var matches = Search(fixture, "plc-1", KnowledgeBaseSearchScope.Network);
+
+        Assert.Empty(matches);
+    }
+
+    [Fact]
+    public void FindMatches_WhenNetworkScopeMatchesHiddenLinkId_ReturnsNoMatch()
+    {
+        var fixture = CreateFixture();
+
+        var matches = Search(fixture, "link-1", KnowledgeBaseSearchScope.Network);
+
+        Assert.Empty(matches);
+    }
+
+    [Fact]
+    public void FindMatches_WhenNetworkScopeMatchesHiddenLinkLabel_ReturnsNoMatch()
+    {
+        var fixture = CreateFixture();
+
+        var matches = Search(fixture, "hidden-link-24", KnowledgeBaseSearchScope.Network);
+
+        Assert.Empty(matches);
+    }
+
+    [Fact]
+    public void FindMatches_WhenMaintenanceScopeMatchesYearScheduleMonth_ReturnsNoMatch()
     {
         var fixture = CreateFixture();
 
         var matches = Search(fixture, "март", KnowledgeBaseSearchScope.Maintenance);
-        var match = Assert.Single(matches, static match => match.MatchFieldLabel == "месяц ТО");
+
+        Assert.Empty(matches);
+    }
+
+    [Fact]
+    public void FindMatches_WhenMaintenanceScopeMatchesHiddenProfileId_ReturnsNoMatch()
+    {
+        var fixture = CreateFixture();
+
+        var matches = Search(fixture, "maintenance-hidden-24", KnowledgeBaseSearchScope.Maintenance);
+
+        Assert.Empty(matches);
+    }
+
+    [Fact]
+    public void FindMatches_WhenMaintenanceScopeMatchesVisibleTo2Hours_ReturnsMaintenanceProfileTarget()
+    {
+        var fixture = CreateFixture();
+
+        var match = Assert.Single(Search(fixture, "4 ч", KnowledgeBaseSearchScope.Maintenance));
 
         Assert.Equal(KnowledgeBaseSearchDomain.Maintenance, match.Domain);
-        Assert.Equal(KnowledgeBaseNodeWorkspaceTabKind.Maintenance, match.PreferredTabKind);
-        Assert.Equal("месяц ТО", match.MatchFieldLabel);
-        Assert.Equal("ШКМ1", match.Node.Name);
+        AssertTarget(
+            match,
+            KnowledgeBaseSearchTargetKind.MaintenanceProfile,
+            "cabinet-1",
+            "maintenance-hidden-24",
+            "maintenance.to2Hours");
+    }
+
+    [Fact]
+    public void FindMatches_WhenMaintenanceScopeMatchesVisibleYearScheduleSummary_ReturnsMaintenanceProfileTarget()
+    {
+        var fixture = CreateFixture();
+
+        var match = Assert.Single(Search(fixture, "Годовой план вручную", KnowledgeBaseSearchScope.Maintenance));
+
+        Assert.Equal(KnowledgeBaseSearchDomain.Maintenance, match.Domain);
+        Assert.Equal("годовое размещение", match.MatchFieldLabel);
+        AssertTarget(
+            match,
+            KnowledgeBaseSearchTargetKind.MaintenanceProfile,
+            "cabinet-1",
+            "maintenance-hidden-24",
+            "maintenance.yearSchedule.summary");
+    }
+
+    [Fact]
+    public void FindMatches_WhenSearchTextMatchesOnlyHiddenNumericValues_ReturnsNoMatch()
+    {
+        var fixture = CreateFixture();
+
+        var matches = Search(fixture, "24", KnowledgeBaseSearchScope.All);
+
+        Assert.Empty(matches);
     }
 
     [Fact]
@@ -147,6 +384,21 @@ public class KnowledgeBaseTreeSearchServiceTests
             fixture.SoftwareRecords,
             fixture.MaintenanceScheduleProfiles);
 
+    private static void AssertTarget(
+        KnowledgeBaseTreeSearchMatch match,
+        KnowledgeBaseSearchTargetKind kind,
+        string ownerNodeId,
+        string entityId,
+        string fieldKey,
+        string rowKey = "")
+    {
+        Assert.Equal(kind, match.Target.Kind);
+        Assert.Equal(ownerNodeId, match.Target.OwnerNodeId);
+        Assert.Equal(entityId, match.Target.EntityId);
+        Assert.Equal(fieldKey, match.Target.FieldKey);
+        Assert.Equal(rowKey, match.Target.RowKey);
+    }
+
     private static KbConfig CreateConfig() =>
         new()
         {
@@ -176,6 +428,7 @@ public class KnowledgeBaseTreeSearchServiceTests
             NodeType = KbNodeType.System,
             Details = new KbNodeDetails
             {
+                Description = "Система управления котельной",
                 InventoryNumber = "INV-42",
                 NetworkTopology = new KbNetworkTopology
                 {
@@ -204,7 +457,7 @@ public class KnowledgeBaseTreeSearchServiceTests
                             FromElementId = "plc-1",
                             ToElementId = "external-1",
                             Kind = KbNetworkLinkKind.FiberProfibus,
-                            Label = "АВР"
+                            Label = "hidden-link-24"
                         }
                     }
                 }
@@ -237,7 +490,18 @@ public class KnowledgeBaseTreeSearchServiceTests
                     SlotNumber = 2,
                     PositionOrder = 1,
                     ComponentType = "CPU",
-                    OrderNumber = "6ES7312-1AE13-0AB0"
+                    Model = "CPU 315-2 PN/DP",
+                    OrderNumber = "6ES7312-1AE13-0AB0",
+                    Firmware = "V3.3",
+                    MpiDpPnAddress = "PN/IE 10.0.0.10",
+                    InputAddress = "I0.0",
+                    OutputAddress = "Q0.0",
+                    Comment = "Основная стойка",
+                    InterfaceRows = "X1 P1; X1 P2",
+                    IpAddress = "192.168.100.10",
+                    LastCalibrationAt = new DateTime(2026, 5, 1),
+                    NextCalibrationAt = new DateTime(2027, 5, 1),
+                    Notes = "Основной контроллер"
                 },
                 new()
                 {
@@ -245,8 +509,18 @@ public class KnowledgeBaseTreeSearchServiceTests
                     ParentNodeId = cabinet.NodeId,
                     PositionOrder = 2,
                     ComponentType = "Коннектор",
+                    Model = "RS485 repeater",
                     OrderNumber = "6ES7972-0BA52-0XA0",
-                    Notes = "Profibus"
+                    Firmware = "HW2",
+                    MpiDpPnAddress = "DP 12",
+                    InputAddress = "I10.0",
+                    OutputAddress = "Q10.0",
+                    Comment = "Запасной порт",
+                    InterfaceRows = "RS485-A",
+                    IpAddress = "192.168.100.20",
+                    LastCalibrationAt = new DateTime(2026, 6, 1),
+                    NextCalibrationAt = new DateTime(2027, 6, 1),
+                    Notes = "Profibus spare"
                 }
             },
             DocumentLinks = new List<KbDocumentLink>
@@ -257,7 +531,8 @@ public class KnowledgeBaseTreeSearchServiceTests
                     OwnerNodeId = system.NodeId,
                     Kind = KbDocumentKind.SchemeLink,
                     Title = "Схема АВР",
-                    Path = @"\\server\docs\avr-scheme.pdf"
+                    Path = @"\\server\docs\avr-scheme.pdf",
+                    UpdatedAt = new DateTime(2026, 4, 1)
                 }
             },
             SoftwareRecords = new List<KbSoftwareRecord>
@@ -268,14 +543,17 @@ public class KnowledgeBaseTreeSearchServiceTests
                     OwnerNodeId = system.NodeId,
                     Title = "TIA Portal AVR",
                     Path = @"\\server\software\avr",
-                    AddedAt = new DateTime(2026, 4, 27)
+                    AddedAt = new DateTime(2026, 4, 27),
+                    LastChangedAt = new DateTime(2026, 4, 28),
+                    LastBackupAt = new DateTime(2026, 4, 29),
+                    Notes = "nightly backup"
                 }
             },
             MaintenanceScheduleProfiles = new List<KbMaintenanceScheduleProfile>
             {
                 new()
                 {
-                    MaintenanceProfileId = "maintenance-1",
+                    MaintenanceProfileId = "maintenance-hidden-24",
                     OwnerNodeId = cabinet.NodeId,
                     IsIncludedInSchedule = true,
                     To1Hours = 2,

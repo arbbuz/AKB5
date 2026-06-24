@@ -99,7 +99,7 @@ namespace AsutpKnowledgeBase.Services
 
         private static string FormatHours(int hours) => $"{Math.Max(0, hours)} ч";
 
-        private static string FormatYearSchedule(IReadOnlyList<KbMaintenanceYearScheduleEntry>? entries)
+        public static string FormatYearSchedule(IReadOnlyList<KbMaintenanceYearScheduleEntry>? entries)
         {
             if (entries == null || entries.Count == 0)
                 return "Автоматический годовой план";

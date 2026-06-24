@@ -27,6 +27,33 @@ namespace AsutpKnowledgeBase.Services
         Maintenance = 6
     }
 
+    public enum KnowledgeBaseSearchTargetKind
+    {
+        Node = 0,
+        Card = 1,
+        CompositionEntry = 2,
+        AdditionalEquipmentEntry = 3,
+        Document = 4,
+        Software = 5,
+        NetworkElement = 6,
+        NetworkLink = 7,
+        MaintenanceProfile = 8,
+        MaintenanceYearScheduleEntry = 9
+    }
+
+    public sealed class KnowledgeBaseSearchTarget
+    {
+        public KnowledgeBaseSearchTargetKind Kind { get; init; } = KnowledgeBaseSearchTargetKind.Node;
+
+        public string OwnerNodeId { get; init; } = string.Empty;
+
+        public string EntityId { get; init; } = string.Empty;
+
+        public string FieldKey { get; init; } = string.Empty;
+
+        public string RowKey { get; init; } = string.Empty;
+    }
+
     public class KnowledgeBaseTreeSearchMatch
     {
         public KbNode Node { get; init; } = null!;
@@ -42,6 +69,8 @@ namespace AsutpKnowledgeBase.Services
         public string MatchValue { get; init; } = string.Empty;
 
         public string NodePath { get; init; } = string.Empty;
+
+        public KnowledgeBaseSearchTarget Target { get; init; } = new();
     }
 
     public class KnowledgeBaseTreeSearchService
@@ -139,13 +168,16 @@ namespace AsutpKnowledgeBase.Services
                 defaultTabKind,
                 "имя узла",
                 node.Name,
-                nodePath);
+                nodePath,
+                targetKind: KnowledgeBaseSearchTargetKind.Node,
+                targetEntityId: node.NodeId,
+                targetFieldKey: "tree.name");
 
-            AddCardIndexItems(node, defaultTabKind, nodePath, items);
-            AddCompositionIndexItems(node, nodePath, searchData, items);
-            AddDocsAndSoftwareIndexItems(node, nodePath, searchData, items);
-            AddNetworkIndexItems(node, nodePath, items);
-            AddMaintenanceIndexItems(node, nodePath, searchData, items);
+            AddCardIndexItems(node, visibleLevel, defaultTabKind, nodePath, items);
+            AddCompositionIndexItems(node, visibleLevel, nodePath, searchData, items);
+            AddDocsAndSoftwareIndexItems(node, visibleLevel, nodePath, searchData, items);
+            AddNetworkIndexItems(node, visibleLevel, nodePath, items);
+            AddMaintenanceIndexItems(node, visibleLevel, nodePath, searchData, items);
 
             foreach (KbNode child in EnumerateDisplaySortedNodes(node.Children))
                 CollectIndexItems(child, visibleLevel + 1, searchData, pathSegments, items);
@@ -155,10 +187,14 @@ namespace AsutpKnowledgeBase.Services
 
         private static void AddCardIndexItems(
             KbNode node,
+            int visibleLevel,
             KnowledgeBaseNodeWorkspaceTabKind preferredTabKind,
             string nodePath,
             ICollection<SearchIndexItem> items)
         {
+            if (visibleLevel == 3)
+                return;
+
             var details = node.Details ?? new KbNodeDetails();
 
             AddIndexItem(
@@ -168,55 +204,37 @@ namespace AsutpKnowledgeBase.Services
                 preferredTabKind,
                 "описание",
                 details.Description,
-                nodePath);
-            AddIndexItem(
-                items,
-                node,
-                KnowledgeBaseSearchDomain.Card,
-                preferredTabKind,
-                "расположение",
-                details.Location,
-                nodePath);
-            AddIndexItem(
-                items,
-                node,
-                KnowledgeBaseSearchDomain.Card,
-                preferredTabKind,
-                "инвентарный номер",
-                details.InventoryNumber,
-                nodePath);
-            AddIndexItem(
-                items,
-                node,
-                KnowledgeBaseSearchDomain.Card,
-                preferredTabKind,
-                "фото",
-                details.PhotoPath,
-                nodePath);
-            AddIndexItem(
-                items,
-                node,
-                KnowledgeBaseSearchDomain.Card,
-                preferredTabKind,
-                "IP-адрес",
-                details.IpAddress,
-                nodePath);
-            AddIndexItem(
-                items,
-                node,
-                KnowledgeBaseSearchDomain.Card,
-                preferredTabKind,
-                "ссылка на схему",
-                details.SchemaLink,
-                nodePath);
+                nodePath,
+                targetKind: KnowledgeBaseSearchTargetKind.Card,
+                targetEntityId: node.NodeId,
+                targetFieldKey: "card.description");
+
+            if (KnowledgeBaseNodeMetadataService.SupportsInventoryNumber(visibleLevel))
+            {
+                AddIndexItem(
+                    items,
+                    node,
+                    KnowledgeBaseSearchDomain.Card,
+                    preferredTabKind,
+                    "инвентарный номер",
+                    details.InventoryNumber,
+                    nodePath,
+                    targetKind: KnowledgeBaseSearchTargetKind.Card,
+                    targetEntityId: node.NodeId,
+                    targetFieldKey: "card.inventoryNumber");
+            }
         }
 
         private static void AddCompositionIndexItems(
             KbNode node,
+            int visibleLevel,
             string nodePath,
             SearchData searchData,
             ICollection<SearchIndexItem> items)
         {
+            if (!KnowledgeBaseCompositionStateService.SupportsComposition(node.NodeType, visibleLevel))
+                return;
+
             if (!searchData.CompositionEntriesByParentId.TryGetValue(node.NodeId, out List<KbCompositionEntry>? entries))
                 return;
 
@@ -242,6 +260,7 @@ namespace AsutpKnowledgeBase.Services
         {
             const KnowledgeBaseSearchDomain domain = KnowledgeBaseSearchDomain.Composition;
             const KnowledgeBaseNodeWorkspaceTabKind preferredTabKind = KnowledgeBaseNodeWorkspaceTabKind.Composition;
+            int slotNumber = entry.SlotNumber.GetValueOrDefault();
 
             AddIndexItem(
                 items,
@@ -250,23 +269,32 @@ namespace AsutpKnowledgeBase.Services
                 preferredTabKind,
                 "rack",
                 KnowledgeBaseCompositionRackSlotRulesService.FormatRackText(entry.RackNumber),
-                nodePath);
+                nodePath,
+                targetKind: KnowledgeBaseSearchTargetKind.CompositionEntry,
+                targetEntityId: entry.EntryId,
+                targetFieldKey: "composition.rack");
             AddIndexItem(
                 items,
                 node,
                 domain,
                 preferredTabKind,
                 "слот",
-                entry.SlotNumber?.ToString(CultureInfo.InvariantCulture),
-                nodePath);
+                slotNumber.ToString(CultureInfo.InvariantCulture),
+                nodePath,
+                targetKind: KnowledgeBaseSearchTargetKind.CompositionEntry,
+                targetEntityId: entry.EntryId,
+                targetFieldKey: "composition.slot");
             AddIndexItem(
                 items,
                 node,
                 domain,
                 preferredTabKind,
                 "роль",
-                KnowledgeBaseCompositionRackSlotRulesService.GetSlotRoleText(entry.RackNumber, entry.SlotNumber.Value),
-                nodePath);
+                KnowledgeBaseCompositionRackSlotRulesService.GetSlotRoleText(entry.RackNumber, slotNumber),
+                nodePath,
+                targetKind: KnowledgeBaseSearchTargetKind.CompositionEntry,
+                targetEntityId: entry.EntryId,
+                targetFieldKey: "composition.role");
             AddIndexItem(
                 items,
                 node,
@@ -274,7 +302,10 @@ namespace AsutpKnowledgeBase.Services
                 preferredTabKind,
                 "тип",
                 entry.ComponentType,
-                nodePath);
+                nodePath,
+                targetKind: KnowledgeBaseSearchTargetKind.CompositionEntry,
+                targetEntityId: entry.EntryId,
+                targetFieldKey: "composition.componentType");
             AddIndexItem(
                 items,
                 node,
@@ -282,7 +313,10 @@ namespace AsutpKnowledgeBase.Services
                 preferredTabKind,
                 "заказной номер",
                 entry.OrderNumber,
-                nodePath);
+                nodePath,
+                targetKind: KnowledgeBaseSearchTargetKind.CompositionEntry,
+                targetEntityId: entry.EntryId,
+                targetFieldKey: "composition.orderNumber");
         }
 
         private static void AddAdditionalEquipmentIndexItems(
@@ -303,7 +337,10 @@ namespace AsutpKnowledgeBase.Services
                 preferredTabKind,
                 "№",
                 rowNumber.ToString(CultureInfo.InvariantCulture),
-                nodePath);
+                nodePath,
+                targetKind: KnowledgeBaseSearchTargetKind.AdditionalEquipmentEntry,
+                targetEntityId: entry.EntryId,
+                targetFieldKey: "additionalEquipment.rowNumber");
             AddIndexItem(
                 items,
                 node,
@@ -311,7 +348,10 @@ namespace AsutpKnowledgeBase.Services
                 preferredTabKind,
                 "тип",
                 entry.ComponentType,
-                nodePath);
+                nodePath,
+                targetKind: KnowledgeBaseSearchTargetKind.AdditionalEquipmentEntry,
+                targetEntityId: entry.EntryId,
+                targetFieldKey: "additionalEquipment.componentType");
             AddIndexItem(
                 items,
                 node,
@@ -319,7 +359,10 @@ namespace AsutpKnowledgeBase.Services
                 preferredTabKind,
                 "заказной номер",
                 entry.OrderNumber,
-                nodePath);
+                nodePath,
+                targetKind: KnowledgeBaseSearchTargetKind.AdditionalEquipmentEntry,
+                targetEntityId: entry.EntryId,
+                targetFieldKey: "additionalEquipment.orderNumber");
             AddIndexItem(
                 items,
                 node,
@@ -327,15 +370,22 @@ namespace AsutpKnowledgeBase.Services
                 preferredTabKind,
                 "примечание",
                 entry.Notes,
-                nodePath);
+                nodePath,
+                targetKind: KnowledgeBaseSearchTargetKind.AdditionalEquipmentEntry,
+                targetEntityId: entry.EntryId,
+                targetFieldKey: "additionalEquipment.notes");
         }
 
         private static void AddDocsAndSoftwareIndexItems(
             KbNode node,
+            int visibleLevel,
             string nodePath,
             SearchData searchData,
             ICollection<SearchIndexItem> items)
         {
+            if (!KnowledgeBaseDocsAndSoftwareStateService.SupportsRecords(node.NodeType, visibleLevel))
+                return;
+
             if (searchData.DocumentLinksByOwnerId.TryGetValue(node.NodeId, out List<KbDocumentLink>? documentLinks))
             {
                 foreach (KbDocumentLink link in documentLinks)
@@ -347,7 +397,10 @@ namespace AsutpKnowledgeBase.Services
                         KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware,
                         "название документа",
                         link.Title,
-                        nodePath);
+                        nodePath,
+                        targetKind: KnowledgeBaseSearchTargetKind.Document,
+                        targetEntityId: link.DocumentId,
+                        targetFieldKey: "document.title");
                     AddIndexItem(
                         items,
                         node,
@@ -355,15 +408,21 @@ namespace AsutpKnowledgeBase.Services
                         KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware,
                         "путь к документу",
                         link.Path,
-                        nodePath);
+                        nodePath,
+                        targetKind: KnowledgeBaseSearchTargetKind.Document,
+                        targetEntityId: link.DocumentId,
+                        targetFieldKey: "document.path");
                     AddIndexItem(
                         items,
                         node,
                         KnowledgeBaseSearchDomain.DocsAndSoftware,
                         KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware,
-                        "тип документа",
-                        GetDocumentKindSearchText(link.Kind),
-                        nodePath);
+                        "дата обновления документа",
+                        FormatDate(link.UpdatedAt),
+                        nodePath,
+                        targetKind: KnowledgeBaseSearchTargetKind.Document,
+                        targetEntityId: link.DocumentId,
+                        targetFieldKey: "document.updatedAt");
                 }
             }
 
@@ -379,7 +438,10 @@ namespace AsutpKnowledgeBase.Services
                     KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware,
                     "название ПО",
                     record.Title,
-                    nodePath);
+                    nodePath,
+                    targetKind: KnowledgeBaseSearchTargetKind.Software,
+                    targetEntityId: record.SoftwareId,
+                    targetFieldKey: "software.title");
                 AddIndexItem(
                     items,
                     node,
@@ -387,7 +449,10 @@ namespace AsutpKnowledgeBase.Services
                     KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware,
                     "путь к ПО",
                     record.Path,
-                    nodePath);
+                    nodePath,
+                    targetKind: KnowledgeBaseSearchTargetKind.Software,
+                    targetEntityId: record.SoftwareId,
+                    targetFieldKey: "software.path");
                 AddIndexItem(
                     items,
                     node,
@@ -395,22 +460,25 @@ namespace AsutpKnowledgeBase.Services
                     KnowledgeBaseNodeWorkspaceTabKind.DocsAndSoftware,
                     "дата добавления ПО",
                     FormatDate(record.AddedAt),
-                    nodePath);
+                    nodePath,
+                    targetKind: KnowledgeBaseSearchTargetKind.Software,
+                    targetEntityId: record.SoftwareId,
+                    targetFieldKey: "software.addedAt");
             }
         }
 
         private static void AddNetworkIndexItems(
             KbNode node,
+            int visibleLevel,
             string nodePath,
             ICollection<SearchIndexItem> items)
         {
+            if (!KnowledgeBaseNodeMetadataService.SupportsNetworkTopology(visibleLevel))
+                return;
+
             KbNetworkTopology? topology = node.Details?.NetworkTopology;
             if (topology == null)
                 return;
-
-            Dictionary<string, KbNetworkElement> elementById = topology.Elements
-                .Where(static element => !string.IsNullOrWhiteSpace(element.ElementId))
-                .ToDictionary(static element => element.ElementId.Trim(), StringComparer.Ordinal);
 
             foreach (KbNetworkElement element in topology.Elements)
             {
@@ -419,17 +487,12 @@ namespace AsutpKnowledgeBase.Services
                     node,
                     KnowledgeBaseSearchDomain.Network,
                     KnowledgeBaseNodeWorkspaceTabKind.Network,
-                    "тип объекта сети",
-                    GetNetworkElementKindText(element.Kind),
-                    nodePath);
-                AddIndexItem(
-                    items,
-                    node,
-                    KnowledgeBaseSearchDomain.Network,
-                    KnowledgeBaseNodeWorkspaceTabKind.Network,
                     element.Kind == KbNetworkElementKind.ExternalConnection ? "текст внешней связи" : "имя объекта сети",
                     element.Name,
-                    nodePath);
+                    nodePath,
+                    targetKind: KnowledgeBaseSearchTargetKind.NetworkElement,
+                    targetEntityId: element.ElementId,
+                    targetFieldKey: "networkElement.name");
                 AddIndexItem(
                     items,
                     node,
@@ -437,7 +500,10 @@ namespace AsutpKnowledgeBase.Services
                     KnowledgeBaseNodeWorkspaceTabKind.Network,
                     "IP-адрес",
                     element.IpAddress,
-                    nodePath);
+                    nodePath,
+                    targetKind: KnowledgeBaseSearchTargetKind.NetworkElement,
+                    targetEntityId: element.ElementId,
+                    targetFieldKey: "networkElement.ipAddress");
 
                 foreach (string additionalIpAddress in element.AdditionalIpAddresses)
                 {
@@ -448,50 +514,24 @@ namespace AsutpKnowledgeBase.Services
                         KnowledgeBaseNodeWorkspaceTabKind.Network,
                         "доп. IP",
                         additionalIpAddress,
-                        nodePath);
+                        nodePath,
+                        targetKind: KnowledgeBaseSearchTargetKind.NetworkElement,
+                        targetEntityId: element.ElementId,
+                        targetFieldKey: "networkElement.additionalIpAddress");
                 }
-            }
-
-            foreach (KbNetworkLink link in topology.Links)
-            {
-                AddIndexItem(
-                    items,
-                    node,
-                    KnowledgeBaseSearchDomain.Network,
-                    KnowledgeBaseNodeWorkspaceTabKind.Network,
-                    "тип связи",
-                    GetNetworkLinkKindText(link.Kind),
-                    nodePath);
-                AddIndexItem(
-                    items,
-                    node,
-                    KnowledgeBaseSearchDomain.Network,
-                    KnowledgeBaseNodeWorkspaceTabKind.Network,
-                    "подпись связи",
-                    link.Label,
-                    nodePath);
-
-                string fromName = GetNetworkElementName(elementById, link.FromElementId);
-                string toName = GetNetworkElementName(elementById, link.ToElementId);
-                AddIndexItem(
-                    items,
-                    node,
-                    KnowledgeBaseSearchDomain.Network,
-                    KnowledgeBaseNodeWorkspaceTabKind.Network,
-                    "связь",
-                    string.IsNullOrWhiteSpace(fromName) || string.IsNullOrWhiteSpace(toName)
-                        ? string.Empty
-                        : $"{fromName} - {toName}",
-                    nodePath);
             }
         }
 
         private static void AddMaintenanceIndexItems(
             KbNode node,
+            int visibleLevel,
             string nodePath,
             SearchData searchData,
             ICollection<SearchIndexItem> items)
         {
+            if (!KnowledgeBaseMaintenanceScheduleStateService.SupportsProfile(node.NodeType, visibleLevel))
+                return;
+
             if (!searchData.MaintenanceProfilesByOwnerId.TryGetValue(
                     node.NodeId,
                     out List<KbMaintenanceScheduleProfile>? profiles))
@@ -508,7 +548,10 @@ namespace AsutpKnowledgeBase.Services
                     KnowledgeBaseNodeWorkspaceTabKind.Maintenance,
                     "участие в графике ТО",
                     profile.IsIncludedInSchedule ? "Да" : "Нет",
-                    nodePath);
+                    nodePath,
+                    targetKind: KnowledgeBaseSearchTargetKind.MaintenanceProfile,
+                    targetEntityId: profile.MaintenanceProfileId,
+                    targetFieldKey: "maintenance.isIncludedInSchedule");
                 AddIndexItem(
                     items,
                     node,
@@ -516,7 +559,10 @@ namespace AsutpKnowledgeBase.Services
                     KnowledgeBaseNodeWorkspaceTabKind.Maintenance,
                     "норма часов ТО1",
                     FormatHours(profile.To1Hours),
-                    nodePath);
+                    nodePath,
+                    targetKind: KnowledgeBaseSearchTargetKind.MaintenanceProfile,
+                    targetEntityId: profile.MaintenanceProfileId,
+                    targetFieldKey: "maintenance.to1Hours");
                 AddIndexItem(
                     items,
                     node,
@@ -524,7 +570,10 @@ namespace AsutpKnowledgeBase.Services
                     KnowledgeBaseNodeWorkspaceTabKind.Maintenance,
                     "норма часов ТО2",
                     FormatHours(profile.To2Hours),
-                    nodePath);
+                    nodePath,
+                    targetKind: KnowledgeBaseSearchTargetKind.MaintenanceProfile,
+                    targetEntityId: profile.MaintenanceProfileId,
+                    targetFieldKey: "maintenance.to2Hours");
                 AddIndexItem(
                     items,
                     node,
@@ -532,39 +581,21 @@ namespace AsutpKnowledgeBase.Services
                     KnowledgeBaseNodeWorkspaceTabKind.Maintenance,
                     "норма часов ТО3",
                     FormatHours(profile.To3Hours),
-                    nodePath);
-
-                foreach (KbMaintenanceYearScheduleEntry entry in profile.YearScheduleEntries
-                    .OrderBy(static entry => entry.Month)
-                    .ThenBy(static entry => entry.WorkKind))
-                {
-                    string monthText = GetMonthText(entry.Month);
-                    string workKindText = FormatWorkKind(entry.WorkKind);
-                    AddIndexItem(
-                        items,
-                        node,
-                        KnowledgeBaseSearchDomain.Maintenance,
-                        KnowledgeBaseNodeWorkspaceTabKind.Maintenance,
-                        "месяц ТО",
-                        monthText,
-                        nodePath);
-                    AddIndexItem(
-                        items,
-                        node,
-                        KnowledgeBaseSearchDomain.Maintenance,
-                        KnowledgeBaseNodeWorkspaceTabKind.Maintenance,
-                        "вид ТО",
-                        workKindText,
-                        nodePath);
-                    AddIndexItem(
-                        items,
-                        node,
-                        KnowledgeBaseSearchDomain.Maintenance,
-                        KnowledgeBaseNodeWorkspaceTabKind.Maintenance,
-                        "план ТО",
-                        $"{monthText}: {workKindText}, {FormatHours(entry.Hours)}",
-                        nodePath);
-                }
+                    nodePath,
+                    targetKind: KnowledgeBaseSearchTargetKind.MaintenanceProfile,
+                    targetEntityId: profile.MaintenanceProfileId,
+                    targetFieldKey: "maintenance.to3Hours");
+                AddIndexItem(
+                    items,
+                    node,
+                    KnowledgeBaseSearchDomain.Maintenance,
+                    KnowledgeBaseNodeWorkspaceTabKind.Maintenance,
+                    "годовое размещение",
+                    KnowledgeBaseMaintenanceScheduleStateService.FormatYearSchedule(profile.YearScheduleEntries),
+                    nodePath,
+                    targetKind: KnowledgeBaseSearchTargetKind.MaintenanceProfile,
+                    targetEntityId: profile.MaintenanceProfileId,
+                    targetFieldKey: "maintenance.yearSchedule.summary");
             }
         }
 
@@ -575,11 +606,24 @@ namespace AsutpKnowledgeBase.Services
             KnowledgeBaseNodeWorkspaceTabKind preferredTabKind,
             string fieldLabel,
             string? value,
-            string nodePath)
+            string nodePath,
+            KnowledgeBaseSearchTargetKind? targetKind = null,
+            string? targetEntityId = null,
+            string? targetFieldKey = null,
+            string? targetRowKey = null)
         {
             string normalizedValue = value?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(normalizedValue))
                 return;
+
+            var target = new KnowledgeBaseSearchTarget
+            {
+                Kind = targetKind ?? GetDefaultTargetKind(domain),
+                OwnerNodeId = node.NodeId,
+                EntityId = string.IsNullOrWhiteSpace(targetEntityId) ? node.NodeId : targetEntityId.Trim(),
+                FieldKey = string.IsNullOrWhiteSpace(targetFieldKey) ? fieldLabel : targetFieldKey.Trim(),
+                RowKey = targetRowKey?.Trim() ?? string.Empty
+            };
 
             items.Add(new SearchIndexItem(
                 node,
@@ -587,7 +631,8 @@ namespace AsutpKnowledgeBase.Services
                 preferredTabKind,
                 fieldLabel,
                 normalizedValue,
-                nodePath));
+                nodePath,
+                target));
         }
 
         private static bool IncludesScope(KnowledgeBaseSearchScope scope, KnowledgeBaseSearchDomain domain) =>
@@ -640,68 +685,21 @@ namespace AsutpKnowledgeBase.Services
                 SearchText = searchText,
                 MatchFieldLabel = item.FieldLabel,
                 MatchValue = item.Value,
-                NodePath = item.NodePath
+                NodePath = item.NodePath,
+                Target = item.Target
             };
 
-        private static string GetDocumentKindSearchText(KbDocumentKind kind) =>
-            kind switch
+        private static KnowledgeBaseSearchTargetKind GetDefaultTargetKind(KnowledgeBaseSearchDomain domain) =>
+            domain switch
             {
-                KbDocumentKind.SchemeLink => "схема",
-                KbDocumentKind.Manual => "инструкция",
-                KbDocumentKind.Instruction => "инструкция",
-                _ => "документ"
+                KnowledgeBaseSearchDomain.Card => KnowledgeBaseSearchTargetKind.Card,
+                KnowledgeBaseSearchDomain.Composition => KnowledgeBaseSearchTargetKind.CompositionEntry,
+                KnowledgeBaseSearchDomain.AdditionalEquipment => KnowledgeBaseSearchTargetKind.AdditionalEquipmentEntry,
+                KnowledgeBaseSearchDomain.DocsAndSoftware => KnowledgeBaseSearchTargetKind.Document,
+                KnowledgeBaseSearchDomain.Network => KnowledgeBaseSearchTargetKind.NetworkElement,
+                KnowledgeBaseSearchDomain.Maintenance => KnowledgeBaseSearchTargetKind.MaintenanceProfile,
+                _ => KnowledgeBaseSearchTargetKind.Node
             };
-
-        private static string GetNetworkElementKindText(KbNetworkElementKind kind) =>
-            kind switch
-            {
-                KbNetworkElementKind.Plc => "PLC",
-                KbNetworkElementKind.FrequencyConverter => "ПЧ",
-                KbNetworkElementKind.Scalance => "SCALANCE",
-                KbNetworkElementKind.Arm => "АРМ",
-                KbNetworkElementKind.Hmi => "HMI",
-                KbNetworkElementKind.Server => "Сервер",
-                KbNetworkElementKind.Et200 => "ET",
-                KbNetworkElementKind.Olm => "OLM",
-                KbNetworkElementKind.ExternalConnection => "Внешняя связь",
-                _ => "Устройство"
-            };
-
-        private static string GetNetworkLinkKindText(KbNetworkLinkKind kind) =>
-            kind switch
-            {
-                KbNetworkLinkKind.FiberProfibus => "Profibus, оптоволокно",
-                KbNetworkLinkKind.CopperProfibus => "Profibus, медь",
-                KbNetworkLinkKind.CopperMpi => "MPI, медь",
-                KbNetworkLinkKind.FiberProfinet => "Profinet, оптоволокно",
-                _ => "Profinet, медь"
-            };
-
-        private static string GetNetworkElementName(
-            IReadOnlyDictionary<string, KbNetworkElement> elementById,
-            string elementId)
-        {
-            if (string.IsNullOrWhiteSpace(elementId))
-                return string.Empty;
-
-            return elementById.TryGetValue(elementId.Trim(), out KbNetworkElement? element)
-                ? element.Name
-                : string.Empty;
-        }
-
-        private static string FormatWorkKind(KbMaintenanceWorkKind workKind) =>
-            workKind switch
-            {
-                KbMaintenanceWorkKind.To1 => "ТО1",
-                KbMaintenanceWorkKind.To2 => "ТО2",
-                KbMaintenanceWorkKind.To3 => "ТО3",
-                _ => string.Empty
-            };
-
-        private static string GetMonthText(int month) =>
-            month is >= 1 and <= 12
-                ? CultureInfo.GetCultureInfo("ru-RU").DateTimeFormat.GetMonthName(month)
-                : month.ToString(CultureInfo.InvariantCulture);
 
         private static string FormatHours(int hours) =>
             $"{Math.Max(0, hours)} ч";
@@ -717,7 +715,8 @@ namespace AsutpKnowledgeBase.Services
             KnowledgeBaseNodeWorkspaceTabKind PreferredTabKind,
             string FieldLabel,
             string Value,
-            string NodePath);
+            string NodePath,
+            KnowledgeBaseSearchTarget Target);
 
         private sealed record SearchIndexCache(SearchIndexCacheKey Key, IReadOnlyList<SearchIndexItem> Items);
 
