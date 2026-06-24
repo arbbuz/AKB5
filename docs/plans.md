@@ -1,12 +1,15 @@
 # Plans
 
-Last updated: `2026-06-23`
+Last updated: `2026-06-24`
 
 ## Active plan
 
-- Work in `C:\Users\Olga\AKB5` on branch `Net`, tracking `origin/Net`.
-- Current repo state: `Net` is synchronized with `origin/Net`; local uncommitted changes include the user-approved `AGENTS.md` rule update, this plan file, and the in-progress Global Search 2.0 service/tests work.
-- Active implementation direction: revise Global Search 2.0 before continuing, because the first expanded index pass exposed an unacceptable behavior class: search results can navigate to a tab where the matched value is not visible to the user.
+- Work in `C:\Users\Olga\AKB5` on branch `act`, tracking `origin/act`.
+- Active implementation direction: module `Акты`.
+- Accepted roadmap: `docs/acts-roadmap.md`.
+- Current status: roadmap accepted; implementation has not started.
+- Next step: execute `Stage 0. Контроль состояния`, then begin `Stage 1. Модель актов` only after a separate implementation approval.
+- Global Search 2.0 is paused on `Net`; do not continue search work in `act` unless explicitly requested.
 - Do not commit, push, merge, rebase, or revert `AGENTS.md` without fresh direct approval in the current chat.
 - Do not reintroduce hover/popup tooltips; guidance must be visible, inline, status-based, or modal.
 - Treat old AKB5 worktrees and snapshots under `C:\Users\Olga\Documents\Codex\...` as historical references only, not as source of truth.
