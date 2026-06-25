@@ -40,6 +40,10 @@ public class SqliteKnowledgeBaseStorageServiceTests
             Assert.Contains("change_log", tables);
             Assert.Contains("object_templates", tables);
             Assert.Contains("object_template_nodes", tables);
+            Assert.Contains("acts", tables);
+            Assert.Contains("act_executors", tables);
+            Assert.Contains("act_documents", tables);
+            Assert.Contains("act_number_sequences", tables);
 
             var compositionColumns = ReadColumnNames(connection, "composition_entries");
             Assert.Contains("order_number", compositionColumns);
@@ -55,6 +59,11 @@ public class SqliteKnowledgeBaseStorageServiceTests
 
             var rackColumns = ReadColumnNames(connection, "composition_racks");
             Assert.DoesNotContain("network_link", rackColumns);
+
+            var actColumns = ReadColumnNames(connection, "acts");
+            Assert.Contains("workshop_name", actColumns);
+            Assert.Contains("object_name_snapshot", actColumns);
+            Assert.Contains("equipment_name", actColumns);
         }
         finally
         {
@@ -94,6 +103,10 @@ public class SqliteKnowledgeBaseStorageServiceTests
             Assert.Equal(2, CountRows(connection, "equipment_catalog_properties"));
             Assert.Equal(1, CountRows(connection, "object_templates"));
             Assert.Equal(2, CountRows(connection, "object_template_nodes"));
+            Assert.Equal(1, CountRows(connection, "acts"));
+            Assert.Equal(1, CountRows(connection, "act_executors"));
+            Assert.Equal(1, CountRows(connection, "act_documents"));
+            Assert.Equal(1, CountRows(connection, "act_number_sequences"));
         }
         finally
         {
@@ -344,12 +357,16 @@ public class SqliteKnowledgeBaseStorageServiceTests
             KnowledgeBaseStorageLoadResult loadResult = service.Load();
             Assert.True(loadResult.IsSuccess, loadResult.ErrorMessage);
             Assert.Equal("Цех А", loadResult.Data!.LastWorkshop);
+            KbAct restoredAct = Assert.Single(loadResult.Data.Acts);
+            Assert.Equal("act-2026-0001", restoredAct.ActId);
+            Assert.Equal("6ES7 214-1AG40-0XB0", restoredAct.EquipmentSnapshot.OrderNumber);
 
             using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
             connection.Open();
             List<SnapshotRow> snapshots = ReadSnapshotRows(connection);
             SnapshotRow beforeRestore = snapshots.Single(row => row.Kind == "before-restore");
             Assert.Contains("\"LastWorkshop\":\"Цех Б\"", beforeRestore.PayloadJson);
+            Assert.Contains("\"ActId\":\"act-2026-0001\"", beforeRestore.PayloadJson);
         }
         finally
         {
@@ -717,6 +734,90 @@ public class SqliteKnowledgeBaseStorageServiceTests
                             }
                         }
                     }
+                }
+            },
+            Acts = new List<KbAct>
+            {
+                new()
+                {
+                    ActId = "act-2026-0001",
+                    ActYear = 2026,
+                    ActNumber = "2026-0001",
+                    ActType = KbActType.EquipmentFailure,
+                    Status = KbActStatus.Draft,
+                    ActDate = new DateTime(2026, 6, 24, 0, 0, 0, DateTimeKind.Utc),
+                    WorkshopName = "Цех А",
+                    Lvl3NodeId = childId,
+                    Lvl3NameSnapshot = "Шкаф 1",
+                    ObjectNameSnapshot = "Линия 1",
+                    ObjectPathSnapshot = "Цех А / Линия 1 / Шкаф 1",
+                    RackId = "rack-1",
+                    RackNumberSnapshot = 1,
+                    RackNameSnapshot = "Rack 1",
+                    CompositionEntryId = "composition-1",
+                    EquipmentName = "ПЛК, CPU 1214C",
+                    EquipmentSnapshot = new KbActEquipmentSnapshot
+                    {
+                        Lvl3Name = "Шкаф 1",
+                        ObjectPath = "Цех А / Линия 1 / Шкаф 1",
+                        RackId = "rack-1",
+                        RackNumber = 1,
+                        RackName = "Rack 1",
+                        CompositionEntryId = "composition-1",
+                        ComponentType = "ПЛК",
+                        Model = "CPU 1214C",
+                        OrderNumber = "6ES7 214-1AG40-0XB0",
+                        SerialNumber = "SN-0001",
+                        Notes = "Snapshot notes"
+                    },
+                    FailureDate = new DateTime(2026, 6, 23, 0, 0, 0, DateTimeKind.Utc),
+                    FaultDescription = "No input signal",
+                    FailureReason = "Module fault",
+                    InspectionResult = "Replace module",
+                    FaultCriterion = "Failure confirmed",
+                    RequestDocument = "Request-42",
+                    ActualLaborHours = "2.5",
+                    CustomerName = "Customer",
+                    CustomerPosition = "Engineer",
+                    CreatedBy = "Operator",
+                    CreatedAt = new DateTime(2026, 6, 24, 8, 0, 0, DateTimeKind.Utc),
+                    UpdatedAt = new DateTime(2026, 6, 24, 9, 0, 0, DateTimeKind.Utc)
+                }
+            },
+            ActExecutors = new List<KbActExecutor>
+            {
+                new()
+                {
+                    ExecutorId = "act-executor-1",
+                    ActId = "act-2026-0001",
+                    SortOrder = 0,
+                    LastName = "Ivanov",
+                    FirstName = "Ivan",
+                    MiddleName = "Ivanovich",
+                    Position = "Engineer"
+                }
+            },
+            ActDocuments = new List<KbActDocument>
+            {
+                new()
+                {
+                    DocumentId = "act-document-1",
+                    ActId = "act-2026-0001",
+                    VersionNumber = 1,
+                    TemplateId = "template-failure-v1",
+                    TemplateVersion = "1.0",
+                    Path = @"Documents\Acts\2026-0001.docx",
+                    GeneratedAt = new DateTime(2026, 6, 24, 9, 30, 0, DateTimeKind.Utc),
+                    ContentHash = "hash-1",
+                    IsLatest = true
+                }
+            },
+            ActNumberSequences = new List<KbActNumberSequence>
+            {
+                new()
+                {
+                    Year = 2026,
+                    NextNumber = 2
                 }
             },
             LastWorkshop = workshopA

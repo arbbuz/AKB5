@@ -14,6 +14,10 @@ namespace AsutpKnowledgeBase.Models
         public List<KbMaintenanceScheduleProfile> MaintenanceScheduleProfiles { get; set; } = new();
         public List<KbEquipmentCatalogItem> EquipmentCatalogItems { get; set; } = new();
         public List<KbObjectTemplate> ObjectTemplates { get; set; } = new();
+        public List<KbAct> Acts { get; set; } = new();
+        public List<KbActExecutor> ActExecutors { get; set; } = new();
+        public List<KbActDocument> ActDocuments { get; set; } = new();
+        public List<KbActNumberSequence> ActNumberSequences { get; set; } = new();
         public string LastWorkshop { get; set; } = string.Empty;
     }
 }

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using AsutpKnowledgeBase.Models;
 
@@ -38,6 +39,10 @@ namespace AsutpKnowledgeBase.Services
                 MaintenanceScheduleProfiles = new List<KbMaintenanceScheduleProfile>(),
                 EquipmentCatalogItems = new List<KbEquipmentCatalogItem>(),
                 ObjectTemplates = new List<KbObjectTemplate>(),
+                Acts = new List<KbAct>(),
+                ActExecutors = new List<KbActExecutor>(),
+                ActDocuments = new List<KbActDocument>(),
+                ActNumberSequences = new List<KbActNumberSequence>(),
                 LastWorkshop = "Новый цех"
             };
 
@@ -54,6 +59,11 @@ namespace AsutpKnowledgeBase.Services
             var normalizedMaintenanceScheduleProfiles = NormalizeMaintenanceScheduleProfiles(source.MaintenanceScheduleProfiles);
             var normalizedEquipmentCatalogItems = NormalizeEquipmentCatalogItems(source.EquipmentCatalogItems);
             var normalizedObjectTemplates = NormalizeObjectTemplates(source.ObjectTemplates);
+            var normalizedActs = NormalizeActs(source.Acts);
+            var knownActIds = normalizedActs.Select(static act => act.ActId).ToList();
+            var normalizedActExecutors = NormalizeActExecutors(source.ActExecutors, knownActIds);
+            var normalizedActDocuments = NormalizeActDocuments(source.ActDocuments, knownActIds);
+            var normalizedActNumberSequences = NormalizeActNumberSequences(source.ActNumberSequences);
             var reindexService = new KnowledgeBaseService(normalizedConfig, normalizedWorkshops);
 
             foreach (var roots in normalizedWorkshops.Values)
@@ -74,6 +84,10 @@ namespace AsutpKnowledgeBase.Services
                 MaintenanceScheduleProfiles = normalizedMaintenanceScheduleProfiles,
                 EquipmentCatalogItems = normalizedEquipmentCatalogItems,
                 ObjectTemplates = normalizedObjectTemplates,
+                Acts = normalizedActs,
+                ActExecutors = normalizedActExecutors,
+                ActDocuments = normalizedActDocuments,
+                ActNumberSequences = normalizedActNumberSequences,
                 LastWorkshop = ResolveWorkshop(normalizedWorkshops, source.LastWorkshop)
             };
         }
@@ -373,6 +387,39 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbEquipmentCatalogItem>? equipmentCatalogItems,
             IReadOnlyList<KbObjectTemplate>? objectTemplates,
             string currentWorkshop,
+            bool includeCurrentWorkshop) =>
+            SerializeSnapshot(
+                config,
+                workshops,
+                compositionRacks,
+                compositionEntries,
+                documentLinks,
+                softwareRecords,
+                maintenanceScheduleProfiles,
+                equipmentCatalogItems,
+                objectTemplates,
+                acts: null,
+                actExecutors: null,
+                actDocuments: null,
+                actNumberSequences: null,
+                currentWorkshop,
+                includeCurrentWorkshop);
+
+        public static string SerializeSnapshot(
+            KbConfig config,
+            Dictionary<string, List<KbNode>> workshops,
+            IReadOnlyList<KbCompositionRack>? compositionRacks,
+            IReadOnlyList<KbCompositionEntry>? compositionEntries,
+            IReadOnlyList<KbDocumentLink>? documentLinks,
+            IReadOnlyList<KbSoftwareRecord>? softwareRecords,
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
+            IReadOnlyList<KbEquipmentCatalogItem>? equipmentCatalogItems,
+            IReadOnlyList<KbObjectTemplate>? objectTemplates,
+            IReadOnlyList<KbAct>? acts,
+            IReadOnlyList<KbActExecutor>? actExecutors,
+            IReadOnlyList<KbActDocument>? actDocuments,
+            IReadOnlyList<KbActNumberSequence>? actNumberSequences,
+            string currentWorkshop,
             bool includeCurrentWorkshop)
         {
             var data = new SavedData
@@ -387,6 +434,10 @@ namespace AsutpKnowledgeBase.Services
                 MaintenanceScheduleProfiles = maintenanceScheduleProfiles?.ToList() ?? new List<KbMaintenanceScheduleProfile>(),
                 EquipmentCatalogItems = equipmentCatalogItems?.ToList() ?? new List<KbEquipmentCatalogItem>(),
                 ObjectTemplates = objectTemplates?.ToList() ?? new List<KbObjectTemplate>(),
+                Acts = acts?.ToList() ?? new List<KbAct>(),
+                ActExecutors = actExecutors?.ToList() ?? new List<KbActExecutor>(),
+                ActDocuments = actDocuments?.ToList() ?? new List<KbActDocument>(),
+                ActNumberSequences = actNumberSequences?.ToList() ?? new List<KbActNumberSequence>(),
                 LastWorkshop = includeCurrentWorkshop ? currentWorkshop : string.Empty
             };
 
@@ -643,6 +694,257 @@ namespace AsutpKnowledgeBase.Services
             }
 
             return normalized;
+        }
+
+        public static List<KbAct> NormalizeActs(IEnumerable<KbAct>? acts)
+        {
+            var normalized = new List<KbAct>();
+            if (acts == null)
+                return normalized;
+
+            var usedActIds = new HashSet<string>(StringComparer.Ordinal);
+            int normalizedIndex = 0;
+
+            foreach (KbAct? act in acts)
+            {
+                if (act == null)
+                    continue;
+
+                string actNumber = act.ActNumber?.Trim() ?? string.Empty;
+                int actYear = act.ActYear > 0
+                    ? act.ActYear
+                    : act.ActDate?.Year ?? 0;
+                var equipmentSnapshot = NormalizeActEquipmentSnapshot(act.EquipmentSnapshot);
+                normalized.Add(new KbAct
+                {
+                    ActId = NormalizeActId(act.ActId, actYear, actNumber, normalizedIndex, usedActIds),
+                    ActYear = actYear,
+                    ActNumber = actNumber,
+                    ActType = Enum.IsDefined(typeof(KbActType), act.ActType)
+                        ? act.ActType
+                        : KbActType.EquipmentFailure,
+                    Status = Enum.IsDefined(typeof(KbActStatus), act.Status)
+                        ? act.Status
+                        : KbActStatus.Draft,
+                    ActDate = act.ActDate,
+                    WorkshopName = act.WorkshopName?.Trim() ?? string.Empty,
+                    Lvl3NodeId = act.Lvl3NodeId?.Trim() ?? string.Empty,
+                    Lvl3NameSnapshot = act.Lvl3NameSnapshot?.Trim() ?? string.Empty,
+                    ObjectNameSnapshot = act.ObjectNameSnapshot?.Trim() ?? string.Empty,
+                    ObjectPathSnapshot = act.ObjectPathSnapshot?.Trim() ?? string.Empty,
+                    RackId = act.RackId?.Trim() ?? string.Empty,
+                    RackNumberSnapshot = NormalizeNullableNonNegativeInt(act.RackNumberSnapshot),
+                    RackNameSnapshot = act.RackNameSnapshot?.Trim() ?? string.Empty,
+                    CompositionEntryId = act.CompositionEntryId?.Trim() ?? string.Empty,
+                    EquipmentName = act.EquipmentName?.Trim() ?? string.Empty,
+                    EquipmentSnapshot = equipmentSnapshot,
+                    FailureDate = act.FailureDate,
+                    FaultDescription = act.FaultDescription?.Trim() ?? string.Empty,
+                    FailureReason = act.FailureReason?.Trim() ?? string.Empty,
+                    InspectionResult = act.InspectionResult?.Trim() ?? string.Empty,
+                    FaultCriterion = act.FaultCriterion?.Trim() ?? string.Empty,
+                    RequestDocument = act.RequestDocument?.Trim() ?? string.Empty,
+                    ActualLaborHours = act.ActualLaborHours?.Trim() ?? string.Empty,
+                    CustomerName = act.CustomerName?.Trim() ?? string.Empty,
+                    CustomerPosition = act.CustomerPosition?.Trim() ?? string.Empty,
+                    CreatedBy = act.CreatedBy?.Trim() ?? string.Empty,
+                    CreatedAt = act.CreatedAt,
+                    UpdatedAt = act.UpdatedAt
+                });
+
+                normalizedIndex++;
+            }
+
+            return normalized
+                .OrderBy(static act => act.ActYear)
+                .ThenBy(static act => act.ActNumber, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(static act => act.ActId, StringComparer.Ordinal)
+                .ToList();
+        }
+
+        public static List<KbActExecutor> NormalizeActExecutors(
+            IEnumerable<KbActExecutor>? executors,
+            IEnumerable<string>? knownActIds = null)
+        {
+            var normalized = new List<KbActExecutor>();
+            if (executors == null)
+                return normalized;
+
+            HashSet<string>? knownActIdSet = knownActIds == null
+                ? null
+                : new HashSet<string>(
+                    knownActIds
+                        .Select(static id => id?.Trim() ?? string.Empty)
+                        .Where(static id => !string.IsNullOrWhiteSpace(id)),
+                    StringComparer.Ordinal);
+            var usedExecutorIds = new HashSet<string>(StringComparer.Ordinal);
+            int normalizedIndex = 0;
+
+            foreach (KbActExecutor? executor in executors)
+            {
+                if (executor == null)
+                    continue;
+
+                string actId = executor.ActId?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(actId) ||
+                    (knownActIdSet != null && !knownActIdSet.Contains(actId)))
+                {
+                    continue;
+                }
+
+                string lastName = executor.LastName?.Trim() ?? string.Empty;
+                string firstName = executor.FirstName?.Trim() ?? string.Empty;
+                string middleName = executor.MiddleName?.Trim() ?? string.Empty;
+                string position = executor.Position?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(lastName) &&
+                    string.IsNullOrWhiteSpace(firstName) &&
+                    string.IsNullOrWhiteSpace(middleName) &&
+                    string.IsNullOrWhiteSpace(position))
+                {
+                    continue;
+                }
+
+                int sortOrder = executor.SortOrder >= 0
+                    ? executor.SortOrder
+                    : normalizedIndex;
+                normalized.Add(new KbActExecutor
+                {
+                    ExecutorId = NormalizeOwnedRecordId(
+                        executor.ExecutorId,
+                        "act-executor",
+                        actId,
+                        sortOrder.ToString(CultureInfo.InvariantCulture),
+                        usedExecutorIds),
+                    ActId = actId,
+                    SortOrder = sortOrder,
+                    LastName = lastName,
+                    FirstName = firstName,
+                    MiddleName = middleName,
+                    Position = position
+                });
+
+                normalizedIndex++;
+            }
+
+            return normalized
+                .OrderBy(static executor => executor.ActId, StringComparer.Ordinal)
+                .ThenBy(static executor => executor.SortOrder)
+                .ThenBy(static executor => executor.ExecutorId, StringComparer.Ordinal)
+                .ToList();
+        }
+
+        public static List<KbActDocument> NormalizeActDocuments(
+            IEnumerable<KbActDocument>? documents,
+            IEnumerable<string>? knownActIds = null)
+        {
+            var normalized = new List<KbActDocument>();
+            if (documents == null)
+                return normalized;
+
+            HashSet<string>? knownActIdSet = knownActIds == null
+                ? null
+                : new HashSet<string>(
+                    knownActIds
+                        .Select(static id => id?.Trim() ?? string.Empty)
+                        .Where(static id => !string.IsNullOrWhiteSpace(id)),
+                    StringComparer.Ordinal);
+            var usedDocumentIds = new HashSet<string>(StringComparer.Ordinal);
+            int normalizedIndex = 0;
+
+            foreach (KbActDocument? document in documents)
+            {
+                if (document == null)
+                    continue;
+
+                string actId = document.ActId?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(actId) ||
+                    (knownActIdSet != null && !knownActIdSet.Contains(actId)))
+                {
+                    continue;
+                }
+
+                string path = document.Path?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(path))
+                    continue;
+
+                int versionNumber = document.VersionNumber > 0 ? document.VersionNumber : 1;
+                normalized.Add(new KbActDocument
+                {
+                    DocumentId = NormalizeOwnedRecordId(
+                        document.DocumentId,
+                        "act-document",
+                        actId,
+                        $"{versionNumber}-{normalizedIndex}",
+                        usedDocumentIds),
+                    ActId = actId,
+                    VersionNumber = versionNumber,
+                    TemplateId = document.TemplateId?.Trim() ?? string.Empty,
+                    TemplateVersion = document.TemplateVersion?.Trim() ?? string.Empty,
+                    Path = path,
+                    GeneratedAt = document.GeneratedAt,
+                    ContentHash = document.ContentHash?.Trim() ?? string.Empty,
+                    IsLatest = document.IsLatest
+                });
+
+                normalizedIndex++;
+            }
+
+            return normalized
+                .OrderBy(static document => document.ActId, StringComparer.Ordinal)
+                .ThenBy(static document => document.VersionNumber)
+                .ThenBy(static document => document.DocumentId, StringComparer.Ordinal)
+                .ToList();
+        }
+
+        public static List<KbActNumberSequence> NormalizeActNumberSequences(
+            IEnumerable<KbActNumberSequence>? sequences)
+        {
+            var normalizedByYear = new Dictionary<int, int>();
+            if (sequences == null)
+                return new List<KbActNumberSequence>();
+
+            foreach (KbActNumberSequence? sequence in sequences)
+            {
+                if (sequence == null || sequence.Year <= 0)
+                    continue;
+
+                int nextNumber = Math.Max(1, sequence.NextNumber);
+                if (!normalizedByYear.TryGetValue(sequence.Year, out int existingNextNumber) ||
+                    nextNumber > existingNextNumber)
+                {
+                    normalizedByYear[sequence.Year] = nextNumber;
+                }
+            }
+
+            return normalizedByYear
+                .OrderBy(static pair => pair.Key)
+                .Select(static pair => new KbActNumberSequence
+                {
+                    Year = pair.Key,
+                    NextNumber = pair.Value
+                })
+                .ToList();
+        }
+
+        public static KbActEquipmentSnapshot NormalizeActEquipmentSnapshot(KbActEquipmentSnapshot? snapshot)
+        {
+            if (snapshot == null)
+                return new KbActEquipmentSnapshot();
+
+            return new KbActEquipmentSnapshot
+            {
+                Lvl3Name = snapshot.Lvl3Name?.Trim() ?? string.Empty,
+                ObjectPath = snapshot.ObjectPath?.Trim() ?? string.Empty,
+                RackId = snapshot.RackId?.Trim() ?? string.Empty,
+                RackNumber = NormalizeNullableNonNegativeInt(snapshot.RackNumber),
+                RackName = snapshot.RackName?.Trim() ?? string.Empty,
+                CompositionEntryId = snapshot.CompositionEntryId?.Trim() ?? string.Empty,
+                ComponentType = snapshot.ComponentType?.Trim() ?? string.Empty,
+                Model = snapshot.Model?.Trim() ?? string.Empty,
+                OrderNumber = snapshot.OrderNumber?.Trim() ?? string.Empty,
+                SerialNumber = snapshot.SerialNumber?.Trim() ?? string.Empty,
+                Notes = snapshot.Notes?.Trim() ?? string.Empty
+            };
         }
 
         private static List<KbDocumentLink> NormalizeDocumentLinks(
@@ -1558,6 +1860,43 @@ namespace AsutpKnowledgeBase.Services
                 suffix++;
             }
         }
+
+        private static string NormalizeActId(
+            string? actId,
+            int actYear,
+            string actNumber,
+            int normalizedIndex,
+            ISet<string> usedActIds)
+        {
+            string normalizedExistingId = actId?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(normalizedExistingId) && usedActIds.Add(normalizedExistingId))
+                return normalizedExistingId;
+
+            string normalizedNumberPart = string.Join(
+                "-",
+                NormalizeTextKey(actNumber)
+                    .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(static part => part.ToLowerInvariant()));
+            string deterministicId = !string.IsNullOrWhiteSpace(normalizedNumberPart) && actYear > 0
+                ? $"act-{actYear}-{normalizedNumberPart}"
+                : $"act-{normalizedIndex}";
+
+            if (usedActIds.Add(deterministicId))
+                return deterministicId;
+
+            int suffix = 2;
+            while (true)
+            {
+                string candidate = $"{deterministicId}-{suffix}";
+                if (usedActIds.Add(candidate))
+                    return candidate;
+
+                suffix++;
+            }
+        }
+
+        private static int? NormalizeNullableNonNegativeInt(int? value) =>
+            value is >= 0 ? value : null;
 
         private static string NormalizeOwnedRecordId(
             string? recordId,

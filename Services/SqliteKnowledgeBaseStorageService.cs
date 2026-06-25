@@ -10,7 +10,7 @@ namespace AsutpKnowledgeBase.Services
 {
     public sealed class SqliteKnowledgeBaseStorageService : IKnowledgeBaseStorageService
     {
-        public const int CurrentDatabaseSchemaVersion = 12;
+        public const int CurrentDatabaseSchemaVersion = 15;
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -586,6 +586,7 @@ namespace AsutpKnowledgeBase.Services
             EnsureNodesNetworkTopologyColumn(connection, transaction);
             EnsureObjectTemplatesCompositionRacksColumn(connection, transaction);
             EnsureMaintenanceYearScheduleHoursColumn(connection, transaction);
+            EnsureActsMvpColumns(connection, transaction);
             ExecuteNonQuery(connection, transaction, $"PRAGMA user_version={CurrentDatabaseSchemaVersion};");
         }
 
@@ -666,6 +667,29 @@ namespace AsutpKnowledgeBase.Services
                 connection,
                 transaction,
                 "ALTER TABLE maintenance_year_schedule_entries ADD COLUMN hours INTEGER NOT NULL DEFAULT 0;");
+        }
+
+        private static void EnsureActsMvpColumns(
+            SqliteConnection connection,
+            SqliteTransaction? transaction)
+        {
+            (string ColumnName, string Definition)[] columns =
+            [
+                ("workshop_name", "workshop_name TEXT NOT NULL DEFAULT ''"),
+                ("object_name_snapshot", "object_name_snapshot TEXT NOT NULL DEFAULT ''"),
+                ("equipment_name", "equipment_name TEXT NOT NULL DEFAULT ''")
+            ];
+
+            foreach ((string columnName, string definition) in columns)
+            {
+                if (ColumnExists(connection, transaction, "acts", columnName))
+                    continue;
+
+                ExecuteNonQuery(
+                    connection,
+                    transaction,
+                    $"ALTER TABLE acts ADD COLUMN {definition};");
+            }
         }
 
         private static bool ColumnExists(
@@ -749,6 +773,10 @@ namespace AsutpKnowledgeBase.Services
             InsertMaintenanceScheduleProfiles(connection, transaction, data.MaintenanceScheduleProfiles);
             InsertEquipmentCatalogItems(connection, transaction, data.EquipmentCatalogItems);
             InsertObjectTemplates(connection, transaction, data.ObjectTemplates);
+            InsertActs(connection, transaction, data.Acts);
+            InsertActExecutors(connection, transaction, data.ActExecutors);
+            InsertActDocuments(connection, transaction, data.ActDocuments);
+            InsertActNumberSequences(connection, transaction, data.ActNumberSequences);
         }
 
         private static SavedData LoadData(SqliteConnection connection)
@@ -770,6 +798,10 @@ namespace AsutpKnowledgeBase.Services
                 MaintenanceScheduleProfiles = LoadMaintenanceScheduleProfiles(connection),
                 EquipmentCatalogItems = LoadEquipmentCatalogItems(connection),
                 ObjectTemplates = LoadObjectTemplates(connection),
+                Acts = LoadActs(connection),
+                ActExecutors = LoadActExecutors(connection),
+                ActDocuments = LoadActDocuments(connection),
+                ActNumberSequences = LoadActNumberSequences(connection),
                 LastWorkshop = metadata.TryGetValue("last_workshop", out string? lastWorkshop)
                     ? lastWorkshop
                     : string.Empty
@@ -1584,6 +1616,222 @@ namespace AsutpKnowledgeBase.Services
             return root ?? rows[0].Node;
         }
 
+        private static void InsertActs(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            IReadOnlyList<KbAct> acts)
+        {
+            for (int i = 0; i < acts.Count; i++)
+            {
+                KbAct act = acts[i];
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO acts (
+                        act_id, entry_order, act_year, act_number, act_type, status, act_date,
+                        workshop_name, lvl3_node_id, lvl3_name_snapshot, object_name_snapshot, object_path_snapshot, rack_id, rack_number_snapshot,
+                        rack_name_snapshot, composition_entry_id, equipment_name, equipment_snapshot_json, failure_date,
+                        fault_description, failure_reason, inspection_result, fault_criterion, request_document,
+                        actual_labor_hours, customer_name, customer_position, created_by, created_at, updated_at)
+                    VALUES (
+                        @act_id, @entry_order, @act_year, @act_number, @act_type, @status, @act_date,
+                        @workshop_name, @lvl3_node_id, @lvl3_name_snapshot, @object_name_snapshot, @object_path_snapshot, @rack_id, @rack_number_snapshot,
+                        @rack_name_snapshot, @composition_entry_id, @equipment_name, @equipment_snapshot_json, @failure_date,
+                        @fault_description, @failure_reason, @inspection_result, @fault_criterion, @request_document,
+                        @actual_labor_hours, @customer_name, @customer_position, @created_by, @created_at, @updated_at);
+                    """,
+                    ("@act_id", act.ActId),
+                    ("@entry_order", i),
+                    ("@act_year", act.ActYear),
+                    ("@act_number", act.ActNumber),
+                    ("@act_type", (int)act.ActType),
+                    ("@status", (int)act.Status),
+                    ("@act_date", FormatDateTime(act.ActDate)),
+                    ("@workshop_name", act.WorkshopName),
+                    ("@lvl3_node_id", act.Lvl3NodeId),
+                    ("@lvl3_name_snapshot", act.Lvl3NameSnapshot),
+                    ("@object_name_snapshot", act.ObjectNameSnapshot),
+                    ("@object_path_snapshot", act.ObjectPathSnapshot),
+                    ("@rack_id", act.RackId),
+                    ("@rack_number_snapshot", act.RackNumberSnapshot),
+                    ("@rack_name_snapshot", act.RackNameSnapshot),
+                    ("@composition_entry_id", act.CompositionEntryId),
+                    ("@equipment_name", act.EquipmentName),
+                    ("@equipment_snapshot_json", SerializeJson(act.EquipmentSnapshot)),
+                    ("@failure_date", FormatDateTime(act.FailureDate)),
+                    ("@fault_description", act.FaultDescription),
+                    ("@failure_reason", act.FailureReason),
+                    ("@inspection_result", act.InspectionResult),
+                    ("@fault_criterion", act.FaultCriterion),
+                    ("@request_document", act.RequestDocument),
+                    ("@actual_labor_hours", act.ActualLaborHours),
+                    ("@customer_name", act.CustomerName),
+                    ("@customer_position", act.CustomerPosition),
+                    ("@created_by", act.CreatedBy),
+                    ("@created_at", FormatDateTime(act.CreatedAt)),
+                    ("@updated_at", FormatDateTime(act.UpdatedAt)));
+            }
+        }
+
+        private static List<KbAct> LoadActs(SqliteConnection connection) =>
+            Query(
+                connection,
+                "SELECT * FROM acts ORDER BY entry_order;",
+                static reader => new KbAct
+                {
+                    ActId = GetString(reader, "act_id"),
+                    ActYear = GetInt(reader, "act_year"),
+                    ActNumber = GetString(reader, "act_number"),
+                    ActType = ToEnum(GetInt(reader, "act_type"), KbActType.EquipmentFailure),
+                    Status = ToEnum(GetInt(reader, "status"), KbActStatus.Draft),
+                    ActDate = GetNullableDateTime(reader, "act_date"),
+                    WorkshopName = GetString(reader, "workshop_name"),
+                    Lvl3NodeId = GetString(reader, "lvl3_node_id"),
+                    Lvl3NameSnapshot = GetString(reader, "lvl3_name_snapshot"),
+                    ObjectNameSnapshot = GetString(reader, "object_name_snapshot"),
+                    ObjectPathSnapshot = GetString(reader, "object_path_snapshot"),
+                    RackId = GetString(reader, "rack_id"),
+                    RackNumberSnapshot = GetNullableInt(reader, "rack_number_snapshot"),
+                    RackNameSnapshot = GetString(reader, "rack_name_snapshot"),
+                    CompositionEntryId = GetString(reader, "composition_entry_id"),
+                    EquipmentName = GetString(reader, "equipment_name"),
+                    EquipmentSnapshot = DeserializeJson<KbActEquipmentSnapshot>(GetString(reader, "equipment_snapshot_json")),
+                    FailureDate = GetNullableDateTime(reader, "failure_date"),
+                    FaultDescription = GetString(reader, "fault_description"),
+                    FailureReason = GetString(reader, "failure_reason"),
+                    InspectionResult = GetString(reader, "inspection_result"),
+                    FaultCriterion = GetString(reader, "fault_criterion"),
+                    RequestDocument = GetString(reader, "request_document"),
+                    ActualLaborHours = GetString(reader, "actual_labor_hours"),
+                    CustomerName = GetString(reader, "customer_name"),
+                    CustomerPosition = GetString(reader, "customer_position"),
+                    CreatedBy = GetString(reader, "created_by"),
+                    CreatedAt = GetNullableDateTime(reader, "created_at"),
+                    UpdatedAt = GetNullableDateTime(reader, "updated_at")
+                }).ToList();
+
+        private static void InsertActExecutors(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            IReadOnlyList<KbActExecutor> executors)
+        {
+            for (int i = 0; i < executors.Count; i++)
+            {
+                KbActExecutor executor = executors[i];
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO act_executors (
+                        executor_id, entry_order, act_id, sort_order, last_name, first_name, middle_name, position)
+                    VALUES (
+                        @executor_id, @entry_order, @act_id, @sort_order, @last_name, @first_name, @middle_name, @position);
+                    """,
+                    ("@executor_id", executor.ExecutorId),
+                    ("@entry_order", i),
+                    ("@act_id", executor.ActId),
+                    ("@sort_order", executor.SortOrder),
+                    ("@last_name", executor.LastName),
+                    ("@first_name", executor.FirstName),
+                    ("@middle_name", executor.MiddleName),
+                    ("@position", executor.Position));
+            }
+        }
+
+        private static List<KbActExecutor> LoadActExecutors(SqliteConnection connection) =>
+            Query(
+                connection,
+                "SELECT * FROM act_executors ORDER BY entry_order;",
+                static reader => new KbActExecutor
+                {
+                    ExecutorId = GetString(reader, "executor_id"),
+                    ActId = GetString(reader, "act_id"),
+                    SortOrder = GetInt(reader, "sort_order"),
+                    LastName = GetString(reader, "last_name"),
+                    FirstName = GetString(reader, "first_name"),
+                    MiddleName = GetString(reader, "middle_name"),
+                    Position = GetString(reader, "position")
+                }).ToList();
+
+        private static void InsertActDocuments(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            IReadOnlyList<KbActDocument> documents)
+        {
+            for (int i = 0; i < documents.Count; i++)
+            {
+                KbActDocument document = documents[i];
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO act_documents (
+                        document_id, entry_order, act_id, version_number, template_id, template_version,
+                        path, generated_at, content_hash, is_latest)
+                    VALUES (
+                        @document_id, @entry_order, @act_id, @version_number, @template_id, @template_version,
+                        @path, @generated_at, @content_hash, @is_latest);
+                    """,
+                    ("@document_id", document.DocumentId),
+                    ("@entry_order", i),
+                    ("@act_id", document.ActId),
+                    ("@version_number", document.VersionNumber),
+                    ("@template_id", document.TemplateId),
+                    ("@template_version", document.TemplateVersion),
+                    ("@path", document.Path),
+                    ("@generated_at", FormatDateTime(document.GeneratedAt)),
+                    ("@content_hash", document.ContentHash),
+                    ("@is_latest", ToSqlBool(document.IsLatest)));
+            }
+        }
+
+        private static List<KbActDocument> LoadActDocuments(SqliteConnection connection) =>
+            Query(
+                connection,
+                "SELECT * FROM act_documents ORDER BY entry_order;",
+                static reader => new KbActDocument
+                {
+                    DocumentId = GetString(reader, "document_id"),
+                    ActId = GetString(reader, "act_id"),
+                    VersionNumber = GetInt(reader, "version_number"),
+                    TemplateId = GetString(reader, "template_id"),
+                    TemplateVersion = GetString(reader, "template_version"),
+                    Path = GetString(reader, "path"),
+                    GeneratedAt = GetNullableDateTime(reader, "generated_at"),
+                    ContentHash = GetString(reader, "content_hash"),
+                    IsLatest = GetBool(reader, "is_latest")
+                }).ToList();
+
+        private static void InsertActNumberSequences(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            IReadOnlyList<KbActNumberSequence> sequences)
+        {
+            foreach (KbActNumberSequence sequence in sequences)
+            {
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO act_number_sequences (year, next_number)
+                    VALUES (@year, @next_number);
+                    """,
+                    ("@year", sequence.Year),
+                    ("@next_number", sequence.NextNumber));
+            }
+        }
+
+        private static List<KbActNumberSequence> LoadActNumberSequences(SqliteConnection connection) =>
+            Query(
+                connection,
+                "SELECT year, next_number FROM act_number_sequences ORDER BY year;",
+                static reader => new KbActNumberSequence
+                {
+                    Year = GetInt(reader, "year"),
+                    NextNumber = GetInt(reader, "next_number")
+                }).ToList();
+
         private static void UpsertMetadata(
             SqliteConnection connection,
             SqliteTransaction transaction,
@@ -1909,6 +2157,10 @@ namespace AsutpKnowledgeBase.Services
 
         private static readonly string[] DataTablesInDeleteOrder =
         [
+            "act_documents",
+            "act_executors",
+            "acts",
+            "act_number_sequences",
             "object_template_nodes",
             "object_templates",
             "equipment_catalog_properties",
@@ -2145,6 +2397,94 @@ namespace AsutpKnowledgeBase.Services
                 PRIMARY KEY (template_id, template_node_id),
                 FOREIGN KEY (template_id) REFERENCES object_templates(template_id) ON DELETE CASCADE
             );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS acts (
+                act_id TEXT PRIMARY KEY,
+                entry_order INTEGER NOT NULL,
+                act_year INTEGER NOT NULL,
+                act_number TEXT NOT NULL,
+                act_type INTEGER NOT NULL,
+                status INTEGER NOT NULL,
+                act_date TEXT NULL,
+                workshop_name TEXT NOT NULL,
+                lvl3_node_id TEXT NOT NULL,
+                lvl3_name_snapshot TEXT NOT NULL,
+                object_name_snapshot TEXT NOT NULL,
+                object_path_snapshot TEXT NOT NULL,
+                rack_id TEXT NOT NULL,
+                rack_number_snapshot INTEGER NULL,
+                rack_name_snapshot TEXT NOT NULL,
+                composition_entry_id TEXT NOT NULL,
+                equipment_name TEXT NOT NULL,
+                equipment_snapshot_json TEXT NOT NULL,
+                failure_date TEXT NULL,
+                fault_description TEXT NOT NULL,
+                failure_reason TEXT NOT NULL,
+                inspection_result TEXT NOT NULL,
+                fault_criterion TEXT NOT NULL,
+                request_document TEXT NOT NULL,
+                actual_labor_hours TEXT NOT NULL,
+                customer_name TEXT NOT NULL,
+                customer_position TEXT NOT NULL,
+                created_by TEXT NOT NULL,
+                created_at TEXT NULL,
+                updated_at TEXT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS act_executors (
+                executor_id TEXT PRIMARY KEY,
+                entry_order INTEGER NOT NULL,
+                act_id TEXT NOT NULL,
+                sort_order INTEGER NOT NULL,
+                last_name TEXT NOT NULL,
+                first_name TEXT NOT NULL,
+                middle_name TEXT NOT NULL,
+                position TEXT NOT NULL,
+                FOREIGN KEY (act_id) REFERENCES acts(act_id) ON DELETE CASCADE
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS act_documents (
+                document_id TEXT PRIMARY KEY,
+                entry_order INTEGER NOT NULL,
+                act_id TEXT NOT NULL,
+                version_number INTEGER NOT NULL,
+                template_id TEXT NOT NULL,
+                template_version TEXT NOT NULL,
+                path TEXT NOT NULL,
+                generated_at TEXT NULL,
+                content_hash TEXT NOT NULL,
+                is_latest INTEGER NOT NULL,
+                FOREIGN KEY (act_id) REFERENCES acts(act_id) ON DELETE CASCADE
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS act_number_sequences (
+                year INTEGER PRIMARY KEY,
+                next_number INTEGER NOT NULL
+            );
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_acts_year_number
+            ON acts(act_year, act_number);
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_acts_lvl3_node_id
+            ON acts(lvl3_node_id);
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_acts_composition_entry_id
+            ON acts(composition_entry_id);
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_act_executors_act_id
+            ON act_executors(act_id);
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_act_documents_act_id
+            ON act_documents(act_id);
             """
         ];
     }

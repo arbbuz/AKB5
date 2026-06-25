@@ -25,6 +25,7 @@ namespace AsutpKnowledgeBase
             selectedNodeCompositionScreen.EditRackRequested += EditSelectedCompositionRack;
             selectedNodeCompositionScreen.DeleteRackRequested += DeleteSelectedCompositionRack;
             selectedNodeCompositionScreen.CopyFromExistingRequested += CopyCompositionFromExistingObject;
+            selectedNodeCompositionScreen.CreateActRequested += CreateActFromSelectedCompositionEntry;
             selectedNodeCompositionScreen.EditSelectedRequested += EditSelectedCompositionEntry;
             selectedNodeCompositionScreen.DeleteSelectedRequested += DeleteSelectedCompositionEntry;
             selectedNodeCompositionScreen.ColumnWidthsChanged += SaveCompositionColumnWidths;

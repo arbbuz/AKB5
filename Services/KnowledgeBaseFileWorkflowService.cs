@@ -369,6 +369,10 @@ namespace AsutpKnowledgeBase.Services
                 MaintenanceScheduleProfiles = data.MaintenanceScheduleProfiles ?? new List<KbMaintenanceScheduleProfile>(),
                 EquipmentCatalogItems = data.EquipmentCatalogItems ?? new List<KbEquipmentCatalogItem>(),
                 ObjectTemplates = data.ObjectTemplates ?? new List<KbObjectTemplate>(),
+                Acts = data.Acts ?? new List<KbAct>(),
+                ActExecutors = data.ActExecutors ?? new List<KbActExecutor>(),
+                ActDocuments = data.ActDocuments ?? new List<KbActDocument>(),
+                ActNumberSequences = data.ActNumberSequences ?? new List<KbActNumberSequence>(),
                 LastWorkshop = lastWorkshop
             };
 

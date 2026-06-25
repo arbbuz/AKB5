@@ -29,6 +29,14 @@ namespace AsutpKnowledgeBase.Services
 
         public List<KbObjectTemplate> ObjectTemplates { get; private set; } = new();
 
+        public List<KbAct> Acts { get; private set; } = new();
+
+        public List<KbActExecutor> ActExecutors { get; private set; } = new();
+
+        public List<KbActDocument> ActDocuments { get; private set; } = new();
+
+        public List<KbActNumberSequence> ActNumberSequences { get; private set; } = new();
+
         public string CurrentWorkshop { get; private set; } = string.Empty;
 
         public string LastSavedWorkshop { get; private set; } = string.Empty;
@@ -60,6 +68,10 @@ namespace AsutpKnowledgeBase.Services
             MaintenanceScheduleProfiles = normalizedData.MaintenanceScheduleProfiles;
             EquipmentCatalogItems = normalizedData.EquipmentCatalogItems;
             ObjectTemplates = normalizedData.ObjectTemplates;
+            Acts = normalizedData.Acts;
+            ActExecutors = normalizedData.ActExecutors;
+            ActDocuments = normalizedData.ActDocuments;
+            ActNumberSequences = normalizedData.ActNumberSequences;
             CurrentWorkshop = normalizedData.LastWorkshop;
 
             if (recordAsSavedState)
@@ -83,6 +95,10 @@ namespace AsutpKnowledgeBase.Services
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = EquipmentCatalogItems,
                 ObjectTemplates = ObjectTemplates,
+                Acts = Acts,
+                ActExecutors = ActExecutors,
+                ActDocuments = ActDocuments,
+                ActNumberSequences = ActNumberSequences,
                 LastWorkshop = CurrentWorkshop
             });
         }
@@ -100,6 +116,10 @@ namespace AsutpKnowledgeBase.Services
                 MaintenanceScheduleProfiles,
                 EquipmentCatalogItems,
                 ObjectTemplates,
+                Acts,
+                ActExecutors,
+                ActDocuments,
+                ActNumberSequences,
                 CurrentWorkshop,
                 includeCurrentWorkshop);
         }
@@ -240,6 +260,10 @@ namespace AsutpKnowledgeBase.Services
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = EquipmentCatalogItems,
                 ObjectTemplates = ObjectTemplates,
+                Acts = Acts,
+                ActExecutors = ActExecutors,
+                ActDocuments = ActDocuments,
+                ActNumberSequences = ActNumberSequences,
                 LastWorkshop = CurrentWorkshop
             }).CompositionEntries;
 
@@ -256,6 +280,10 @@ namespace AsutpKnowledgeBase.Services
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = EquipmentCatalogItems,
                 ObjectTemplates = ObjectTemplates,
+                Acts = Acts,
+                ActExecutors = ActExecutors,
+                ActDocuments = ActDocuments,
+                ActNumberSequences = ActNumberSequences,
                 LastWorkshop = CurrentWorkshop
             }).CompositionRacks;
 
@@ -272,6 +300,10 @@ namespace AsutpKnowledgeBase.Services
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = EquipmentCatalogItems,
                 ObjectTemplates = ObjectTemplates,
+                Acts = Acts,
+                ActExecutors = ActExecutors,
+                ActDocuments = ActDocuments,
+                ActNumberSequences = ActNumberSequences,
                 LastWorkshop = CurrentWorkshop
             }).DocumentLinks;
 
@@ -288,6 +320,10 @@ namespace AsutpKnowledgeBase.Services
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = EquipmentCatalogItems,
                 ObjectTemplates = ObjectTemplates,
+                Acts = Acts,
+                ActExecutors = ActExecutors,
+                ActDocuments = ActDocuments,
+                ActNumberSequences = ActNumberSequences,
                 LastWorkshop = CurrentWorkshop
             }).SoftwareRecords;
 
@@ -304,6 +340,10 @@ namespace AsutpKnowledgeBase.Services
                 MaintenanceScheduleProfiles = maintenanceScheduleProfiles?.ToList() ?? new List<KbMaintenanceScheduleProfile>(),
                 EquipmentCatalogItems = EquipmentCatalogItems,
                 ObjectTemplates = ObjectTemplates,
+                Acts = Acts,
+                ActExecutors = ActExecutors,
+                ActDocuments = ActDocuments,
+                ActNumberSequences = ActNumberSequences,
                 LastWorkshop = CurrentWorkshop
             }).MaintenanceScheduleProfiles;
 
@@ -320,6 +360,10 @@ namespace AsutpKnowledgeBase.Services
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = equipmentCatalogItems?.ToList() ?? new List<KbEquipmentCatalogItem>(),
                 ObjectTemplates = ObjectTemplates,
+                Acts = Acts,
+                ActExecutors = ActExecutors,
+                ActDocuments = ActDocuments,
+                ActNumberSequences = ActNumberSequences,
                 LastWorkshop = CurrentWorkshop
             }).EquipmentCatalogItems;
 
@@ -336,8 +380,99 @@ namespace AsutpKnowledgeBase.Services
                 MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
                 EquipmentCatalogItems = EquipmentCatalogItems,
                 ObjectTemplates = objectTemplates?.ToList() ?? new List<KbObjectTemplate>(),
+                Acts = Acts,
+                ActExecutors = ActExecutors,
+                ActDocuments = ActDocuments,
+                ActNumberSequences = ActNumberSequences,
                 LastWorkshop = CurrentWorkshop
             }).ObjectTemplates;
+
+        public void ReplaceActs(IEnumerable<KbAct> acts)
+        {
+            SavedData normalizedData = KnowledgeBaseDataService.NormalizeSavedData(new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = Config,
+                Workshops = Workshops,
+                CompositionRacks = CompositionRacks,
+                CompositionEntries = CompositionEntries,
+                DocumentLinks = DocumentLinks,
+                SoftwareRecords = SoftwareRecords,
+                MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
+                EquipmentCatalogItems = EquipmentCatalogItems,
+                ObjectTemplates = ObjectTemplates,
+                Acts = acts?.ToList() ?? new List<KbAct>(),
+                ActExecutors = ActExecutors,
+                ActDocuments = ActDocuments,
+                ActNumberSequences = ActNumberSequences,
+                LastWorkshop = CurrentWorkshop
+            });
+
+            Acts = normalizedData.Acts;
+            ActExecutors = normalizedData.ActExecutors;
+            ActDocuments = normalizedData.ActDocuments;
+            ActNumberSequences = normalizedData.ActNumberSequences;
+        }
+
+        public void ReplaceActExecutors(IEnumerable<KbActExecutor> actExecutors) =>
+            ActExecutors = KnowledgeBaseDataService.NormalizeSavedData(new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = Config,
+                Workshops = Workshops,
+                CompositionRacks = CompositionRacks,
+                CompositionEntries = CompositionEntries,
+                DocumentLinks = DocumentLinks,
+                SoftwareRecords = SoftwareRecords,
+                MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
+                EquipmentCatalogItems = EquipmentCatalogItems,
+                ObjectTemplates = ObjectTemplates,
+                Acts = Acts,
+                ActExecutors = actExecutors?.ToList() ?? new List<KbActExecutor>(),
+                ActDocuments = ActDocuments,
+                ActNumberSequences = ActNumberSequences,
+                LastWorkshop = CurrentWorkshop
+            }).ActExecutors;
+
+        public void ReplaceActDocuments(IEnumerable<KbActDocument> actDocuments) =>
+            ActDocuments = KnowledgeBaseDataService.NormalizeSavedData(new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = Config,
+                Workshops = Workshops,
+                CompositionRacks = CompositionRacks,
+                CompositionEntries = CompositionEntries,
+                DocumentLinks = DocumentLinks,
+                SoftwareRecords = SoftwareRecords,
+                MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
+                EquipmentCatalogItems = EquipmentCatalogItems,
+                ObjectTemplates = ObjectTemplates,
+                Acts = Acts,
+                ActExecutors = ActExecutors,
+                ActDocuments = actDocuments?.ToList() ?? new List<KbActDocument>(),
+                ActNumberSequences = ActNumberSequences,
+                LastWorkshop = CurrentWorkshop
+            }).ActDocuments;
+
+        public void ReplaceActNumberSequences(IEnumerable<KbActNumberSequence> actNumberSequences) =>
+            ActNumberSequences = KnowledgeBaseDataService.NormalizeSavedData(new SavedData
+            {
+                SchemaVersion = SavedData.CurrentSchemaVersion,
+                Config = Config,
+                Workshops = Workshops,
+                CompositionRacks = CompositionRacks,
+                CompositionEntries = CompositionEntries,
+                DocumentLinks = DocumentLinks,
+                SoftwareRecords = SoftwareRecords,
+                MaintenanceScheduleProfiles = MaintenanceScheduleProfiles,
+                EquipmentCatalogItems = EquipmentCatalogItems,
+                ObjectTemplates = ObjectTemplates,
+                Acts = Acts,
+                ActExecutors = ActExecutors,
+                ActDocuments = ActDocuments,
+                ActNumberSequences = actNumberSequences?.ToList() ?? new List<KbActNumberSequence>(),
+                LastWorkshop = CurrentWorkshop
+            }).ActNumberSequences;
 
         public void SetRequiresSave(bool requiresSave) => RequiresSave = requiresSave;
 

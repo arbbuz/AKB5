@@ -378,4 +378,90 @@ public class KnowledgeBaseSessionServiceTests
         Assert.True(session.Workshops.ContainsKey("Цех 1"));
         Assert.Equal("Цех 1", session.CurrentWorkshop);
     }
+
+    [Fact]
+    public void CreateSaveData_IncludesActCollections()
+    {
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(
+            new SavedData
+            {
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех 1"] = new()
+                },
+                Acts = new List<KbAct>
+                {
+                    new()
+                    {
+                        ActId = "act-1",
+                        ActYear = 2026,
+                        ActNumber = "2026-0001"
+                    }
+                },
+                ActExecutors = new List<KbActExecutor>
+                {
+                    new()
+                    {
+                        ActId = "act-1",
+                        LastName = "Ivanov"
+                    }
+                },
+                ActDocuments = new List<KbActDocument>
+                {
+                    new()
+                    {
+                        ActId = "act-1",
+                        Path = @"Documents\Acts\2026-0001.docx"
+                    }
+                },
+                ActNumberSequences = new List<KbActNumberSequence>
+                {
+                    new()
+                    {
+                        Year = 2026,
+                        NextNumber = 2
+                    }
+                },
+                LastWorkshop = "Цех 1"
+            },
+            recordAsSavedState: true);
+
+        SavedData saveData = session.CreateSaveData(session.GetCurrentWorkshopNodes());
+
+        Assert.Equal("act-1", Assert.Single(saveData.Acts).ActId);
+        Assert.Equal("act-1", Assert.Single(saveData.ActExecutors).ActId);
+        Assert.Equal(@"Documents\Acts\2026-0001.docx", Assert.Single(saveData.ActDocuments).Path);
+        Assert.Equal(2, Assert.Single(saveData.ActNumberSequences).NextNumber);
+    }
+
+    [Fact]
+    public void RefreshDirtyState_ActsAffectSnapshot()
+    {
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(
+            new SavedData
+            {
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех 1"] = new()
+                },
+                LastWorkshop = "Цех 1"
+            },
+            recordAsSavedState: true);
+
+        session.ReplaceActs(
+            new[]
+            {
+                new KbAct
+                {
+                    ActId = "act-1",
+                    ActYear = 2026,
+                    ActNumber = "2026-0001"
+                }
+            });
+        session.RefreshDirtyState(session.GetCurrentWorkshopNodes());
+
+        Assert.True(session.IsDirty);
+    }
 }
