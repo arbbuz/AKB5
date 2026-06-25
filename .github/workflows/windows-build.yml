@@ -6,11 +6,13 @@ on:
       - to
       - card
       - Net
+      - act
   pull_request:
     branches:
       - to
       - card
       - Net
+      - act
   workflow_dispatch:
 
 permissions:
