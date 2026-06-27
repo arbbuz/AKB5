@@ -124,6 +124,55 @@ public class KnowledgeBaseActDraftServiceTests
     }
 
     [Fact]
+    public void CreateDraft_FromAdditionalEquipmentEntry_CreatesActWithoutRackSnapshot()
+    {
+        (List<KbNode> roots, KbNode lvl3Node) = CreateLvl3Tree();
+        var entry = new KbCompositionEntry
+        {
+            EntryId = "aux-1",
+            ParentNodeId = "lvl3-cabinet",
+            RackNumber = 0,
+            SlotNumber = null,
+            PositionOrder = 3,
+            ComponentType = "Шкаф обогрева, терморегулятор, модуль питания, резервный сегмент",
+            Model = "TRM",
+            OrderNumber = "ABC-123",
+            Notes = "Auxiliary equipment"
+        };
+        DateTime now = new(2026, 6, 25, 10, 30, 0, DateTimeKind.Utc);
+        var service = new KnowledgeBaseActDraftService(
+            clock: () => now,
+            actIdFactory: () => "act-draft-aux");
+
+        KnowledgeBaseActDraftResult result = service.CreateDraft(new KnowledgeBaseActDraftRequest
+        {
+            Lvl3Node = lvl3Node,
+            WorkshopRoots = roots,
+            WorkshopName = "Купоросный цех",
+            VisibleLevel = 3,
+            Source = KnowledgeBaseActDraftSource.AdditionalEquipment,
+            CompositionEntry = entry
+        });
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.NotNull(result.Act);
+        KbAct act = result.Act!;
+        Assert.Equal("act-draft-aux", act.ActId);
+        Assert.Equal("Купоросный цех", act.WorkshopName);
+        Assert.Equal(string.Empty, act.RackId);
+        Assert.Equal(0, act.RackNumberSnapshot);
+        Assert.Equal(string.Empty, act.RackNameSnapshot);
+        Assert.Equal("aux-1", act.CompositionEntryId);
+        Assert.Equal("Шкаф обогрева, терморегулятор, модуль питания", act.EquipmentName);
+        Assert.Equal(string.Empty, act.EquipmentSnapshot.RackId);
+        Assert.Equal(0, act.EquipmentSnapshot.RackNumber);
+        Assert.Equal(string.Empty, act.EquipmentSnapshot.RackName);
+        Assert.Equal("aux-1", act.EquipmentSnapshot.CompositionEntryId);
+        Assert.Equal("ABC-123", act.EquipmentSnapshot.OrderNumber);
+        Assert.Equal(string.Empty, act.EquipmentSnapshot.SerialNumber);
+    }
+
+    [Fact]
     public void CreateDraft_DoesNotCopyOrderNumberToSerialNumber()
     {
         (_, KbNode lvl3Node) = CreateLvl3Tree();

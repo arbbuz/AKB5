@@ -19,6 +19,7 @@ $repoRoot = Split-Path -Parent $scriptRoot
 $projectPath = Join-Path $repoRoot "asutpKB.csproj"
 $pdfImportProjectPath = Join-Path $repoRoot "src/AsutpKnowledgeBase.PdfImport/AsutpKnowledgeBase.PdfImport.csproj"
 $excelExchangeProjectPath = Join-Path $repoRoot "src/AsutpKnowledgeBase.ExcelExchange/AsutpKnowledgeBase.ExcelExchange.csproj"
+$actDocxProjectPath = Join-Path $repoRoot "src/AsutpKnowledgeBase.ActDocx/AsutpKnowledgeBase.ActDocx.csproj"
 
 $dotnetCandidates = @()
 if ($env:DOTNET_EXE) {
@@ -154,6 +155,35 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
+$actDocxOutputDirectory = Join-Path $OutputDirectory "act-docx"
+New-Item -ItemType Directory -Path $actDocxOutputDirectory -Force | Out-Null
+
+$actDocxPublishArgs = @(
+    "publish",
+    $actDocxProjectPath,
+    "-c",
+    $Configuration,
+    "-r",
+    $RuntimeIdentifier,
+    "--self-contained",
+    "false",
+    "-p:PublishTrimmed=false",
+    "-p:PublishAot=false",
+    "-p:PublishSingleFile=false",
+    "-p:IncludeNativeLibrariesForSelfExtract=false",
+    "-p:RunAnalyzers=false",
+    "-p:WarningLevel=0",
+    "-o",
+    $actDocxOutputDirectory
+)
+
+Write-Host "Running: $dotnetPath $($actDocxPublishArgs -join ' ')"
+& $dotnetPath @actDocxPublishArgs
+
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
+
 $allowedPdfImportFiles = @(
     "AsutpKnowledgeBase.PdfImport.deps.json",
     "AsutpKnowledgeBase.PdfImport.dll",
@@ -191,6 +221,25 @@ Get-ChildItem -LiteralPath $excelExchangeOutputDirectory -File |
         Remove-Item -LiteralPath $_.FullName -Force
     }
 
+$allowedActDocxFiles = @(
+    "AsutpKnowledgeBase.ActDocx.deps.json",
+    "AsutpKnowledgeBase.ActDocx.dll",
+    "AsutpKnowledgeBase.ActDocx.pdb",
+    "System.IO.Packaging.dll"
+)
+
+$removedActDocxFiles = @()
+Get-ChildItem -LiteralPath $actDocxOutputDirectory -File |
+    Where-Object {
+        $fileName = $_.Name
+        -not ($allowedActDocxFiles -contains $fileName) -and
+        -not $fileName.StartsWith("DocumentFormat.OpenXml", [StringComparison]::OrdinalIgnoreCase)
+    } |
+    ForEach-Object {
+        $removedActDocxFiles += $_.Name
+        Remove-Item -LiteralPath $_.FullName -Force
+    }
+
 $expectedExe = Join-Path $OutputDirectory "asutpKB.exe"
 if (-not (Test-Path $expectedExe)) {
     throw "Publish succeeded but expected executable was not found: $expectedExe"
@@ -206,12 +255,21 @@ if (-not (Test-Path $expectedExcelExchangeAssembly)) {
     throw "Publish succeeded but expected Excel exchange module was not found: $expectedExcelExchangeAssembly"
 }
 
+$expectedActDocxAssembly = Join-Path $actDocxOutputDirectory "AsutpKnowledgeBase.ActDocx.dll"
+if (-not (Test-Path $expectedActDocxAssembly)) {
+    throw "Publish succeeded but expected act DOCX module was not found: $expectedActDocxAssembly"
+}
+
 Write-Host "Publish output: $expectedExe"
 Write-Host "PDF import module output: $expectedPdfImportAssembly"
 Write-Host "Excel exchange module output: $expectedExcelExchangeAssembly"
+Write-Host "Act DOCX module output: $expectedActDocxAssembly"
 if ($removedPdfImportFiles.Count -gt 0) {
     Write-Host "Removed non-PDF module files: $($removedPdfImportFiles -join ', ')"
 }
 if ($removedExcelExchangeFiles.Count -gt 0) {
     Write-Host "Removed non-Excel module files: $($removedExcelExchangeFiles -join ', ')"
+}
+if ($removedActDocxFiles.Count -gt 0) {
+    Write-Host "Removed non-act-DOCX module files: $($removedActDocxFiles -join ', ')"
 }

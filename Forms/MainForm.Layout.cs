@@ -51,12 +51,14 @@ namespace AsutpKnowledgeBase
 
             menuFile = CreateTopToolbarMenuButton("Файл");
             menuMaintenance = CreateTopToolbarMenuButton("ТО");
+            menuActs = CreateTopToolbarMenuButton("Акты");
             menuReferences = CreateTopToolbarMenuButton("Каталог");
             menuService = CreateTopToolbarMenuButton("Сервис");
             menuSave = CreateMaterialMenuItem("Сохранить", "\ue161", BtnSave_Click);
             menuNewWorkshop = CreateMaterialMenuItem("Новый цех", "\ue145", BtnAddWorkshop_Click);
             menuDeleteWorkshop = CreateMaterialMenuItem("Удалить цех", "\ue872", BtnDeleteWorkshop_Click);
             menuRenameWorkshop = CreateMaterialMenuItem("Переименовать цех", "\ue3c9", BtnRenameWorkshop_Click);
+            menuActsJournal = CreateMaterialMenuItem("Журнал актов", "\ue8f6", OpenActsJournal);
             menuEditEquipmentCatalog = CreateMaterialMenuItem("Каталог оборудования", "\ue1a1", EditEquipmentCatalog);
             menuExportCatalogTemplates = CreateMaterialMenuItem("Экспорт справочников и шаблонов", "\ue2c6", ExportCatalogTemplates);
             menuImportCatalogTemplates = CreateMaterialMenuItem("Импорт справочников и шаблонов", "\ue2c4", ImportCatalogTemplates);
@@ -100,6 +102,11 @@ namespace AsutpKnowledgeBase
             menuReferences.DropDownItems.AddRange(new ToolStripItem[]
             {
                 menuEditEquipmentCatalog
+            });
+
+            menuActs.DropDownItems.AddRange(new ToolStripItem[]
+            {
+                menuActsJournal
             });
 
             menuService.DropDownItems.AddRange(new ToolStripItem[]
@@ -153,6 +160,7 @@ namespace AsutpKnowledgeBase
 
             toolStrip.Items.Add(menuFile);
             toolStrip.Items.Add(menuMaintenance);
+            toolStrip.Items.Add(menuActs);
             toolStrip.Items.Add(menuReferences);
             toolStrip.Items.Add(menuService);
 

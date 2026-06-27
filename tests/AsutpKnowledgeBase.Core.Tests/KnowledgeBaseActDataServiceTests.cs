@@ -51,6 +51,8 @@ public class KnowledgeBaseActDataServiceTests
                 ActualLaborHours = " 2.5 ",
                 CustomerName = " Customer ",
                 CustomerPosition = " Engineer ",
+                ApproverName = " Head ",
+                ApproverPosition = " Automation head ",
                 CreatedBy = " Operator ",
                 CreatedAt = new DateTime(2026, 6, 24, 10, 0, 0),
                 UpdatedAt = new DateTime(2026, 6, 24, 11, 0, 0)
@@ -72,6 +74,8 @@ public class KnowledgeBaseActDataServiceTests
         Assert.Equal(string.Empty, act.EquipmentSnapshot.SerialNumber);
         Assert.Null(act.EquipmentSnapshot.RackNumber);
         Assert.Equal("2.5", act.ActualLaborHours);
+        Assert.Equal("Head", act.ApproverName);
+        Assert.Equal("Automation head", act.ApproverPosition);
         Assert.Null(typeof(KbAct).GetProperty("SlotNumber"));
         Assert.Null(typeof(KbActEquipmentSnapshot).GetProperty("SlotNumber"));
     }

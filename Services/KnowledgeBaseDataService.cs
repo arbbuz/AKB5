@@ -20,7 +20,8 @@ namespace AsutpKnowledgeBase.Services
                     .Range(1, 10)
                     .Select(static level => $"Уровень {level}")
                     .ToList(),
-                ProductionCalendarYears = CreateDefaultProductionCalendarYears()
+                ProductionCalendarYears = CreateDefaultProductionCalendarYears(),
+                ActDocumentsDirectoryPath = KbConfig.DefaultActDocumentsDirectoryPath
             };
 
         public static SavedData CreateDefaultData() =>
@@ -163,7 +164,10 @@ namespace AsutpKnowledgeBase.Services
 
             var normalized = new KbConfig
             {
-                MaxLevels = config.MaxLevels > 0 ? config.MaxLevels : defaults.MaxLevels
+                MaxLevels = config.MaxLevels > 0 ? config.MaxLevels : defaults.MaxLevels,
+                ActDocumentsDirectoryPath = string.IsNullOrWhiteSpace(config.ActDocumentsDirectoryPath)
+                    ? defaults.ActDocumentsDirectoryPath
+                    : config.ActDocumentsDirectoryPath.Trim()
             };
 
             foreach (var name in config.LevelNames ?? Enumerable.Empty<string>())
@@ -747,6 +751,8 @@ namespace AsutpKnowledgeBase.Services
                     ActualLaborHours = act.ActualLaborHours?.Trim() ?? string.Empty,
                     CustomerName = act.CustomerName?.Trim() ?? string.Empty,
                     CustomerPosition = act.CustomerPosition?.Trim() ?? string.Empty,
+                    ApproverName = act.ApproverName?.Trim() ?? string.Empty,
+                    ApproverPosition = act.ApproverPosition?.Trim() ?? string.Empty,
                     CreatedBy = act.CreatedBy?.Trim() ?? string.Empty,
                     CreatedAt = act.CreatedAt,
                     UpdatedAt = act.UpdatedAt

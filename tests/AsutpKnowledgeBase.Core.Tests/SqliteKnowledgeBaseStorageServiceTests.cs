@@ -57,6 +57,9 @@ public class SqliteKnowledgeBaseStorageServiceTests
             var nodeColumns = ReadColumnNames(connection, "nodes");
             Assert.Contains("details_network_topology_json", nodeColumns);
 
+            var configColumns = ReadColumnNames(connection, "config");
+            Assert.Contains("act_documents_directory_path", configColumns);
+
             var rackColumns = ReadColumnNames(connection, "composition_racks");
             Assert.DoesNotContain("network_link", rackColumns);
 
@@ -360,6 +363,8 @@ public class SqliteKnowledgeBaseStorageServiceTests
             KbAct restoredAct = Assert.Single(loadResult.Data.Acts);
             Assert.Equal("act-2026-0001", restoredAct.ActId);
             Assert.Equal("6ES7 214-1AG40-0XB0", restoredAct.EquipmentSnapshot.OrderNumber);
+            Assert.Equal("Automation manager", restoredAct.ApproverName);
+            Assert.Equal("Automation head", restoredAct.ApproverPosition);
 
             using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
             connection.Open();
@@ -465,6 +470,7 @@ public class SqliteKnowledgeBaseStorageServiceTests
             {
                 MaxLevels = 3,
                 LevelNames = new List<string> { "Цех", "Линия", "Шкаф" },
+                ActDocumentsDirectoryPath = @"ActsOut\Docs",
                 ProductionCalendarYears = new List<KbProductionCalendarYear>
                 {
                     new()
@@ -779,6 +785,8 @@ public class SqliteKnowledgeBaseStorageServiceTests
                     ActualLaborHours = "2.5",
                     CustomerName = "Customer",
                     CustomerPosition = "Engineer",
+                    ApproverName = "Automation manager",
+                    ApproverPosition = "Automation head",
                     CreatedBy = "Operator",
                     CreatedAt = new DateTime(2026, 6, 24, 8, 0, 0, DateTimeKind.Utc),
                     UpdatedAt = new DateTime(2026, 6, 24, 9, 0, 0, DateTimeKind.Utc)

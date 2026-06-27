@@ -226,6 +226,7 @@ namespace AsutpKnowledgeBase
             {
                 MaxLevels = config.MaxLevels,
                 LevelNames = (config.LevelNames ?? new List<string>()).ToList(),
+                ActDocumentsDirectoryPath = config.ActDocumentsDirectoryPath,
                 ProductionCalendarYears = (config.ProductionCalendarYears ?? new List<KbProductionCalendarYear>())
                     .Select(CloneProductionCalendarYear)
                     .ToList()

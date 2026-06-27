@@ -10,7 +10,7 @@ namespace AsutpKnowledgeBase.Services
 {
     public sealed class SqliteKnowledgeBaseStorageService : IKnowledgeBaseStorageService
     {
-        public const int CurrentDatabaseSchemaVersion = 15;
+        public const int CurrentDatabaseSchemaVersion = 17;
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -586,8 +586,22 @@ namespace AsutpKnowledgeBase.Services
             EnsureNodesNetworkTopologyColumn(connection, transaction);
             EnsureObjectTemplatesCompositionRacksColumn(connection, transaction);
             EnsureMaintenanceYearScheduleHoursColumn(connection, transaction);
+            EnsureConfigActDocumentsDirectoryPathColumn(connection, transaction);
             EnsureActsMvpColumns(connection, transaction);
             ExecuteNonQuery(connection, transaction, $"PRAGMA user_version={CurrentDatabaseSchemaVersion};");
+        }
+
+        private static void EnsureConfigActDocumentsDirectoryPathColumn(
+            SqliteConnection connection,
+            SqliteTransaction? transaction)
+        {
+            if (ColumnExists(connection, transaction, "config", "act_documents_directory_path"))
+                return;
+
+            ExecuteNonQuery(
+                connection,
+                transaction,
+                "ALTER TABLE config ADD COLUMN act_documents_directory_path TEXT NOT NULL DEFAULT 'Documents\\Acts';");
         }
 
         private static void EnsureCompositionEntriesRackNumberColumn(
@@ -677,7 +691,9 @@ namespace AsutpKnowledgeBase.Services
             [
                 ("workshop_name", "workshop_name TEXT NOT NULL DEFAULT ''"),
                 ("object_name_snapshot", "object_name_snapshot TEXT NOT NULL DEFAULT ''"),
-                ("equipment_name", "equipment_name TEXT NOT NULL DEFAULT ''")
+                ("equipment_name", "equipment_name TEXT NOT NULL DEFAULT ''"),
+                ("approver_name", "approver_name TEXT NOT NULL DEFAULT ''"),
+                ("approver_position", "approver_position TEXT NOT NULL DEFAULT ''")
             ];
 
             foreach ((string columnName, string definition) in columns)
@@ -819,10 +835,11 @@ namespace AsutpKnowledgeBase.Services
                 connection,
                 transaction,
                 """
-                INSERT INTO config (id, max_levels)
-                VALUES (1, @max_levels);
+                INSERT INTO config (id, max_levels, act_documents_directory_path)
+                VALUES (1, @max_levels, @act_documents_directory_path);
                 """,
-                ("@max_levels", config.MaxLevels));
+                ("@max_levels", config.MaxLevels),
+                ("@act_documents_directory_path", config.ActDocumentsDirectoryPath));
 
             for (int i = 0; i < config.LevelNames.Count; i++)
             {
@@ -869,10 +886,13 @@ namespace AsutpKnowledgeBase.Services
 
             using (var command = connection.CreateCommand())
             {
-                command.CommandText = "SELECT max_levels FROM config WHERE id = 1;";
-                object? result = command.ExecuteScalar();
-                if (result != null && result != DBNull.Value)
-                    config.MaxLevels = Convert.ToInt32(result, CultureInfo.InvariantCulture);
+                command.CommandText = "SELECT max_levels, act_documents_directory_path FROM config WHERE id = 1;";
+                using SqliteDataReader reader = command.ExecuteReader();
+                if (reader.Read())
+                {
+                    config.MaxLevels = GetInt(reader, "max_levels");
+                    config.ActDocumentsDirectoryPath = GetString(reader, "act_documents_directory_path");
+                }
             }
 
             config.LevelNames = Query(
@@ -1633,13 +1653,13 @@ namespace AsutpKnowledgeBase.Services
                         workshop_name, lvl3_node_id, lvl3_name_snapshot, object_name_snapshot, object_path_snapshot, rack_id, rack_number_snapshot,
                         rack_name_snapshot, composition_entry_id, equipment_name, equipment_snapshot_json, failure_date,
                         fault_description, failure_reason, inspection_result, fault_criterion, request_document,
-                        actual_labor_hours, customer_name, customer_position, created_by, created_at, updated_at)
+                        actual_labor_hours, customer_name, customer_position, approver_name, approver_position, created_by, created_at, updated_at)
                     VALUES (
                         @act_id, @entry_order, @act_year, @act_number, @act_type, @status, @act_date,
                         @workshop_name, @lvl3_node_id, @lvl3_name_snapshot, @object_name_snapshot, @object_path_snapshot, @rack_id, @rack_number_snapshot,
                         @rack_name_snapshot, @composition_entry_id, @equipment_name, @equipment_snapshot_json, @failure_date,
                         @fault_description, @failure_reason, @inspection_result, @fault_criterion, @request_document,
-                        @actual_labor_hours, @customer_name, @customer_position, @created_by, @created_at, @updated_at);
+                        @actual_labor_hours, @customer_name, @customer_position, @approver_name, @approver_position, @created_by, @created_at, @updated_at);
                     """,
                     ("@act_id", act.ActId),
                     ("@entry_order", i),
@@ -1668,6 +1688,8 @@ namespace AsutpKnowledgeBase.Services
                     ("@actual_labor_hours", act.ActualLaborHours),
                     ("@customer_name", act.CustomerName),
                     ("@customer_position", act.CustomerPosition),
+                    ("@approver_name", act.ApproverName),
+                    ("@approver_position", act.ApproverPosition),
                     ("@created_by", act.CreatedBy),
                     ("@created_at", FormatDateTime(act.CreatedAt)),
                     ("@updated_at", FormatDateTime(act.UpdatedAt)));
@@ -1706,6 +1728,8 @@ namespace AsutpKnowledgeBase.Services
                     ActualLaborHours = GetString(reader, "actual_labor_hours"),
                     CustomerName = GetString(reader, "customer_name"),
                     CustomerPosition = GetString(reader, "customer_position"),
+                    ApproverName = GetString(reader, "approver_name"),
+                    ApproverPosition = GetString(reader, "approver_position"),
                     CreatedBy = GetString(reader, "created_by"),
                     CreatedAt = GetNullableDateTime(reader, "created_at"),
                     UpdatedAt = GetNullableDateTime(reader, "updated_at")
@@ -2190,7 +2214,8 @@ namespace AsutpKnowledgeBase.Services
             """
             CREATE TABLE IF NOT EXISTS config (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
-                max_levels INTEGER NOT NULL
+                max_levels INTEGER NOT NULL,
+                act_documents_directory_path TEXT NOT NULL
             );
             """,
             """
@@ -2427,6 +2452,8 @@ namespace AsutpKnowledgeBase.Services
                 actual_labor_hours TEXT NOT NULL,
                 customer_name TEXT NOT NULL,
                 customer_position TEXT NOT NULL,
+                approver_name TEXT NOT NULL,
+                approver_position TEXT NOT NULL,
                 created_by TEXT NOT NULL,
                 created_at TEXT NULL,
                 updated_at TEXT NULL

@@ -2,6 +2,12 @@ using AsutpKnowledgeBase.Models;
 
 namespace AsutpKnowledgeBase.Services
 {
+    public enum KnowledgeBaseActDraftSource
+    {
+        Composition = 0,
+        AdditionalEquipment = 1
+    }
+
     public sealed class KnowledgeBaseActDraftRequest
     {
         public KbNode? Lvl3Node { get; init; }
@@ -15,6 +21,8 @@ namespace AsutpKnowledgeBase.Services
         public KbCompositionRack? Rack { get; init; }
 
         public KbCompositionEntry? CompositionEntry { get; init; }
+
+        public KnowledgeBaseActDraftSource Source { get; init; } = KnowledgeBaseActDraftSource.Composition;
 
         public KbActType ActType { get; init; } = KbActType.EquipmentFailure;
 
@@ -58,15 +66,15 @@ namespace AsutpKnowledgeBase.Services
                 return Failure("Не выбран объект Lvl3.");
 
             if (!KnowledgeBaseCompositionStateService.SupportsComposition(lvl3Node.NodeType, request.VisibleLevel))
-                return Failure("Черновик акта можно создать только из вкладки \"Состав\" объекта Lvl3.");
+                return Failure("Черновик акта можно создать только из вкладок \"Состав\" или \"Доп. оборудование\" объекта Lvl3.");
 
             KbCompositionEntry? entry = request.CompositionEntry;
             if (entry == null)
-                return Failure("Не выбрана строка состава.");
+                return Failure("Не выбрана строка оборудования.");
 
             string entryId = entry.EntryId?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(entryId))
-                return Failure("Нельзя создать акт по пустой строке Rack.");
+                return Failure("Нельзя создать акт по пустой строке оборудования.");
 
             string lvl3NodeId = lvl3Node.NodeId?.Trim() ?? string.Empty;
             string entryParentNodeId = entry.ParentNodeId?.Trim() ?? string.Empty;
@@ -76,7 +84,8 @@ namespace AsutpKnowledgeBase.Services
                 return Failure("Выбранная строка состава не принадлежит выбранному объекту Lvl3.");
             }
 
-            KbCompositionRack? rack = request.Rack;
+            bool useRackSnapshot = request.Source == KnowledgeBaseActDraftSource.Composition;
+            KbCompositionRack? rack = useRackSnapshot ? request.Rack : null;
             int entryRackNumber = KnowledgeBaseCompositionRackSlotRulesService.NormalizeRackNumber(entry.RackNumber);
             if (rack != null)
             {
@@ -99,7 +108,10 @@ namespace AsutpKnowledgeBase.Services
                 ? lvl3Node.Name
                 : _nodePresentationService.BuildNodePath(request.WorkshopRoots, lvl3Node);
             string objectName = ResolveParentNodeName(request.WorkshopRoots, lvl3Node);
-            string rackName = rack == null
+            int rackNumberSnapshot = useRackSnapshot ? entryRackNumber : 0;
+            string rackName = !useRackSnapshot
+                ? string.Empty
+                : rack == null
                 ? KnowledgeBaseCompositionRackSlotRulesService.FormatRackTitle(entryRackNumber)
                 : KnowledgeBaseCompositionRackSlotRulesService.FormatRackTitle(
                     rack.RackNumber,
@@ -111,7 +123,7 @@ namespace AsutpKnowledgeBase.Services
                 Lvl3Name = lvl3Node.Name,
                 ObjectPath = objectPath,
                 RackId = rack?.RackId ?? string.Empty,
-                RackNumber = entryRackNumber,
+                RackNumber = rackNumberSnapshot,
                 RackName = rackName,
                 CompositionEntryId = entryId,
                 ComponentType = entry.ComponentType,
@@ -139,7 +151,7 @@ namespace AsutpKnowledgeBase.Services
                 ObjectNameSnapshot = objectName,
                 ObjectPathSnapshot = objectPath,
                 RackId = rack?.RackId ?? string.Empty,
-                RackNumberSnapshot = entryRackNumber,
+                RackNumberSnapshot = rackNumberSnapshot,
                 RackNameSnapshot = rackName,
                 CompositionEntryId = entryId,
                 EquipmentName = equipmentName,

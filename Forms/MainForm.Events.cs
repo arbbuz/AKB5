@@ -30,6 +30,7 @@ namespace AsutpKnowledgeBase
             selectedNodeCompositionScreen.DeleteSelectedRequested += DeleteSelectedCompositionEntry;
             selectedNodeCompositionScreen.ColumnWidthsChanged += SaveCompositionColumnWidths;
             selectedNodeAdditionalEquipmentScreen.AddRequested += AddAuxiliaryCompositionEntry;
+            selectedNodeAdditionalEquipmentScreen.CreateActRequested += CreateActFromSelectedAdditionalEquipmentEntry;
             selectedNodeAdditionalEquipmentScreen.EditSelectedRequested += EditSelectedAuxiliaryCompositionEntry;
             selectedNodeAdditionalEquipmentScreen.DeleteSelectedRequested += DeleteSelectedAuxiliaryCompositionEntry;
             selectedNodeAdditionalEquipmentScreen.ColumnWidthsChanged += SaveAdditionalEquipmentColumnWidths;

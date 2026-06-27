@@ -17,6 +17,7 @@ public class KnowledgeBaseDataServiceTests
         Assert.Equal(10, data.Config.MaxLevels);
         Assert.Equal("Уровень 1", data.Config.LevelNames[0]);
         Assert.Equal("Уровень 10", data.Config.LevelNames[9]);
+        Assert.Equal(@"Documents\Acts", data.Config.ActDocumentsDirectoryPath);
         Assert.Contains(data.Config.ProductionCalendarYears, static year => year.Year == 2025);
         Assert.Contains(data.Config.ProductionCalendarYears, static year => year.Year == 2026);
         Assert.Empty(data.EquipmentCatalogItems);
@@ -30,11 +31,13 @@ public class KnowledgeBaseDataServiceTests
             new KbConfig
             {
                 MaxLevels = 2,
-                LevelNames = new List<string> { "  Цех  ", "", "Лишний" }
+                LevelNames = new List<string> { "  Цех  ", "", "Лишний" },
+                ActDocumentsDirectoryPath = @"  Custom\Acts  "
             });
 
         Assert.Equal(2, normalized.MaxLevels);
         Assert.Equal(new[] { "Цех", "Лишний" }, normalized.LevelNames);
+        Assert.Equal(@"Custom\Acts", normalized.ActDocumentsDirectoryPath);
     }
 
     [Fact]

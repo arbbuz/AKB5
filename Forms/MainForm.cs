@@ -19,6 +19,7 @@ namespace AsutpKnowledgeBase
 
         private readonly IAppLogger _appLogger;
         private readonly KnowledgeBaseSessionService _session = new();
+        private readonly KnowledgeBaseFileWorkflowService _fileWorkflowService;
         private readonly KnowledgeBaseExcelExchangePluginLoader _excelExchangePluginLoader;
         private readonly KnowledgeBaseExcelUiWorkflowService _excelUiWorkflowService;
         private readonly KnowledgeBaseMaintenanceWorkbookUiWorkflowService _maintenanceWorkbookUiWorkflowService;
@@ -32,6 +33,8 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseCompositionRackMutationService _compositionRackMutationService = new();
         private readonly KnowledgeBaseCompositionTemplateService _compositionTemplateService = new();
         private readonly KnowledgeBaseActDraftService _actDraftService = new();
+        private readonly KnowledgeBaseActJournalService _actJournalService = new();
+        private readonly KnowledgeBaseActDocxPluginLoader _actDocxPluginLoader = new();
         private readonly KnowledgeBaseDocsAndSoftwareMutationService _docsAndSoftwareMutationService = new();
         private readonly KnowledgeBaseMaintenanceScheduleProfileMutationService _maintenanceScheduleProfileMutationService = new();
         private readonly KnowledgeBaseProductionCalendarJsonImportService _productionCalendarJsonImportService = new();
@@ -57,12 +60,14 @@ namespace AsutpKnowledgeBase
         private ToolStripButton btnCollapseTree = null!;
         private ToolStripDropDownButton menuFile = null!;
         private ToolStripDropDownButton menuMaintenance = null!;
+        private ToolStripDropDownButton menuActs = null!;
         private ToolStripDropDownButton menuReferences = null!;
         private ToolStripDropDownButton menuService = null!;
         private ToolStripMenuItem menuSave = null!;
         private ToolStripMenuItem menuNewWorkshop = null!;
         private ToolStripMenuItem menuRenameWorkshop = null!;
         private ToolStripMenuItem menuDeleteWorkshop = null!;
+        private ToolStripMenuItem menuActsJournal = null!;
         private ToolStripMenuItem menuEditEquipmentCatalog = null!;
         private ToolStripMenuItem menuExportCatalogTemplates = null!;
         private ToolStripMenuItem menuImportCatalogTemplates = null!;
@@ -174,7 +179,7 @@ namespace AsutpKnowledgeBase
                 startupStopwatch,
                 ("storageType", startupStorage.StorageService.GetType().Name),
                 ("storageStatus", startupStorage.StatusText));
-            var fileWorkflowService = new KnowledgeBaseFileWorkflowService(
+            _fileWorkflowService = new KnowledgeBaseFileWorkflowService(
                 _session,
                 startupStorage.StorageService,
                 _appLogger);
@@ -182,7 +187,7 @@ namespace AsutpKnowledgeBase
             _excelUiWorkflowService = new KnowledgeBaseExcelUiWorkflowService(_excelExchangePluginLoader);
             _maintenanceWorkbookUiWorkflowService = new KnowledgeBaseMaintenanceWorkbookUiWorkflowService(_excelExchangePluginLoader);
             _fileUiWorkflowService = new KnowledgeBaseFileUiWorkflowService(
-                fileWorkflowService,
+                _fileWorkflowService,
                 _formStateService);
             _sessionWorkflowService = new KnowledgeBaseSessionWorkflowService(_session);
             _workshopUiWorkflowService = new KnowledgeBaseWorkshopUiWorkflowService(

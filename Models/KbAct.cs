@@ -16,7 +16,8 @@ namespace AsutpKnowledgeBase.Models
             Justification = "The accepted acts roadmap uses Signed as the act status name.")]
         Signed = 2,
         Cancelled = 3,
-        Archived = 4
+        Archived = 4,
+        Annulled = 5
     }
 
     public class KbAct
@@ -72,6 +73,10 @@ namespace AsutpKnowledgeBase.Models
         public string CustomerName { get; set; } = string.Empty;
 
         public string CustomerPosition { get; set; } = string.Empty;
+
+        public string ApproverName { get; set; } = string.Empty;
+
+        public string ApproverPosition { get; set; } = string.Empty;
 
         public string CreatedBy { get; set; } = string.Empty;
 

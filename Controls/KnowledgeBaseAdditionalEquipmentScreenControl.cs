@@ -99,6 +99,8 @@ namespace AsutpKnowledgeBase
 
         public event EventHandler? DeleteSelectedRequested;
 
+        public event EventHandler? CreateActRequested;
+
         public string SelectedEntryId { get; private set; } = string.Empty;
 
         public event EventHandler? ColumnWidthsChanged;
@@ -471,11 +473,14 @@ namespace AsutpKnowledgeBase
         {
             var menu = new ContextMenuStrip();
             ToolStripMenuItem copyCellItem = CreateContextMenuItem("Копировать ячейку", CopyContextCell);
+            ToolStripMenuItem createActItem = CreateContextMenuItem("Создать акт...", () => CreateActRequested?.Invoke(this, EventArgs.Empty));
             ToolStripMenuItem editItem = CreateContextMenuItem("Изменить", () => EditSelectedRequested?.Invoke(this, EventArgs.Empty));
             ToolStripMenuItem addItem = CreateContextMenuItem("Добавить", () => AddRequested?.Invoke(this, EventArgs.Empty));
             ToolStripMenuItem deleteItem = CreateContextMenuItem("Удалить", () => DeleteSelectedRequested?.Invoke(this, EventArgs.Empty));
 
             menu.Items.Add(copyCellItem);
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(createActItem);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(editItem);
             menu.Items.Add(addItem);
@@ -485,6 +490,7 @@ namespace AsutpKnowledgeBase
                 bool canEdit = _currentState.SupportsEditing;
                 bool hasSelection = !string.IsNullOrWhiteSpace(SelectedEntryId);
                 copyCellItem.Enabled = !string.IsNullOrWhiteSpace(_contextCellText);
+                createActItem.Enabled = hasSelection;
                 editItem.Enabled = canEdit && hasSelection;
                 addItem.Enabled = canEdit;
                 deleteItem.Enabled = canEdit && hasSelection;
