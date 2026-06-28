@@ -35,6 +35,7 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseActDraftService _actDraftService = new();
         private readonly KnowledgeBaseActJournalService _actJournalService = new();
         private readonly KnowledgeBaseActDocxPluginLoader _actDocxPluginLoader = new();
+        private KnowledgeBaseActsJournalForm? _actsJournalForm;
         private readonly KnowledgeBaseDocsAndSoftwareMutationService _docsAndSoftwareMutationService = new();
         private readonly KnowledgeBaseMaintenanceScheduleProfileMutationService _maintenanceScheduleProfileMutationService = new();
         private readonly KnowledgeBaseProductionCalendarJsonImportService _productionCalendarJsonImportService = new();

@@ -9,17 +9,36 @@ namespace AsutpKnowledgeBase
         GenerateDocument = 2,
         DeleteDraft = 3,
         CancelAct = 4,
-        AnnulAct = 5
+        AnnulAct = 5,
+        OpenDocument = 6
+    }
+
+    public sealed class KnowledgeBaseActsJournalActionRequestedEventArgs : EventArgs
+    {
+        public KnowledgeBaseActsJournalActionRequestedEventArgs(
+            string actId,
+            KnowledgeBaseActsJournalAction action)
+        {
+            ActId = actId;
+            Action = action;
+        }
+
+        public string ActId { get; }
+
+        public KnowledgeBaseActsJournalAction Action { get; }
     }
 
     public sealed class KnowledgeBaseActsJournalForm : Form
     {
         private readonly DataGridView _grid;
         private readonly Button _btnOpen;
+        private readonly Button _btnOpenDocument;
         private readonly Button _btnGenerateDocument;
         private readonly Button _btnDeleteDraft;
         private readonly Button _btnCancelAct;
         private readonly Button _btnAnnulAct;
+        private FormWindowState _lastNonMinimizedWindowState = FormWindowState.Maximized;
+        private bool _isActionInProgress;
 
         public KnowledgeBaseActsJournalForm(
             IEnumerable<KnowledgeBaseActJournalRow> rows,
@@ -28,9 +47,9 @@ namespace AsutpKnowledgeBase
             Text = "Журнал актов";
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.Sizable;
-            MinimizeBox = false;
+            MinimizeBox = true;
             MaximizeBox = true;
-            ShowInTaskbar = false;
+            ShowInTaskbar = true;
             MinimumSize = new Size(940, 520);
             ClientSize = new Size(1120, 620);
             WindowState = FormWindowState.Maximized;
@@ -50,7 +69,7 @@ namespace AsutpKnowledgeBase
             _grid.CellDoubleClick += (_, e) =>
             {
                 if (e.RowIndex >= 0)
-                    Complete(KnowledgeBaseActsJournalAction.Open);
+                    RequestAction(KnowledgeBaseActsJournalAction.Open);
             };
 
             var buttonsPanel = new FlowLayoutPanel
@@ -65,13 +84,14 @@ namespace AsutpKnowledgeBase
             var btnClose = new Button
             {
                 Text = "Закрыть",
-                DialogResult = DialogResult.Cancel,
                 AutoSize = true
             };
+            btnClose.Click += (_, _) => Close();
             _btnAnnulAct = CreateButton("Аннулировать", KnowledgeBaseActsJournalAction.AnnulAct);
             _btnCancelAct = CreateButton("Отменить", KnowledgeBaseActsJournalAction.CancelAct);
             _btnDeleteDraft = CreateButton("Удалить черновик", KnowledgeBaseActsJournalAction.DeleteDraft);
             _btnGenerateDocument = CreateButton("Сформировать DOCX", KnowledgeBaseActsJournalAction.GenerateDocument);
+            _btnOpenDocument = CreateButton("Открыть DOCX", KnowledgeBaseActsJournalAction.OpenDocument);
             _btnOpen = CreateButton("Открыть", KnowledgeBaseActsJournalAction.Open);
 
             buttonsPanel.Controls.Add(btnClose);
@@ -79,6 +99,7 @@ namespace AsutpKnowledgeBase
             buttonsPanel.Controls.Add(_btnCancelAct);
             buttonsPanel.Controls.Add(_btnDeleteDraft);
             buttonsPanel.Controls.Add(_btnGenerateDocument);
+            buttonsPanel.Controls.Add(_btnOpenDocument);
             buttonsPanel.Controls.Add(_btnOpen);
 
             rootLayout.Controls.Add(_grid, 0, 0);
@@ -90,9 +111,39 @@ namespace AsutpKnowledgeBase
             ApplyRows(rows, preferredActId);
         }
 
-        public string SelectedActId { get; private set; } = string.Empty;
+        public event EventHandler<KnowledgeBaseActsJournalActionRequestedEventArgs>? ActionRequested;
 
-        public KnowledgeBaseActsJournalAction SelectedAction { get; private set; }
+        public void RefreshRows(
+            IEnumerable<KnowledgeBaseActJournalRow> rows,
+            string? preferredActId)
+        {
+            ApplyRows(rows, preferredActId);
+        }
+
+        public void SetActionInProgress(bool inProgress)
+        {
+            _isActionInProgress = inProgress;
+            _grid.Enabled = !inProgress;
+            UpdateButtonStates();
+        }
+
+        public void RestoreForActivation()
+        {
+            if (WindowState == FormWindowState.Minimized)
+                WindowState = _lastNonMinimizedWindowState;
+
+            Show();
+            BringToFront();
+            Activate();
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+
+            if (WindowState != FormWindowState.Minimized)
+                _lastNonMinimizedWindowState = WindowState;
+        }
 
         private static DataGridView CreateGrid()
         {
@@ -149,7 +200,7 @@ namespace AsutpKnowledgeBase
                 Text = text,
                 AutoSize = true
             };
-            button.Click += (_, _) => Complete(action);
+            button.Click += (_, _) => RequestAction(action);
             return button;
         }
 
@@ -202,25 +253,39 @@ namespace AsutpKnowledgeBase
 
         private void UpdateButtonStates()
         {
+            if (_isActionInProgress)
+            {
+                _btnOpen.Enabled = false;
+                _btnOpenDocument.Enabled = false;
+                _btnGenerateDocument.Enabled = false;
+                _btnDeleteDraft.Enabled = false;
+                _btnCancelAct.Enabled = false;
+                _btnAnnulAct.Enabled = false;
+                return;
+            }
+
             KnowledgeBaseActJournalRow? row = GetSelectedRow();
             bool hasSelection = row != null;
             _btnOpen.Enabled = hasSelection;
+            _btnOpenDocument.Enabled = row?.CanOpenDocument == true;
             _btnGenerateDocument.Enabled = row?.CanGenerateDocument == true;
             _btnDeleteDraft.Enabled = row?.CanDeletePhysically == true;
             _btnCancelAct.Enabled = row?.CanChangeStatus == true;
             _btnAnnulAct.Enabled = row?.CanChangeStatus == true;
         }
 
-        private void Complete(KnowledgeBaseActsJournalAction action)
+        private void RequestAction(KnowledgeBaseActsJournalAction action)
         {
+            if (_isActionInProgress)
+                return;
+
             KnowledgeBaseActJournalRow? row = GetSelectedRow();
             if (row == null)
                 return;
 
-            SelectedActId = row.ActId;
-            SelectedAction = action;
-            DialogResult = DialogResult.OK;
-            Close();
+            ActionRequested?.Invoke(
+                this,
+                new KnowledgeBaseActsJournalActionRequestedEventArgs(row.ActId, action));
         }
     }
 }

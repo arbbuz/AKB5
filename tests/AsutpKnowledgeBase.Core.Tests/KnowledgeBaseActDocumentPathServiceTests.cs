@@ -101,6 +101,34 @@ public class KnowledgeBaseActDocumentPathServiceTests
     }
 
     [Fact]
+    public void PrepareDocumentPath_WhenExistingFileAllowed_ReturnsTargetFileExists()
+    {
+        string baseDirectory = Path.Combine(Path.GetTempPath(), $"akb5-act-docs-{Guid.NewGuid():N}");
+        string databasePath = Path.Combine(baseDirectory, "knowledge-base.akb");
+        string expectedAbsolutePath = Path.Combine(
+            baseDirectory,
+            "Documents",
+            "Acts",
+            "2026-0001_Отказ_оборудования_SIMATIC_S7-300_PS_307_БЛОК_ПИТАНИЯ.docx");
+        var service = new KnowledgeBaseActDocumentPathService(
+            fileExists: path => string.Equals(path, expectedAbsolutePath, StringComparison.OrdinalIgnoreCase));
+
+        KnowledgeBaseActDocumentPathResult result = service.PrepareDocumentPath(
+            new KnowledgeBaseActDocumentPathRequest
+            {
+                Act = CreateAct(),
+                Config = KnowledgeBaseDataService.CreateDefaultConfig(),
+                DatabasePath = databasePath,
+                ApplicationBasePath = baseDirectory,
+                AllowExistingFile = true
+            });
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.True(result.TargetFileExists);
+        Assert.Equal(expectedAbsolutePath, result.AbsolutePath);
+    }
+
+    [Fact]
     public void PrepareDocumentPath_WhenAnotherActUsesPath_ReturnsCollisionError()
     {
         string baseDirectory = Path.Combine(Path.GetTempPath(), $"akb5-act-docs-{Guid.NewGuid():N}");

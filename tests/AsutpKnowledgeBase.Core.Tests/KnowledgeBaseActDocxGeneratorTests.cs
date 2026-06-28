@@ -88,6 +88,31 @@ public sealed class KnowledgeBaseActDocxGeneratorTests
     }
 
     [Fact]
+    public void Generate_WhenOverwriteRequested_ReplacesExistingOutput()
+    {
+        string tempDirectory = CreateTempDirectory();
+        string templatePath = Path.Combine(tempDirectory, "template.docx");
+        string outputPath = Path.Combine(tempDirectory, "result.docx");
+        CreateTemplate(templatePath);
+        File.WriteAllText(outputPath, "existing");
+        var generator = new KnowledgeBaseActDocxGeneratorPlugin();
+
+        KnowledgeBaseActDocxGenerationResult result = generator.Generate(
+            new KnowledgeBaseActDocxGenerationRequest
+            {
+                Act = CreateAct(),
+                Executors = [CreateExecutor("executor-1", 1, "Иванов", "Иван", string.Empty, "электромеханик")],
+                TemplatePath = templatePath,
+                OutputPath = outputPath,
+                OverwriteExisting = true
+            });
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.Equal(outputPath, result.OutputPath);
+        Assert.Contains("2026-0001", ReadDocumentText(outputPath), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Generate_WithExternalRepositoryTemplate_CreatesDocument()
     {
         string repositoryRoot = FindRepositoryRoot();

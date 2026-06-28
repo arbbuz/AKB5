@@ -31,21 +31,22 @@ namespace AsutpKnowledgeBase.Services
                 return Failure("Не указан путь сохранения DOCX.");
 
             string outputPath = Path.GetFullPath(request.OutputPath);
-            if (File.Exists(outputPath))
+            if (File.Exists(outputPath) && !request.OverwriteExisting)
                 return Failure($"Файл DOCX уже существует: {outputPath}");
 
             string? outputDirectory = Path.GetDirectoryName(outputPath);
             if (!string.IsNullOrWhiteSpace(outputDirectory))
                 Directory.CreateDirectory(outputDirectory);
 
+            string tempOutputPath = BuildTempOutputPath(outputPath);
             try
             {
-                File.Copy(request.TemplatePath, outputPath, overwrite: false);
-                using (WordprocessingDocument document = WordprocessingDocument.Open(outputPath, true))
+                File.Copy(request.TemplatePath, tempOutputPath, overwrite: false);
+                using (WordprocessingDocument document = WordprocessingDocument.Open(tempOutputPath, true))
                 {
                     MainDocumentPart? mainPart = document.MainDocumentPart;
                     if (mainPart?.Document?.Body == null)
-                        return DeleteOutputAndFail(outputPath, "Шаблон DOCX не содержит основной части документа.");
+                        return DeleteOutputAndFail(tempOutputPath, "Шаблон DOCX не содержит основной части документа.");
 
                     IReadOnlyDictionary<string, string> scalarReplacements = BuildScalarReplacements(request.Act);
                     IReadOnlyList<KbActExecutor> executors = NormalizeExecutors(request.Executors);
@@ -66,6 +67,8 @@ namespace AsutpKnowledgeBase.Services
                     mainPart.Document.Save();
                 }
 
+                CommitGeneratedFile(tempOutputPath, outputPath, request.OverwriteExisting);
+                tempOutputPath = string.Empty;
                 return new KnowledgeBaseActDocxGenerationResult
                 {
                     IsSuccess = true,
@@ -75,7 +78,7 @@ namespace AsutpKnowledgeBase.Services
             }
             catch (Exception ex)
             {
-                TryDeleteOutput(outputPath);
+                TryDeleteOutput(tempOutputPath);
                 return Failure($"Не удалось сформировать DOCX: {ex.GetBaseException().Message}");
             }
         }
@@ -228,6 +231,27 @@ namespace AsutpKnowledgeBase.Services
             using FileStream stream = File.OpenRead(path);
             using var sha256 = SHA256.Create();
             return Convert.ToHexString(sha256.ComputeHash(stream));
+        }
+
+        private static string BuildTempOutputPath(string outputPath)
+        {
+            string directory = Path.GetDirectoryName(outputPath) ?? AppContext.BaseDirectory;
+            string fileName = Path.GetFileNameWithoutExtension(outputPath);
+            return Path.Combine(directory, $".{fileName}.{Guid.NewGuid():N}.tmp.docx");
+        }
+
+        private static void CommitGeneratedFile(string tempOutputPath, string outputPath, bool overwriteExisting)
+        {
+            if (File.Exists(outputPath))
+            {
+                if (!overwriteExisting)
+                    throw new IOException($"Файл DOCX уже существует: {outputPath}");
+
+                File.Replace(tempOutputPath, outputPath, null, ignoreMetadataErrors: true);
+                return;
+            }
+
+            File.Move(tempOutputPath, outputPath);
         }
 
         private static KnowledgeBaseActDocxGenerationResult DeleteOutputAndFail(string outputPath, string errorMessage)

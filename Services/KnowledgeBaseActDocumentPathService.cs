@@ -16,6 +16,8 @@ namespace AsutpKnowledgeBase.Services
         public string DatabasePath { get; init; } = string.Empty;
 
         public string ApplicationBasePath { get; init; } = string.Empty;
+
+        public bool AllowExistingFile { get; init; }
     }
 
     public sealed class KnowledgeBaseActDocumentPathResult
@@ -31,6 +33,12 @@ namespace AsutpKnowledgeBase.Services
         public string StoredPath { get; init; } = string.Empty;
 
         public string StoredDirectoryPath { get; init; } = string.Empty;
+
+        public bool TargetFileExists { get; init; }
+
+        public bool OverwriteExisting { get; init; }
+
+        public bool OpenExistingRequested { get; init; }
     }
 
     public sealed class KnowledgeBaseActDocumentPathService
@@ -63,7 +71,8 @@ namespace AsutpKnowledgeBase.Services
             string selectedDirectory = Path.GetDirectoryName(absolutePath) ?? documentsDirectory;
             string storedDirectoryPath = BuildStoredPath(selectedDirectory, baseDirectory);
 
-            if (_fileExists(absolutePath))
+            bool targetFileExists = _fileExists(absolutePath);
+            if (targetFileExists && !request.AllowExistingFile)
                 return Failure($"Файл документа уже существует: {absolutePath}");
 
             KbActDocument? conflictingDocument = FindConflictingDocument(
@@ -80,7 +89,8 @@ namespace AsutpKnowledgeBase.Services
                 FileName = Path.GetFileName(absolutePath),
                 AbsolutePath = absolutePath,
                 StoredPath = storedPath,
-                StoredDirectoryPath = storedDirectoryPath
+                StoredDirectoryPath = storedDirectoryPath,
+                TargetFileExists = targetFileExists
             };
         }
 

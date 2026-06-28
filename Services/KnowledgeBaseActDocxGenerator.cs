@@ -16,6 +16,8 @@ namespace AsutpKnowledgeBase.Services
         public string TemplatePath { get; init; } = string.Empty;
 
         public string OutputPath { get; init; } = string.Empty;
+
+        public bool OverwriteExisting { get; init; }
     }
 
     public sealed class KnowledgeBaseActDocxGenerationResult

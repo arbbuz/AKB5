@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using AsutpKnowledgeBase.Models;
 using AsutpKnowledgeBase.Services;
 
@@ -96,92 +97,144 @@ namespace AsutpKnowledgeBase
 
         private void OpenActsJournal(object? sender, EventArgs e)
         {
-            string preferredActId = string.Empty;
-            while (true)
+            if (_actsJournalForm is { IsDisposed: false } existingForm)
             {
-                IReadOnlyList<KnowledgeBaseActJournalRow> rows = _actJournalService.BuildRows(
-                    _session.Acts,
-                    _session.ActDocuments);
-                using var dialog = new KnowledgeBaseActsJournalForm(rows, preferredActId);
-                if (dialog.ShowDialog(this) != DialogResult.OK)
-                    return;
+                RefreshActsJournalIfOpen();
+                existingForm.RestoreForActivation();
+                return;
+            }
 
-                preferredActId = dialog.SelectedActId;
-                if (string.IsNullOrWhiteSpace(preferredActId))
-                    return;
+            var journalForm = new KnowledgeBaseActsJournalForm(BuildActsJournalRows());
+            _actsJournalForm = journalForm;
+            journalForm.ActionRequested += ActsJournalForm_ActionRequested;
+            journalForm.FormClosed += (_, _) =>
+            {
+                journalForm.ActionRequested -= ActsJournalForm_ActionRequested;
+                if (ReferenceEquals(_actsJournalForm, journalForm))
+                    _actsJournalForm = null;
+            };
+            journalForm.Show(this);
+            journalForm.RestoreForActivation();
+        }
 
-                switch (dialog.SelectedAction)
+        private IReadOnlyList<KnowledgeBaseActJournalRow> BuildActsJournalRows() =>
+            _actJournalService.BuildRows(
+                _session.Acts,
+                _session.ActDocuments,
+                ResolveActDocumentsBaseDirectory());
+
+        private void RefreshActsJournalIfOpen(string? preferredActId = null)
+        {
+            if (_actsJournalForm is not { IsDisposed: false } journalForm)
+                return;
+
+            journalForm.RefreshRows(BuildActsJournalRows(), preferredActId);
+        }
+
+        private void CloseActsJournalIfOpen()
+        {
+            KnowledgeBaseActsJournalForm? journalForm = _actsJournalForm;
+            _actsJournalForm = null;
+            if (journalForm is { IsDisposed: false })
+                journalForm.Close();
+        }
+
+        private void ActsJournalForm_ActionRequested(
+            object? sender,
+            KnowledgeBaseActsJournalActionRequestedEventArgs e)
+        {
+            if (sender is not KnowledgeBaseActsJournalForm journalForm ||
+                journalForm.IsDisposed)
+            {
+                return;
+            }
+
+            journalForm.SetActionInProgress(true);
+            try
+            {
+                switch (e.Action)
                 {
                     case KnowledgeBaseActsJournalAction.Open:
-                        OpenExistingActFromJournal(preferredActId);
+                        OpenExistingActFromJournal(e.ActId, journalForm);
                         break;
                     case KnowledgeBaseActsJournalAction.GenerateDocument:
-                        PrepareExistingActDocumentFromJournal(preferredActId);
+                        PrepareExistingActDocumentFromJournal(e.ActId, journalForm);
+                        break;
+                    case KnowledgeBaseActsJournalAction.OpenDocument:
+                        OpenActDocumentFromJournal(e.ActId, journalForm);
                         break;
                     case KnowledgeBaseActsJournalAction.DeleteDraft:
-                        DeleteDraftActFromJournal(preferredActId);
+                        DeleteDraftActFromJournal(e.ActId, journalForm);
                         break;
                     case KnowledgeBaseActsJournalAction.CancelAct:
-                        ChangeActStatusFromJournal(preferredActId, KbActStatus.Cancelled);
+                        ChangeActStatusFromJournal(e.ActId, KbActStatus.Cancelled, journalForm);
                         break;
                     case KnowledgeBaseActsJournalAction.AnnulAct:
-                        ChangeActStatusFromJournal(preferredActId, KbActStatus.Annulled);
+                        ChangeActStatusFromJournal(e.ActId, KbActStatus.Annulled, journalForm);
                         break;
-                    default:
-                        return;
+                }
+            }
+            finally
+            {
+                if (!journalForm.IsDisposed)
+                {
+                    RefreshActsJournalIfOpen(e.ActId);
+                    journalForm.SetActionInProgress(false);
+                    journalForm.RestoreForActivation();
                 }
             }
         }
 
-        private bool OpenExistingActFromJournal(string actId)
+        private bool OpenExistingActFromJournal(string actId, IWin32Window owner)
         {
             KbAct? act = FindActById(actId);
             if (act == null)
             {
-                ShowActJournalError("Акт не найден.");
+                ShowActJournalError("Акт не найден.", owner);
                 return false;
             }
 
             IReadOnlyList<KbActExecutor> executors = GetActExecutors(actId);
             using var dialog = new KnowledgeBaseActForm(act, executors);
-            if (dialog.ShowDialog(this) != DialogResult.OK)
+            if (dialog.ShowDialog(owner) != DialogResult.OK)
                 return false;
 
             if (dialog.DocumentGenerationRequested &&
                 !KnowledgeBaseActJournalService.CanGenerateDocument(act.Status))
             {
-                ShowActJournalError("Для отмененного или аннулированного акта DOCX не формируется.");
+                ShowActJournalError("Для отмененного или аннулированного акта DOCX не формируется.", owner);
                 return false;
             }
 
             ActFormSaveResult saveResult = SaveActFromForm(
                 dialog.Result,
                 dialog.ResultExecutors,
-                prepareDocumentPath: dialog.DocumentGenerationRequested);
+                prepareDocumentPath: dialog.DocumentGenerationRequested,
+                owner);
             if (!saveResult.IsSuccess)
             {
                 return false;
             }
 
             if (dialog.DocumentGenerationRequested)
-                return GenerateActDocumentAfterSave(saveResult);
+                return GenerateActDocumentAfterSave(saveResult, owner);
 
-            ShowActSavedMessage(documentGenerationRequested: false);
+            ShowActSavedMessage(documentGenerationRequested: false, owner);
             return true;
         }
 
-        private bool PrepareExistingActDocumentFromJournal(string actId)
+        private bool PrepareExistingActDocumentFromJournal(string actId, IWin32Window owner)
         {
             KbAct? act = FindActById(actId);
             if (act == null)
             {
-                ShowActJournalError("Акт не найден.");
+                ShowActJournalError("Акт не найден.", owner);
                 return false;
             }
 
             if (!KnowledgeBaseActJournalService.CanGenerateDocument(act.Status))
             {
-                ShowActJournalError("Для отмененного или аннулированного акта DOCX не формируется.");
+                ShowActJournalError("Для отмененного или аннулированного акта DOCX не формируется.", owner);
                 return false;
             }
 
@@ -189,7 +242,7 @@ namespace AsutpKnowledgeBase
             KnowledgeBaseActEditorSaveResult savePreparation = editorService.PrepareForSave(act);
             if (!savePreparation.IsSuccess || savePreparation.Act == null)
             {
-                ShowActJournalError(savePreparation.ErrorMessage);
+                ShowActJournalError(savePreparation.ErrorMessage, owner);
                 return false;
             }
 
@@ -197,7 +250,7 @@ namespace AsutpKnowledgeBase
             string? executorValidationError = KnowledgeBaseActEditorService.ValidateExecutorsForSave(executors);
             if (executorValidationError != null)
             {
-                ShowActJournalError(executorValidationError);
+                ShowActJournalError(executorValidationError, owner);
                 return false;
             }
 
@@ -207,32 +260,52 @@ namespace AsutpKnowledgeBase
             ActFormSaveResult saveResult = SaveActFromForm(
                 savePreparation.Act,
                 normalizedExecutors,
-                prepareDocumentPath: true);
+                prepareDocumentPath: true,
+                owner);
             if (!saveResult.IsSuccess)
             {
                 return false;
             }
 
-            return GenerateActDocumentAfterSave(saveResult);
+            return GenerateActDocumentAfterSave(saveResult, owner);
         }
 
-        private bool DeleteDraftActFromJournal(string actId)
+        private bool OpenActDocumentFromJournal(string actId, IWin32Window owner)
+        {
+            KbActDocument? document = FindLatestActDocument(actId);
+            if (document == null || string.IsNullOrWhiteSpace(document.Path))
+            {
+                ShowActJournalError("Для выбранного акта DOCX еще не сохранен.", owner);
+                return false;
+            }
+
+            string absolutePath = ResolveActDocumentAbsolutePath(document.Path);
+            if (string.IsNullOrWhiteSpace(absolutePath) || !File.Exists(absolutePath))
+            {
+                ShowActJournalError("Файл DOCX не найден. Сформируйте документ повторно.", owner);
+                return false;
+            }
+
+            return OpenActDocumentPath(absolutePath, owner);
+        }
+
+        private bool DeleteDraftActFromJournal(string actId, IWin32Window owner)
         {
             KbAct? act = FindActById(actId);
             if (act == null)
             {
-                ShowActJournalError("Акт не найден.");
+                ShowActJournalError("Акт не найден.", owner);
                 return false;
             }
 
             if (!_actJournalService.CanDeletePhysically(act, _session.ActDocuments))
             {
-                ShowActJournalError("Удалить можно только черновик без номера и без DOCX.");
+                ShowActJournalError("Удалить можно только черновик без номера и без DOCX.", owner);
                 return false;
             }
 
             DialogResult confirmResult = MessageBox.Show(
-                this,
+                owner,
                 "Удалить черновик акта? Это действие удалит запись из базы.",
                 "Журнал актов",
                 MessageBoxButtons.OKCancel,
@@ -242,27 +315,27 @@ namespace AsutpKnowledgeBase
 
             _session.ReplaceActs(_session.Acts.Where(existingAct =>
                 !string.Equals(existingAct.ActId, actId, StringComparison.Ordinal)));
-            return SaveActJournalMutation("Черновик акта удален.");
+            return SaveActJournalMutation("Черновик акта удален.", owner);
         }
 
-        private bool ChangeActStatusFromJournal(string actId, KbActStatus status)
+        private bool ChangeActStatusFromJournal(string actId, KbActStatus status, IWin32Window owner)
         {
             KbAct? act = FindActById(actId);
             if (act == null)
             {
-                ShowActJournalError("Акт не найден.");
+                ShowActJournalError("Акт не найден.", owner);
                 return false;
             }
 
             if (!KnowledgeBaseActJournalService.CanChangeStatus(act.Status))
             {
-                ShowActJournalError("Статус этого акта уже нельзя изменить через журнал.");
+                ShowActJournalError("Статус этого акта уже нельзя изменить через журнал.", owner);
                 return false;
             }
 
             string statusText = KnowledgeBaseActJournalService.FormatStatus(status);
             DialogResult confirmResult = MessageBox.Show(
-                this,
+                owner,
                 $"Изменить статус выбранного акта на \"{statusText}\"?",
                 "Журнал актов",
                 MessageBoxButtons.OKCancel,
@@ -278,10 +351,10 @@ namespace AsutpKnowledgeBase
                 .ToList();
             acts.Add(updatedAct);
             _session.ReplaceActs(acts);
-            return SaveActJournalMutation($"Статус акта изменен на \"{statusText}\".");
+            return SaveActJournalMutation($"Статус акта изменен на \"{statusText}\".", owner);
         }
 
-        private bool SaveActJournalMutation(string successMessage)
+        private bool SaveActJournalMutation(string successMessage, IWin32Window owner)
         {
             UpdateDirtyState();
             KnowledgeBaseFileSaveResult saveResult = _fileWorkflowService.Save(GetPersistedTreeData());
@@ -289,7 +362,7 @@ namespace AsutpKnowledgeBase
             if (saveResult.IsSuccess)
             {
                 MessageBox.Show(
-                    this,
+                    owner,
                     successMessage,
                     "Журнал актов",
                     MessageBoxButtons.OK,
@@ -298,7 +371,7 @@ namespace AsutpKnowledgeBase
                 return true;
             }
 
-            ShowActJournalError($"Не удалось сохранить изменения журнала актов: {saveResult.ErrorMessage}");
+            ShowActJournalError($"Не удалось сохранить изменения журнала актов: {saveResult.ErrorMessage}", owner);
             return false;
         }
 
@@ -311,13 +384,57 @@ namespace AsutpKnowledgeBase
                 .Where(executor => string.Equals(executor.ActId, actId, StringComparison.Ordinal))
                 .ToList();
 
-        private void ShowActSavedMessage(bool documentGenerationRequested)
+        private KbActDocument? FindLatestActDocument(string actId) =>
+            KnowledgeBaseDataService
+                .NormalizeActDocuments(_session.ActDocuments, new[] { actId })
+                .OrderByDescending(static document => document.IsLatest)
+                .ThenByDescending(static document => document.VersionNumber)
+                .ThenBy(static document => document.DocumentId, StringComparer.Ordinal)
+                .FirstOrDefault();
+
+        private string ResolveActDocumentAbsolutePath(string documentPath)
+        {
+            if (string.IsNullOrWhiteSpace(documentPath))
+                return string.Empty;
+
+            try
+            {
+                return Path.GetFullPath(Path.IsPathRooted(documentPath)
+                    ? documentPath
+                    : Path.Combine(ResolveActDocumentsBaseDirectory(), documentPath));
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        private bool OpenActDocumentPath(string absolutePath, IWin32Window? owner = null)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = absolutePath,
+                    UseShellExecute = true
+                });
+                SetLastActionText($"Открыт DOCX акта: {absolutePath}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ShowActGenerationError($"Не удалось открыть DOCX: {ex.GetBaseException().Message}", owner);
+                return false;
+            }
+        }
+
+        private void ShowActSavedMessage(bool documentGenerationRequested, IWin32Window? owner = null)
         {
             string message = documentGenerationRequested
                 ? "Черновик сохранен, путь DOCX выбран."
                 : "Черновик сохранен.";
             MessageBox.Show(
-                this,
+                owner ?? this,
                 message,
                 "Акт",
                 MessageBoxButtons.OK,
@@ -325,10 +442,10 @@ namespace AsutpKnowledgeBase
             SetLastActionText(message);
         }
 
-        private void ShowActJournalError(string errorMessage)
+        private void ShowActJournalError(string errorMessage, IWin32Window? owner = null)
         {
             MessageBox.Show(
-                this,
+                owner ?? this,
                 errorMessage,
                 "Журнал актов",
                 MessageBoxButtons.OK,
@@ -339,7 +456,8 @@ namespace AsutpKnowledgeBase
         private ActFormSaveResult SaveActFromForm(
             KbAct act,
             IReadOnlyList<KbActExecutor> executors,
-            bool prepareDocumentPath)
+            bool prepareDocumentPath,
+            IWin32Window? owner = null)
         {
             var acts = _session.Acts
                 .Where(existingAct => !string.Equals(existingAct.ActId, act.ActId, StringComparison.Ordinal))
@@ -358,7 +476,7 @@ namespace AsutpKnowledgeBase
                     actNumberSequences);
                 if (!numberingResult.IsSuccess || numberingResult.Act == null)
                 {
-                    ShowActSaveError(numberingResult.ErrorMessage);
+                    ShowActSaveError(numberingResult.ErrorMessage, owner);
                     return ActFormSaveResult.Failed();
                 }
 
@@ -369,7 +487,7 @@ namespace AsutpKnowledgeBase
                     .ToList();
                 acts.Add(act);
 
-                if (!TrySelectActDocumentPath(act, actDocuments, out documentPathResult) ||
+                if (!TrySelectActDocumentPath(act, actDocuments, owner, out documentPathResult) ||
                     documentPathResult == null)
                 {
                     return ActFormSaveResult.Failed();
@@ -406,6 +524,7 @@ namespace AsutpKnowledgeBase
             UpdateUI();
             if (saveResult.IsSuccess)
             {
+                RefreshActsJournalIfOpen(act.ActId);
                 return new ActFormSaveResult
                 {
                     IsSuccess = true,
@@ -416,7 +535,7 @@ namespace AsutpKnowledgeBase
             }
 
             MessageBox.Show(
-                this,
+                owner ?? this,
                 $"Не удалось сохранить акт: {saveResult.ErrorMessage}",
                 "Акт",
                 MessageBoxButtons.OK,
@@ -425,13 +544,16 @@ namespace AsutpKnowledgeBase
             return ActFormSaveResult.Failed();
         }
 
-        private bool GenerateActDocumentAfterSave(ActFormSaveResult saveResult)
+        private bool GenerateActDocumentAfterSave(ActFormSaveResult saveResult, IWin32Window? owner = null)
         {
             if (saveResult.Act == null || saveResult.DocumentPathResult == null)
             {
-                ShowActGenerationError("Акт сохранен, но путь DOCX не подготовлен.");
+                ShowActGenerationError("Акт сохранен, но путь DOCX не подготовлен.", owner);
                 return false;
             }
+
+            if (saveResult.DocumentPathResult.OpenExistingRequested)
+                return OpenActDocumentPath(saveResult.DocumentPathResult.AbsolutePath, owner);
 
             string templatePath = KnowledgeBaseActDocxTemplateService.ResolveTemplatePath(
                 saveResult.Act.ActType,
@@ -442,31 +564,34 @@ namespace AsutpKnowledgeBase
                     Act = saveResult.Act,
                     Executors = saveResult.Executors,
                     TemplatePath = templatePath,
-                    OutputPath = saveResult.DocumentPathResult.AbsolutePath
+                    OutputPath = saveResult.DocumentPathResult.AbsolutePath,
+                    OverwriteExisting = saveResult.DocumentPathResult.OverwriteExisting
                 });
 
             if (!generationResult.IsSuccess)
             {
-                ShowActGenerationError($"Акт сохранен, но DOCX не сформирован: {generationResult.ErrorMessage}");
+                ShowActGenerationError($"Акт сохранен, но DOCX не сформирован: {generationResult.ErrorMessage}", owner);
                 return false;
             }
 
             if (!MarkActDocumentGenerated(
                 saveResult.Act,
                 saveResult.DocumentPathResult,
-                generationResult.ContentHash))
+                generationResult.ContentHash,
+                owner))
             {
                 return false;
             }
 
-            ShowActGeneratedMessage(generationResult.OutputPath);
+            ShowActGeneratedMessage(generationResult.OutputPath, owner);
             return true;
         }
 
         private bool MarkActDocumentGenerated(
             KbAct act,
             KnowledgeBaseActDocumentPathResult documentPathResult,
-            string contentHash)
+            string contentHash,
+            IWin32Window? owner = null)
         {
             DateTime now = DateTime.Now;
             KbAct updatedAct = KnowledgeBaseActEditorService.CloneAct(act);
@@ -489,10 +614,13 @@ namespace AsutpKnowledgeBase
             KnowledgeBaseFileSaveResult saveResult = _fileWorkflowService.Save(GetPersistedTreeData());
             UpdateUI();
             if (saveResult.IsSuccess)
+            {
+                RefreshActsJournalIfOpen(updatedAct.ActId);
                 return true;
+            }
 
             MessageBox.Show(
-                this,
+                owner ?? this,
                 $"DOCX сформирован, но не удалось обновить запись акта: {saveResult.ErrorMessage}",
                 "Акт",
                 MessageBoxButtons.OK,
@@ -504,6 +632,7 @@ namespace AsutpKnowledgeBase
         private bool TrySelectActDocumentPath(
             KbAct act,
             IReadOnlyList<KbActDocument> actDocuments,
+            IWin32Window? owner,
             out KnowledgeBaseActDocumentPathResult? result)
         {
             result = null;
@@ -514,6 +643,32 @@ namespace AsutpKnowledgeBase
             string initialDirectory = Directory.Exists(documentsDirectory)
                 ? documentsDirectory
                 : baseDirectory;
+            var documentPathService = new KnowledgeBaseActDocumentPathService();
+            string copyPathSuggestion = string.Empty;
+
+            KbActDocument? existingDocument = FindLatestActDocument(act.ActId);
+            if (existingDocument != null && !string.IsNullOrWhiteSpace(existingDocument.Path))
+            {
+                string existingAbsolutePath = ResolveActDocumentAbsolutePath(existingDocument.Path);
+                bool saveCopyRequested = false;
+                if (!string.IsNullOrWhiteSpace(existingAbsolutePath) &&
+                    TryPrepareActDocumentPath(
+                        act,
+                        actDocuments,
+                        existingAbsolutePath,
+                        documentPathService,
+                        owner,
+                        out result,
+                        out saveCopyRequested))
+                {
+                    return true;
+                }
+
+                if (saveCopyRequested)
+                    copyPathSuggestion = BuildCopyDocumentPath(existingAbsolutePath);
+                else if (result == null)
+                    return false;
+            }
 
             using var dialog = new SaveFileDialog
             {
@@ -528,30 +683,134 @@ namespace AsutpKnowledgeBase
                 OverwritePrompt = false,
                 Title = "Сформировать DOCX акта"
             };
+            if (!string.IsNullOrWhiteSpace(copyPathSuggestion))
+            {
+                string? copyDirectory = Path.GetDirectoryName(copyPathSuggestion);
+                if (!string.IsNullOrWhiteSpace(copyDirectory) && Directory.Exists(copyDirectory))
+                    dialog.InitialDirectory = copyDirectory;
 
-            var documentPathService = new KnowledgeBaseActDocumentPathService();
+                dialog.FileName = Path.GetFileName(copyPathSuggestion);
+            }
+
             while (true)
             {
-                if (dialog.ShowDialog(this) != DialogResult.OK)
+                if (dialog.ShowDialog(owner ?? this) != DialogResult.OK)
                     return false;
 
-                result = documentPathService.PrepareDocumentPath(
-                    new KnowledgeBaseActDocumentPathRequest
-                    {
-                        Act = act,
-                        Config = _session.Config,
-                        ExistingDocuments = actDocuments,
-                        SelectedPath = dialog.FileName,
-                        DatabasePath = CurrentDataPath,
-                        ApplicationBasePath = AppContext.BaseDirectory
-                    });
-
-                if (result.IsSuccess)
+                if (TryPrepareActDocumentPath(
+                    act,
+                    actDocuments,
+                    dialog.FileName,
+                    documentPathService,
+                    owner,
+                    out result,
+                    out bool saveCopyRequested))
+                {
                     return true;
+                }
 
-                ShowActSaveError(result.ErrorMessage);
+                if (saveCopyRequested && result != null)
+                    dialog.FileName = BuildCopyDocumentPath(result.AbsolutePath);
+
+                if (result == null)
+                    return false;
             }
         }
+
+        private bool TryPrepareActDocumentPath(
+            KbAct act,
+            IReadOnlyList<KbActDocument> actDocuments,
+            string selectedPath,
+            KnowledgeBaseActDocumentPathService documentPathService,
+            IWin32Window? owner,
+            out KnowledgeBaseActDocumentPathResult? result,
+            out bool saveCopyRequested)
+        {
+            saveCopyRequested = false;
+            result = documentPathService.PrepareDocumentPath(
+                new KnowledgeBaseActDocumentPathRequest
+                {
+                    Act = act,
+                    Config = _session.Config,
+                    ExistingDocuments = actDocuments,
+                    SelectedPath = selectedPath,
+                    DatabasePath = CurrentDataPath,
+                    ApplicationBasePath = AppContext.BaseDirectory,
+                    AllowExistingFile = true
+                });
+
+            if (!result.IsSuccess)
+            {
+                ShowActSaveError(result.ErrorMessage, owner);
+                return false;
+            }
+
+            if (!result.TargetFileExists)
+                return true;
+
+            return ResolveExistingActDocumentChoice(result, owner, out result, out saveCopyRequested);
+        }
+
+        private bool ResolveExistingActDocumentChoice(
+            KnowledgeBaseActDocumentPathResult pathResult,
+            IWin32Window? owner,
+            out KnowledgeBaseActDocumentPathResult? result,
+            out bool saveCopyRequested)
+        {
+            result = null;
+            saveCopyRequested = false;
+            using var dialog = new KnowledgeBaseActDocumentConflictDialog(pathResult.AbsolutePath);
+            if (dialog.ShowDialog(owner ?? this) != DialogResult.OK)
+                return false;
+
+            switch (dialog.SelectedAction)
+            {
+                case KnowledgeBaseActDocumentConflictAction.OpenExisting:
+                    result = CopyDocumentPathResult(pathResult, openExistingRequested: true);
+                    return true;
+                case KnowledgeBaseActDocumentConflictAction.Overwrite:
+                    result = CopyDocumentPathResult(pathResult, overwriteExisting: true);
+                    return true;
+                case KnowledgeBaseActDocumentConflictAction.SaveCopy:
+                    result = pathResult;
+                    saveCopyRequested = true;
+                    return false;
+                default:
+                    return false;
+            }
+        }
+
+        private static string BuildCopyDocumentPath(string originalPath)
+        {
+            string directory = Path.GetDirectoryName(originalPath) ?? AppContext.BaseDirectory;
+            string stem = Path.GetFileNameWithoutExtension(originalPath);
+            string candidate = Path.Combine(directory, $"{stem}_копия.docx");
+            int index = 2;
+            while (File.Exists(candidate))
+            {
+                candidate = Path.Combine(directory, $"{stem}_копия_{index}.docx");
+                index++;
+            }
+
+            return candidate;
+        }
+
+        private static KnowledgeBaseActDocumentPathResult CopyDocumentPathResult(
+            KnowledgeBaseActDocumentPathResult source,
+            bool overwriteExisting = false,
+            bool openExistingRequested = false) =>
+            new()
+            {
+                IsSuccess = source.IsSuccess,
+                ErrorMessage = source.ErrorMessage,
+                FileName = source.FileName,
+                AbsolutePath = source.AbsolutePath,
+                StoredPath = source.StoredPath,
+                StoredDirectoryPath = source.StoredDirectoryPath,
+                TargetFileExists = source.TargetFileExists,
+                OverwriteExisting = overwriteExisting,
+                OpenExistingRequested = openExistingRequested
+            };
 
         private string ResolveActDocumentsBaseDirectory()
         {
@@ -600,11 +859,11 @@ namespace AsutpKnowledgeBase
             public static ActFormSaveResult Failed() => new();
         }
 
-        private void ShowActGeneratedMessage(string outputPath)
+        private void ShowActGeneratedMessage(string outputPath, IWin32Window? owner = null)
         {
             string message = $"DOCX акта сформирован: {outputPath}";
             MessageBox.Show(
-                this,
+                owner ?? this,
                 message,
                 "Акт",
                 MessageBoxButtons.OK,
@@ -612,10 +871,10 @@ namespace AsutpKnowledgeBase
             SetLastActionText(message);
         }
 
-        private void ShowActGenerationError(string errorMessage)
+        private void ShowActGenerationError(string errorMessage, IWin32Window? owner = null)
         {
             MessageBox.Show(
-                this,
+                owner ?? this,
                 errorMessage,
                 "Акт",
                 MessageBoxButtons.OK,
@@ -623,10 +882,10 @@ namespace AsutpKnowledgeBase
             SetLastActionText($"Ошибка формирования DOCX: {errorMessage}");
         }
 
-        private void ShowActSaveError(string errorMessage)
+        private void ShowActSaveError(string errorMessage, IWin32Window? owner = null)
         {
             MessageBox.Show(
-                this,
+                owner ?? this,
                 $"Не удалось сохранить акт: {errorMessage}",
                 "Акт",
                 MessageBoxButtons.OK,

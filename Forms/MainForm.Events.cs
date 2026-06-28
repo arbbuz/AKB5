@@ -324,6 +324,7 @@ namespace AsutpKnowledgeBase
             if (e.Cancel)
                 return;
 
+            CloseActsJournalIfOpen();
             SaveCurrentSplitterDistance();
             SaveCurrentWindowLayout();
         }

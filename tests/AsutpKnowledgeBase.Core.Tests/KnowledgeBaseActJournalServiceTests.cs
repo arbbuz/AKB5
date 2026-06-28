@@ -32,9 +32,36 @@ public class KnowledgeBaseActJournalServiceTests
         Assert.Equal("Documents\\Acts\\2026-0002.docx", rows[0].DocumentPath);
         Assert.False(rows[0].CanDeletePhysically);
         Assert.True(rows[0].CanGenerateDocument);
+        Assert.False(rows[0].CanOpenDocument);
         Assert.Equal("act-old", rows[1].ActId);
         Assert.Equal("без номера", rows[1].ActNumberText);
         Assert.True(rows[1].CanDeletePhysically);
+    }
+
+    [Fact]
+    public void BuildRows_WhenDocumentFileExists_AllowsOpenDocument()
+    {
+        string baseDirectory = Path.Combine(Path.GetTempPath(), $"akb5-act-journal-{Guid.NewGuid():N}");
+        string documentPath = Path.Combine(baseDirectory, "Documents", "Acts", "2026-0002.docx");
+        var service = new KnowledgeBaseActJournalService();
+
+        KnowledgeBaseActJournalRow row = Assert.Single(service.BuildRows(
+            new[] { CreateAct("act-new", new DateTime(2026, 6, 26), "2026-0002") },
+            new[]
+            {
+                new KbActDocument
+                {
+                    ActId = "act-new",
+                    VersionNumber = 1,
+                    Path = "Documents\\Acts\\2026-0002.docx",
+                    IsLatest = true
+                }
+            },
+            baseDirectory,
+            path => string.Equals(path, documentPath, StringComparison.OrdinalIgnoreCase)));
+
+        Assert.True(row.CanOpenDocument);
+        Assert.Equal(documentPath, row.AbsoluteDocumentPath);
     }
 
     [Fact]
