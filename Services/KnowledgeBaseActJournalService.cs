@@ -9,6 +9,8 @@ namespace AsutpKnowledgeBase.Services
 
         public DateTime? ActDate { get; init; }
 
+        public int ActYear { get; init; }
+
         public string ActDateText { get; init; } = string.Empty;
 
         public string ActNumberText { get; init; } = string.Empty;
@@ -26,6 +28,8 @@ namespace AsutpKnowledgeBase.Services
         public string OrderNumber { get; init; } = string.Empty;
 
         public string DocumentPath { get; init; } = string.Empty;
+
+        public string DocumentStateText { get; init; } = string.Empty;
 
         public string AbsoluteDocumentPath { get; init; } = string.Empty;
 
@@ -69,10 +73,15 @@ namespace AsutpKnowledgeBase.Services
                     latestDocumentsByActId.TryGetValue(act.ActId, out KbActDocument? document);
                     string documentPath = document?.Path?.Trim() ?? string.Empty;
                     string absoluteDocumentPath = ResolveDocumentAbsolutePath(documentPath, documentBaseDirectory);
+                    bool canOpenDocument = CanOpenDocument(absoluteDocumentPath, fileExists);
+                    int actYear = act.ActYear > 0
+                        ? act.ActYear
+                        : act.ActDate?.Year ?? 0;
                     return new KnowledgeBaseActJournalRow
                     {
                         ActId = act.ActId,
                         ActDate = act.ActDate,
+                        ActYear = actYear,
                         ActDateText = act.ActDate?.ToString("dd.MM.yyyy", CultureInfo.CurrentCulture) ?? string.Empty,
                         ActNumberText = string.IsNullOrWhiteSpace(act.ActNumber)
                             ? "без номера"
@@ -84,11 +93,12 @@ namespace AsutpKnowledgeBase.Services
                         EquipmentName = act.EquipmentName,
                         OrderNumber = act.EquipmentSnapshot?.OrderNumber ?? string.Empty,
                         DocumentPath = documentPath,
+                        DocumentStateText = FormatDocumentState(documentPath, canOpenDocument),
                         AbsoluteDocumentPath = absoluteDocumentPath,
                         CanDeletePhysically = CanDeletePhysically(act, documentPath),
                         CanChangeStatus = CanChangeStatus(act.Status),
                         CanGenerateDocument = CanGenerateDocument(act.Status),
-                        CanOpenDocument = CanOpenDocument(absoluteDocumentPath, fileExists)
+                        CanOpenDocument = canOpenDocument
                     };
                 })
                 .OrderByDescending(static row => row.ActDate ?? DateTime.MinValue)
@@ -144,6 +154,14 @@ namespace AsutpKnowledgeBase.Services
             status != KbActStatus.Cancelled &&
             status != KbActStatus.Annulled &&
             status != KbActStatus.Archived;
+
+        private static string FormatDocumentState(string documentPath, bool canOpenDocument)
+        {
+            if (string.IsNullOrWhiteSpace(documentPath))
+                return "Нет";
+
+            return canOpenDocument ? "Есть" : "Не найден";
+        }
 
         private static bool CanOpenDocument(string absoluteDocumentPath, Func<string, bool> fileExists)
         {

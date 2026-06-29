@@ -28,14 +28,33 @@ public class KnowledgeBaseActJournalServiceTests
             });
 
         Assert.Equal("act-new", rows[0].ActId);
+        Assert.Equal(2026, rows[0].ActYear);
         Assert.Equal("2026-0002", rows[0].ActNumberText);
         Assert.Equal("Documents\\Acts\\2026-0002.docx", rows[0].DocumentPath);
+        Assert.Equal("Не найден", rows[0].DocumentStateText);
         Assert.False(rows[0].CanDeletePhysically);
         Assert.True(rows[0].CanGenerateDocument);
         Assert.False(rows[0].CanOpenDocument);
         Assert.Equal("act-old", rows[1].ActId);
         Assert.Equal("без номера", rows[1].ActNumberText);
+        Assert.Equal("Нет", rows[1].DocumentStateText);
         Assert.True(rows[1].CanDeletePhysically);
+    }
+
+    [Fact]
+    public void BuildRows_UsesActYearWhenDateIsMissing()
+    {
+        var service = new KnowledgeBaseActJournalService();
+        var act = CreateAct("act-imported", new DateTime(2025, 1, 1), "2025-0001");
+        act.ActDate = null;
+        act.ActYear = 2025;
+
+        KnowledgeBaseActJournalRow row = Assert.Single(service.BuildRows(
+            new[] { act },
+            Array.Empty<KbActDocument>()));
+
+        Assert.Equal(2025, row.ActYear);
+        Assert.Equal(string.Empty, row.ActDateText);
     }
 
     [Fact]
@@ -61,6 +80,7 @@ public class KnowledgeBaseActJournalServiceTests
             path => string.Equals(path, documentPath, StringComparison.OrdinalIgnoreCase)));
 
         Assert.True(row.CanOpenDocument);
+        Assert.Equal("Есть", row.DocumentStateText);
         Assert.Equal(documentPath, row.AbsoluteDocumentPath);
     }
 

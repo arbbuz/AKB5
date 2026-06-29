@@ -104,12 +104,16 @@ namespace AsutpKnowledgeBase
                 return;
             }
 
-            var journalForm = new KnowledgeBaseActsJournalForm(BuildActsJournalRows());
+            var journalForm = new KnowledgeBaseActsJournalForm(
+                BuildActsJournalRows(),
+                columnWidths: _windowLayoutStateService.LoadColumnWidths(ActsJournalColumnWidthsKey));
             _actsJournalForm = journalForm;
             journalForm.ActionRequested += ActsJournalForm_ActionRequested;
+            journalForm.ColumnWidthsChanged += SaveActsJournalColumnWidths;
             journalForm.FormClosed += (_, _) =>
             {
                 journalForm.ActionRequested -= ActsJournalForm_ActionRequested;
+                journalForm.ColumnWidthsChanged -= SaveActsJournalColumnWidths;
                 if (ReferenceEquals(_actsJournalForm, journalForm))
                     _actsJournalForm = null;
             };

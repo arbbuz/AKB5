@@ -16,6 +16,7 @@ namespace AsutpKnowledgeBase
         private const string CompositionRackDetailsColumnWidthsKey = "composition.rack-details";
         private const string AdditionalEquipmentColumnWidthsKey = "composition.additional-equipment";
         private const string DocsAndSoftwareColumnWidthsKey = "docs-and-software.entries";
+        private const string ActsJournalColumnWidthsKey = "acts.journal";
 
         private readonly IAppLogger _appLogger;
         private readonly KnowledgeBaseSessionService _session = new();
@@ -708,6 +709,16 @@ namespace AsutpKnowledgeBase
             _windowLayoutStateService.SaveColumnWidths(
                 DocsAndSoftwareColumnWidthsKey,
                 selectedNodeDocsAndSoftwareScreen.GetColumnWidths());
+        }
+
+        private void SaveActsJournalColumnWidths(object? sender, EventArgs e)
+        {
+            if (sender is not KnowledgeBaseActsJournalForm journalForm)
+                return;
+
+            _windowLayoutStateService.SaveColumnWidths(
+                ActsJournalColumnWidthsKey,
+                journalForm.GetColumnWidths());
         }
 
         private void RestoreSavedWindowLayout()
