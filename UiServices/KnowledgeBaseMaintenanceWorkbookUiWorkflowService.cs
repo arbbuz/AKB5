@@ -30,14 +30,17 @@ namespace AsutpKnowledgeBase.UiServices
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
             IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears,
             string currentDataPath,
-            Action<string> setStatusText)
+            Action<string> setStatusText,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default)
         {
+            string caption = BuildPlanningCaption(planningMode);
+            string modeSuffix = BuildPlanningModeDisplaySuffix(planningMode);
             if (string.IsNullOrWhiteSpace(workshopName))
             {
                 MessageBox.Show(
                     owner,
                     "Сначала выберите цех для формирования графика ТО.",
-                    "График ТО",
+                    caption,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 return;
@@ -66,12 +69,16 @@ namespace AsutpKnowledgeBase.UiServices
 
             using var saveDialog = new SaveFileDialog
             {
-                Title = "Сохранить график ТО на месяц",
+                Title = $"Сохранить график ТО на месяц{modeSuffix}",
                 Filter = "Книги Excel (*.xlsx)|*.xlsx|Все файлы (*.*)|*.*",
                 DefaultExt = "xlsx",
                 AddExtension = true,
                 OverwritePrompt = true,
-                FileName = BuildSuggestedMonthFileName(workshopName, exportDialog.SelectedYear, exportDialog.SelectedMonth)
+                FileName = BuildSuggestedMonthFileName(
+                    workshopName,
+                    exportDialog.SelectedYear,
+                    exportDialog.SelectedMonth,
+                    planningMode)
             };
 
             string? directory = Path.GetDirectoryName(currentDataPath);
@@ -90,7 +97,8 @@ namespace AsutpKnowledgeBase.UiServices
                         exportDialog.MonthlyBudgetHours,
                         roots,
                         maintenanceScheduleProfiles,
-                        productionCalendarYears);
+                        productionCalendarYears,
+                        planningMode);
 
                 if (!generationResult.IsSuccess || generationResult.WorkbookPackage == null)
                 {
@@ -100,32 +108,32 @@ namespace AsutpKnowledgeBase.UiServices
                     MessageBox.Show(
                         owner,
                         errorMessage,
-                        "График ТО",
+                        caption,
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
-                    setStatusText($"Ошибка формирования графика ТО: {errorMessage}");
+                    setStatusText($"Ошибка формирования графика ТО{modeSuffix}: {errorMessage}");
                     return;
                 }
 
                 File.WriteAllBytes(saveDialog.FileName, generationResult.WorkbookPackage);
                 MessageBox.Show(
                     owner,
-                    "График ТО сформирован.",
-                    "График ТО",
+                    $"График ТО{modeSuffix} сформирован.",
+                    caption,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 setStatusText(
-                    $"Сформирован график ТО: {Path.GetFileName(saveDialog.FileName)} ({exportDialog.SelectedMonth:D2}.{exportDialog.SelectedYear})");
+                    $"Сформирован график ТО{modeSuffix}: {Path.GetFileName(saveDialog.FileName)} ({exportDialog.SelectedMonth:D2}.{exportDialog.SelectedYear})");
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
                     owner,
-                    $"Ошибка формирования графика ТО: {ex.Message}",
-                    "График ТО",
+                    $"Ошибка формирования графика ТО{modeSuffix}: {ex.Message}",
+                    caption,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
-                setStatusText($"Ошибка формирования графика ТО: {ex.Message}");
+                setStatusText($"Ошибка формирования графика ТО{modeSuffix}: {ex.Message}");
             }
         }
 
@@ -233,14 +241,17 @@ namespace AsutpKnowledgeBase.UiServices
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
             IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears,
             string currentDataPath,
-            Action<string> setStatusText)
+            Action<string> setStatusText,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default)
         {
+            string caption = BuildPlanningCaption(planningMode);
+            string modeSuffix = BuildPlanningModeDisplaySuffix(planningMode);
             if (string.IsNullOrWhiteSpace(workshopName))
             {
                 MessageBox.Show(
                     owner,
                     "Сначала выберите цех для формирования графика ТО помесячно.",
-                    "График ТО",
+                    caption,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 return;
@@ -261,18 +272,18 @@ namespace AsutpKnowledgeBase.UiServices
                 initialYear,
                 initialBudget,
                 (year, month) => _demandSummaryService.Build(year, month, roots, maintenanceScheduleProfiles),
-                "Сформировать график ТО помесячно");
+                $"Сформировать график ТО помесячно{modeSuffix}");
             if (exportDialog.ShowDialog(owner) != DialogResult.OK)
                 return;
 
             using var saveDialog = new SaveFileDialog
             {
-                Title = "Сохранить график ТО помесячно",
+                Title = $"Сохранить график ТО помесячно{modeSuffix}",
                 Filter = "Книги Excel (*.xlsx)|*.xlsx|Все файлы (*.*)|*.*",
                 DefaultExt = "xlsx",
                 AddExtension = true,
                 OverwritePrompt = true,
-                FileName = BuildSuggestedYearMonthlyFileName(workshopName, exportDialog.SelectedYear)
+                FileName = BuildSuggestedYearMonthlyFileName(workshopName, exportDialog.SelectedYear, planningMode)
             };
 
             string? directory = Path.GetDirectoryName(currentDataPath);
@@ -295,7 +306,8 @@ namespace AsutpKnowledgeBase.UiServices
                         exportDialog.MonthlyBudgetHours,
                         roots,
                         maintenanceScheduleProfiles,
-                        productionCalendarYears);
+                        productionCalendarYears,
+                        planningMode);
 
                 if (!generationResult.IsSuccess || generationResult.WorkbookPackage == null)
                 {
@@ -305,32 +317,32 @@ namespace AsutpKnowledgeBase.UiServices
                     MessageBox.Show(
                         owner,
                         errorMessage,
-                        "График ТО",
+                        caption,
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
-                    setStatusText($"Ошибка формирования графика ТО помесячно: {errorMessage}");
+                    setStatusText($"Ошибка формирования графика ТО помесячно{modeSuffix}: {errorMessage}");
                     return;
                 }
 
                 File.WriteAllBytes(saveDialog.FileName, generationResult.WorkbookPackage);
                 MessageBox.Show(
                     owner,
-                    "График ТО помесячно сформирован.",
-                    "График ТО",
+                    $"График ТО помесячно{modeSuffix} сформирован.",
+                    caption,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 setStatusText(
-                    $"Сформирован график ТО помесячно: {Path.GetFileName(saveDialog.FileName)} ({exportDialog.SelectedYear}, {generationResult.MonthResults.Count} мес.)");
+                    $"Сформирован график ТО помесячно{modeSuffix}: {Path.GetFileName(saveDialog.FileName)} ({exportDialog.SelectedYear}, {generationResult.MonthResults.Count} мес.)");
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
                     owner,
-                    $"Ошибка формирования графика ТО помесячно: {ex.Message}",
-                    "График ТО",
+                    $"Ошибка формирования графика ТО помесячно{modeSuffix}: {ex.Message}",
+                    caption,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
-                setStatusText($"Ошибка формирования графика ТО помесячно: {ex.Message}");
+                setStatusText($"Ошибка формирования графика ТО помесячно{modeSuffix}: {ex.Message}");
             }
         }
 
@@ -341,14 +353,17 @@ namespace AsutpKnowledgeBase.UiServices
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
             IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears,
             string currentDataPath,
-            Action<string> setStatusText)
+            Action<string> setStatusText,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default)
         {
+            string caption = BuildPlanningCaption(planningMode);
+            string modeSuffix = BuildPlanningModeDisplaySuffix(planningMode);
             if (string.IsNullOrWhiteSpace(workshopName))
             {
                 MessageBox.Show(
                     owner,
                     "Сначала выберите цех для пересчёта графика ТО.",
-                    "График ТО",
+                    caption,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 return;
@@ -377,7 +392,7 @@ namespace AsutpKnowledgeBase.UiServices
 
             using var openDialog = new OpenFileDialog
             {
-                Title = "Выберите годовой график ТО для пересчёта",
+                Title = $"Выберите годовой график ТО для пересчёта{modeSuffix}",
                 Filter = "Книги Excel (*.xlsx)|*.xlsx|Все файлы (*.*)|*.*",
                 CheckFileExists = true
             };
@@ -392,8 +407,8 @@ namespace AsutpKnowledgeBase.UiServices
             string startMonthName = GetMonthName(recalculationDialog.SelectedStartMonth);
             DialogResult confirmResult = MessageBox.Show(
                 owner,
-                $"Пересчитать в выбранной книге листы с {startMonthName} по декабрь {recalculationDialog.SelectedYear} года?",
-                "График ТО",
+                $"Пересчитать в выбранной книге листы с {startMonthName} по декабрь {recalculationDialog.SelectedYear} года{modeSuffix}?",
+                caption,
                 MessageBoxButtons.OKCancel,
                 MessageBoxIcon.Question);
             if (confirmResult != DialogResult.OK)
@@ -411,7 +426,8 @@ namespace AsutpKnowledgeBase.UiServices
                         recalculationDialog.MonthlyBudgetHours,
                         roots,
                         maintenanceScheduleProfiles,
-                        productionCalendarYears);
+                        productionCalendarYears,
+                        planningMode);
 
                 if (!generationResult.IsSuccess || generationResult.WorkbookPackage == null)
                 {
@@ -421,32 +437,32 @@ namespace AsutpKnowledgeBase.UiServices
                     MessageBox.Show(
                         owner,
                         errorMessage,
-                        "График ТО",
+                        caption,
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
-                    setStatusText($"Ошибка пересчёта графика ТО: {errorMessage}");
+                    setStatusText($"Ошибка пересчёта графика ТО{modeSuffix}: {errorMessage}");
                     return;
                 }
 
                 File.WriteAllBytes(openDialog.FileName, generationResult.WorkbookPackage);
                 MessageBox.Show(
                     owner,
-                    $"График ТО пересчитан с {startMonthName} по декабрь.",
-                    "График ТО",
+                    $"График ТО{modeSuffix} пересчитан с {startMonthName} по декабрь.",
+                    caption,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 setStatusText(
-                    $"Пересчитан график ТО: {Path.GetFileName(openDialog.FileName)} ({startMonthName} - декабрь {recalculationDialog.SelectedYear}, {generationResult.MonthResults.Count} мес.)");
+                    $"Пересчитан график ТО{modeSuffix}: {Path.GetFileName(openDialog.FileName)} ({startMonthName} - декабрь {recalculationDialog.SelectedYear}, {generationResult.MonthResults.Count} мес.)");
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
                     owner,
-                    $"Ошибка пересчёта графика ТО: {ex.Message}",
-                    "График ТО",
+                    $"Ошибка пересчёта графика ТО{modeSuffix}: {ex.Message}",
+                    caption,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
-                setStatusText($"Ошибка пересчёта графика ТО: {ex.Message}");
+                setStatusText($"Ошибка пересчёта графика ТО{modeSuffix}: {ex.Message}");
             }
         }
 
@@ -482,21 +498,24 @@ namespace AsutpKnowledgeBase.UiServices
             int totalMonthlyHourBudget,
             IReadOnlyList<KbNode>? roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
-            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears) =>
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default) =>
             _generationService?.GenerateSingleMonthWorkbook(
                 year,
                 month,
                 totalMonthlyHourBudget,
                 roots,
                 maintenanceScheduleProfiles,
-                productionCalendarYears)
+                productionCalendarYears,
+                planningMode)
             ?? _excelExchangePluginLoader.GenerateSingleMonthWorkbook(
                 year,
                 month,
                 totalMonthlyHourBudget,
                 roots,
                 maintenanceScheduleProfiles,
-                productionCalendarYears);
+                productionCalendarYears,
+                planningMode);
 
         private KnowledgeBaseMaintenanceAnnualWorkbookGenerationResult GenerateAnnualWorkbook(
             int year,
@@ -523,21 +542,24 @@ namespace AsutpKnowledgeBase.UiServices
             int totalMonthlyHourBudget,
             IReadOnlyList<KbNode>? roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
-            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears) =>
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default) =>
             _generationService?.GenerateYearWorkbook(
                 existingWorkbookPackage,
                 year,
                 totalMonthlyHourBudget,
                 roots,
                 maintenanceScheduleProfiles,
-                productionCalendarYears)
+                productionCalendarYears,
+                planningMode)
             ?? _excelExchangePluginLoader.GenerateYearWorkbook(
                 existingWorkbookPackage,
                 year,
                 totalMonthlyHourBudget,
                 roots,
                 maintenanceScheduleProfiles,
-                productionCalendarYears);
+                productionCalendarYears,
+                planningMode);
 
         private KnowledgeBaseMaintenanceYearWorkbookGenerationResult GenerateYearWorkbookFromMonth(
             byte[]? existingWorkbookPackage,
@@ -546,7 +568,8 @@ namespace AsutpKnowledgeBase.UiServices
             int totalMonthlyHourBudget,
             IReadOnlyList<KbNode>? roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
-            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears) =>
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default) =>
             _generationService?.GenerateYearWorkbookFromMonth(
                 existingWorkbookPackage,
                 year,
@@ -554,7 +577,8 @@ namespace AsutpKnowledgeBase.UiServices
                 totalMonthlyHourBudget,
                 roots,
                 maintenanceScheduleProfiles,
-                productionCalendarYears)
+                productionCalendarYears,
+                planningMode)
             ?? _excelExchangePluginLoader.GenerateYearWorkbookFromMonth(
                 existingWorkbookPackage,
                 year,
@@ -562,7 +586,8 @@ namespace AsutpKnowledgeBase.UiServices
                 totalMonthlyHourBudget,
                 roots,
                 maintenanceScheduleProfiles,
-                productionCalendarYears);
+                productionCalendarYears,
+                planningMode);
 
         private bool TryEnsureExcelModuleAvailable(IWin32Window owner, Action<string> setStatusText)
         {
@@ -590,14 +615,45 @@ namespace AsutpKnowledgeBase.UiServices
             return memory.ToArray();
         }
 
-        private static string BuildSuggestedMonthFileName(string workshopName, int year, int month) =>
-            $"{BuildSafeWorkshopName(workshopName)}_ГрафикТО_{year}_{month:D2}.xlsx";
+        private static string BuildSuggestedMonthFileName(
+            string workshopName,
+            int year,
+            int month,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default) =>
+            $"{BuildSafeWorkshopName(workshopName)}_ГрафикТО{BuildPlanningModeFileNameSuffix(planningMode)}_{year}_{month:D2}.xlsx";
 
         private static string BuildSuggestedAnnualFileName(string workshopName, int year) =>
             $"{BuildSafeWorkshopName(workshopName)}_ГодовойГрафикТО_{year}.xlsx";
 
-        private static string BuildSuggestedYearMonthlyFileName(string workshopName, int year) =>
-            $"{BuildSafeWorkshopName(workshopName)}_ГрафикТО_помесячно_{year}.xlsx";
+        private static string BuildSuggestedYearMonthlyFileName(
+            string workshopName,
+            int year,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default) =>
+            $"{BuildSafeWorkshopName(workshopName)}_ГрафикТО_помесячно{BuildPlanningModeFileNameSuffix(planningMode)}_{year}.xlsx";
+
+        private static string BuildPlanningCaption(KnowledgeBaseMaintenancePlanningMode planningMode) =>
+            planningMode switch
+            {
+                KnowledgeBaseMaintenancePlanningMode.BalancedV2 => "График ТО v2",
+                KnowledgeBaseMaintenancePlanningMode.SequentialV3 => "График ТО v3",
+                _ => "График ТО"
+            };
+
+        private static string BuildPlanningModeDisplaySuffix(KnowledgeBaseMaintenancePlanningMode planningMode) =>
+            planningMode switch
+            {
+                KnowledgeBaseMaintenancePlanningMode.BalancedV2 => " v2",
+                KnowledgeBaseMaintenancePlanningMode.SequentialV3 => " v3",
+                _ => string.Empty
+            };
+
+        private static string BuildPlanningModeFileNameSuffix(KnowledgeBaseMaintenancePlanningMode planningMode) =>
+            planningMode switch
+            {
+                KnowledgeBaseMaintenancePlanningMode.BalancedV2 => "_v2",
+                KnowledgeBaseMaintenancePlanningMode.SequentialV3 => "_v3",
+                _ => string.Empty
+            };
 
         private static string BuildSafeWorkshopName(string workshopName)
         {

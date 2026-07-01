@@ -48,13 +48,15 @@ namespace AsutpKnowledgeBase.Services
             int totalMonthlyHourBudget,
             IReadOnlyList<KbNode>? roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
-            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears) =>
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default) =>
             CreateWorkbookGenerationService(productionCalendarYears).GenerateSingleMonthWorkbook(
                 year,
                 month,
                 totalMonthlyHourBudget,
                 roots,
-                maintenanceScheduleProfiles);
+                maintenanceScheduleProfiles,
+                planningMode);
 
         public KnowledgeBaseMaintenanceAnnualWorkbookGenerationResult GenerateAnnualWorkbook(
             int year,
@@ -74,13 +76,15 @@ namespace AsutpKnowledgeBase.Services
             int totalMonthlyHourBudget,
             IReadOnlyList<KbNode>? roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
-            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears) =>
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default) =>
             CreateWorkbookGenerationService(productionCalendarYears).GenerateYearWorkbook(
                 existingWorkbookPackage,
                 year,
                 totalMonthlyHourBudget,
                 roots,
-                maintenanceScheduleProfiles);
+                maintenanceScheduleProfiles,
+                planningMode);
 
         public KnowledgeBaseMaintenanceYearWorkbookGenerationResult GenerateYearWorkbookFromMonth(
             byte[]? existingWorkbookPackage,
@@ -89,14 +93,16 @@ namespace AsutpKnowledgeBase.Services
             int totalMonthlyHourBudget,
             IReadOnlyList<KbNode>? roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
-            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears) =>
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default) =>
             CreateWorkbookGenerationService(productionCalendarYears).GenerateYearWorkbookFromMonth(
                 existingWorkbookPackage,
                 year,
                 startMonth,
                 totalMonthlyHourBudget,
                 roots,
-                maintenanceScheduleProfiles);
+                maintenanceScheduleProfiles,
+                planningMode);
 
         public List<KnowledgeBaseMaintenanceYearScheduleSourceRow> BuildRows(
             IReadOnlyList<KbNode>? roots,

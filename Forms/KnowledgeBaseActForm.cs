@@ -216,15 +216,15 @@ namespace AsutpKnowledgeBase
                 SelectDefault(_draft.FaultCriterion, DefaultFaultCriterion));
             _txtRequestDocument = CreateTextBox(_draft.RequestDocument);
             _txtActualLaborHours = CreateTextBox(_draft.ActualLaborHours);
-            _txtCustomerName = CreateTextBox(_draft.CustomerName);
+            _txtCustomerName = CreateTextBox(string.Empty);
             _cmbCustomerPosition = CreateEditableComboBox(
                 CustomerPositionOptions,
                 SelectDefault(_draft.CustomerPosition, DefaultCustomerPosition));
-            _txtApproverName = CreateTextBox(_draft.ApproverName);
+            _txtApproverName = CreateTextBox(string.Empty);
             _cmbApproverPosition = CreateEditableComboBox(
                 ApproverPositionOptions,
                 SelectDefault(_draft.ApproverPosition, DefaultApproverPosition));
-            _txtExecutorName = CreateTextBox(FormatExecutorName(firstExecutor));
+            _txtExecutorName = CreateTextBox(string.Empty);
             _cmbExecutorPosition = CreateEditableComboBox(
                 ExecutorPositionOptions,
                 SelectDefault(firstExecutor?.Position, DefaultExecutorPosition));

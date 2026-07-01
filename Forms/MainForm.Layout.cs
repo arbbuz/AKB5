@@ -83,6 +83,12 @@ namespace AsutpKnowledgeBase
             menuExportMaintenanceYearWorkbook = CreateMaterialMenuItem("Сформировать годовой график ТО", "\ue878", ExportMaintenanceYearWorkbook);
             menuExportMaintenanceYearMonthlyWorkbook = CreateMaterialMenuItem("Сформировать график ТО помесячно", "\ue878", ExportMaintenanceYearMonthlyWorkbook);
             menuRecalculateMaintenanceYearWorkbook = CreateMaterialMenuItem("Пересчитать график ТО до конца года", "\ue5d5", RecalculateMaintenanceYearWorkbookToDecember);
+            menuExportMaintenanceMonthWorkbookV2 = CreateMaterialMenuItem("Сформировать график ТО на месяц v2", "\ue878", ExportMaintenanceMonthWorkbookV2);
+            menuExportMaintenanceYearMonthlyWorkbookV2 = CreateMaterialMenuItem("Сформировать график ТО помесячно v2", "\ue878", ExportMaintenanceYearMonthlyWorkbookV2);
+            menuRecalculateMaintenanceYearWorkbookV2 = CreateMaterialMenuItem("Пересчитать график ТО до конца года v2", "\ue5d5", RecalculateMaintenanceYearWorkbookToDecemberV2);
+            menuExportMaintenanceMonthWorkbookV3 = CreateMaterialMenuItem("Сформировать график ТО на месяц v3", "\ue878", ExportMaintenanceMonthWorkbookV3);
+            menuExportMaintenanceYearMonthlyWorkbookV3 = CreateMaterialMenuItem("Сформировать график ТО помесячно v3", "\ue878", ExportMaintenanceYearMonthlyWorkbookV3);
+            menuRecalculateMaintenanceYearWorkbookV3 = CreateMaterialMenuItem("Пересчитать график ТО до конца года v3", "\ue5d5", RecalculateMaintenanceYearWorkbookToDecemberV3);
 
             menuEditMaintenanceYearScheduleSource = CreateMaterialMenuItem("План ТО по месяцам", "\ue3c9", EditMaintenanceYearScheduleSource);
 
@@ -145,11 +151,29 @@ namespace AsutpKnowledgeBase
                 menuRecalculateMaintenanceYearWorkbook
             });
 
+            var menuMaintenanceWorkbookGenerationV2 = CreateMaterialMenuItem("Формирование графиков v2", "\uebcc");
+            menuMaintenanceWorkbookGenerationV2.DropDownItems.AddRange(new ToolStripItem[]
+            {
+                menuExportMaintenanceMonthWorkbookV2,
+                menuExportMaintenanceYearMonthlyWorkbookV2,
+                menuRecalculateMaintenanceYearWorkbookV2
+            });
+
+            var menuMaintenanceWorkbookGenerationV3 = CreateMaterialMenuItem("Формирование графиков v3", "\uebcc");
+            menuMaintenanceWorkbookGenerationV3.DropDownItems.AddRange(new ToolStripItem[]
+            {
+                menuExportMaintenanceMonthWorkbookV3,
+                menuExportMaintenanceYearMonthlyWorkbookV3,
+                menuRecalculateMaintenanceYearWorkbookV3
+            });
+
             menuMaintenance.DropDownItems.AddRange(new ToolStripItem[]
             {
                 menuMaintenancePlanningData,
                 menuMaintenanceProductionCalendar,
-                menuMaintenanceWorkbookGeneration
+                menuMaintenanceWorkbookGeneration,
+                menuMaintenanceWorkbookGenerationV2,
+                menuMaintenanceWorkbookGenerationV3
             });
 
             btnSave = CreatePrimaryToolbarButton("\ue161", "Сохранить");

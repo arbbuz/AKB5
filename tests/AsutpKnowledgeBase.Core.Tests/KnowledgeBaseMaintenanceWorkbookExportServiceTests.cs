@@ -114,6 +114,55 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
     }
 
     [Fact]
+    public void ExportMonth_NormalizesMonthlyDayColumnWidthsForPrintLayout()
+    {
+        KnowledgeBaseMaintenanceWorkbookExportResult result = _service.ExportMonth(
+            null,
+            CreateModel(2027, 8, "System", "INV-PRINT"));
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        AssertValidWorkbook(packageBytes);
+
+        IReadOnlyList<double> dayColumnWidths = ReadColumnWidths(
+            packageBytes,
+            BuildMonthSheetName(8),
+            startColumnIndex: 6,
+            endColumnIndex: 36);
+
+        Assert.Equal(31, dayColumnWidths.Count);
+        Assert.All(dayColumnWidths, width => Assert.Equal(3.109375d, width, precision: 6));
+    }
+
+    [Fact]
+    public void ExportMonth_HidesCalendarColumnsOutsideMonth()
+    {
+        AssertVisibleAndHiddenMonthDayColumns(year: 2026, month: 2, visibleDayCount: 28);
+        AssertVisibleAndHiddenMonthDayColumns(year: 2028, month: 2, visibleDayCount: 29);
+    }
+
+    private void AssertVisibleAndHiddenMonthDayColumns(int year, int month, int visibleDayCount)
+    {
+        KnowledgeBaseMaintenanceWorkbookExportResult result = _service.ExportMonth(
+            null,
+            CreateModel(year, month, "System", $"INV-{year}-{month}"));
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        AssertValidWorkbook(packageBytes);
+
+        IReadOnlyList<bool> hiddenStates = ReadColumnHiddenStates(
+            packageBytes,
+            BuildMonthSheetName(month),
+            startColumnIndex: 6,
+            endColumnIndex: 36);
+
+        Assert.Equal(31, hiddenStates.Count);
+        Assert.All(hiddenStates.Take(visibleDayCount), Assert.False);
+        Assert.All(hiddenStates.Skip(visibleDayCount), Assert.True);
+    }
+
+    [Fact]
     public void ExportMonth_AdjustsGeneratedRowHeightsForWrappedText()
     {
         var model = new KbMaintenanceMonthSheetModel
@@ -1023,6 +1072,57 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         using SpreadsheetDocument document = OpenDocument(packageBytes);
         WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
         return FindCell(worksheetPart, cellReference)?.CellFormula?.Text ?? string.Empty;
+    }
+
+    private static IReadOnlyList<double> ReadColumnWidths(
+        byte[] packageBytes,
+        string sheetName,
+        int startColumnIndex,
+        int endColumnIndex)
+    {
+        using SpreadsheetDocument document = OpenDocument(packageBytes);
+        WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
+        IReadOnlyList<Column> columns = worksheetPart.Worksheet.Elements<Columns>()
+            .SelectMany(static item => item.Elements<Column>())
+            .ToArray();
+        List<double> widths = new();
+
+        for (uint columnIndex = (uint)startColumnIndex; columnIndex <= (uint)endColumnIndex; columnIndex++)
+        {
+            Column? column = columns.LastOrDefault(candidate =>
+                (candidate.Min?.Value ?? 1U) <= columnIndex &&
+                (candidate.Max?.Value ?? candidate.Min?.Value ?? 1U) >= columnIndex);
+            if (column?.Width?.Value == null)
+                throw new InvalidOperationException($"Column {columnIndex} width was not found on sheet '{sheetName}'.");
+
+            widths.Add(column.Width.Value);
+        }
+
+        return widths;
+    }
+
+    private static IReadOnlyList<bool> ReadColumnHiddenStates(
+        byte[] packageBytes,
+        string sheetName,
+        int startColumnIndex,
+        int endColumnIndex)
+    {
+        using SpreadsheetDocument document = OpenDocument(packageBytes);
+        WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
+        IReadOnlyList<Column> columns = worksheetPart.Worksheet.Elements<Columns>()
+            .SelectMany(static item => item.Elements<Column>())
+            .ToArray();
+        List<bool> hiddenStates = new();
+
+        for (uint columnIndex = (uint)startColumnIndex; columnIndex <= (uint)endColumnIndex; columnIndex++)
+        {
+            Column? column = columns.LastOrDefault(candidate =>
+                (candidate.Min?.Value ?? 1U) <= columnIndex &&
+                (candidate.Max?.Value ?? candidate.Min?.Value ?? 1U) >= columnIndex);
+            hiddenStates.Add(column?.Hidden?.Value == true);
+        }
+
+        return hiddenStates;
     }
 
     private static IReadOnlyList<string> ReadMergedRanges(byte[] packageBytes, string sheetName)

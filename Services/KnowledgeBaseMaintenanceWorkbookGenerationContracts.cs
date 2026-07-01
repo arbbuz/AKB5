@@ -10,7 +10,8 @@ namespace AsutpKnowledgeBase.Services
             int totalMonthlyHourBudget,
             IReadOnlyList<KbNode>? roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
-            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears);
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default);
 
         KnowledgeBaseMaintenanceAnnualWorkbookGenerationResult GenerateAnnualWorkbook(
             int year,
@@ -25,7 +26,8 @@ namespace AsutpKnowledgeBase.Services
             int totalMonthlyHourBudget,
             IReadOnlyList<KbNode>? roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
-            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears);
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default);
 
         KnowledgeBaseMaintenanceYearWorkbookGenerationResult GenerateYearWorkbookFromMonth(
             byte[]? existingWorkbookPackage,
@@ -34,7 +36,8 @@ namespace AsutpKnowledgeBase.Services
             int totalMonthlyHourBudget,
             IReadOnlyList<KbNode>? roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
-            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears);
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default);
     }
 
     public sealed class KnowledgeBaseMaintenanceWorkbookGenerationResult

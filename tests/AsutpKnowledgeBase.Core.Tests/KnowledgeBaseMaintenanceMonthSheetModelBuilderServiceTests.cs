@@ -146,6 +146,83 @@ public class KnowledgeBaseMaintenanceMonthSheetModelBuilderServiceTests
     }
 
     [Fact]
+    public void Build_WhenRootsContainWorkshopRoot_UsesVisibleLevel2SystemGroups()
+    {
+        var cabinet1 = new KbNode { NodeId = "cabinet-1", Name = "Cabinet 1", NodeType = KbNodeType.Cabinet };
+        var cabinet2 = new KbNode { NodeId = "cabinet-2", Name = "Cabinet 2", NodeType = KbNodeType.Cabinet };
+        var roots = new[]
+        {
+            new KbNode
+            {
+                NodeId = "workshop-1",
+                Name = "Workshop",
+                NodeType = KbNodeType.WorkshopRoot,
+                LevelIndex = 0,
+                Children =
+                {
+                    new KbNode
+                    {
+                        NodeId = "department-1",
+                        Name = "Department 1",
+                        NodeType = KbNodeType.Department,
+                        Children =
+                        {
+                            new KbNode
+                            {
+                                NodeId = "system-1",
+                                Name = "System 1",
+                                NodeType = KbNodeType.System,
+                                Details = new KbNodeDetails { InventoryNumber = "INV-01" },
+                                Children = { cabinet1, cabinet2 }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        var planResult = new KnowledgeBaseMaintenanceMonthPlanResult
+        {
+            IsSuccess = true,
+            PlannedDays =
+            {
+                new KbMaintenanceMonthPlanDay
+                {
+                    Date = new DateOnly(2026, 1, 12),
+                    TotalHours = 6,
+                    Assignments =
+                    {
+                        new KbMaintenanceMonthPlanAssignment
+                        {
+                            Date = new DateOnly(2026, 1, 12),
+                            OwnerNodeId = "cabinet-2",
+                            NodeName = "Cabinet 2",
+                            WorkKind = KbMaintenanceWorkKind.To1,
+                            Hours = 4
+                        },
+                        new KbMaintenanceMonthPlanAssignment
+                        {
+                            Date = new DateOnly(2026, 1, 12),
+                            OwnerNodeId = "cabinet-1",
+                            NodeName = "Cabinet 1",
+                            WorkKind = KbMaintenanceWorkKind.To1,
+                            Hours = 2
+                        }
+                    }
+                }
+            }
+        };
+
+        KnowledgeBaseMaintenanceMonthSheetModelBuildResult result = _service.Build(2026, 1, roots, planResult);
+
+        Assert.True(result.IsSuccess);
+        KbMaintenanceMonthSheetSystemGroup group = Assert.Single(result.SheetModel!.SystemGroups);
+        Assert.Equal("system-1", group.SystemNodeId);
+        Assert.Equal("System 1", group.SystemName);
+        Assert.Equal("INV-01", group.InventoryNumber);
+        Assert.Equal(new[] { "cabinet-1", "cabinet-2" }, group.DetailRows.Select(static row => row.OwnerNodeId));
+    }
+
+    [Fact]
     public void Build_IncludesScheduledProfileRowsWithoutCurrentMonthAssignments()
     {
         var januaryCabinet = new KbNode { NodeId = "cabinet-january", Name = "Шкаф январь", NodeType = KbNodeType.Cabinet };
@@ -360,6 +437,75 @@ public class KnowledgeBaseMaintenanceMonthSheetModelBuilderServiceTests
             dayCell.WorkEntries,
             entry => Assert.Equal("ТО1/2", entry.PlanText),
             entry => Assert.Equal("ТО2/6", entry.PlanText));
+    }
+
+    [Fact]
+    public void Build_MergesSameWorkKindAssignmentsIntoSingleDayCellEntry()
+    {
+        var module = new KbNode { NodeId = "module-1", Name = "Module 1", NodeType = KbNodeType.Module };
+        var roots = new[]
+        {
+            new KbNode
+            {
+                NodeId = "department-1",
+                Name = "Department 1",
+                NodeType = KbNodeType.Department,
+                Children =
+                {
+                    new KbNode
+                    {
+                        NodeId = "system-1",
+                        Name = "System 1",
+                        NodeType = KbNodeType.System,
+                        Details = new KbNodeDetails { InventoryNumber = "INV-01" },
+                        Children = { module }
+                    }
+                }
+            }
+        };
+
+        var planResult = new KnowledgeBaseMaintenanceMonthPlanResult
+        {
+            IsSuccess = true,
+            PlannedDays =
+            {
+                new KbMaintenanceMonthPlanDay
+                {
+                    Date = new DateOnly(2026, 8, 18),
+                    TotalHours = 4,
+                    Assignments =
+                    {
+                        new KbMaintenanceMonthPlanAssignment
+                        {
+                            Date = new DateOnly(2026, 8, 18),
+                            OwnerNodeId = "module-1",
+                            NodeName = "Module 1",
+                            WorkKind = KbMaintenanceWorkKind.To3,
+                            Hours = 2
+                        },
+                        new KbMaintenanceMonthPlanAssignment
+                        {
+                            Date = new DateOnly(2026, 8, 18),
+                            OwnerNodeId = "module-1",
+                            NodeName = "Module 1",
+                            WorkKind = KbMaintenanceWorkKind.To3,
+                            Hours = 2
+                        }
+                    }
+                }
+            }
+        };
+
+        KnowledgeBaseMaintenanceMonthSheetModelBuildResult result = _service.Build(2026, 8, roots, planResult);
+
+        Assert.True(result.IsSuccess);
+        KbMaintenanceMonthSheetDetailRow detail = Assert.Single(Assert.Single(result.SheetModel!.SystemGroups).DetailRows);
+        KbMaintenanceMonthSheetDayCell dayCell = Assert.Single(detail.DayCells);
+        KbMaintenanceMonthSheetWorkEntry entry = Assert.Single(dayCell.WorkEntries);
+        Assert.Equal(4, dayCell.TotalHours);
+        Assert.Equal(KbMaintenanceWorkKind.To3, entry.WorkKind);
+        Assert.Equal(4, entry.Hours);
+        Assert.Equal("\u0422\u041e3/4", entry.PlanText);
     }
 
     [Fact]

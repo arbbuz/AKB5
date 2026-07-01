@@ -143,6 +143,165 @@ public class KnowledgeBaseMaintenanceWorkbookGenerationServiceTests
     }
 
     [Fact]
+    public void GenerateSingleMonthWorkbook_SequentialV3_WithWorkshopRootKeepsVisibleSystemOrder()
+    {
+        var roots = new[]
+        {
+            new KbNode
+            {
+                NodeId = "workshop-1",
+                Name = "Workshop",
+                NodeType = KbNodeType.WorkshopRoot,
+                LevelIndex = 0,
+                Children =
+                {
+                    new KbNode
+                    {
+                        NodeId = "department-1",
+                        Name = "Department 1",
+                        NodeType = KbNodeType.Department,
+                        Children =
+                        {
+                            new KbNode
+                            {
+                                NodeId = "system-a",
+                                Name = "System A",
+                                NodeType = KbNodeType.System,
+                                Children =
+                                {
+                                    new KbNode { NodeId = "cabinet-a-1", Name = "Cabinet A1", NodeType = KbNodeType.Cabinet },
+                                    new KbNode { NodeId = "cabinet-a-2", Name = "Cabinet A2", NodeType = KbNodeType.Cabinet }
+                                }
+                            },
+                            new KbNode
+                            {
+                                NodeId = "system-b",
+                                Name = "System B",
+                                NodeType = KbNodeType.System,
+                                Children =
+                                {
+                                    new KbNode { NodeId = "cabinet-b-1", Name = "Cabinet B1", NodeType = KbNodeType.Cabinet },
+                                    new KbNode { NodeId = "cabinet-b-2", Name = "Cabinet B2", NodeType = KbNodeType.Cabinet }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        var profiles = new[]
+        {
+            new KbMaintenanceScheduleProfile { OwnerNodeId = "cabinet-b-1", IsIncludedInSchedule = true, To1Hours = 4 },
+            new KbMaintenanceScheduleProfile { OwnerNodeId = "cabinet-a-1", IsIncludedInSchedule = true, To1Hours = 4 },
+            new KbMaintenanceScheduleProfile { OwnerNodeId = "cabinet-b-2", IsIncludedInSchedule = true, To1Hours = 4 },
+            new KbMaintenanceScheduleProfile { OwnerNodeId = "cabinet-a-2", IsIncludedInSchedule = true, To1Hours = 4 }
+        };
+
+        KnowledgeBaseMaintenanceWorkbookGenerationResult result = _service.GenerateSingleMonthWorkbook(
+            year: 2026,
+            month: 1,
+            totalMonthlyHourBudget: 40,
+            roots,
+            profiles,
+            KnowledgeBaseMaintenancePlanningMode.SequentialV3);
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.NotNull(result.PlanResult);
+        Assert.NotNull(result.SheetModel);
+        Assert.Equal(new[] { "system-a", "system-b" }, result.SheetModel!.SystemGroups.Select(static group => group.SystemNodeId));
+        Assert.Equal(
+            new[] { "cabinet-a-1", "cabinet-a-2" },
+            result.SheetModel.SystemGroups[0].DetailRows.Select(static row => row.OwnerNodeId));
+        Assert.Equal(
+            new[] { "cabinet-b-1", "cabinet-b-2" },
+            result.SheetModel.SystemGroups[1].DetailRows.Select(static row => row.OwnerNodeId));
+        string[] plannedSystemSequence = result.PlanResult!.PlannedDays
+            .OrderBy(static day => day.Date)
+            .SelectMany(static day => day.Assignments)
+            .Select(static assignment => assignment.SystemNodeId)
+            .ToArray();
+        int firstSystemBIndex = Array.FindIndex(plannedSystemSequence, static systemNodeId => systemNodeId == "system-b");
+        int lastSystemAIndex = Array.FindLastIndex(plannedSystemSequence, static systemNodeId => systemNodeId == "system-a");
+        Assert.True(firstSystemBIndex >= 0, "Expected system-b assignments in generated v3 plan.");
+        Assert.True(lastSystemAIndex < firstSystemBIndex, "Expected all system-a assignments before system-b assignments.");
+    }
+
+    [Fact]
+    public void GenerateSingleMonthWorkbook_SequentialV3_UsesMonthTemplateCellOrder()
+    {
+        const string aktSystemName = "\u0421\u0438\u0441\u0442\u0435\u043c\u0430 \u043a\u043e\u043d\u0442\u0440\u043e\u043b\u044f \u0438 \u0440\u0435\u0433\u0443\u043b\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f \u0442\u0435\u0445\u043d\u043e\u043b\u043e\u0433\u0438\u0447\u0435\u0441\u043a\u0438\u0445 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u043e\u0432 \u0410\u041a\u0422";
+        const string doserSystemName = "\u0410\u0421\u0423 \u0434\u043e\u0437\u0430\u0442\u043e\u0440\u043e\u043c \u043d\u0438\u043a\u0435\u043b\u0435\u0432\u043e\u0433\u043e \u043a\u0443\u043f\u043e\u0440\u043e\u0441\u0430";
+        var roots = new[]
+        {
+            new KbNode
+            {
+                NodeId = "workshop-1",
+                Name = "Workshop",
+                NodeType = KbNodeType.WorkshopRoot,
+                LevelIndex = 0,
+                Children =
+                {
+                    new KbNode
+                    {
+                        NodeId = "department-1",
+                        Name = "Department 1",
+                        NodeType = KbNodeType.Department,
+                        Children =
+                        {
+                            new KbNode
+                            {
+                                NodeId = "system-doser",
+                                Name = doserSystemName,
+                                NodeType = KbNodeType.System,
+                                Details = new KbNodeDetails { InventoryNumber = "46739" },
+                                Children =
+                                {
+                                    new KbNode { NodeId = "doser-cabinet", Name = "\u0428\u0423", NodeType = KbNodeType.Cabinet }
+                                }
+                            },
+                            new KbNode
+                            {
+                                NodeId = "system-akt",
+                                Name = aktSystemName,
+                                NodeType = KbNodeType.System,
+                                Details = new KbNodeDetails { InventoryNumber = "65526" },
+                                Children =
+                                {
+                                    new KbNode { NodeId = "akt-cabinet-1", Name = "\u0429\u041a\u041c1", NodeType = KbNodeType.Cabinet },
+                                    new KbNode { NodeId = "akt-cabinet-2", Name = "\u0429\u041a\u041c2", NodeType = KbNodeType.Cabinet },
+                                    new KbNode { NodeId = "akt-cabinet-3", Name = "\u0429\u041a\u041c3", NodeType = KbNodeType.Cabinet }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        var profiles = new[]
+        {
+            CreateJulyProfile("doser-cabinet", 270),
+            CreateJulyProfile("akt-cabinet-1", 2),
+            CreateJulyProfile("akt-cabinet-2", 4),
+            CreateJulyProfile("akt-cabinet-3", 2)
+        };
+
+        KnowledgeBaseMaintenanceWorkbookGenerationResult result = _service.GenerateSingleMonthWorkbook(
+            year: 2026,
+            month: 7,
+            totalMonthlyHourBudget: 278,
+            roots,
+            profiles,
+            KnowledgeBaseMaintenancePlanningMode.SequentialV3);
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        Assert.Equal(aktSystemName, ReadCellText(packageBytes, "\u041a\u0426 (7)", "B16"));
+        Assert.Equal("\u0422\u041e1/2", ReadCellText(packageBytes, "\u041a\u0426 (7)", "F18"));
+        Assert.Equal("\u0422\u041e1/4", ReadCellText(packageBytes, "\u041a\u0426 (7)", "F20"));
+        Assert.Equal("\u0422\u041e1/2", ReadCellText(packageBytes, "\u041a\u0426 (7)", "F22"));
+    }
+
+    [Fact]
     public void GenerateAnnualWorkbook_BuildsEstablishedAnnualForm()
     {
         KbNode[] roots = BuildSingleCabinetRoots();
@@ -485,6 +644,23 @@ public class KnowledgeBaseMaintenanceWorkbookGenerationServiceTests
             To1Hours = 2
         }
     ];
+
+    private static KbMaintenanceScheduleProfile CreateJulyProfile(string ownerNodeId, int hours) =>
+        new()
+        {
+            OwnerNodeId = ownerNodeId,
+            IsIncludedInSchedule = true,
+            To1Hours = hours,
+            YearScheduleEntries =
+            {
+                new KbMaintenanceYearScheduleEntry
+                {
+                    Month = 7,
+                    WorkKind = KbMaintenanceWorkKind.To1,
+                    Hours = hours
+                }
+            }
+        };
 
     private static KbNode[] BuildTwoCabinetRoots() =>
     [

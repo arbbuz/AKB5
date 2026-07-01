@@ -826,6 +826,347 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerServiceTests
         Assert.Empty(result.PlannedDays);
     }
 
+    [Fact]
+    public void PlanMonth_BalancedV2_KeepsDailyLoadNearAverageWithoutFallback()
+    {
+        KbMaintenanceMonthWorkItem[] workItems = Enumerable.Range(1, 15)
+            .Select(index => CreateSystemWorkItem(
+                $"device-{index}",
+                $"Узел {index}",
+                $"system-{index}",
+                index,
+                index,
+                systemLevel3NodeCount: 1,
+                hours: 12))
+            .ToArray();
+
+        KnowledgeBaseMaintenanceMonthPlanResult result = _service.PlanMonth(
+            2026,
+            1,
+            totalMonthlyHourBudget: 200,
+            workItems,
+            KnowledgeBaseMaintenancePlanningMode.BalancedV2);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(KnowledgeBaseMaintenancePlanningMode.BalancedV2, result.PlanningMode);
+        Assert.False(result.UsedFallback);
+        Assert.Equal(14, result.PreferredDailyLoadLimitHours);
+        Assert.Equal(14, result.DailyLoadLimitHours);
+        Assert.Equal(15, result.PlannedDays.Count);
+        Assert.All(result.PlannedDays, static day => Assert.InRange(day.TotalHours, 1, 14));
+        AssertRouteSystemMixRules(result);
+        AssertNoSameOwnerDateConflicts(result);
+    }
+
+    [Fact]
+    public void PlanMonth_BalancedV2_DoesNotCreateFifteenAndNineWhenTwelveAndTwelveIsPossible()
+    {
+        var service = CreatePlannerWithWorkingDays(
+            new DateOnly(2026, 1, 12),
+            new DateOnly(2026, 1, 13));
+
+        KnowledgeBaseMaintenanceMonthPlanResult result = service.PlanMonth(
+            2026,
+            1,
+            totalMonthlyHourBudget: 40,
+            new[]
+            {
+                CreateSystemWorkItem("system-a-device-1", "A1", "system-a", 1, 1, 2, 8),
+                CreateSystemWorkItem("system-a-device-2", "A2", "system-a", 1, 2, 2, 7),
+                CreateSystemWorkItem("system-b-device-1", "B1", "system-b", 2, 3, 2, 5),
+                CreateSystemWorkItem("system-b-device-2", "B2", "system-b", 2, 4, 2, 4)
+            },
+            KnowledgeBaseMaintenancePlanningMode.BalancedV2);
+
+        Assert.True(result.IsSuccess);
+        Assert.False(result.UsedFallback);
+        Assert.Equal(2, result.PlannedDays.Count);
+        Assert.Equal(new[] { 12, 12 }, result.PlannedDays.Select(static day => day.TotalHours).Order().ToArray());
+        AssertRouteSystemMixRules(result);
+        AssertNoSameOwnerDateConflicts(result);
+    }
+
+    [Fact]
+    public void PlanMonth_BalancedV2_FallsBackToSixteenWhenPreferredLimitCannotPlaceMajorWork()
+    {
+        KnowledgeBaseMaintenanceMonthPlanResult result = _service.PlanMonth(
+            2026,
+            1,
+            totalMonthlyHourBudget: 40,
+            new[]
+            {
+                new KbMaintenanceMonthWorkItem
+                {
+                    OwnerNodeId = "device-1",
+                    NodeName = "Узел 1",
+                    WorkKind = KbMaintenanceWorkKind.To2,
+                    Hours = 16
+                }
+            },
+            KnowledgeBaseMaintenancePlanningMode.BalancedV2);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(KnowledgeBaseMaintenancePlanningMode.BalancedV2, result.PlanningMode);
+        Assert.True(result.UsedFallback);
+        Assert.Equal(4, result.PreferredDailyLoadLimitHours);
+        Assert.Equal(16, result.DailyLoadLimitHours);
+        Assert.Equal(2, result.PlannedDays.Count);
+        Assert.All(result.PlannedDays, static day => Assert.True(day.TotalHours <= 16));
+        Assert.Equal(new[] { 8, 8 }, result.PlannedDays.SelectMany(static day => day.Assignments).Select(static assignment => assignment.Hours).ToArray());
+        AssertNoSameOwnerDateConflicts(result);
+    }
+
+    [Fact]
+    public void PlanMonth_SequentialV3_PreservesSystemOrderAndBalancesSoftAverage()
+    {
+        var service = CreatePlannerWithWorkingDays(
+            new DateOnly(2026, 1, 12),
+            new DateOnly(2026, 1, 13));
+
+        KnowledgeBaseMaintenanceMonthPlanResult result = service.PlanMonth(
+            2026,
+            1,
+            totalMonthlyHourBudget: 40,
+            new[]
+            {
+                CreateSystemWorkItem("system-a-device-1", "A1", "system-a", 1, 1, 2, 8),
+                CreateSystemWorkItem("system-a-device-2", "A2", "system-a", 1, 2, 2, 7),
+                CreateSystemWorkItem("system-b-device-1", "B1", "system-b", 2, 3, 2, 5),
+                CreateSystemWorkItem("system-b-device-2", "B2", "system-b", 2, 4, 2, 4)
+            },
+            KnowledgeBaseMaintenancePlanningMode.SequentialV3);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(KnowledgeBaseMaintenancePlanningMode.SequentialV3, result.PlanningMode);
+        Assert.False(result.UsedFallback);
+        Assert.Equal(12, result.PreferredDailyLoadLimitHours);
+        Assert.Equal(16, result.DailyLoadLimitHours);
+        Assert.Equal(new[] { 9, 15 }, result.PlannedDays.Select(static day => day.TotalHours).Order().ToArray());
+        Assert.All(result.PlannedDays, static day => Assert.True(day.TotalHours <= 16));
+        AssertSequentialSystemOrder(result);
+        AssertRouteSystemMixRules(result);
+        AssertNoSameOwnerDateConflicts(result);
+    }
+
+    [Fact]
+    public void PlanMonth_SequentialV3_StartsNextSystemOnSameDayOnlyAfterPreviousSystem()
+    {
+        var service = CreatePlannerWithWorkingDays(
+            new DateOnly(2026, 1, 12),
+            new DateOnly(2026, 1, 13));
+
+        KnowledgeBaseMaintenanceMonthPlanResult result = service.PlanMonth(
+            2026,
+            1,
+            totalMonthlyHourBudget: 40,
+            new[]
+            {
+                CreateSystemWorkItem("system-a-device-1", "A1", "system-a", 1, 1, 2, 8),
+                CreateSystemWorkItem("system-a-device-2", "A2", "system-a", 1, 2, 2, 4),
+                CreateSystemWorkItem("system-b-device-1", "B1", "system-b", 2, 3, 2, 5),
+                CreateSystemWorkItem("system-b-device-2", "B2", "system-b", 2, 4, 2, 7)
+            },
+            KnowledgeBaseMaintenancePlanningMode.SequentialV3);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(new[] { 12, 12 }, result.PlannedDays.Select(static day => day.TotalHours).Order().ToArray());
+        AssertSequentialSystemOrder(result);
+        AssertRouteSystemMixRules(result);
+        AssertNoSameOwnerDateConflicts(result);
+    }
+
+    [Fact]
+    public void PlanMonth_SequentialV3_KeepsSmallVisitWholeWhenHardLimitAllows()
+    {
+        var service = CreatePlannerWithWorkingDays(
+            new DateOnly(2026, 1, 12),
+            new DateOnly(2026, 1, 13));
+
+        KnowledgeBaseMaintenanceMonthPlanResult result = service.PlanMonth(
+            2026,
+            1,
+            totalMonthlyHourBudget: 24,
+            new[]
+            {
+                CreateSystemWorkItem("device-1", "A1", "system-a", 1, 1, 2, 11),
+                CreateSystemWorkItem("device-2", "A2", "system-a", 1, 2, 2, 2),
+                CreateSystemWorkItem("device-3", "A3", "system-a", 1, 3, 2, 11)
+            },
+            KnowledgeBaseMaintenancePlanningMode.SequentialV3);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(new[] { 11, 13 }, result.PlannedDays.Select(static day => day.TotalHours).Order().ToArray());
+        KbMaintenanceMonthPlanAssignment smallVisit = Assert.Single(result.PlannedDays
+            .SelectMany(static day => day.Assignments)
+            .Where(static assignment => assignment.OwnerNodeId == "device-2"));
+        Assert.Equal(new DateOnly(2026, 1, 12), smallVisit.Date);
+        Assert.Equal(2, smallVisit.Hours);
+        AssertSequentialSystemOrder(result);
+        AssertNoSameOwnerDateConflicts(result);
+    }
+
+    [Fact]
+    public void PlanMonth_SequentialV3_AllowsRepeatedOwnerWhenStrictScheduleCannotFit()
+    {
+        var service = CreatePlannerWithWorkingDays(
+            new DateOnly(2026, 1, 12),
+            new DateOnly(2026, 1, 13));
+
+        KnowledgeBaseMaintenanceMonthPlanResult result = service.PlanMonth(
+            2026,
+            1,
+            totalMonthlyHourBudget: 40,
+            new[]
+            {
+                CreateSystemWorkItem("device-1", "A1", "system-a", 1, 1, 2, 8),
+                CreateSystemWorkItem("device-1", "A1", "system-a", 1, 1, 2, 8),
+                CreateSystemWorkItem("device-1", "A1", "system-a", 1, 1, 2, 8)
+            },
+            KnowledgeBaseMaintenancePlanningMode.SequentialV3);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.UsedFallback);
+        Assert.Equal(24, result.PlannedDays.Sum(static day => day.TotalHours));
+        Assert.All(result.PlannedDays, static day => Assert.True(day.TotalHours <= 16));
+        AssertSequentialSystemOrder(result);
+    }
+
+    [Fact]
+    public void PlanMonth_SequentialV3_RaisesDailyLimitWhenSixteenCannotFit()
+    {
+        var service = CreatePlannerWithWorkingDays(
+            new DateOnly(2026, 1, 12),
+            new DateOnly(2026, 1, 13));
+
+        KnowledgeBaseMaintenanceMonthPlanResult result = service.PlanMonth(
+            2026,
+            1,
+            totalMonthlyHourBudget: 16,
+            new[]
+            {
+                CreateSystemWorkItem("system-a-device-1", "A1", "system-a", 1, 1, 2, 8),
+                CreateSystemWorkItem("system-a-device-2", "A2", "system-a", 1, 2, 2, 8),
+                CreateSystemWorkItem("system-a-device-3", "A3", "system-a", 1, 3, 2, 8),
+                CreateSystemWorkItem("system-b-device-1", "B1", "system-b", 2, 4, 2, 8),
+                CreateSystemWorkItem("system-b-device-2", "B2", "system-b", 2, 5, 2, 8)
+            },
+            KnowledgeBaseMaintenancePlanningMode.SequentialV3);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.UsedFallback);
+        Assert.Equal(20, result.DailyLoadLimitHours);
+        Assert.Equal(20, result.PreferredDailyLoadLimitHours);
+        Assert.Equal(40, result.PlannedDays.Sum(static day => day.TotalHours));
+        Assert.All(result.PlannedDays, static day => Assert.True(day.TotalHours <= 20));
+        AssertSequentialSystemOrder(result);
+    }
+
+    [Fact]
+    public void PlanMonth_SequentialV3_UsesEarlierCapacityBeforeLastDayOverload()
+    {
+        var service = CreatePlannerWithWorkingDays(
+            new DateOnly(2026, 1, 12),
+            new DateOnly(2026, 1, 13),
+            new DateOnly(2026, 1, 14));
+
+        KnowledgeBaseMaintenanceMonthPlanResult result = service.PlanMonth(
+            2026,
+            1,
+            totalMonthlyHourBudget: 45,
+            new[]
+            {
+                CreateSystemWorkItem("device-1", "Device 1", "system-a", 1, 1, 6, 10),
+                CreateSystemWorkItem("device-2", "Device 2", "system-a", 1, 2, 6, 8),
+                CreateSystemWorkItem("device-3", "Device 3", "system-a", 1, 3, 6, 8),
+                CreateSystemWorkItem("device-4", "Device 4", "system-a", 1, 4, 6, 8),
+                CreateSystemWorkItem("device-5", "Device 5", "system-a", 1, 5, 6, 8),
+                CreateSystemWorkItem("device-6", "Device 6", "system-a", 1, 6, 6, 3)
+            },
+            KnowledgeBaseMaintenancePlanningMode.SequentialV3);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(45, result.PlannedDays.Sum(static day => day.TotalHours));
+        Assert.Equal(new[] { 16, 16, 13 }, result.PlannedDays.Select(static day => day.TotalHours).ToArray());
+        Assert.All(result.PlannedDays, static day => Assert.True(day.TotalHours <= 16));
+        AssertSequentialSystemOrder(result);
+    }
+
+    [Fact]
+    public void PlanMonth_SequentialV3_DistributesLargeMonthWithoutLastDayPileup()
+    {
+        KbMaintenanceMonthWorkItem[] workItems = Enumerable.Range(1, 71)
+            .Select(index => CreateSystemWorkItem(
+                $"device-{index:D3}",
+                $"Device {index:D3}",
+                $"system-{index:D3}",
+                index,
+                index,
+                systemLevel3NodeCount: 1,
+                hours: 4))
+            .ToArray();
+
+        KnowledgeBaseMaintenanceMonthPlanResult result = _service.PlanMonth(
+            2026,
+            7,
+            totalMonthlyHourBudget: 284,
+            workItems,
+            KnowledgeBaseMaintenancePlanningMode.SequentialV3);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(284, result.RequestedHours);
+        Assert.Equal(23, result.PlannedDays.Count);
+        Assert.All(result.PlannedDays, static day => Assert.InRange(day.TotalHours, 12, 16));
+        Assert.True(result.PlannedDays.Last().TotalHours <= 16);
+        AssertAssignmentsFollowOwnerOrder(result);
+    }
+
+    [Fact]
+    public void PlanMonth_SequentialV3_UsesSystemOrderBeforeOwnerOrder()
+    {
+        var service = CreatePlannerWithWorkingDays(
+            new DateOnly(2026, 1, 12),
+            new DateOnly(2026, 1, 13));
+
+        KnowledgeBaseMaintenanceMonthPlanResult result = service.PlanMonth(
+            2026,
+            1,
+            totalMonthlyHourBudget: 40,
+            new[]
+            {
+                CreateSystemWorkItem("system-b-device-1", "B1", "system-b", 2, 1, 2, 4),
+                CreateSystemWorkItem("system-a-device-1", "A1", "system-a", 1, 10, 2, 4),
+                CreateSystemWorkItem("system-b-device-2", "B2", "system-b", 2, 2, 2, 4),
+                CreateSystemWorkItem("system-a-device-2", "A2", "system-a", 1, 11, 2, 4)
+            },
+            KnowledgeBaseMaintenancePlanningMode.SequentialV3);
+
+        Assert.True(result.IsSuccess);
+        AssertSequentialSystemOrder(result);
+    }
+
+    private static KnowledgeBaseMaintenanceMonthlyPlannerService CreatePlannerWithWorkingDays(params DateOnly[] workingDays)
+    {
+        Assert.NotEmpty(workingDays);
+
+        int year = workingDays[0].Year;
+        int month = workingDays[0].Month;
+        var workingDaySet = workingDays.ToHashSet();
+        var additionalNonWorkingDays = Enumerable.Range(1, DateTime.DaysInMonth(year, month))
+            .Select(day => new DateOnly(year, month, day))
+            .Where(date => !workingDaySet.Contains(date))
+            .ToList();
+        var calendarService = new KnowledgeBaseRussianProductionCalendarService(new[]
+        {
+            new KbProductionCalendarYear
+            {
+                Year = year,
+                AdditionalNonWorkingDays = additionalNonWorkingDays
+            }
+        });
+
+        return new KnowledgeBaseMaintenanceMonthlyPlannerService(calendarService);
+    }
+
     private static void AssertNoSameOwnerDateConflicts(KnowledgeBaseMaintenanceMonthPlanResult result)
     {
         var conflicts = result.PlannedDays
@@ -840,6 +1181,48 @@ public class KnowledgeBaseMaintenanceMonthlyPlannerServiceTests
             .ToList();
 
         Assert.Empty(conflicts);
+    }
+
+    private static void AssertSequentialSystemOrder(KnowledgeBaseMaintenanceMonthPlanResult result)
+    {
+        int previousSystemIndex = int.MinValue;
+        foreach (KbMaintenanceMonthPlanAssignment assignment in result.PlannedDays
+            .OrderBy(static day => day.Date)
+            .SelectMany(static day => day.Assignments))
+        {
+            if (string.IsNullOrWhiteSpace(assignment.SystemNodeId))
+                continue;
+
+            int systemIndex = assignment.SystemNodeId switch
+            {
+                "system-a" => 1,
+                "system-b" => 2,
+                _ => int.MaxValue
+            };
+
+            Assert.True(
+                systemIndex >= previousSystemIndex,
+                $"Expected sequential system order, got {assignment.SystemNodeId} after index {previousSystemIndex}.");
+            previousSystemIndex = systemIndex;
+        }
+    }
+
+    private static void AssertAssignmentsFollowOwnerOrder(KnowledgeBaseMaintenanceMonthPlanResult result)
+    {
+        int previousIndex = 0;
+        foreach (KbMaintenanceMonthPlanAssignment assignment in result.PlannedDays
+            .OrderBy(static day => day.Date)
+            .SelectMany(static day => day.Assignments))
+        {
+            string digits = new string((assignment.OwnerNodeId ?? string.Empty)
+                .Where(char.IsDigit)
+                .ToArray());
+            if (!int.TryParse(digits, out int index))
+                continue;
+
+            Assert.True(index >= previousIndex, $"Expected owner order, got {assignment.OwnerNodeId} after {previousIndex}.");
+            previousIndex = index;
+        }
     }
 
     private static KbMaintenanceMonthWorkItem CreateSystemWorkItem(

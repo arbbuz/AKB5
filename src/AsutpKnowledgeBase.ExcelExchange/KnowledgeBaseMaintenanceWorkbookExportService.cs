@@ -34,6 +34,7 @@ namespace AsutpKnowledgeBase.Services
         private const int MonthlyPlanCellCharactersPerLine = 8;
         private const int AnnualNameCharactersPerLine = 42;
         private const int AnnualPlanCellCharactersPerLine = 10;
+        private const double MonthlyDayColumnWidth = 3.109375d;
         private const string TotalsLabelText = "Итого:";
         private const string AnnualTotalsLabelText = "Итого";
         private const string PlanText = "план";
@@ -260,6 +261,7 @@ namespace AsutpKnowledgeBase.Services
 
             WriteHeader(targetWorksheet, targetLayout, sheetModel);
             NormalizeMonthSheetHeaderRows(targetWorksheet, targetLayout);
+            NormalizeMonthlyDayColumns(targetWorksheet, DateTime.DaysInMonth(sheetModel.Year, sheetModel.Month));
             ApplyHeaderDayCalendarStyles(workbookPart, targetWorksheet, targetLayout, sheetModel);
 
             uint currentRowIndex = targetLayout.DataStartRowIndex;
@@ -1810,6 +1812,87 @@ namespace AsutpKnowledgeBase.Services
                 Cell cell = GetOrCreateCell(row, columnIndex);
                 cell.StyleIndex ??= dayCellStyleIndex.Value;
             }
+        }
+
+        private static void NormalizeMonthlyDayColumns(Worksheet worksheet, int daysInMonth)
+        {
+            const uint firstDayColumnIndex = FirstDayColumnIndex;
+            const uint lastDayColumnIndex = FirstDayColumnIndex + 30;
+            uint lastVisibleDayColumnIndex = firstDayColumnIndex + (uint)Math.Clamp(daysInMonth, 1, 31) - 1;
+
+            Columns columns = GetOrCreateColumns(worksheet);
+            List<Column> preservedColumns = new();
+
+            foreach (Column column in columns.Elements<Column>().ToList())
+            {
+                uint min = column.Min?.Value ?? 1U;
+                uint max = column.Max?.Value ?? min;
+
+                if (max < firstDayColumnIndex || min > lastDayColumnIndex)
+                {
+                    preservedColumns.Add((Column)column.CloneNode(true));
+                    continue;
+                }
+
+                if (min < firstDayColumnIndex)
+                {
+                    Column leftColumn = (Column)column.CloneNode(true);
+                    leftColumn.Max = firstDayColumnIndex - 1;
+                    preservedColumns.Add(leftColumn);
+                }
+
+                if (max > lastDayColumnIndex)
+                {
+                    Column rightColumn = (Column)column.CloneNode(true);
+                    rightColumn.Min = lastDayColumnIndex + 1;
+                    preservedColumns.Add(rightColumn);
+                }
+            }
+
+            preservedColumns.Add(new Column
+            {
+                Min = firstDayColumnIndex,
+                Max = lastVisibleDayColumnIndex,
+                Width = MonthlyDayColumnWidth,
+                CustomWidth = true,
+                Hidden = false
+            });
+
+            if (lastVisibleDayColumnIndex < lastDayColumnIndex)
+            {
+                preservedColumns.Add(new Column
+                {
+                    Min = lastVisibleDayColumnIndex + 1,
+                    Max = lastDayColumnIndex,
+                    Width = MonthlyDayColumnWidth,
+                    CustomWidth = true,
+                    Hidden = true
+                });
+            }
+
+            columns.RemoveAllChildren<Column>();
+            foreach (Column column in preservedColumns
+                         .OrderBy(static column => column.Min?.Value ?? 1U)
+                         .ThenBy(static column => column.Max?.Value ?? column.Min?.Value ?? 1U))
+            {
+                columns.Append(column);
+            }
+        }
+
+        private static Columns GetOrCreateColumns(Worksheet worksheet)
+        {
+            Columns? columns = worksheet.Elements<Columns>().FirstOrDefault();
+            if (columns != null)
+                return columns;
+
+            columns = new Columns();
+            SheetData? sheetData = worksheet.GetFirstChild<SheetData>();
+            if (sheetData == null)
+                worksheet.Append(columns);
+            else
+                worksheet.InsertBefore(columns, sheetData);
+
+            return columns;
         }
 
         private static uint? ResolveMostCommonStyleIndex(Row row, int startColumnIndex, int endColumnIndex)

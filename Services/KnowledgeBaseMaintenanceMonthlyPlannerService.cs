@@ -2,11 +2,26 @@ using AsutpKnowledgeBase.Models;
 
 namespace AsutpKnowledgeBase.Services
 {
+    public enum KnowledgeBaseMaintenancePlanningMode
+    {
+        Default = 0,
+        BalancedV2 = 1,
+        SequentialV3 = 2
+    }
+
     public sealed class KnowledgeBaseMaintenanceMonthPlanResult
     {
         public bool IsSuccess { get; init; }
 
         public string ErrorMessage { get; init; } = string.Empty;
+
+        public KnowledgeBaseMaintenancePlanningMode PlanningMode { get; init; }
+
+        public bool UsedFallback { get; init; }
+
+        public int DailyLoadLimitHours { get; init; }
+
+        public int PreferredDailyLoadLimitHours { get; init; }
 
         public int WorkingDayCount { get; init; }
 
@@ -29,6 +44,8 @@ namespace AsutpKnowledgeBase.Services
     {
         private const int MajorWorkSplitChunkHours = 8;
         private const int DailySystemPackingTargetHours = 16;
+        private const int BalancedV2DailyLoadAllowanceHours = 2;
+        private const int SequentialV3SoftOverrunToleranceHours = 3;
         private const int LargeSystemLevel3Threshold = 2;
 
         private readonly KnowledgeBaseRussianProductionCalendarService _calendarService;
@@ -47,19 +64,21 @@ namespace AsutpKnowledgeBase.Services
             int month,
             int totalMonthlyHourBudget,
             IReadOnlyList<KbNode> roots,
-            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default)
         {
             IReadOnlyList<KbMaintenanceMonthWorkItem> workItems =
                 _workResolverService.ResolveMonthWorkItems(year, month, roots, maintenanceScheduleProfiles);
 
-            return PlanMonth(year, month, totalMonthlyHourBudget, workItems);
+            return PlanMonth(year, month, totalMonthlyHourBudget, workItems, planningMode);
         }
 
         public KnowledgeBaseMaintenanceMonthPlanResult PlanMonth(
             int year,
             int month,
             int totalMonthlyHourBudget,
-            IReadOnlyList<KbMaintenanceMonthWorkItem>? workItems)
+            IReadOnlyList<KbMaintenanceMonthWorkItem>? workItems,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default)
         {
             if (totalMonthlyHourBudget < 0)
                 return Failure("Месячный лимит часов не может быть отрицательным.");
@@ -93,6 +112,27 @@ namespace AsutpKnowledgeBase.Services
                     new List<KbMaintenanceMonthPlanDay>());
             }
 
+            if (planningMode == KnowledgeBaseMaintenancePlanningMode.BalancedV2)
+            {
+                int balancedCapacityHours = workingDays.Count * DailySystemPackingTargetHours;
+                if (requestedHours > balancedCapacityHours)
+                {
+                    return Failure(
+                        $"Невозможно разместить {requestedHours} ч в {month:D2}.{year}: при лимите 16 ч/день доступно {balancedCapacityHours} ч.",
+                        workingDays.Count,
+                        requestedHours,
+                        totalMonthlyHourBudget,
+                        calendarCapacityHours,
+                        balancedCapacityHours,
+                        nonWorkingDayNumbers,
+                        normalizedWorkItems,
+                        planningMode,
+                        usedFallback: true,
+                        DailySystemPackingTargetHours,
+                        ResolvePreferredDailyLoadLimitHours(planningMode, requestedHours, workingDays.Count));
+                }
+            }
+
             if (workingDays.Count == 0)
             {
                 return Failure(
@@ -106,7 +146,8 @@ namespace AsutpKnowledgeBase.Services
                     normalizedWorkItems);
             }
 
-            if (requestedHours > totalMonthlyHourBudget)
+            if (requestedHours > totalMonthlyHourBudget &&
+                planningMode != KnowledgeBaseMaintenancePlanningMode.SequentialV3)
             {
                 return Failure(
                     $"Невозможно разместить {requestedHours} ч в {month:D2}.{year}: месячный лимит составляет {totalMonthlyHourBudget} ч.",
@@ -119,24 +160,12 @@ namespace AsutpKnowledgeBase.Services
                     normalizedWorkItems);
             }
 
-            List<DayPlanBuilder> dayBuilders = workingDays
-                .Select(static date => new DayPlanBuilder(date))
-                .ToList();
-
-            int dailyPackingTargetHours = ResolveDailyPackingTargetHours(requestedHours, workingDays.Count);
-            double dailyBalanceTargetHours = ResolveDailyBalanceTargetHours(requestedHours, workingDays.Count);
-            IReadOnlyList<MaintenanceVisitGroup> visitGroups = BuildVisitGroups(normalizedWorkItems, dailyPackingTargetHours);
-            int visitCount = visitGroups.Sum(static group => group.Visits.Count);
-            int targetPlannedDayCount = ResolveTargetPlannedDayCount(
-                requestedHours,
-                dailyBalanceTargetHours,
-                workingDays.Count,
-                visitCount);
-            if (!TryValidateVisitCapacity(year, month, workingDays.Count, visitGroups, out string visitCapacityError))
+            if (planningMode == KnowledgeBaseMaintenancePlanningMode.SequentialV3)
             {
-                return Failure(
-                    visitCapacityError,
-                    workingDays.Count,
+                return PlanSequentialV3(
+                    year,
+                    month,
+                    workingDays,
                     requestedHours,
                     totalMonthlyHourBudget,
                     calendarCapacityHours,
@@ -145,50 +174,178 @@ namespace AsutpKnowledgeBase.Services
                     normalizedWorkItems);
             }
 
-            List<MaintenanceVisitGroupScheduleState> visitGroupStates = OrderVisitGroups(visitGroups)
-                .Select(static group => new MaintenanceVisitGroupScheduleState(group))
-                .ToList();
-            while (true)
+            IReadOnlyList<MaintenancePlanningAttempt> planningAttempts = BuildPlanningAttempts(
+                planningMode,
+                requestedHours,
+                workingDays.Count);
+            KnowledgeBaseMaintenanceMonthPlanResult? lastFailure = null;
+            foreach (MaintenancePlanningAttempt planningAttempt in planningAttempts)
             {
-                MaintenanceVisitGroupScheduleState? selectedVisitGroupState = SelectNextVisitGroupState(
-                    visitGroupStates,
-                    dayBuilders,
-                    dailyPackingTargetHours);
-                if (selectedVisitGroupState == null)
-                    break;
+                List<DayPlanBuilder> dayBuilders = workingDays
+                    .Select(static date => new DayPlanBuilder(date))
+                    .ToList();
 
-                MaintenanceVisitPlan visitPlan = selectedVisitGroupState.NextVisit!;
-                DayPlanBuilder? selectedDay = SelectBestDay(
-                    dayBuilders,
-                    visitPlan,
-                    selectedVisitGroupState.PreviousDay,
+                int dailyPackingTargetHours = planningAttempt.DailyLoadLimitHours;
+                double dailyBalanceTargetHours = ResolveDailyBalanceTargetHours(requestedHours, workingDays.Count);
+                IReadOnlyList<MaintenanceVisitGroup> visitGroups = BuildVisitGroups(
+                    normalizedWorkItems,
+                    planningAttempt.VisitSplitTargetHours,
+                    planningMode == KnowledgeBaseMaintenancePlanningMode.Default);
+                int visitCount = visitGroups.Sum(static group => group.Visits.Count);
+                int targetPlannedDayCount = ResolveTargetPlannedDayCount(
+                    requestedHours,
                     dailyBalanceTargetHours,
-                    dailyPackingTargetHours,
-                    targetPlannedDayCount);
-                if (selectedDay == null)
+                    workingDays.Count,
+                    visitCount);
+                if (!TryValidateVisitCapacity(
+                    year,
+                    month,
+                    workingDays.Count,
+                    visitGroups,
+                    planningAttempt.AllowOwnerRepeat,
+                    out string visitCapacityError))
                 {
-                    return Failure(
-                        BuildNoFeasibleDayError(year, month, visitPlan, workingDays.Count),
+                    lastFailure = Failure(
+                        visitCapacityError,
                         workingDays.Count,
                         requestedHours,
                         totalMonthlyHourBudget,
                         calendarCapacityHours,
                         availableCapacityHours,
                         nonWorkingDayNumbers,
-                        normalizedWorkItems);
+                        normalizedWorkItems,
+                        planningMode,
+                        planningAttempt.UsedFallback,
+                        planningAttempt.DailyLoadLimitHours,
+                        planningAttempt.PreferredDailyLoadLimitHours);
+                    continue;
                 }
 
-                selectedDay.AddVisit(visitPlan);
-                selectedVisitGroupState.MarkScheduled(selectedDay);
+                bool planningAttemptFailed = false;
+                bool preserveSequentialOrder = planningMode == KnowledgeBaseMaintenancePlanningMode.SequentialV3;
+                DayPlanBuilder? sequentialPreviousDay = null;
+                List<MaintenanceVisitGroupScheduleState> visitGroupStates = OrderVisitGroups(visitGroups)
+                    .Select(static group => new MaintenanceVisitGroupScheduleState(group))
+                    .ToList();
+                while (true)
+                {
+                    MaintenanceVisitGroupScheduleState? selectedVisitGroupState = SelectNextVisitGroupState(
+                        visitGroupStates,
+                        dayBuilders,
+                        dailyPackingTargetHours,
+                        preserveSequentialOrder);
+                    if (selectedVisitGroupState == null)
+                        break;
+
+                    if (preserveSequentialOrder)
+                    {
+                        TrySplitSequentialVisitToSoftTarget(
+                            selectedVisitGroupState,
+                            sequentialPreviousDay,
+                            dailyBalanceTargetHours,
+                            dailyPackingTargetHours,
+                            planningAttempt.AllowOwnerRepeat,
+                            planningAttempt.AllowLargeSystemConflict);
+                    }
+
+                    MaintenanceVisitPlan visitPlan = selectedVisitGroupState.NextVisit!;
+                    DayPlanBuilder? selectedDay = SelectBestDay(
+                        dayBuilders,
+                        visitPlan,
+                        preserveSequentialOrder ? sequentialPreviousDay : selectedVisitGroupState.PreviousDay,
+                        dailyBalanceTargetHours,
+                        dailyPackingTargetHours,
+                        targetPlannedDayCount,
+                        planningAttempt.AllowDailyLimitOverflow,
+                        planningMode == KnowledgeBaseMaintenancePlanningMode.BalancedV2,
+                        preserveSequentialOrder,
+                        planningAttempt.AllowOwnerRepeat,
+                        planningAttempt.AllowLargeSystemConflict);
+                    if (selectedDay == null)
+                    {
+                        lastFailure = Failure(
+                            BuildNoFeasibleDayError(year, month, visitPlan, workingDays.Count, dailyPackingTargetHours),
+                            workingDays.Count,
+                            requestedHours,
+                            totalMonthlyHourBudget,
+                            calendarCapacityHours,
+                            availableCapacityHours,
+                            nonWorkingDayNumbers,
+                            normalizedWorkItems,
+                            planningMode,
+                            planningAttempt.UsedFallback,
+                            planningAttempt.DailyLoadLimitHours,
+                            planningAttempt.PreferredDailyLoadLimitHours);
+                        planningAttemptFailed = true;
+                        break;
+                    }
+
+                    selectedDay.AddVisit(visitPlan);
+                    selectedVisitGroupState.MarkScheduled(selectedDay);
+                    if (preserveSequentialOrder)
+                        sequentialPreviousDay = selectedDay;
+                }
+
+                if (planningAttemptFailed)
+                    continue;
+
+                if (planningMode != KnowledgeBaseMaintenancePlanningMode.SequentialV3)
+                {
+                    RebalanceDayLoads(
+                        dayBuilders,
+                        dailyBalanceTargetHours,
+                        dailyPackingTargetHours,
+                        planningMode == KnowledgeBaseMaintenancePlanningMode.BalancedV2);
+                }
+
+                List<KbMaintenanceMonthPlanDay> plannedDays = dayBuilders
+                    .Where(static day => day.Assignments.Count > 0)
+                    .Select(static day => day.ToPlanDay())
+                    .ToList();
+
+                return Success(
+                    workingDays.Count,
+                    requestedHours,
+                    totalMonthlyHourBudget,
+                    calendarCapacityHours,
+                    availableCapacityHours,
+                    nonWorkingDayNumbers,
+                    normalizedWorkItems,
+                    plannedDays,
+                    planningMode,
+                    planningAttempt.UsedFallback,
+                    planningAttempt.DailyLoadLimitHours,
+                    planningAttempt.PreferredDailyLoadLimitHours);
             }
 
-            RebalanceDayLoads(dayBuilders, dailyBalanceTargetHours, dailyPackingTargetHours);
+            return lastFailure ?? Failure(
+                $"Невозможно сформировать график ТО за {month:D2}.{year}.",
+                workingDays.Count,
+                requestedHours,
+                totalMonthlyHourBudget,
+                calendarCapacityHours,
+                availableCapacityHours,
+                nonWorkingDayNumbers,
+                normalizedWorkItems,
+                planningMode,
+                usedFallback: planningAttempts.LastOrDefault()?.UsedFallback ?? false,
+                dailyLoadLimitHours: planningAttempts.LastOrDefault()?.DailyLoadLimitHours ?? 0,
+                preferredDailyLoadLimitHours: planningAttempts.FirstOrDefault()?.PreferredDailyLoadLimitHours ?? 0);
 
             static MaintenanceVisitGroupScheduleState? SelectNextVisitGroupState(
                 IReadOnlyList<MaintenanceVisitGroupScheduleState> visitGroupStates,
                 IReadOnlyList<DayPlanBuilder> dayBuilders,
-                int dailyLoadLimitHours)
+                int dailyLoadLimitHours,
+                bool preserveSequentialOrder)
             {
+                if (preserveSequentialOrder)
+                {
+                    return visitGroupStates
+                        .Where(static state => state.NextVisit != null)
+                        .OrderBy(static state => state.GroupOrderIndex)
+                        .FirstOrDefault();
+                }
+
                 return visitGroupStates
                     .Where(static state => state.NextVisit != null)
                     .Select(state =>
@@ -217,14 +374,102 @@ namespace AsutpKnowledgeBase.Services
                 int year,
                 int month,
                 MaintenanceVisitPlan visitPlan,
-                int workingDayCount) =>
-                $"Невозможно сформировать график ТО за {month:D2}.{year} без перегруза смены или повторного ТО по одному объекту в один день: " +
+                int workingDayCount,
+                int dailyLoadLimitHours) =>
+                $"Невозможно сформировать график ТО за {month:D2}.{year} без перегруза более {dailyLoadLimitHours} ч/день или повторного ТО по одному объекту в один день: " +
                 $"для '{visitPlan.SchedulingConflictName}' нет подходящего рабочего дня из {workingDayCount}.";
+        }
+
+        private static void TrySplitSequentialVisitToSoftTarget(
+            MaintenanceVisitGroupScheduleState selectedVisitGroupState,
+            DayPlanBuilder? previousDay,
+            double dailyBalanceTargetHours,
+            int dailyLoadLimitHours,
+            bool allowOwnerRepeat,
+            bool allowLargeSystemConflict)
+        {
+            if (previousDay == null || dailyBalanceTargetHours <= 0)
+                return;
+
+            int softTargetHours = Math.Clamp((int)Math.Ceiling(dailyBalanceTargetHours), 1, dailyLoadLimitHours);
+            if (previousDay.TotalHours <= 0 || previousDay.TotalHours >= softTargetHours)
+                return;
+
+            MaintenanceVisitPlan? visitPlan = selectedVisitGroupState.NextVisit;
+            if (visitPlan == null)
+                return;
+
+            int remainingToSoftTarget = softTargetHours - previousDay.TotalHours;
+            if (remainingToSoftTarget <= 0 || visitPlan.TotalHours <= remainingToSoftTarget)
+                return;
+
+            if (previousDay.TotalHours + remainingToSoftTarget > dailyLoadLimitHours)
+                return;
+
+            if (!allowOwnerRepeat && ResolveOwnerConflictRank(previousDay, visitPlan) > 0)
+                return;
+
+            if (!allowLargeSystemConflict && ResolveLargeSystemConflictRank(previousDay, visitPlan) > 0)
+                return;
+
+            selectedVisitGroupState.TrySplitNextVisit(remainingToSoftTarget);
+        }
+
+        private static KnowledgeBaseMaintenanceMonthPlanResult PlanSequentialV3(
+            int year,
+            int month,
+            IReadOnlyList<DateOnly> workingDays,
+            int requestedHours,
+            int totalMonthlyHourBudget,
+            int calendarCapacityHours,
+            int availableCapacityHours,
+            IReadOnlyList<int> nonWorkingDayNumbers,
+            IReadOnlyList<KbMaintenanceMonthWorkItem> workItems)
+        {
+            List<DayPlanBuilder> dayBuilders = workingDays
+                .Select(static date => new DayPlanBuilder(date))
+                .ToList();
+            int preferredDailyLoadLimitHours = ResolveSequentialV3PreferredDailyLoadLimitHours(requestedHours, workingDays.Count);
+            int dailyLoadLimitHours = Math.Max(DailySystemPackingTargetHours, preferredDailyLoadLimitHours);
+            IReadOnlyList<MaintenanceVisitPlan> visits = BuildSequentialV3Visits(workItems, dailyLoadLimitHours);
+            int currentDayIndex = 0;
+            int remainingHours = requestedHours;
+            int[] dayTargetHours = new int[dayBuilders.Count];
+
+            foreach (MaintenanceVisitPlan visit in visits)
+            {
+                bool placed = PlaceSequentialV3Visit(
+                    dayBuilders,
+                    dayTargetHours,
+                    visit,
+                    dailyLoadLimitHours,
+                    ref currentDayIndex,
+                    ref remainingHours);
+                if (!placed)
+                {
+                    return Failure(
+                        $"Невозможно сформировать график ТО за {month:D2}.{year}: не удалось равномерно распределить работы по рабочим дням.",
+                        workingDays.Count,
+                        requestedHours,
+                        totalMonthlyHourBudget,
+                        calendarCapacityHours,
+                        availableCapacityHours,
+                        nonWorkingDayNumbers,
+                        workItems,
+                        KnowledgeBaseMaintenancePlanningMode.SequentialV3,
+                        usedFallback: true,
+                        dailyLoadLimitHours,
+                        preferredDailyLoadLimitHours);
+                }
+            }
 
             List<KbMaintenanceMonthPlanDay> plannedDays = dayBuilders
                 .Where(static day => day.Assignments.Count > 0)
                 .Select(static day => day.ToPlanDay())
                 .ToList();
+            bool usedFallback = dailyLoadLimitHours > DailySystemPackingTargetHours ||
+                                plannedDays.Any(static day => day.TotalHours > DailySystemPackingTargetHours) ||
+                                HasRepeatedOwnerOnAnyDay(plannedDays);
 
             return Success(
                 workingDays.Count,
@@ -233,8 +478,203 @@ namespace AsutpKnowledgeBase.Services
                 calendarCapacityHours,
                 availableCapacityHours,
                 nonWorkingDayNumbers,
-                normalizedWorkItems,
-                plannedDays);
+                workItems,
+                plannedDays,
+                KnowledgeBaseMaintenancePlanningMode.SequentialV3,
+                usedFallback,
+                dailyLoadLimitHours,
+                preferredDailyLoadLimitHours);
+        }
+
+        private static IReadOnlyList<MaintenanceVisitPlan> BuildSequentialV3Visits(
+            IReadOnlyList<KbMaintenanceMonthWorkItem> workItems,
+            int dailyLoadLimitHours)
+        {
+            var visits = new List<MaintenanceVisitPlan>();
+            int nextVisitOrderIndex = 0;
+            foreach (KbMaintenanceMonthWorkItem workItem in OrderWorkItemsForSequentialV3(workItems))
+            {
+                foreach (WorkAssignmentDraft assignment in CreateAssignmentDrafts(workItem, dailyLoadLimitHours))
+                {
+                    visits.Add(new MaintenanceVisitPlan(nextVisitOrderIndex++, new[] { assignment }));
+                }
+            }
+
+            return visits;
+        }
+
+        private static IEnumerable<KbMaintenanceMonthWorkItem> OrderWorkItemsForSequentialV3(
+            IReadOnlyList<KbMaintenanceMonthWorkItem> workItems) =>
+            workItems
+                .OrderBy(static item => GetSystemPreorderSortKey(item))
+                .ThenBy(static item => GetOwnerPreorderSortKey(item))
+                .ThenBy(static item => GetWorkPriority(item.WorkKind))
+                .ThenBy(static item => item.OwnerNodeId, StringComparer.Ordinal)
+                .ThenBy(static item => item.NodeName, StringComparer.Ordinal);
+
+        private static bool PlaceSequentialV3Visit(
+            List<DayPlanBuilder> dayBuilders,
+            int[] dayTargetHours,
+            MaintenanceVisitPlan visit,
+            int dailyLoadLimitHours,
+            ref int currentDayIndex,
+            ref int remainingHours)
+        {
+            if (dayBuilders.Count == 0 || visit.TotalHours <= 0)
+                return true;
+
+            MaintenanceVisitPlan? pendingVisit = visit;
+            while (pendingVisit != null)
+            {
+                if (currentDayIndex >= dayBuilders.Count)
+                    return false;
+
+                DayPlanBuilder currentDay = dayBuilders[currentDayIndex];
+                if (dayTargetHours[currentDayIndex] <= 0)
+                {
+                    dayTargetHours[currentDayIndex] = ResolveSequentialV3CurrentDayTarget(
+                        remainingHours,
+                        dayBuilders.Count - currentDayIndex);
+                }
+
+                int currentDayTargetHours = dayTargetHours[currentDayIndex];
+                int availableToHardLimit = dailyLoadLimitHours - currentDay.TotalHours;
+                if (pendingVisit.TotalHours <= availableToHardLimit)
+                {
+                    if (ShouldMoveSequentialV3VisitToNextDay(
+                        currentDay,
+                        pendingVisit,
+                        currentDayTargetHours) &&
+                        CanMoveSequentialV3VisitToNextDay(dayBuilders, currentDayIndex, remainingHours, dailyLoadLimitHours))
+                    {
+                        currentDayIndex++;
+                        continue;
+                    }
+
+                    currentDay.AddVisit(pendingVisit);
+                    remainingHours -= pendingVisit.TotalHours;
+                    pendingVisit = null;
+                    continue;
+                }
+
+                if (currentDayIndex < dayBuilders.Count - 1)
+                {
+                    if (CanMoveSequentialV3VisitToNextDay(dayBuilders, currentDayIndex, remainingHours, dailyLoadLimitHours))
+                    {
+                        currentDayIndex++;
+                        continue;
+                    }
+                }
+
+                int partHours = Math.Min(pendingVisit.TotalHours, availableToHardLimit);
+                if (partHours <= 0)
+                {
+                    if (currentDayIndex < dayBuilders.Count - 1)
+                    {
+                        currentDayIndex++;
+                        continue;
+                    }
+
+                    return false;
+                }
+
+                if (partHours < pendingVisit.TotalHours &&
+                    pendingVisit.TrySplit(partHours, out MaintenanceVisitPlan? firstPart, out MaintenanceVisitPlan? remainder) &&
+                    firstPart != null &&
+                    remainder != null)
+                {
+                    currentDay.AddVisit(firstPart);
+                    remainingHours -= firstPart.TotalHours;
+                    pendingVisit = remainder;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool CanMoveSequentialV3VisitToNextDay(
+            IReadOnlyList<DayPlanBuilder> dayBuilders,
+            int currentDayIndex,
+            int remainingHours,
+            int dailyLoadLimitHours)
+        {
+            if (currentDayIndex >= dayBuilders.Count - 1)
+                return false;
+
+            return remainingHours <= CalculateSequentialV3RemainingHardCapacity(dayBuilders, currentDayIndex + 1, dailyLoadLimitHours);
+        }
+
+        private static int CalculateSequentialV3RemainingHardCapacity(
+            IReadOnlyList<DayPlanBuilder> dayBuilders,
+            int startDayIndex,
+            int dailyLoadLimitHours)
+        {
+            int capacityHours = 0;
+            for (int index = Math.Max(0, startDayIndex); index < dayBuilders.Count; index++)
+                capacityHours += Math.Max(0, dailyLoadLimitHours - dayBuilders[index].TotalHours);
+
+            return capacityHours;
+        }
+
+        private static bool ShouldMoveSequentialV3VisitToNextDay(
+            DayPlanBuilder currentDay,
+            MaintenanceVisitPlan visit,
+            int currentDayTargetHours)
+        {
+            if (currentDay.TotalHours <= 0)
+                return false;
+
+            int projectedHours = currentDay.TotalHours + visit.TotalHours;
+            if (projectedHours <= currentDayTargetHours)
+                return false;
+
+            int targetOverrunHours = projectedHours - currentDayTargetHours;
+            if (targetOverrunHours > SequentialV3SoftOverrunToleranceHours)
+                return true;
+
+            if (visit.TotalHours <= SequentialV3SoftOverrunToleranceHours &&
+                targetOverrunHours <= SequentialV3SoftOverrunToleranceHours)
+            {
+                return false;
+            }
+
+            if (currentDay.TotalHours < currentDayTargetHours)
+            {
+                int targetDeficitHours = currentDayTargetHours - currentDay.TotalHours;
+                return targetDeficitHours * 2 < visit.TotalHours;
+            }
+
+            return true;
+        }
+
+        private static int ResolveSequentialV3CurrentDayTarget(
+            int remainingHours,
+            int remainingDayCount)
+        {
+            if (remainingDayCount <= 0)
+                return Math.Max(1, remainingHours);
+
+            return Math.Max(1, (int)Math.Ceiling(Math.Max(0, remainingHours) / (double)remainingDayCount));
+        }
+
+        private static bool HasRepeatedOwnerOnAnyDay(
+            IReadOnlyList<KbMaintenanceMonthPlanDay> plannedDays)
+        {
+            foreach (KbMaintenanceMonthPlanDay day in plannedDays)
+            {
+                bool hasRepeatedOwner = day.Assignments
+                    .Where(static assignment => !string.IsNullOrWhiteSpace(assignment.OwnerNodeId))
+                    .GroupBy(static assignment => assignment.OwnerNodeId, StringComparer.Ordinal)
+                    .Any(static group => group.Count() > 1);
+                if (hasRepeatedOwner)
+                    return true;
+            }
+
+            return false;
         }
 
         private static IEnumerable<KbMaintenanceMonthWorkItem> OrderWorkItems(
@@ -249,7 +689,8 @@ namespace AsutpKnowledgeBase.Services
 
         private static IReadOnlyList<MaintenanceVisitGroup> BuildVisitGroups(
             IReadOnlyList<KbMaintenanceMonthWorkItem> workItems,
-            int dailyPackingTargetHours)
+            int dailyPackingTargetHours,
+            bool packSystemAssignments = true)
         {
             List<WorkAssignmentDraft> assignmentDrafts = OrderWorkItems(workItems)
                 .SelectMany(workItem => CreateAssignmentDrafts(workItem, dailyPackingTargetHours))
@@ -267,7 +708,8 @@ namespace AsutpKnowledgeBase.Services
                 IReadOnlyList<MaintenanceVisitPlan> visits = PackSystemAssignments(
                     systemGroup,
                     dailyPackingTargetHours,
-                    ref nextVisitOrderIndex);
+                    ref nextVisitOrderIndex,
+                    packSystemAssignments);
                 visitGroups.Add(new MaintenanceVisitGroup(nextVisitGroupOrderIndex++, visits));
             }
 
@@ -280,7 +722,8 @@ namespace AsutpKnowledgeBase.Services
                 IReadOnlyList<MaintenanceVisitPlan> visits = PackSystemAssignments(
                     ownerGroup,
                     dailyPackingTargetHours,
-                    ref nextVisitOrderIndex);
+                    ref nextVisitOrderIndex,
+                    packSystemAssignments);
                 visitGroups.Add(new MaintenanceVisitGroup(nextVisitGroupOrderIndex++, visits));
             }
 
@@ -320,8 +763,18 @@ namespace AsutpKnowledgeBase.Services
         private static IReadOnlyList<MaintenanceVisitPlan> PackSystemAssignments(
             IEnumerable<WorkAssignmentDraft> assignments,
             int dailyPackingTargetHours,
-            ref int nextVisitOrderIndex)
+            ref int nextVisitOrderIndex,
+            bool packSystemAssignments)
         {
+            if (!packSystemAssignments)
+            {
+                var separateVisits = new List<MaintenanceVisitPlan>();
+                foreach (WorkAssignmentDraft assignment in OrderSystemAssignments(assignments))
+                    separateVisits.Add(new MaintenanceVisitPlan(nextVisitOrderIndex++, new[] { assignment }));
+
+                return separateVisits;
+            }
+
             var visitBuilders = new List<MaintenanceVisitBuilder>();
             foreach (WorkAssignmentDraft assignment in OrderSystemAssignments(assignments))
             {
@@ -399,15 +852,37 @@ namespace AsutpKnowledgeBase.Services
             DayPlanBuilder? previousGroupDay,
             double dailyBalanceTargetHours,
             int dailyLoadLimitHours,
-            int targetPlannedDayCount)
+            int targetPlannedDayCount,
+            bool allowDailyLimitOverflow,
+            bool preferBalancedLoad,
+            bool preserveSequentialOrder,
+            bool allowOwnerRepeat,
+            bool allowLargeSystemConflict)
         {
             List<DayPlanBuilder> candidates = dayBuilders
-                .Where(day => CanPlaceVisitOnDayFallback(day, visitPlan))
+                .Where(day => CanPlaceVisitOnDay(
+                    day,
+                    visitPlan,
+                    dailyLoadLimitHours,
+                    allowDailyLimitOverflow,
+                    allowOwnerRepeat,
+                    allowLargeSystemConflict))
                 .ToList();
+            if (preserveSequentialOrder && previousGroupDay != null)
+            {
+                int previousDayIndex = GetDayIndex(dayBuilders, previousGroupDay);
+                if (previousDayIndex >= 0)
+                {
+                    candidates = candidates
+                        .Where(day => GetDayIndex(dayBuilders, day) >= previousDayIndex)
+                        .ToList();
+                }
+            }
+
             if (candidates.Count == 0)
                 return null;
 
-            return candidates
+            IEnumerable<DayCandidateScore> scores = candidates
                 .Select(day => BuildDayCandidateScore(
                     dayBuilders,
                     day,
@@ -415,8 +890,48 @@ namespace AsutpKnowledgeBase.Services
                     previousGroupDay,
                     dailyBalanceTargetHours,
                     dailyLoadLimitHours,
-                    targetPlannedDayCount))
+                    targetPlannedDayCount));
+
+            if (preserveSequentialOrder)
+            {
+                return scores
+                    .OrderBy(static score => score.LargeSystemConflictRank)
+                    .ThenBy(static score => score.OwnerConflictRank)
+                    .ThenBy(static score => score.ProjectedLimitOverflowHours)
+                    .ThenBy(static score => score.SequentialSoftTargetRank)
+                    .ThenBy(static score => score.Day.Date)
+                    .ThenBy(static score => score.BalanceDeviation)
+                    .ThenBy(static score => score.CurrentHours)
+                    .ThenBy(static score => score.ProjectedHours)
+                    .ThenBy(static score => score.SystemAdjacencyRank)
+                    .ThenBy(static score => score.OwnerAdjacencyRank)
+                    .Select(static score => score.Day)
+                    .First();
+            }
+
+            if (preferBalancedLoad)
+            {
+                return scores
+                    .OrderBy(static score => score.LargeSystemConflictRank)
+                    .ThenBy(static score => score.OwnerConflictRank)
+                    .ThenBy(static score => score.ProjectedLimitOverflowHours)
+                    .ThenBy(static score => score.BalanceDeviation)
+                    .ThenBy(static score => score.CurrentHours)
+                    .ThenBy(static score => score.TargetOccupancyRank)
+                    .ThenBy(static score => score.RouteFillRank)
+                    .ThenBy(static score => score.ProjectedHours)
+                    .ThenBy(static score => score.ContinuationRank)
+                    .ThenBy(static score => score.ContinuationDistance)
+                    .ThenBy(static score => score.SystemAdjacencyRank)
+                    .ThenBy(static score => score.OwnerAdjacencyRank)
+                    .ThenBy(static score => score.Day.Date)
+                    .Select(static score => score.Day)
+                    .First();
+            }
+
+            return scores
                 .OrderBy(static score => score.LargeSystemConflictRank)
+                .ThenBy(static score => score.OwnerConflictRank)
                 .ThenBy(static score => score.ProjectedLimitOverflowHours)
                 .ThenBy(static score => score.TargetOccupancyRank)
                 .ThenBy(static score => score.ContinuationRank)
@@ -447,16 +962,22 @@ namespace AsutpKnowledgeBase.Services
             int continuationRank = previousGroupDay == null || dayIndex > previousGroupDayIndex ? 0 : 1;
             int continuationDistance = ResolveContinuationDistance(dayBuilders.Count, dayIndex, previousGroupDayIndex);
             int projectedLimitOverflowHours = Math.Max(0, projectedHours - dailyLoadLimitHours);
+            int ownerConflictRank = ResolveOwnerConflictRank(day, visitPlan);
             int largeSystemConflictRank = ResolveLargeSystemConflictRank(day, visitPlan);
             int targetOccupancyRank = ResolveTargetOccupancyRank(dayBuilders, day, targetPlannedDayCount);
             int routeFillRank = ResolveRouteFillRank(day, visitPlan, projectedHours, dailyBalanceTargetHours);
             double balanceDeviation = Math.Abs(projectedHours - dailyBalanceTargetHours);
+            int sequentialSoftTargetRank = ResolveSequentialSoftTargetRank(
+                day.TotalHours,
+                projectedHours,
+                dailyBalanceTargetHours);
 
             return new DayCandidateScore(
                 day,
                 ContinuationRank: continuationRank,
                 ContinuationDistance: continuationDistance,
                 ProjectedLimitOverflowHours: projectedLimitOverflowHours,
+                OwnerConflictRank: ownerConflictRank,
                 LargeSystemConflictRank: largeSystemConflictRank,
                 TargetOccupancyRank: targetOccupancyRank,
                 CurrentHours: day.TotalHours,
@@ -464,7 +985,28 @@ namespace AsutpKnowledgeBase.Services
                 BalanceDeviation: balanceDeviation,
                 ProjectedHours: projectedHours,
                 OwnerAdjacencyRank: HasOwnerOnAdjacentWorkingDay(dayBuilders, day, visitPlan) ? 1 : 0,
-                SystemAdjacencyRank: HasSystemOnAdjacentWorkingDay(dayBuilders, day, visitPlan.SystemNodeId) ? 1 : 0);
+                SystemAdjacencyRank: HasSystemOnAdjacentWorkingDay(dayBuilders, day, visitPlan.SystemNodeId) ? 1 : 0,
+                SequentialSoftTargetRank: sequentialSoftTargetRank);
+        }
+
+        private static int ResolveSequentialSoftTargetRank(
+            int currentHours,
+            int projectedHours,
+            double dailyBalanceTargetHours)
+        {
+            if (dailyBalanceTargetHours <= 0)
+                return 0;
+
+            if (currentHours < dailyBalanceTargetHours && projectedHours <= dailyBalanceTargetHours)
+                return 0;
+
+            if (currentHours == 0)
+                return 1;
+
+            if (currentHours < dailyBalanceTargetHours)
+                return 2;
+
+            return 3;
         }
 
         private static int ResolveRouteFillRank(
@@ -539,7 +1081,8 @@ namespace AsutpKnowledgeBase.Services
         private static void RebalanceDayLoads(
             IReadOnlyList<DayPlanBuilder> dayBuilders,
             double dailyBalanceTargetHours,
-            int dailyLoadLimitHours)
+            int dailyLoadLimitHours,
+            bool allowVisitSwaps = false)
         {
             if (dailyBalanceTargetHours <= 0 || dayBuilders.Count < 2)
                 return;
@@ -555,6 +1098,22 @@ namespace AsutpKnowledgeBase.Services
                     break;
 
                 bestMove.Source.MoveVisitTo(bestMove.Visit, bestMove.Target);
+            }
+
+            if (!allowVisitSwaps)
+                return;
+
+            int maxSwapCount = dayBuilders.Sum(static day => day.Visits.Count) * dayBuilders.Count;
+            for (int swapIndex = 0; swapIndex < maxSwapCount; swapIndex++)
+            {
+                DayLoadRebalanceSwap? bestSwap = FindBestDayLoadRebalanceSwap(
+                    dayBuilders,
+                    dailyBalanceTargetHours,
+                    dailyLoadLimitHours);
+                if (bestSwap == null)
+                    break;
+
+                bestSwap.Source.SwapVisitWith(bestSwap.Target, bestSwap.SourceVisit, bestSwap.TargetVisit);
             }
         }
 
@@ -636,6 +1195,100 @@ namespace AsutpKnowledgeBase.Services
             return candidate.Target.Date < currentBest.Target.Date;
         }
 
+        private static DayLoadRebalanceSwap? FindBestDayLoadRebalanceSwap(
+            IReadOnlyList<DayPlanBuilder> dayBuilders,
+            double dailyBalanceTargetHours,
+            int dailyLoadLimitHours)
+        {
+            DayLoadRebalanceSwap? bestSwap = null;
+            foreach (DayPlanBuilder sourceDay in dayBuilders
+                .Where(day => day.TotalHours > dailyBalanceTargetHours && day.Visits.Count > 0)
+                .OrderByDescending(static day => day.TotalHours)
+                .ThenBy(static day => day.Date))
+            {
+                foreach (DayPlanBuilder targetDay in dayBuilders
+                    .Where(day => !ReferenceEquals(day, sourceDay) && day.TotalHours < sourceDay.TotalHours && day.Visits.Count > 0)
+                    .OrderBy(static day => day.TotalHours)
+                    .ThenBy(static day => day.Date))
+                {
+                    foreach (ScheduledMaintenanceVisit sourceVisit in sourceDay.Visits
+                        .OrderByDescending(static visit => visit.TotalHours)
+                        .ThenBy(static visit => visit.OrderIndex))
+                    {
+                        foreach (ScheduledMaintenanceVisit targetVisit in targetDay.Visits
+                            .Where(visit => visit.TotalHours < sourceVisit.TotalHours)
+                            .OrderBy(static visit => visit.TotalHours)
+                            .ThenBy(static visit => visit.OrderIndex))
+                        {
+                            if (!CanSwapVisitsForRebalance(
+                                sourceDay,
+                                targetDay,
+                                sourceVisit,
+                                targetVisit,
+                                dailyLoadLimitHours))
+                            {
+                                continue;
+                            }
+
+                            int projectedSourceHours = sourceDay.TotalHours - sourceVisit.TotalHours + targetVisit.TotalHours;
+                            int projectedTargetHours = targetDay.TotalHours - targetVisit.TotalHours + sourceVisit.TotalHours;
+                            double currentScore =
+                                CalculateDayLoadBalanceScore(sourceDay.TotalHours, dailyBalanceTargetHours) +
+                                CalculateDayLoadBalanceScore(targetDay.TotalHours, dailyBalanceTargetHours);
+                            double projectedScore =
+                                CalculateDayLoadBalanceScore(projectedSourceHours, dailyBalanceTargetHours) +
+                                CalculateDayLoadBalanceScore(projectedTargetHours, dailyBalanceTargetHours);
+                            double improvement = currentScore - projectedScore;
+                            if (improvement <= 0.0001)
+                                continue;
+
+                            var swap = new DayLoadRebalanceSwap(
+                                sourceDay,
+                                targetDay,
+                                sourceVisit,
+                                targetVisit,
+                                improvement,
+                                Math.Abs(projectedSourceHours - dailyBalanceTargetHours),
+                                Math.Abs(projectedTargetHours - dailyBalanceTargetHours));
+                            if (bestSwap == null || IsBetterRebalanceSwap(swap, bestSwap))
+                                bestSwap = swap;
+                        }
+                    }
+                }
+            }
+
+            return bestSwap;
+        }
+
+        private static bool IsBetterRebalanceSwap(
+            DayLoadRebalanceSwap candidate,
+            DayLoadRebalanceSwap currentBest)
+        {
+            int improvementComparison = candidate.Improvement.CompareTo(currentBest.Improvement);
+            if (improvementComparison != 0)
+                return improvementComparison > 0;
+
+            double candidateWorstDeviation = Math.Max(candidate.SourceDeviationAfter, candidate.TargetDeviationAfter);
+            double currentWorstDeviation = Math.Max(currentBest.SourceDeviationAfter, currentBest.TargetDeviationAfter);
+            int worstDeviationComparison = candidateWorstDeviation.CompareTo(currentWorstDeviation);
+            if (worstDeviationComparison != 0)
+                return worstDeviationComparison < 0;
+
+            int sourceDeviationComparison = candidate.SourceDeviationAfter.CompareTo(currentBest.SourceDeviationAfter);
+            if (sourceDeviationComparison != 0)
+                return sourceDeviationComparison < 0;
+
+            int targetDeviationComparison = candidate.TargetDeviationAfter.CompareTo(currentBest.TargetDeviationAfter);
+            if (targetDeviationComparison != 0)
+                return targetDeviationComparison < 0;
+
+            int sourceDateComparison = candidate.Source.Date.CompareTo(currentBest.Source.Date);
+            if (sourceDateComparison != 0)
+                return sourceDateComparison < 0;
+
+            return candidate.Target.Date < currentBest.Target.Date;
+        }
+
         private static bool CanMoveVisitForRebalance(
             DayPlanBuilder sourceDay,
             DayPlanBuilder targetDay,
@@ -664,6 +1317,52 @@ namespace AsutpKnowledgeBase.Services
             return true;
         }
 
+        private static bool CanSwapVisitsForRebalance(
+            DayPlanBuilder sourceDay,
+            DayPlanBuilder targetDay,
+            ScheduledMaintenanceVisit sourceVisit,
+            ScheduledMaintenanceVisit targetVisit,
+            int dailyLoadLimitHours)
+        {
+            int projectedSourceHours = sourceDay.TotalHours - sourceVisit.TotalHours + targetVisit.TotalHours;
+            int projectedTargetHours = targetDay.TotalHours - targetVisit.TotalHours + sourceVisit.TotalHours;
+            if (projectedSourceHours > dailyLoadLimitHours || projectedTargetHours > dailyLoadLimitHours)
+                return false;
+
+            return CanReplaceVisitOnDay(sourceDay, sourceVisit, targetVisit) &&
+                   CanReplaceVisitOnDay(targetDay, targetVisit, sourceVisit);
+        }
+
+        private static bool CanReplaceVisitOnDay(
+            DayPlanBuilder day,
+            ScheduledMaintenanceVisit outgoingVisit,
+            ScheduledMaintenanceVisit incomingVisit)
+        {
+            foreach (string ownerNodeId in incomingVisit.OwnerNodeIds)
+            {
+                if (day.Visits
+                    .Where(visit => !ReferenceEquals(visit, outgoingVisit))
+                    .Any(visit => visit.OwnerNodeIds.Contains(ownerNodeId, StringComparer.Ordinal)))
+                {
+                    return false;
+                }
+            }
+
+            if (incomingVisit.IsLargeSystem)
+            {
+                bool hasOtherLargeSystem = day.Visits
+                    .Where(visit => !ReferenceEquals(visit, outgoingVisit))
+                    .Any(visit => visit.IsLargeSystem && !string.Equals(
+                        visit.SchedulingConflictKey,
+                        incomingVisit.SchedulingConflictKey,
+                        StringComparison.Ordinal));
+                if (hasOtherLargeSystem)
+                    return false;
+            }
+
+            return true;
+        }
+
         private static double CalculateDayLoadBalanceScore(
             int totalHours,
             double dailyBalanceTargetHours)
@@ -677,8 +1376,15 @@ namespace AsutpKnowledgeBase.Services
             int month,
             int workingDayCount,
             IReadOnlyList<MaintenanceVisitGroup> visitGroups,
+            bool allowOwnerRepeat,
             out string errorMessage)
         {
+            if (allowOwnerRepeat)
+            {
+                errorMessage = string.Empty;
+                return true;
+            }
+
             var ownerVisitCounts = visitGroups
                 .SelectMany(static group => group.Visits)
                 .SelectMany(static visit => visit.OwnerNodeIds)
@@ -731,13 +1437,13 @@ namespace AsutpKnowledgeBase.Services
             MaintenanceVisitPlan visitPlan,
             int dailyLoadLimitHours)
         {
-            if (!CanPlaceVisitOnDayFallback(day, visitPlan))
-                return false;
-
-            if (ResolveLargeSystemConflictRank(day, visitPlan) > 0)
-                return false;
-
-            return day.TotalHours + visitPlan.TotalHours <= dailyLoadLimitHours;
+            return CanPlaceVisitOnDay(
+                day,
+                visitPlan,
+                dailyLoadLimitHours,
+                allowDailyLimitOverflow: false,
+                allowOwnerRepeat: false,
+                allowLargeSystemConflict: false);
         }
 
         private static bool CanPlaceVisitOnDayFallback(
@@ -753,6 +1459,39 @@ namespace AsutpKnowledgeBase.Services
             return true;
         }
 
+        private static bool CanPlaceVisitOnDay(
+            DayPlanBuilder day,
+            MaintenanceVisitPlan visitPlan,
+            int dailyLoadLimitHours,
+            bool allowDailyLimitOverflow,
+            bool allowOwnerRepeat,
+            bool allowLargeSystemConflict)
+        {
+            if (!allowOwnerRepeat && ResolveOwnerConflictRank(day, visitPlan) > 0)
+                return false;
+
+            if (!allowLargeSystemConflict && ResolveLargeSystemConflictRank(day, visitPlan) > 0)
+                return false;
+
+            if (!allowDailyLimitOverflow && day.TotalHours + visitPlan.TotalHours > dailyLoadLimitHours)
+                return false;
+
+            return true;
+        }
+
+        private static int ResolveOwnerConflictRank(
+            DayPlanBuilder day,
+            MaintenanceVisitPlan visitPlan)
+        {
+            foreach (string ownerNodeId in visitPlan.OwnerNodeIds)
+            {
+                if (day.HasOwner(ownerNodeId))
+                    return 1;
+            }
+
+            return 0;
+        }
+
         private static int ResolveDailyPackingTargetHours(int totalMonthlyHourBudget, int workingDayCount)
         {
             if (workingDayCount <= 0)
@@ -762,6 +1501,123 @@ namespace AsutpKnowledgeBase.Services
             return averageBudgetHours > DailySystemPackingTargetHours
                 ? averageBudgetHours + 1
                 : DailySystemPackingTargetHours;
+        }
+
+        private static int ResolveBalancedV2PreferredDailyLoadLimitHours(int requestedHours, int workingDayCount)
+        {
+            if (workingDayCount <= 0)
+                return DailySystemPackingTargetHours;
+
+            int limitHours = (int)Math.Ceiling(
+                requestedHours / (double)workingDayCount + BalancedV2DailyLoadAllowanceHours);
+            return Math.Clamp(limitHours, 1, DailySystemPackingTargetHours);
+        }
+
+        private static int ResolveSequentialV3PreferredDailyLoadLimitHours(int requestedHours, int workingDayCount)
+        {
+            if (workingDayCount <= 0)
+                return DailySystemPackingTargetHours;
+
+            int limitHours = (int)Math.Ceiling(requestedHours / (double)workingDayCount);
+            return Math.Max(1, limitHours);
+        }
+
+        private static int ResolvePreferredDailyLoadLimitHours(
+            KnowledgeBaseMaintenancePlanningMode planningMode,
+            int requestedHours,
+            int workingDayCount) =>
+            planningMode == KnowledgeBaseMaintenancePlanningMode.SequentialV3
+                ? ResolveSequentialV3PreferredDailyLoadLimitHours(requestedHours, workingDayCount)
+                : ResolveBalancedV2PreferredDailyLoadLimitHours(requestedHours, workingDayCount);
+
+        private static IReadOnlyList<MaintenancePlanningAttempt> BuildPlanningAttempts(
+            KnowledgeBaseMaintenancePlanningMode planningMode,
+            int requestedHours,
+            int workingDayCount)
+        {
+            if (planningMode == KnowledgeBaseMaintenancePlanningMode.SequentialV3)
+            {
+                int sequentialPreferredDailyLimitHours = ResolveSequentialV3PreferredDailyLoadLimitHours(requestedHours, workingDayCount);
+                return new[]
+                {
+                    new MaintenancePlanningAttempt(
+                        DailySystemPackingTargetHours,
+                        sequentialPreferredDailyLimitHours,
+                        sequentialPreferredDailyLimitHours,
+                        AllowDailyLimitOverflow: false,
+                        AllowOwnerRepeat: false,
+                        AllowLargeSystemConflict: false,
+                        UsedFallback: false),
+                    new MaintenancePlanningAttempt(
+                        DailySystemPackingTargetHours,
+                        sequentialPreferredDailyLimitHours,
+                        sequentialPreferredDailyLimitHours,
+                        AllowDailyLimitOverflow: false,
+                        AllowOwnerRepeat: true,
+                        AllowLargeSystemConflict: false,
+                        UsedFallback: true),
+                    new MaintenancePlanningAttempt(
+                        DailySystemPackingTargetHours,
+                        sequentialPreferredDailyLimitHours,
+                        sequentialPreferredDailyLimitHours,
+                        AllowDailyLimitOverflow: true,
+                        AllowOwnerRepeat: true,
+                        AllowLargeSystemConflict: true,
+                        UsedFallback: true)
+                };
+            }
+
+            if (planningMode != KnowledgeBaseMaintenancePlanningMode.BalancedV2)
+            {
+                int defaultDailyLimitHours = ResolveDailyPackingTargetHours(requestedHours, workingDayCount);
+                return new[]
+                {
+                    new MaintenancePlanningAttempt(
+                        defaultDailyLimitHours,
+                        defaultDailyLimitHours,
+                        defaultDailyLimitHours,
+                        AllowDailyLimitOverflow: true,
+                        AllowOwnerRepeat: false,
+                        AllowLargeSystemConflict: true,
+                        UsedFallback: false)
+                };
+            }
+
+            int preferredDailyLimitHours = ResolveBalancedV2PreferredDailyLoadLimitHours(requestedHours, workingDayCount);
+            if (preferredDailyLimitHours >= DailySystemPackingTargetHours)
+            {
+                return new[]
+                {
+                    new MaintenancePlanningAttempt(
+                        DailySystemPackingTargetHours,
+                        preferredDailyLimitHours,
+                        preferredDailyLimitHours,
+                        AllowDailyLimitOverflow: false,
+                        AllowOwnerRepeat: false,
+                        AllowLargeSystemConflict: false,
+                        UsedFallback: false)
+                };
+            }
+
+            return new[]
+            {
+                new MaintenancePlanningAttempt(
+                    preferredDailyLimitHours,
+                    preferredDailyLimitHours,
+                    preferredDailyLimitHours,
+                    AllowDailyLimitOverflow: false,
+                    AllowOwnerRepeat: false,
+                    AllowLargeSystemConflict: false,
+                    UsedFallback: false),
+                new MaintenancePlanningAttempt(
+                    DailySystemPackingTargetHours,
+                    preferredDailyLimitHours,
+                    preferredDailyLimitHours,
+                    AllowDailyLimitOverflow: false,
+                    AllowOwnerRepeat: false,
+                    AllowLargeSystemConflict: false,
+                    UsedFallback: true)
+            };
         }
 
         private static double ResolveDailyBalanceTargetHours(int totalMonthlyHourBudget, int workingDayCount)
@@ -855,6 +1711,7 @@ namespace AsutpKnowledgeBase.Services
             int ContinuationRank,
             int ContinuationDistance,
             int ProjectedLimitOverflowHours,
+            int OwnerConflictRank,
             int LargeSystemConflictRank,
             int TargetOccupancyRank,
             int CurrentHours,
@@ -862,7 +1719,17 @@ namespace AsutpKnowledgeBase.Services
             double BalanceDeviation,
             int ProjectedHours,
             int OwnerAdjacencyRank,
-            int SystemAdjacencyRank);
+            int SystemAdjacencyRank,
+            int SequentialSoftTargetRank);
+
+        private sealed record MaintenancePlanningAttempt(
+            int DailyLoadLimitHours,
+            int PreferredDailyLoadLimitHours,
+            int VisitSplitTargetHours,
+            bool AllowDailyLimitOverflow,
+            bool AllowOwnerRepeat,
+            bool AllowLargeSystemConflict,
+            bool UsedFallback);
 
         private sealed record DayLoadRebalanceMove(
             DayPlanBuilder Source,
@@ -871,6 +1738,15 @@ namespace AsutpKnowledgeBase.Services
             double Improvement,
             double TargetDeviationAfter,
             double SourceDeviationAfter);
+
+        private sealed record DayLoadRebalanceSwap(
+            DayPlanBuilder Source,
+            DayPlanBuilder Target,
+            ScheduledMaintenanceVisit SourceVisit,
+            ScheduledMaintenanceVisit TargetVisit,
+            double Improvement,
+            double SourceDeviationAfter,
+            double TargetDeviationAfter);
 
         private sealed record WorkAssignmentDraft(
             string OwnerNodeId,
@@ -947,9 +1823,12 @@ namespace AsutpKnowledgeBase.Services
 
         private sealed class MaintenanceVisitGroupScheduleState
         {
+            private readonly List<MaintenanceVisitPlan> _visits;
+
             public MaintenanceVisitGroupScheduleState(MaintenanceVisitGroup group)
             {
                 Group = group;
+                _visits = group.Visits.ToList();
             }
 
             private MaintenanceVisitGroup Group { get; }
@@ -961,7 +1840,21 @@ namespace AsutpKnowledgeBase.Services
             private int NextVisitIndex { get; set; }
 
             public MaintenanceVisitPlan? NextVisit =>
-                NextVisitIndex < Group.Visits.Count ? Group.Visits[NextVisitIndex] : null;
+                NextVisitIndex < _visits.Count ? _visits[NextVisitIndex] : null;
+
+            public bool TrySplitNextVisit(int firstPartHours)
+            {
+                MaintenanceVisitPlan? visit = NextVisit;
+                if (visit == null || !visit.TrySplit(firstPartHours, out MaintenanceVisitPlan? firstPart, out MaintenanceVisitPlan? remainder))
+                    return false;
+
+                if (firstPart == null || remainder == null)
+                    return false;
+
+                _visits[NextVisitIndex] = firstPart;
+                _visits.Insert(NextVisitIndex + 1, remainder);
+                return true;
+            }
 
             public void MarkScheduled(DayPlanBuilder day)
             {
@@ -1028,6 +1921,27 @@ namespace AsutpKnowledgeBase.Services
             public string SchedulingConflictKey { get; }
 
             public string SchedulingConflictName { get; }
+
+            public bool TrySplit(
+                int firstPartHours,
+                out MaintenanceVisitPlan? firstPart,
+                out MaintenanceVisitPlan? remainder)
+            {
+                firstPart = null;
+                remainder = null;
+
+                if (Assignments.Count != 1 || firstPartHours <= 0 || firstPartHours >= TotalHours)
+                    return false;
+
+                WorkAssignmentDraft assignment = Assignments[0];
+                firstPart = new MaintenanceVisitPlan(
+                    OrderIndex,
+                    new[] { assignment with { Hours = firstPartHours } });
+                remainder = new MaintenanceVisitPlan(
+                    OrderIndex,
+                    new[] { assignment with { Hours = TotalHours - firstPartHours } });
+                return true;
+            }
         }
 
         private sealed class ScheduledMaintenanceVisit
@@ -1130,10 +2044,18 @@ namespace AsutpKnowledgeBase.Services
             int availableCapacityHours,
             IReadOnlyList<int> nonWorkingDayNumbers,
             IReadOnlyList<KbMaintenanceMonthWorkItem> workItems,
-            List<KbMaintenanceMonthPlanDay> plannedDays) =>
+            List<KbMaintenanceMonthPlanDay> plannedDays,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default,
+            bool usedFallback = false,
+            int dailyLoadLimitHours = 0,
+            int preferredDailyLoadLimitHours = 0) =>
             new()
             {
                 IsSuccess = true,
+                PlanningMode = planningMode,
+                UsedFallback = usedFallback,
+                DailyLoadLimitHours = dailyLoadLimitHours,
+                PreferredDailyLoadLimitHours = preferredDailyLoadLimitHours,
                 WorkingDayCount = workingDayCount,
                 RequestedHours = requestedHours,
                 BudgetHours = budgetHours,
@@ -1152,11 +2074,19 @@ namespace AsutpKnowledgeBase.Services
             int calendarCapacityHours = 0,
             int availableCapacityHours = 0,
             IReadOnlyList<int>? nonWorkingDayNumbers = null,
-            IReadOnlyList<KbMaintenanceMonthWorkItem>? workItems = null) =>
+            IReadOnlyList<KbMaintenanceMonthWorkItem>? workItems = null,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default,
+            bool usedFallback = false,
+            int dailyLoadLimitHours = 0,
+            int preferredDailyLoadLimitHours = 0) =>
             new()
             {
                 IsSuccess = false,
                 ErrorMessage = errorMessage,
+                PlanningMode = planningMode,
+                UsedFallback = usedFallback,
+                DailyLoadLimitHours = dailyLoadLimitHours,
+                PreferredDailyLoadLimitHours = preferredDailyLoadLimitHours,
                 WorkingDayCount = workingDayCount,
                 RequestedHours = requestedHours,
                 BudgetHours = budgetHours,
@@ -1207,6 +2137,27 @@ namespace AsutpKnowledgeBase.Services
 
                 RebuildFromVisits();
                 targetDay.AddVisit(visit.CloneForDate(targetDay.Date));
+            }
+
+            public void SwapVisitWith(
+                DayPlanBuilder otherDay,
+                ScheduledMaintenanceVisit visit,
+                ScheduledMaintenanceVisit otherVisit)
+            {
+                if (!Visits.Remove(visit))
+                    return;
+
+                if (!otherDay.Visits.Remove(otherVisit))
+                {
+                    Visits.Add(visit);
+                    RebuildFromVisits();
+                    return;
+                }
+
+                Visits.Add(otherVisit.CloneForDate(Date));
+                otherDay.Visits.Add(visit.CloneForDate(otherDay.Date));
+                RebuildFromVisits();
+                otherDay.RebuildFromVisits();
             }
 
             private void Register(ScheduledMaintenanceVisit visit)
