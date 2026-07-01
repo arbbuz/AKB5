@@ -827,8 +827,6 @@ namespace AsutpKnowledgeBase.Services
             KbMaintenanceMonthSheetModel sheetModel)
         {
             uint totalsRowIndex = footerStartRowIndex;
-            uint dayCountRowIndex = footerStartRowIndex + 1;
-            uint groupedTotalsRowIndex = footerStartRowIndex + 2;
 
             Row totalsRow = GetOrCreateRow(worksheet, totalsRowIndex);
             ClearRowValues(totalsRow, FirstDayColumnIndex, TotalHoursColumnIndex - 1);
@@ -846,29 +844,16 @@ namespace AsutpKnowledgeBase.Services
                     $"SUM({GetCellReference(dataStartRowIndex, TotalHoursColumnIndex)}:{GetCellReference(dataEndRowIndex, TotalHoursColumnIndex)})");
             }
 
-            for (int dayOfMonth = 1; dayOfMonth <= 31; dayOfMonth++)
-            {
-                int dayColumnIndex = FirstDayColumnIndex + dayOfMonth - 1;
-                if (dayOfMonth <= DateTime.DaysInMonth(sheetModel.Year, sheetModel.Month) && sheetModel.SystemGroups.Count > 0)
-                {
-                    SetSheetCellFormula(
-                        worksheet,
-                        dayCountRowIndex,
-                        dayColumnIndex,
-                        $"COUNTA({GetCellReference(dataStartRowIndex, dayColumnIndex)}:{GetCellReference(dataEndRowIndex, dayColumnIndex)})");
-                }
-                else
-                {
-                    SetSheetCellNumber(worksheet, dayCountRowIndex, dayColumnIndex, 0);
-                }
-            }
+            ClearMonthlyFooterDiagnosticValues(worksheet, footerStartRowIndex + 1, footerStartRowIndex + 2);
+        }
 
-            SetSheetCellFormula(worksheet, groupedTotalsRowIndex, 6, $"SUM(F{dayCountRowIndex}:M{dayCountRowIndex})");
-            SetSheetCellFormula(worksheet, groupedTotalsRowIndex, 13, $"SUM(N{dayCountRowIndex}:T{dayCountRowIndex})");
-            SetSheetCellFormula(worksheet, groupedTotalsRowIndex, 20, $"SUM(U{dayCountRowIndex}:AA{dayCountRowIndex})");
-            SetSheetCellFormula(worksheet, groupedTotalsRowIndex, 27, $"SUM(AB{dayCountRowIndex}:AH{dayCountRowIndex})");
-            SetSheetCellFormula(worksheet, groupedTotalsRowIndex, 34, $"SUM(AI{dayCountRowIndex}:AJ{dayCountRowIndex})");
-            SetSheetCellFormula(worksheet, groupedTotalsRowIndex, TotalHoursColumnIndex, $"SUM(F{groupedTotalsRowIndex}:AJ{groupedTotalsRowIndex})");
+        private static void ClearMonthlyFooterDiagnosticValues(Worksheet worksheet, uint startRowIndex, uint endRowIndex)
+        {
+            for (uint rowIndex = startRowIndex; rowIndex <= endRowIndex; rowIndex++)
+            {
+                Row row = GetOrCreateRow(worksheet, rowIndex);
+                ClearRowValues(row, FirstDayColumnIndex, TotalHoursColumnIndex);
+            }
         }
 
         private static void PopulateAnnualTotalsRow(
