@@ -117,6 +117,8 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         Assert.Equal("'КЦ (1)'!$A$15:$AQ$25", ReadDefinedName(packageBytes, "_xlnm._FilterDatabase", 0));
         Assert.Equal("'КЦ (1)'!$A$1:$AR$28", ReadDefinedName(packageBytes, "_xlnm.Print_Area", 0));
         Assert.Equal("SUM(AK16:AK21)", ReadCellFormula(packageBytes, "КЦ (1)", "AK22"));
+        AssertMonthlyFooterDiagnosticsAreBlank(packageBytes, "КЦ (1)", totalsRowIndex: 22);
+        AssertMonthlyPrintSettings(packageBytes, "КЦ (1)");
         Assert.False(HasCalculationChain(packageBytes));
         Assert.False(HasSharedFormulas(packageBytes, "КЦ (1)"));
         Assert.False(HasPanes(packageBytes, "КЦ (1)"));
@@ -1107,6 +1109,46 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         return FindCell(worksheetPart, cellReference)?.CellFormula?.Text ?? string.Empty;
     }
 
+    private static void AssertMonthlyFooterDiagnosticsAreBlank(byte[] packageBytes, string sheetName, uint totalsRowIndex)
+    {
+        using SpreadsheetDocument document = OpenDocument(packageBytes);
+        WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
+
+        for (uint rowIndex = totalsRowIndex + 1; rowIndex <= totalsRowIndex + 2; rowIndex++)
+        {
+            for (int columnIndex = 6; columnIndex <= 37; columnIndex++)
+            {
+                string cellReference = BuildCellReference(rowIndex, columnIndex);
+                Cell? cell = FindCell(worksheetPart, cellReference);
+                if (cell == null)
+                    continue;
+
+                string inlineText = cell.InlineString == null
+                    ? string.Empty
+                    : string.Concat(cell.InlineString.Descendants<Text>().Select(text => text.Text));
+                Assert.True(string.IsNullOrEmpty(cell.CellFormula?.Text), $"{sheetName} {cellReference} must not contain footer diagnostic formula.");
+                Assert.True(string.IsNullOrEmpty(cell.CellValue?.Text), $"{sheetName} {cellReference} must not contain footer diagnostic value.");
+                Assert.True(string.IsNullOrEmpty(inlineText), $"{sheetName} {cellReference} must not contain footer diagnostic text.");
+            }
+        }
+    }
+
+    private static string BuildCellReference(uint rowIndex, int columnIndex) => $"{BuildColumnName(columnIndex)}{rowIndex}";
+
+    private static string BuildColumnName(int columnIndex)
+    {
+        string columnName = string.Empty;
+        int current = columnIndex;
+        while (current > 0)
+        {
+            current--;
+            columnName = (char)('A' + current % 26) + columnName;
+            current /= 26;
+        }
+
+        return columnName;
+    }
+
     private static IReadOnlyList<double> ReadColumnWidths(
         byte[] packageBytes,
         string sheetName,
@@ -1198,6 +1240,29 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
         return worksheetPart.Worksheet.Descendants<CellFormula>()
             .Any(formula => formula.FormulaType?.Value == CellFormulaValues.Shared);
+    }
+
+    private static void AssertMonthlyPrintSettings(byte[] packageBytes, string sheetName)
+    {
+        using SpreadsheetDocument document = OpenDocument(packageBytes);
+        WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
+        Worksheet worksheet = worksheetPart.Worksheet;
+
+        PageSetupProperties pageSetupProperties = worksheet.SheetProperties?.PageSetupProperties
+            ?? throw new InvalidOperationException($"{sheetName}: page setup properties were not found.");
+        PageSetup pageSetup = worksheet.Elements<PageSetup>().SingleOrDefault()
+            ?? throw new InvalidOperationException($"{sheetName}: page setup was not found.");
+        PageMargins pageMargins = worksheet.Elements<PageMargins>().SingleOrDefault()
+            ?? throw new InvalidOperationException($"{sheetName}: page margins were not found.");
+
+        Assert.True(pageSetupProperties.FitToPage?.Value);
+        Assert.Equal(9U, pageSetup.PaperSize?.Value);
+        Assert.Equal(OrientationValues.Landscape, pageSetup.Orientation?.Value);
+        Assert.Equal(1U, pageSetup.FitToWidth?.Value);
+        Assert.Equal(0U, pageSetup.FitToHeight?.Value);
+        Assert.Null(pageSetup.Scale);
+        Assert.Equal(0.25d, pageMargins.Left?.Value);
+        Assert.Equal(0.25d, pageMargins.Right?.Value);
     }
 
     private static void AssertMonthlyHeaderRows(byte[] packageBytes, int month)
