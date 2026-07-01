@@ -10,6 +10,13 @@ namespace AsutpKnowledgeBase.Core.Tests;
 public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
 {
     private readonly KnowledgeBaseMaintenanceWorkbookExportService _service = new();
+    private static readonly string[] ConcreteSignatureNames =
+    [
+        "М.И.Малашкеевич",
+        "М.Ю.Трушин",
+        "А.А.Данилов",
+        "А.А.Королев"
+    ];
 
     [Fact]
     public void ExportMonth_UsesTemplateAndWritesSelectedMonthSheet()
@@ -79,10 +86,12 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
 
         KnowledgeBaseMaintenanceWorkbookExportResult result = _service.ExportMonth(null, model);
 
-        Assert.True(result.IsSuccess);
+        Assert.True(result.IsSuccess, result.ErrorMessage);
         byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
         Assert.Empty(result.ErrorMessage);
         AssertValidWorkbook(packageBytes);
+        AssertNoConcreteSignatureNames(packageBytes);
+        AssertSingleMonthlyApprovalSignatureLine(packageBytes);
 
         Assert.Equal("на январь 2027 года", ReadCellText(packageBytes, "КЦ (1)", "A12"));
         Assert.Equal("____ _______________ 2027 года", ReadCellText(packageBytes, "КЦ (1)", "AF6"));
@@ -725,6 +734,7 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         Assert.True(result.IsSuccess);
         byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
         AssertValidWorkbook(packageBytes);
+        AssertNoConcreteSignatureNames(packageBytes);
 
         Assert.Equal(new[] { "КЦ (2)", "Лист1" }, ReadSheetNames(packageBytes));
         Assert.Equal("на 2027 год", ReadCellText(packageBytes, "КЦ (2)", "A10"));
@@ -988,6 +998,29 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         using SpreadsheetDocument document = SpreadsheetDocument.Open(stream, false);
         List<ValidationErrorInfo> errors = new OpenXmlValidator().Validate(document).ToList();
         Assert.Empty(errors);
+    }
+
+    private static void AssertNoConcreteSignatureNames(byte[] packageBytes)
+    {
+        using SpreadsheetDocument document = OpenDocument(packageBytes);
+        foreach (string sharedString in ReadSharedStrings(document))
+        {
+            foreach (string forbiddenName in ConcreteSignatureNames)
+            {
+                Assert.False(
+                    sharedString.Contains(forbiddenName, StringComparison.Ordinal),
+                    $"Generated maintenance workbook still contains signature name '{forbiddenName}'.");
+            }
+        }
+    }
+
+    private static void AssertSingleMonthlyApprovalSignatureLine(byte[] packageBytes)
+    {
+        using SpreadsheetDocument document = OpenDocument(packageBytes);
+        int signatureLineCount = ReadSharedStrings(document)
+            .Count(static value => string.Equals(value, "___________________", StringComparison.Ordinal));
+
+        Assert.Equal(1, signatureLineCount);
     }
 
     private static string ReadCellText(byte[] packageBytes, string sheetName, string cellReference)

@@ -83,8 +83,14 @@ namespace AsutpKnowledgeBase.Services
             if (string.IsNullOrWhiteSpace(act.ActualLaborHours))
                 return "Укажите трудозатраты.";
 
+            if (string.IsNullOrWhiteSpace(act.CustomerName))
+                return "Укажите представителя цеха.";
+
             if (string.IsNullOrWhiteSpace(act.CustomerPosition))
                 return "Укажите должность представителя цеха.";
+
+            if (string.IsNullOrWhiteSpace(act.ApproverName))
+                return "Укажите утверждающего.";
 
             if (string.IsNullOrWhiteSpace(act.ApproverPosition))
                 return "Укажите должность утверждающего.";
@@ -123,10 +129,16 @@ namespace AsutpKnowledgeBase.Services
         {
             List<KbActExecutor> normalized = KnowledgeBaseDataService.NormalizeActExecutors(executors);
             if (normalized.Count == 0)
-                return "Укажите должность исполнителя.";
+                return "Укажите исполнителя.";
 
             foreach (KbActExecutor executor in normalized)
             {
+                bool hasName = !string.IsNullOrWhiteSpace(executor.LastName) ||
+                    !string.IsNullOrWhiteSpace(executor.FirstName) ||
+                    !string.IsNullOrWhiteSpace(executor.MiddleName);
+                if (!hasName)
+                    return "Укажите исполнителя.";
+
                 if (string.IsNullOrWhiteSpace(executor.Position))
                     return "Укажите должность исполнителя.";
             }

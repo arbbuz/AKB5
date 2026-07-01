@@ -40,6 +40,18 @@ namespace AsutpKnowledgeBase.Services
         private const string PlanText = "план";
         private const string FactText = "факт";
         private const string DefaultDashText = "-";
+        private const string SignatureBlankText = "___________________";
+        private static readonly IReadOnlyDictionary<string, string> MaintenanceSignatureTextReplacements =
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["___________________ М.И.Малашкеевич"] = SignatureBlankText,
+                ["М.И.Малашкеевич"] = string.Empty,
+                ["М.Ю.Трушин"] = string.Empty,
+                ["/М.Ю.Трушин"] = string.Empty,
+                ["А.А.Данилов"] = string.Empty,
+                ["/А.А.Данилов"] = string.Empty,
+                ["А.А.Королев"] = string.Empty
+            };
 
         private readonly KnowledgeBaseMaintenanceWorkbookTemplateService _templateService;
 
@@ -96,6 +108,7 @@ namespace AsutpKnowledgeBase.Services
                         templateLayout,
                         sheetModel);
 
+                    RemoveMaintenanceSignatureNames(workbookPart);
                     ResetWorkbookCalculationChain(workbookPart);
                     targetWorksheetPart.Worksheet.Save();
                     workbookPart.Workbook.Save();
@@ -208,6 +221,7 @@ namespace AsutpKnowledgeBase.Services
                         layout,
                         workbookModel);
 
+                    RemoveMaintenanceSignatureNames(workbookPart);
                     ResetWorkbookCalculationChain(workbookPart);
                     targetWorksheetPart.Worksheet.Save();
                     workbookPart.Workbook.Save();
@@ -987,6 +1001,32 @@ namespace AsutpKnowledgeBase.Services
             calculationProperties.CalculationMode = CalculateModeValues.Auto;
             calculationProperties.ForceFullCalculation = true;
             calculationProperties.FullCalculationOnLoad = true;
+        }
+
+        private static void RemoveMaintenanceSignatureNames(WorkbookPart workbookPart)
+        {
+            SharedStringTable? sharedStringTable = workbookPart.SharedStringTablePart?.SharedStringTable;
+            if (sharedStringTable == null)
+                return;
+
+            bool changed = false;
+            foreach (SharedStringItem item in sharedStringTable.Elements<SharedStringItem>())
+            {
+                string text = string.Concat(item.Descendants<Text>().Select(static value => value.Text));
+                if (!MaintenanceSignatureTextReplacements.TryGetValue(text.Trim(), out string? replacement))
+                    continue;
+
+                item.RemoveAllChildren();
+                item.AppendChild(
+                    new Text(replacement)
+                    {
+                        Space = SpaceProcessingModeValues.Preserve
+                    });
+                changed = true;
+            }
+
+            if (changed)
+                sharedStringTable.Save();
         }
 
         private static void PruneDefinedNamesToSingleSheet(WorkbookPart workbookPart, int originalLocalSheetId)

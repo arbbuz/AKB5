@@ -119,18 +119,16 @@ public class KnowledgeBaseActEditorServiceTests
     }
 
     [Fact]
-    public void PrepareForSave_AllowsBlankPersonNames()
+    public void PrepareForSave_RequiresApproverName()
     {
         var service = new KnowledgeBaseActEditorService();
         KbAct draft = CreateValidFailureAct(orderNumber: "6ES7307-1BA00-0AA0");
-        draft.CustomerName = " ";
         draft.ApproverName = " ";
 
         var result = service.PrepareForSave(draft);
 
-        Assert.True(result.IsSuccess, result.ErrorMessage);
-        Assert.Equal(string.Empty, result.Act!.CustomerName);
-        Assert.Equal(string.Empty, result.Act.ApproverName);
+        Assert.False(result.IsSuccess);
+        Assert.Equal("Укажите утверждающего.", result.ErrorMessage);
     }
 
     [Fact]
@@ -151,7 +149,7 @@ public class KnowledgeBaseActEditorServiceTests
     {
         string? result = KnowledgeBaseActEditorService.ValidateExecutorsForSave(Array.Empty<KbActExecutor>());
 
-        Assert.Equal("Укажите должность исполнителя.", result);
+        Assert.Equal("Укажите исполнителя.", result);
     }
 
     [Fact]
@@ -172,7 +170,7 @@ public class KnowledgeBaseActEditorServiceTests
     }
 
     [Fact]
-    public void ValidateExecutorsForSave_AcceptsExecutorPositionWithoutName()
+    public void ValidateExecutorsForSave_AcceptsNamedExecutorWithPosition()
     {
         string? result = KnowledgeBaseActEditorService.ValidateExecutorsForSave(
             new[]
@@ -180,6 +178,7 @@ public class KnowledgeBaseActEditorServiceTests
                 new KbActExecutor
                 {
                     ActId = "act-1",
+                    LastName = "Иванов",
                     Position = "инженер-электроник ОА БСО АСУ ТП УИТиА"
                 }
             });
