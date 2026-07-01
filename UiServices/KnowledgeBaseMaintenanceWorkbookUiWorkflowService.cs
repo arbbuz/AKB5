@@ -635,6 +635,7 @@ namespace AsutpKnowledgeBase.UiServices
             planningMode switch
             {
                 KnowledgeBaseMaintenancePlanningMode.BalancedV2 => "График ТО v2",
+                KnowledgeBaseMaintenancePlanningMode.SequentialV3 => "График ТО v3",
                 _ => "График ТО"
             };
 
@@ -642,6 +643,7 @@ namespace AsutpKnowledgeBase.UiServices
             planningMode switch
             {
                 KnowledgeBaseMaintenancePlanningMode.BalancedV2 => " v2",
+                KnowledgeBaseMaintenancePlanningMode.SequentialV3 => " v3",
                 _ => string.Empty
             };
 
@@ -649,6 +651,7 @@ namespace AsutpKnowledgeBase.UiServices
             planningMode switch
             {
                 KnowledgeBaseMaintenancePlanningMode.BalancedV2 => "_v2",
+                KnowledgeBaseMaintenancePlanningMode.SequentialV3 => "_v3",
                 _ => string.Empty
             };
 

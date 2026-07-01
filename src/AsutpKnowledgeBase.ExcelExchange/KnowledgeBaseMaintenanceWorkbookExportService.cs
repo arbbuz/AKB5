@@ -276,7 +276,6 @@ namespace AsutpKnowledgeBase.Services
             WriteHeader(targetWorksheet, targetLayout, sheetModel);
             NormalizeMonthSheetHeaderRows(targetWorksheet, targetLayout);
             NormalizeMonthlyDayColumns(targetWorksheet, DateTime.DaysInMonth(sheetModel.Year, sheetModel.Month));
-            ApplyMonthlyPrintSettings(targetWorksheet);
             ApplyHeaderDayCalendarStyles(workbookPart, targetWorksheet, targetLayout, sheetModel);
 
             uint currentRowIndex = targetLayout.DataStartRowIndex;
@@ -828,6 +827,8 @@ namespace AsutpKnowledgeBase.Services
             KbMaintenanceMonthSheetModel sheetModel)
         {
             uint totalsRowIndex = footerStartRowIndex;
+            uint dayCountRowIndex = footerStartRowIndex + 1;
+            uint groupedTotalsRowIndex = footerStartRowIndex + 2;
 
             Row totalsRow = GetOrCreateRow(worksheet, totalsRowIndex);
             ClearRowValues(totalsRow, FirstDayColumnIndex, TotalHoursColumnIndex - 1);
@@ -845,16 +846,29 @@ namespace AsutpKnowledgeBase.Services
                     $"SUM({GetCellReference(dataStartRowIndex, TotalHoursColumnIndex)}:{GetCellReference(dataEndRowIndex, TotalHoursColumnIndex)})");
             }
 
-            ClearMonthlyFooterDiagnosticValues(worksheet, footerStartRowIndex + 1, footerStartRowIndex + 2);
-        }
-
-        private static void ClearMonthlyFooterDiagnosticValues(Worksheet worksheet, uint startRowIndex, uint endRowIndex)
-        {
-            for (uint rowIndex = startRowIndex; rowIndex <= endRowIndex; rowIndex++)
+            for (int dayOfMonth = 1; dayOfMonth <= 31; dayOfMonth++)
             {
-                Row row = GetOrCreateRow(worksheet, rowIndex);
-                ClearRowValues(row, FirstDayColumnIndex, TotalHoursColumnIndex);
+                int dayColumnIndex = FirstDayColumnIndex + dayOfMonth - 1;
+                if (dayOfMonth <= DateTime.DaysInMonth(sheetModel.Year, sheetModel.Month) && sheetModel.SystemGroups.Count > 0)
+                {
+                    SetSheetCellFormula(
+                        worksheet,
+                        dayCountRowIndex,
+                        dayColumnIndex,
+                        $"COUNTA({GetCellReference(dataStartRowIndex, dayColumnIndex)}:{GetCellReference(dataEndRowIndex, dayColumnIndex)})");
+                }
+                else
+                {
+                    SetSheetCellNumber(worksheet, dayCountRowIndex, dayColumnIndex, 0);
+                }
             }
+
+            SetSheetCellFormula(worksheet, groupedTotalsRowIndex, 6, $"SUM(F{dayCountRowIndex}:M{dayCountRowIndex})");
+            SetSheetCellFormula(worksheet, groupedTotalsRowIndex, 13, $"SUM(N{dayCountRowIndex}:T{dayCountRowIndex})");
+            SetSheetCellFormula(worksheet, groupedTotalsRowIndex, 20, $"SUM(U{dayCountRowIndex}:AA{dayCountRowIndex})");
+            SetSheetCellFormula(worksheet, groupedTotalsRowIndex, 27, $"SUM(AB{dayCountRowIndex}:AH{dayCountRowIndex})");
+            SetSheetCellFormula(worksheet, groupedTotalsRowIndex, 34, $"SUM(AI{dayCountRowIndex}:AJ{dayCountRowIndex})");
+            SetSheetCellFormula(worksheet, groupedTotalsRowIndex, TotalHoursColumnIndex, $"SUM(F{groupedTotalsRowIndex}:AJ{groupedTotalsRowIndex})");
         }
 
         private static void PopulateAnnualTotalsRow(
@@ -879,70 +893,6 @@ namespace AsutpKnowledgeBase.Services
 
             string endColumn = GetRangeEndColumn(sheetDimension.Reference?.Value) ?? "AQ";
             sheetDimension.Reference = $"A1:{endColumn}{footerEndRowIndex}";
-        }
-
-        private static void ApplyMonthlyPrintSettings(Worksheet worksheet)
-        {
-            SheetProperties sheetProperties = GetOrCreateSheetProperties(worksheet);
-            PageSetupProperties pageSetupProperties =
-                sheetProperties.PageSetupProperties ?? sheetProperties.AppendChild(new PageSetupProperties());
-            pageSetupProperties.FitToPage = true;
-
-            PageMargins pageMargins = GetOrCreatePageMargins(worksheet);
-            pageMargins.Left = 0.25d;
-            pageMargins.Right = 0.25d;
-            pageMargins.Top = 0.35d;
-            pageMargins.Bottom = 0.35d;
-            pageMargins.Header = 0.2d;
-            pageMargins.Footer = 0.2d;
-
-            PageSetup pageSetup = GetOrCreatePageSetup(worksheet, pageMargins);
-            pageSetup.PaperSize = 9U;
-            pageSetup.Orientation = OrientationValues.Landscape;
-            pageSetup.FitToWidth = 1U;
-            pageSetup.FitToHeight = 0U;
-            pageSetup.Scale = null;
-        }
-
-        private static SheetProperties GetOrCreateSheetProperties(Worksheet worksheet)
-        {
-            SheetProperties? sheetProperties = worksheet.Elements<SheetProperties>().FirstOrDefault();
-            if (sheetProperties != null)
-                return sheetProperties;
-
-            sheetProperties = new SheetProperties();
-            worksheet.InsertAt(sheetProperties, 0);
-            return sheetProperties;
-        }
-
-        private static PageMargins GetOrCreatePageMargins(Worksheet worksheet)
-        {
-            PageMargins? pageMargins = worksheet.Elements<PageMargins>().FirstOrDefault();
-            if (pageMargins != null)
-                return pageMargins;
-
-            pageMargins = new PageMargins();
-            OpenXmlElement? previous = worksheet.Elements<PrintOptions>().LastOrDefault();
-            previous ??= worksheet.Elements<MergeCells>().LastOrDefault();
-            previous ??= worksheet.Elements<CustomSheetViews>().LastOrDefault();
-            previous ??= worksheet.Elements<SheetData>().LastOrDefault();
-            if (previous == null)
-                worksheet.AppendChild(pageMargins);
-            else
-                worksheet.InsertAfter(pageMargins, previous);
-
-            return pageMargins;
-        }
-
-        private static PageSetup GetOrCreatePageSetup(Worksheet worksheet, PageMargins pageMargins)
-        {
-            PageSetup? pageSetup = worksheet.Elements<PageSetup>().FirstOrDefault();
-            if (pageSetup != null)
-                return pageSetup;
-
-            pageSetup = new PageSetup();
-            worksheet.InsertAfter(pageSetup, pageMargins);
-            return pageSetup;
         }
 
         private static void UpdateDefinedRanges(
