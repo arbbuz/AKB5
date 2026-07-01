@@ -7,12 +7,14 @@ on:
       - card
       - Net
       - act
+      - maintenance-v2
   pull_request:
     branches:
       - to
       - card
       - Net
       - act
+      - maintenance-v2
   workflow_dispatch:
 
 permissions:
