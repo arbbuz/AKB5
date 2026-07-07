@@ -9,6 +9,8 @@ namespace AsutpKnowledgeBase.Services
 {
     public sealed class KnowledgeBaseActDocxGeneratorPlugin : IKnowledgeBaseActDocxGenerator
     {
+        private const int FixedExecutorSlotCount = 3;
+
         private static readonly string[] ExecutorPlaceholders =
         [
             "{{ExecutorIndex}}",
@@ -48,21 +50,19 @@ namespace AsutpKnowledgeBase.Services
                     if (mainPart?.Document?.Body == null)
                         return DeleteOutputAndFail(tempOutputPath, "Шаблон DOCX не содержит основной части документа.");
 
-                    IReadOnlyDictionary<string, string> scalarReplacements = BuildScalarReplacements(request.Act);
+                    var replacements = new Dictionary<string, string>(
+                        BuildScalarReplacements(request.Act),
+                        StringComparer.Ordinal);
                     IReadOnlyList<KbActExecutor> executors = NormalizeExecutors(request.Executors);
-                    if (!PopulateExecutorTable(mainPart.Document.Body, scalarReplacements, executors))
-                    {
-                        return DeleteOutputAndFail(
-                            outputPath,
-                            "В шаблоне DOCX не найдена строка таблицы исполнителей с {{ExecutorName}}.");
-                    }
+                    AddFixedExecutorReplacements(replacements, executors);
+                    PopulateExecutorTable(mainPart.Document.Body, replacements, executors);
 
-                    ReplacePlaceholders(mainPart.Document.Body, scalarReplacements);
+                    ReplacePlaceholders(mainPart.Document.Body, replacements);
                     foreach (HeaderPart headerPart in mainPart.HeaderParts)
-                        ReplacePlaceholders(headerPart.Header, scalarReplacements);
+                        ReplacePlaceholders(headerPart.Header, replacements);
 
                     foreach (FooterPart footerPart in mainPart.FooterParts)
-                        ReplacePlaceholders(footerPart.Footer, scalarReplacements);
+                        ReplacePlaceholders(footerPart.Footer, replacements);
 
                     mainPart.Document.Save();
                 }
@@ -99,9 +99,12 @@ namespace AsutpKnowledgeBase.Services
                 ["{{ObjectName}}"] = act.ObjectNameSnapshot,
                 ["{{Lvl3Name}}"] = act.Lvl3NameSnapshot,
                 ["{{ObjectPath}}"] = act.ObjectPathSnapshot,
+                ["{{InstallationPlace}}"] = FormatInstallationPlace(act),
+                ["{{InspectionWorkDescription}}"] = FormatInspectionWorkDescription(act),
                 ["{{EquipmentName}}"] = act.EquipmentName,
                 ["{{EquipmentModel}}"] = snapshot?.Model ?? string.Empty,
                 ["{{OrderNumber}}"] = snapshot?.OrderNumber ?? string.Empty,
+                ["{{SerialNumber}}"] = snapshot?.SerialNumber ?? string.Empty,
                 ["{{FailureDate}}"] = FormatDate(act.FailureDate),
                 ["{{FaultDescription}}"] = act.FaultDescription,
                 ["{{FailureReason}}"] = act.FailureReason,
@@ -113,8 +116,38 @@ namespace AsutpKnowledgeBase.Services
                 ["{{CustomerPosition}}"] = act.CustomerPosition,
                 ["{{ApproverName}}"] = act.ApproverName,
                 ["{{ApproverPosition}}"] = act.ApproverPosition,
-                ["{{CreatedBy}}"] = act.CreatedBy
+                ["{{CreatedBy}}"] = act.CreatedBy,
+                ["{{ContactPerson}}"] = string.Empty
             };
+        }
+
+        private static string FormatInstallationPlace(KbAct act)
+        {
+            string workshopName = act.WorkshopName?.Trim() ?? string.Empty;
+            string objectName = act.ObjectNameSnapshot?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(workshopName) &&
+                !string.IsNullOrWhiteSpace(objectName))
+            {
+                return $"{workshopName}, {objectName}";
+            }
+
+            return !string.IsNullOrWhiteSpace(workshopName)
+                ? workshopName
+                : objectName;
+        }
+
+        private static string FormatInspectionWorkDescription(KbAct act)
+        {
+            string[] parts =
+            [
+                FormatInstallationPlace(act),
+                act.EquipmentName?.Trim() ?? string.Empty,
+                act.FaultDescription?.Trim() ?? string.Empty
+            ];
+
+            return string.Join(
+                ". ",
+                parts.Where(static part => !string.IsNullOrWhiteSpace(part)));
         }
 
         private static IReadOnlyList<KbActExecutor> NormalizeExecutors(IReadOnlyList<KbActExecutor>? executors) =>
@@ -122,6 +155,21 @@ namespace AsutpKnowledgeBase.Services
                 .OrderBy(static executor => executor.SortOrder)
                 .ThenBy(static executor => executor.ExecutorId, StringComparer.Ordinal)
                 .ToList();
+
+        private static void AddFixedExecutorReplacements(
+            IDictionary<string, string> replacements,
+            IReadOnlyList<KbActExecutor> executors)
+        {
+            for (int i = 0; i < FixedExecutorSlotCount; i++)
+            {
+                KbActExecutor? executor = i < executors.Count ? executors[i] : null;
+                string slot = (i + 1).ToString(CultureInfo.InvariantCulture);
+                replacements[$"{{{{Executor{slot}Name}}}}"] = executor == null
+                    ? string.Empty
+                    : FormatExecutorName(executor);
+                replacements[$"{{{{Executor{slot}Position}}}}"] = executor?.Position ?? string.Empty;
+            }
+        }
 
         private static bool PopulateExecutorTable(
             Body body,
@@ -175,17 +223,24 @@ namespace AsutpKnowledgeBase.Services
                 return;
 
             foreach (Paragraph paragraph in root.Descendants<Paragraph>())
-                ReplacePlaceholdersInScope(paragraph, replacements);
+                ReplacePlaceholdersInParagraph(paragraph, replacements);
 
-            foreach (Text text in root.Descendants<Text>())
+            foreach (Text text in root.Descendants<Text>()
+                         .Where(static text => !text.Ancestors<Paragraph>().Any()))
                 text.Text = ReplacePlaceholdersInValue(text.Text, replacements);
         }
 
-        private static void ReplacePlaceholdersInScope(
-            OpenXmlElement scope,
+        private static void ReplacePlaceholdersInParagraph(
+            Paragraph paragraph,
             IReadOnlyDictionary<string, string> replacements)
         {
-            List<Text> textNodes = scope.Descendants<Text>().ToList();
+            List<Text> textNodes = paragraph.Descendants<Text>().ToList();
+            if (textNodes.Count == 0)
+                return;
+
+            foreach (Text text in textNodes)
+                text.Text = ReplacePlaceholdersInValue(text.Text, replacements);
+
             if (textNodes.Count <= 1)
                 return;
 
