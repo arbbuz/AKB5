@@ -137,6 +137,7 @@ namespace AsutpKnowledgeBase
             rootLayout.Controls.Add(tabs, 0, 0);
             rootLayout.Controls.Add(buttonsPanel, 0, 1);
             Controls.Add(rootLayout);
+            UpdateDescriptionFieldsState();
 
             AcceptButton = btnSave;
             CancelButton = btnCancel;
@@ -161,6 +162,7 @@ namespace AsutpKnowledgeBase
             };
             _cmbActType.Items.Add(new ActTypeOption(KbActType.EquipmentFailure, "Отказ оборудования"));
             _cmbActType.Items.Add(new ActTypeOption(KbActType.InspectionWork, "Осмотр / выполненные работы"));
+            _cmbActType.SelectedIndexChanged += (_, _) => UpdateDescriptionFieldsState();
             SelectActType(_draft.ActType);
 
             _dtpActDate = CreateDatePicker(_draft.ActDate ?? DateTime.Today);
@@ -353,6 +355,18 @@ namespace AsutpKnowledgeBase
             }
 
             _cmbActType.SelectedIndex = 0;
+        }
+
+        private void UpdateDescriptionFieldsState()
+        {
+            if (_txtFaultDescription == null || _txtFailureReason == null)
+                return;
+
+            bool isInspectionWork = _cmbActType.SelectedItem is ActTypeOption option &&
+                option.Value == KbActType.InspectionWork;
+
+            _txtFaultDescription.Enabled = !isInspectionWork;
+            _txtFailureReason.Enabled = !isInspectionWork;
         }
 
         private static TableLayoutPanel CreateFormLayout(int rowCount)

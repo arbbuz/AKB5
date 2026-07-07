@@ -106,6 +106,18 @@ public class KnowledgeBaseActEditorServiceTests
     }
 
     [Fact]
+    public void PrepareForSave_DoesNotRequireInspectionResultForFailureAct()
+    {
+        var service = new KnowledgeBaseActEditorService();
+        KbAct draft = CreateValidFailureAct(orderNumber: "6ES7307-1BA00-0AA0");
+        draft.InspectionResult = " ";
+
+        var result = service.PrepareForSave(draft);
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+    }
+
+    [Fact]
     public void PrepareForSave_RequiresCustomerPosition()
     {
         var service = new KnowledgeBaseActEditorService();
@@ -199,6 +211,20 @@ public class KnowledgeBaseActEditorServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal("Укажите результат осмотра.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void PrepareForSave_DoesNotRequireFailureFieldsForInspectionAct()
+    {
+        var service = new KnowledgeBaseActEditorService();
+        KbAct draft = CreateValidFailureAct(orderNumber: "6ES7307-1BA00-0AA0");
+        draft.ActType = KbActType.InspectionWork;
+        draft.FaultDescription = " ";
+        draft.FailureReason = " ";
+
+        var result = service.PrepareForSave(draft);
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
     }
 
     private static KbAct CreateValidFailureAct(string orderNumber) =>

@@ -109,9 +109,6 @@ namespace AsutpKnowledgeBase.Services
                 if (string.IsNullOrWhiteSpace(act.FailureReason))
                     return "Укажите причину отказа.";
 
-                if (string.IsNullOrWhiteSpace(act.InspectionResult))
-                    return "Укажите результат осмотра.";
-
                 if (string.IsNullOrWhiteSpace(act.FaultCriterion))
                     return "Укажите критерий отказа.";
             }
