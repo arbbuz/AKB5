@@ -272,6 +272,94 @@ public sealed class KnowledgeBaseActDocxGeneratorTests
         Assert.DoesNotContain("{{", documentText, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Generate_WithExternalInspectionTemplate_PreservesLongInspectionResult()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string templatePath = Path.Combine(
+            repositoryRoot,
+            "Templates",
+            "Acts",
+            KnowledgeBaseActDocxTemplateService.GetTemplateFileName(KbActType.InspectionWork));
+        string outputPath = Path.Combine(CreateTempDirectory(), "inspection-template-long-result.docx");
+        KbAct act = CreateInspectionAct();
+        act.InspectionResult = string.Join(
+            " ",
+            Enumerable.Range(1, 45).Select(static index => $"inspection-result-segment-{index:D2}"))
+            + " tail-token-zeta";
+        var generator = new KnowledgeBaseActDocxGeneratorPlugin();
+
+        KnowledgeBaseActDocxGenerationResult result = generator.Generate(
+            new KnowledgeBaseActDocxGenerationRequest
+            {
+                Act = act,
+                Executors =
+                [
+                    CreateExecutor(
+                        "executor-1",
+                        1,
+                        "Ivanov",
+                        "Ivan",
+                        "Ivanovich",
+                        "lead-engineer-for-automation-systems executor-position-tail-token")
+                ],
+                TemplatePath = templatePath,
+                OutputPath = outputPath
+            });
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        string documentText = ReadDocumentText(outputPath);
+        string normalizedDocumentText = NormalizeWhitespace(documentText);
+        Assert.Contains("inspection-result-segment-01", normalizedDocumentText, StringComparison.Ordinal);
+        Assert.Contains("inspection-result-segment-45", normalizedDocumentText, StringComparison.Ordinal);
+        Assert.Contains("tail-token-zeta", normalizedDocumentText, StringComparison.Ordinal);
+        Assert.Contains("executor-position-tail-token", normalizedDocumentText, StringComparison.Ordinal);
+        Assert.DoesNotContain("...", normalizedDocumentText, StringComparison.Ordinal);
+        Assert.DoesNotContain("{{", documentText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_WithExternalInspectionTemplate_SplitsLongExecutorNamePositionAcrossTwoRows()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string templatePath = Path.Combine(
+            repositoryRoot,
+            "Templates",
+            "Acts",
+            KnowledgeBaseActDocxTemplateService.GetTemplateFileName(KbActType.InspectionWork));
+        string outputPath = Path.Combine(CreateTempDirectory(), "inspection-template-executor-lines.docx");
+        KbAct act = CreateInspectionAct();
+        var generator = new KnowledgeBaseActDocxGeneratorPlugin();
+
+        KnowledgeBaseActDocxGenerationResult result = generator.Generate(
+            new KnowledgeBaseActDocxGenerationRequest
+            {
+                Act = act,
+                Executors =
+                [
+                    CreateExecutor(
+                        "executor-1",
+                        1,
+                        "Belikov",
+                        "Alexey",
+                        string.Empty,
+                        "lead engineer automation unit area block section tail-token")
+                ],
+                TemplatePath = templatePath,
+                OutputPath = outputPath
+            });
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        string documentText = ReadDocumentText(outputPath);
+        Assert.Contains("Belikov Alexey, lead engineer automation unit", documentText, StringComparison.Ordinal);
+        Assert.Contains("area block section tail-token", documentText, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "Belikov Alexey, lead engineer automation unit area block section tail-token",
+            documentText,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("{{", documentText, StringComparison.Ordinal);
+    }
+
 
     private static void CreateTemplate(string path)
     {
@@ -343,6 +431,11 @@ public sealed class KnowledgeBaseActDocxGeneratorTests
             "\n",
             document.MainDocumentPart!.Document.Descendants<Text>().Select(static text => text.Text));
     }
+
+    private static string NormalizeWhitespace(string value) =>
+        string.Join(
+            " ",
+            value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     private static string CreateTempDirectory()
     {

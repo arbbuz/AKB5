@@ -11,9 +11,10 @@ namespace AsutpKnowledgeBase.Services
     {
         private const int FixedExecutorSlotCount = 3;
         private const int ObjectLineMaxLength = 105;
-        private const int InspectionResultLineMaxLength = 105;
+        private const int InspectionResultBaseLineCount = 8;
+        private const int InspectionResultLineMaxLength = 78;
         private const int CustomerNamePositionLineMaxLength = 95;
-        private const int ExecutorNamePositionMaxLength = 62;
+        private const int ExecutorNamePositionMaxLength = 49;
         private const int SignatureNameMaxLength = 48;
 
         private static readonly string[] ExecutorPlaceholders =
@@ -59,7 +60,11 @@ namespace AsutpKnowledgeBase.Services
                         BuildScalarReplacements(request.Act),
                         StringComparer.Ordinal);
                     IReadOnlyList<KbActExecutor> executors = NormalizeExecutors(request.Executors);
-                    AddAcceptedInspectionTemplateReplacements(replacements, request.Act, executors);
+                    int inspectionResultLineCount = AddAcceptedInspectionTemplateReplacements(
+                        replacements,
+                        request.Act,
+                        executors);
+                    EnsureAcceptedInspectionResultRows(mainPart.Document.Body, inspectionResultLineCount);
                     AddFixedExecutorReplacements(replacements, executors);
                     PopulateExecutorTable(mainPart.Document.Body, replacements, executors);
 
@@ -128,7 +133,7 @@ namespace AsutpKnowledgeBase.Services
             };
         }
 
-        private static void AddAcceptedInspectionTemplateReplacements(
+        private static int AddAcceptedInspectionTemplateReplacements(
             IDictionary<string, string> replacements,
             KbAct act,
             IReadOnlyList<KbActExecutor> executors)
@@ -140,10 +145,10 @@ namespace AsutpKnowledgeBase.Services
                 FormatEquipmentAndRequestDescription(act),
                 ObjectLineMaxLength);
 
-            string[] inspectionResultLines = SplitIntoFixedLines(
+            string[] inspectionResultLines = SplitIntoFixedLinesPreservingOverflow(
                 act.InspectionResult,
                 InspectionResultLineMaxLength,
-                lineCount: 6);
+                minimumLineCount: InspectionResultBaseLineCount);
             for (int i = 0; i < inspectionResultLines.Length; i++)
             {
                 string slot = (i + 1).ToString(CultureInfo.InvariantCulture);
@@ -154,20 +159,24 @@ namespace AsutpKnowledgeBase.Services
                 FormatNamePosition(act.CustomerName, act.CustomerPosition),
                 CustomerNamePositionLineMaxLength,
                 lineCount: 2);
+            replacements["{{CustomerNamePosition}}"] = customerLines[0];
             replacements["{{CustomerNamePosition1}}"] = customerLines[0];
             replacements["{{CustomerNamePosition2}}"] = customerLines[1];
             replacements["{{CustomerSignatureName}}"] = FitSingleLine(act.CustomerName, SignatureNameMaxLength);
 
             KbActExecutor? executor = executors.FirstOrDefault();
             string executorName = executor == null ? string.Empty : FormatExecutorName(executor);
-            replacements["{{ExecutorNamePosition}}"] = FitSingleLine(
+            string[] executorLines = SplitIntoTwoLinesPreservingRemainder(
                 FormatNamePosition(executorName, executor?.Position ?? string.Empty),
                 ExecutorNamePositionMaxLength);
+            replacements["{{ExecutorNamePosition}}"] = executorLines[0];
+            replacements["{{ExecutorNamePosition2}}"] = executorLines[1];
             replacements["{{ExecutorSignatureName}}"] = FitSingleLine(executorName, SignatureNameMaxLength);
 
             replacements["{{TransferredToLine}}"] = string.Empty;
             replacements["{{WorkStart}}"] = FormatDate(act.FailureDate ?? act.ActDate);
             replacements["{{WorkEnd}}"] = FormatDate(act.ActDate);
+            return inspectionResultLines.Length;
         }
 
         private static string FormatInstallationPlace(KbAct act)
@@ -257,6 +266,47 @@ namespace AsutpKnowledgeBase.Services
             return lines.ToArray();
         }
 
+        private static string[] SplitIntoTwoLinesPreservingRemainder(string value, int maxLength)
+        {
+            string remaining = NormalizeInlineText(value);
+            if (remaining.Length <= maxLength)
+                return [remaining, string.Empty];
+
+            int splitIndex = FindSplitIndex(remaining, maxLength);
+            return
+            [
+                remaining[..splitIndex].Trim(),
+                remaining[splitIndex..].Trim()
+            ];
+        }
+
+        private static string[] SplitIntoFixedLinesPreservingOverflow(
+            string value,
+            int maxLength,
+            int minimumLineCount)
+        {
+            var lines = new List<string>(minimumLineCount);
+            string remaining = NormalizeInlineText(value);
+            while (!string.IsNullOrWhiteSpace(remaining))
+            {
+                if (remaining.Length <= maxLength)
+                {
+                    lines.Add(remaining);
+                    remaining = string.Empty;
+                    break;
+                }
+
+                int splitIndex = FindSplitIndex(remaining, maxLength);
+                lines.Add(remaining[..splitIndex].Trim());
+                remaining = remaining[splitIndex..].Trim();
+            }
+
+            while (lines.Count < minimumLineCount)
+                lines.Add(string.Empty);
+
+            return lines.ToArray();
+        }
+
         private static int FindSplitIndex(string value, int maxLength)
         {
             int upperBound = Math.Min(maxLength, value.Length - 1);
@@ -337,6 +387,37 @@ namespace AsutpKnowledgeBase.Services
 
             markerRow.Remove();
             return true;
+        }
+
+        private static void EnsureAcceptedInspectionResultRows(Body body, int lineCount)
+        {
+            if (lineCount <= InspectionResultBaseLineCount)
+                return;
+
+            TableRow? markerRow = body
+                .Descendants<TableRow>()
+                .FirstOrDefault(static row =>
+                    row.InnerText.Contains(
+                        $"{{{{InspectionResultLine{InspectionResultBaseLineCount}}}}}",
+                        StringComparison.Ordinal));
+            if (markerRow?.Parent == null)
+                return;
+
+            OpenXmlElement parent = markerRow.Parent;
+            OpenXmlElement insertAfter = markerRow;
+            for (int line = InspectionResultBaseLineCount + 1; line <= lineCount; line++)
+            {
+                var row = (TableRow)markerRow.CloneNode(deep: true);
+                ReplacePlaceholders(
+                    row,
+                    new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        [$"{{{{InspectionResultLine{InspectionResultBaseLineCount}}}}}"] =
+                            $"{{{{InspectionResultLine{line}}}}}"
+                    });
+                parent.InsertAfter(row, insertAfter);
+                insertAfter = row;
+            }
         }
 
         private static bool ContainsExecutorPlaceholder(OpenXmlElement element)
