@@ -10,6 +10,11 @@ namespace AsutpKnowledgeBase.Services
     public sealed class KnowledgeBaseActDocxGeneratorPlugin : IKnowledgeBaseActDocxGenerator
     {
         private const int FixedExecutorSlotCount = 3;
+        private const int ObjectLineMaxLength = 105;
+        private const int InspectionResultLineMaxLength = 105;
+        private const int CustomerNamePositionLineMaxLength = 95;
+        private const int ExecutorNamePositionMaxLength = 62;
+        private const int SignatureNameMaxLength = 48;
 
         private static readonly string[] ExecutorPlaceholders =
         [
@@ -54,6 +59,7 @@ namespace AsutpKnowledgeBase.Services
                         BuildScalarReplacements(request.Act),
                         StringComparer.Ordinal);
                     IReadOnlyList<KbActExecutor> executors = NormalizeExecutors(request.Executors);
+                    AddAcceptedInspectionTemplateReplacements(replacements, request.Act, executors);
                     AddFixedExecutorReplacements(replacements, executors);
                     PopulateExecutorTable(mainPart.Document.Body, replacements, executors);
 
@@ -93,6 +99,7 @@ namespace AsutpKnowledgeBase.Services
                     ? act.ActYear.ToString(CultureInfo.InvariantCulture)
                     : string.Empty,
                 ["{{ActDate}}"] = FormatDate(act.ActDate),
+                ["{{ApprovalDate}}"] = FormatDate(act.ActDate),
                 ["{{ActType}}"] = KnowledgeBaseActJournalService.FormatActType(act.ActType),
                 ["{{Status}}"] = KnowledgeBaseActJournalService.FormatStatus(act.Status),
                 ["{{WorkshopName}}"] = act.WorkshopName,
@@ -119,6 +126,48 @@ namespace AsutpKnowledgeBase.Services
                 ["{{CreatedBy}}"] = act.CreatedBy,
                 ["{{ContactPerson}}"] = string.Empty
             };
+        }
+
+        private static void AddAcceptedInspectionTemplateReplacements(
+            IDictionary<string, string> replacements,
+            KbAct act,
+            IReadOnlyList<KbActExecutor> executors)
+        {
+            replacements["{{ObjectLine1}}"] = FitSingleLine(
+                FormatInstallationPlace(act),
+                ObjectLineMaxLength);
+            replacements["{{ObjectLine2}}"] = FitSingleLine(
+                FormatEquipmentAndRequestDescription(act),
+                ObjectLineMaxLength);
+
+            string[] inspectionResultLines = SplitIntoFixedLines(
+                act.InspectionResult,
+                InspectionResultLineMaxLength,
+                lineCount: 6);
+            for (int i = 0; i < inspectionResultLines.Length; i++)
+            {
+                string slot = (i + 1).ToString(CultureInfo.InvariantCulture);
+                replacements[$"{{{{InspectionResultLine{slot}}}}}"] = inspectionResultLines[i];
+            }
+
+            string[] customerLines = SplitIntoFixedLines(
+                FormatNamePosition(act.CustomerName, act.CustomerPosition),
+                CustomerNamePositionLineMaxLength,
+                lineCount: 2);
+            replacements["{{CustomerNamePosition1}}"] = customerLines[0];
+            replacements["{{CustomerNamePosition2}}"] = customerLines[1];
+            replacements["{{CustomerSignatureName}}"] = FitSingleLine(act.CustomerName, SignatureNameMaxLength);
+
+            KbActExecutor? executor = executors.FirstOrDefault();
+            string executorName = executor == null ? string.Empty : FormatExecutorName(executor);
+            replacements["{{ExecutorNamePosition}}"] = FitSingleLine(
+                FormatNamePosition(executorName, executor?.Position ?? string.Empty),
+                ExecutorNamePositionMaxLength);
+            replacements["{{ExecutorSignatureName}}"] = FitSingleLine(executorName, SignatureNameMaxLength);
+
+            replacements["{{TransferredToLine}}"] = string.Empty;
+            replacements["{{WorkStart}}"] = FormatDate(act.FailureDate ?? act.ActDate);
+            replacements["{{WorkEnd}}"] = FormatDate(act.ActDate);
         }
 
         private static string FormatInstallationPlace(KbAct act)
@@ -149,6 +198,88 @@ namespace AsutpKnowledgeBase.Services
                 ". ",
                 parts.Where(static part => !string.IsNullOrWhiteSpace(part)));
         }
+
+        private static string FormatEquipmentAndRequestDescription(KbAct act)
+        {
+            string[] parts =
+            [
+                act.EquipmentName?.Trim() ?? string.Empty,
+                act.FaultDescription?.Trim() ?? string.Empty
+            ];
+
+            return string.Join(
+                ". ",
+                parts.Where(static part => !string.IsNullOrWhiteSpace(part)));
+        }
+
+        private static string FormatNamePosition(string name, string position)
+        {
+            string normalizedName = NormalizeInlineText(name);
+            string normalizedPosition = NormalizeInlineText(position);
+            if (string.IsNullOrWhiteSpace(normalizedName))
+                return normalizedPosition;
+
+            if (string.IsNullOrWhiteSpace(normalizedPosition))
+                return normalizedName;
+
+            return $"{normalizedName}, {normalizedPosition}";
+        }
+
+        private static string[] SplitIntoFixedLines(string value, int maxLength, int lineCount)
+        {
+            var lines = new List<string>(lineCount);
+            string remaining = NormalizeInlineText(value);
+            while (lines.Count < lineCount && !string.IsNullOrWhiteSpace(remaining))
+            {
+                bool isLastLine = lines.Count == lineCount - 1;
+                if (remaining.Length <= maxLength)
+                {
+                    lines.Add(remaining);
+                    remaining = string.Empty;
+                    break;
+                }
+
+                if (isLastLine)
+                {
+                    lines.Add(FitSingleLine(remaining, maxLength));
+                    remaining = string.Empty;
+                    break;
+                }
+
+                int splitIndex = FindSplitIndex(remaining, maxLength);
+                lines.Add(remaining[..splitIndex].Trim());
+                remaining = remaining[splitIndex..].Trim();
+            }
+
+            while (lines.Count < lineCount)
+                lines.Add(string.Empty);
+
+            return lines.ToArray();
+        }
+
+        private static int FindSplitIndex(string value, int maxLength)
+        {
+            int upperBound = Math.Min(maxLength, value.Length - 1);
+            int splitIndex = value.LastIndexOf(' ', upperBound);
+            return splitIndex > 0 ? splitIndex : Math.Min(maxLength, value.Length);
+        }
+
+        private static string FitSingleLine(string value, int maxLength)
+        {
+            string normalized = NormalizeInlineText(value);
+            if (normalized.Length <= maxLength)
+                return normalized;
+
+            return maxLength <= 3
+                ? normalized[..maxLength]
+                : string.Concat(normalized.AsSpan(0, maxLength - 3), "...");
+        }
+
+        private static string NormalizeInlineText(string? value) =>
+            string.Join(
+                " ",
+                (value ?? string.Empty)
+                    .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
         private static IReadOnlyList<KbActExecutor> NormalizeExecutors(IReadOnlyList<KbActExecutor>? executors) =>
             KnowledgeBaseDataService.NormalizeActExecutors(executors)
