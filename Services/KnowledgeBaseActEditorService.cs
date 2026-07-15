@@ -151,6 +151,17 @@ namespace AsutpKnowledgeBase.Services
                 ActNumber = act.ActNumber,
                 ActType = act.ActType,
                 Status = act.Status,
+                SignedAt = act.SignedAt,
+                StatusHistory = act.StatusHistory
+                    ?.Select(change => new KbActStatusChange
+                    {
+                        ChangeId = change.ChangeId,
+                        PreviousStatus = change.PreviousStatus,
+                        NewStatus = change.NewStatus,
+                        ChangedAt = change.ChangedAt,
+                        ChangedBy = change.ChangedBy
+                    })
+                    .ToList() ?? new List<KbActStatusChange>(),
                 ActDate = act.ActDate,
                 WorkshopName = act.WorkshopName,
                 Lvl3NodeId = act.Lvl3NodeId,

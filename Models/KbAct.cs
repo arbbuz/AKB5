@@ -10,14 +10,8 @@ namespace AsutpKnowledgeBase.Models
     {
         Draft = 0,
         Generated = 1,
-        [System.Diagnostics.CodeAnalysis.SuppressMessage(
-            "Naming",
-            "CA1720:Identifier contains type name",
-            Justification = "The accepted acts roadmap uses Signed as the act status name.")]
         Signed = 2,
-        Cancelled = 3,
-        Archived = 4,
-        Annulled = 5
+        Cancelled = 3
     }
 
     public class KbAct
@@ -31,6 +25,10 @@ namespace AsutpKnowledgeBase.Models
         public KbActType ActType { get; set; } = KbActType.EquipmentFailure;
 
         public KbActStatus Status { get; set; } = KbActStatus.Draft;
+
+        public DateTime? SignedAt { get; set; }
+
+        public List<KbActStatusChange> StatusHistory { get; set; } = new();
 
         public DateTime? ActDate { get; set; }
 

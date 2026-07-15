@@ -170,11 +170,11 @@ namespace AsutpKnowledgeBase
                     case KnowledgeBaseActsJournalAction.DeleteDraft:
                         DeleteDraftActFromJournal(e.ActId, journalForm);
                         break;
+                    case KnowledgeBaseActsJournalAction.SignAct:
+                        ChangeActStatusFromJournal(e.ActId, KbActStatus.Signed, journalForm);
+                        break;
                     case KnowledgeBaseActsJournalAction.CancelAct:
                         ChangeActStatusFromJournal(e.ActId, KbActStatus.Cancelled, journalForm);
-                        break;
-                    case KnowledgeBaseActsJournalAction.AnnulAct:
-                        ChangeActStatusFromJournal(e.ActId, KbActStatus.Annulled, journalForm);
                         break;
                 }
             }
@@ -198,6 +198,12 @@ namespace AsutpKnowledgeBase
                 return false;
             }
 
+            if (!KnowledgeBaseActStatusService.CanEdit(act.Status))
+            {
+                ShowActJournalError("Подписанный или отмененный акт нельзя редактировать.", owner);
+                return false;
+            }
+
             IReadOnlyList<KbActExecutor> executors = GetActExecutors(actId);
             using var dialog = new KnowledgeBaseActForm(act, executors);
             if (dialog.ShowDialog(owner) != DialogResult.OK)
@@ -206,7 +212,7 @@ namespace AsutpKnowledgeBase
             if (dialog.DocumentGenerationRequested &&
                 !KnowledgeBaseActJournalService.CanGenerateDocument(act.Status))
             {
-                ShowActJournalError("Для отмененного или аннулированного акта DOCX не формируется.", owner);
+                ShowActJournalError("Для подписанного или отмененного акта DOCX не формируется.", owner);
                 return false;
             }
 
@@ -238,7 +244,7 @@ namespace AsutpKnowledgeBase
 
             if (!KnowledgeBaseActJournalService.CanGenerateDocument(act.Status))
             {
-                ShowActJournalError("Для отмененного или аннулированного акта DOCX не формируется.", owner);
+                ShowActJournalError("Для подписанного или отмененного акта DOCX не формируется.", owner);
                 return false;
             }
 
@@ -331,31 +337,86 @@ namespace AsutpKnowledgeBase
                 return false;
             }
 
-            if (!KnowledgeBaseActJournalService.CanChangeStatus(act.Status))
+            if ((status == KbActStatus.Signed && !KnowledgeBaseActStatusService.CanSign(act.Status)) ||
+                (status == KbActStatus.Cancelled && !KnowledgeBaseActStatusService.CanCancel(act.Status)))
             {
                 ShowActJournalError("Статус этого акта уже нельзя изменить через журнал.", owner);
                 return false;
             }
 
-            string statusText = KnowledgeBaseActJournalService.FormatStatus(status);
-            DialogResult confirmResult = MessageBox.Show(
-                owner,
-                $"Изменить статус выбранного акта на \"{statusText}\"?",
-                "Журнал актов",
-                MessageBoxButtons.OKCancel,
-                MessageBoxIcon.Warning);
-            if (confirmResult != DialogResult.OK)
-                return false;
+            if (status == KbActStatus.Cancelled)
+            {
+                DialogResult confirmResult = MessageBox.Show(
+                    owner,
+                    "Отменить акт? Сформированный DOCX будет удален.",
+                    "Журнал актов",
+                    MessageBoxButtons.OKCancel,
+                    MessageBoxIcon.Warning);
+                if (confirmResult != DialogResult.OK)
+                    return false;
+            }
 
-            KbAct updatedAct = KnowledgeBaseActEditorService.CloneAct(act);
-            updatedAct.Status = status;
-            updatedAct.UpdatedAt = DateTime.Now;
+            string statusText = KnowledgeBaseActJournalService.FormatStatus(status);
+
+            var statusService = new KnowledgeBaseActStatusService();
+            KnowledgeBaseActStatusChangeResult statusChangeResult = statusService.PrepareStatusChange(
+                new KnowledgeBaseActStatusChangeRequest
+                {
+                    Act = act,
+                    NewStatus = status,
+                    ChangedAt = DateTime.Now,
+                    SignedAt = status == KbActStatus.Signed ? DateTime.Today : null
+                });
+            if (!statusChangeResult.IsSuccess || statusChangeResult.Act == null)
+            {
+                ShowActJournalError(statusChangeResult.ErrorMessage, owner);
+                return false;
+            }
+
+            if (status == KbActStatus.Cancelled &&
+                !DeleteActDocumentsForCancellation(actId, owner))
+            {
+                return false;
+            }
+
+            KbAct updatedAct = statusChangeResult.Act;
             var acts = _session.Acts
                 .Where(existingAct => !string.Equals(existingAct.ActId, actId, StringComparison.Ordinal))
                 .ToList();
             acts.Add(updatedAct);
             _session.ReplaceActs(acts);
             return SaveActJournalMutation($"Статус акта изменен на \"{statusText}\".", owner);
+        }
+
+        private bool DeleteActDocumentsForCancellation(string actId, IWin32Window owner)
+        {
+            List<KbActDocument> documentsToDelete = _session.ActDocuments
+                .Where(document => string.Equals(document.ActId, actId, StringComparison.Ordinal))
+                .ToList();
+
+            foreach (string absolutePath in documentsToDelete
+                .Select(document => ResolveActDocumentAbsolutePath(document.Path))
+                .Where(static path => !string.IsNullOrWhiteSpace(path))
+                .Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    if (File.Exists(absolutePath))
+                        File.Delete(absolutePath);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    ShowActJournalError(
+                        $"Не удалось удалить DOCX отменяемого акта: {ex.GetBaseException().Message}\n\n" +
+                        "Закройте документ, если он открыт, и повторите отмену.",
+                        owner);
+                    return false;
+                }
+            }
+
+            _session.ReplaceActDocuments(_session.ActDocuments.Where(document =>
+                !string.Equals(document.ActId, actId, StringComparison.Ordinal)));
+            return true;
         }
 
         private bool SaveActJournalMutation(string successMessage, IWin32Window owner)
@@ -463,6 +524,13 @@ namespace AsutpKnowledgeBase
             bool prepareDocumentPath,
             IWin32Window? owner = null)
         {
+            KbAct? existingAct = FindActById(act.ActId);
+            if (existingAct != null && !KnowledgeBaseActStatusService.CanEdit(existingAct.Status))
+            {
+                ShowActSaveError("Подписанный или отмененный акт нельзя редактировать.", owner);
+                return ActFormSaveResult.Failed();
+            }
+
             var acts = _session.Acts
                 .Where(existingAct => !string.Equals(existingAct.ActId, act.ActId, StringComparison.Ordinal))
                 .ToList();
@@ -598,9 +666,35 @@ namespace AsutpKnowledgeBase
             IWin32Window? owner = null)
         {
             DateTime now = DateTime.Now;
-            KbAct updatedAct = KnowledgeBaseActEditorService.CloneAct(act);
-            updatedAct.Status = KbActStatus.Generated;
-            updatedAct.UpdatedAt = now;
+            KbAct updatedAct;
+            if (act.Status == KbActStatus.Draft)
+            {
+                var statusService = new KnowledgeBaseActStatusService();
+                KnowledgeBaseActStatusChangeResult statusChangeResult = statusService.PrepareStatusChange(
+                    new KnowledgeBaseActStatusChangeRequest
+                    {
+                        Act = act,
+                        NewStatus = KbActStatus.Generated,
+                        ChangedAt = now
+                    });
+                if (!statusChangeResult.IsSuccess || statusChangeResult.Act == null)
+                {
+                    ShowActGenerationError(statusChangeResult.ErrorMessage, owner);
+                    return false;
+                }
+
+                updatedAct = statusChangeResult.Act;
+            }
+            else if (act.Status == KbActStatus.Generated)
+            {
+                updatedAct = KnowledgeBaseActEditorService.CloneAct(act);
+                updatedAct.UpdatedAt = now;
+            }
+            else
+            {
+                ShowActGenerationError("DOCX можно сформировать только для черновика или сформированного акта.", owner);
+                return false;
+            }
 
             var acts = _session.Acts
                 .Where(existingAct => !string.Equals(existingAct.ActId, act.ActId, StringComparison.Ordinal))
@@ -648,30 +742,43 @@ namespace AsutpKnowledgeBase
                 ? documentsDirectory
                 : baseDirectory;
             var documentPathService = new KnowledgeBaseActDocumentPathService();
-            string copyPathSuggestion = string.Empty;
 
             KbActDocument? existingDocument = FindLatestActDocument(act.ActId);
             if (existingDocument != null && !string.IsNullOrWhiteSpace(existingDocument.Path))
             {
                 string existingAbsolutePath = ResolveActDocumentAbsolutePath(existingDocument.Path);
-                bool saveCopyRequested = false;
-                if (!string.IsNullOrWhiteSpace(existingAbsolutePath) &&
-                    TryPrepareActDocumentPath(
-                        act,
-                        actDocuments,
-                        existingAbsolutePath,
-                        documentPathService,
-                        owner,
-                        out result,
-                        out saveCopyRequested))
+                if (!string.IsNullOrWhiteSpace(existingAbsolutePath))
                 {
+                    result = documentPathService.PrepareDocumentPath(
+                        new KnowledgeBaseActDocumentPathRequest
+                        {
+                            Act = act,
+                            Config = _session.Config,
+                            ExistingDocuments = actDocuments,
+                            SelectedPath = existingAbsolutePath,
+                            DatabasePath = CurrentDataPath,
+                            ApplicationBasePath = AppContext.BaseDirectory,
+                            AllowExistingFile = true
+                        });
+                    if (!result.IsSuccess)
+                    {
+                        ShowActSaveError(result.ErrorMessage, owner);
+                        result = null;
+                        return false;
+                    }
+
+                    if (result.TargetFileExists &&
+                        !ConfirmGeneratedDocumentOverwrite(result.AbsolutePath, owner))
+                    {
+                        result = null;
+                        return false;
+                    }
+
+                    if (result.TargetFileExists)
+                        result = CopyDocumentPathResult(result, overwriteExisting: true);
+
                     return true;
                 }
-
-                if (saveCopyRequested)
-                    copyPathSuggestion = BuildCopyDocumentPath(existingAbsolutePath);
-                else if (result == null)
-                    return false;
             }
 
             using var dialog = new SaveFileDialog
@@ -687,15 +794,6 @@ namespace AsutpKnowledgeBase
                 OverwritePrompt = false,
                 Title = "Сформировать DOCX акта"
             };
-            if (!string.IsNullOrWhiteSpace(copyPathSuggestion))
-            {
-                string? copyDirectory = Path.GetDirectoryName(copyPathSuggestion);
-                if (!string.IsNullOrWhiteSpace(copyDirectory) && Directory.Exists(copyDirectory))
-                    dialog.InitialDirectory = copyDirectory;
-
-                dialog.FileName = Path.GetFileName(copyPathSuggestion);
-            }
-
             while (true)
             {
                 if (dialog.ShowDialog(owner ?? this) != DialogResult.OK)
@@ -782,6 +880,17 @@ namespace AsutpKnowledgeBase
                 default:
                     return false;
             }
+        }
+
+        private bool ConfirmGeneratedDocumentOverwrite(string documentPath, IWin32Window? owner)
+        {
+            DialogResult confirmation = MessageBox.Show(
+                owner ?? this,
+                $"Сформированный DOCX будет перезаписан:\n{documentPath}\n\nПродолжить?",
+                "Повторное формирование акта",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+            return confirmation == DialogResult.Yes;
         }
 
         private static string BuildCopyDocumentPath(string originalPath)

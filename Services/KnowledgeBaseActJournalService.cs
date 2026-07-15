@@ -35,7 +35,11 @@ namespace AsutpKnowledgeBase.Services
 
         public bool CanDeletePhysically { get; init; }
 
-        public bool CanChangeStatus { get; init; }
+        public bool CanEdit { get; init; }
+
+        public bool CanSign { get; init; }
+
+        public bool CanCancel { get; init; }
 
         public bool CanGenerateDocument { get; init; }
 
@@ -96,7 +100,9 @@ namespace AsutpKnowledgeBase.Services
                         DocumentStateText = FormatDocumentState(documentPath, canOpenDocument),
                         AbsoluteDocumentPath = absoluteDocumentPath,
                         CanDeletePhysically = CanDeletePhysically(act, documentPath),
-                        CanChangeStatus = CanChangeStatus(act.Status),
+                        CanEdit = KnowledgeBaseActStatusService.CanEdit(act.Status),
+                        CanSign = KnowledgeBaseActStatusService.CanSign(act.Status),
+                        CanCancel = KnowledgeBaseActStatusService.CanCancel(act.Status),
                         CanGenerateDocument = CanGenerateDocument(act.Status),
                         CanOpenDocument = canOpenDocument
                     };
@@ -132,8 +138,6 @@ namespace AsutpKnowledgeBase.Services
                 KbActStatus.Generated => "Сформирован",
                 KbActStatus.Signed => "Подписан",
                 KbActStatus.Cancelled => "Отменен",
-                KbActStatus.Archived => "Архив",
-                KbActStatus.Annulled => "Аннулирован",
                 _ => "Черновик"
             };
 
@@ -145,15 +149,8 @@ namespace AsutpKnowledgeBase.Services
                 _ => "Отказ оборудования"
             };
 
-        public static bool CanChangeStatus(KbActStatus status) =>
-            status != KbActStatus.Cancelled &&
-            status != KbActStatus.Annulled &&
-            status != KbActStatus.Archived;
-
         public static bool CanGenerateDocument(KbActStatus status) =>
-            status != KbActStatus.Cancelled &&
-            status != KbActStatus.Annulled &&
-            status != KbActStatus.Archived;
+            KnowledgeBaseActStatusService.CanGenerateDocument(status);
 
         private static string FormatDocumentState(string documentPath, bool canOpenDocument)
         {

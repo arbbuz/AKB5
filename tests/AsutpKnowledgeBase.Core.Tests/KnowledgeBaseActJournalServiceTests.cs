@@ -110,19 +110,21 @@ public class KnowledgeBaseActJournalServiceTests
     }
 
     [Fact]
-    public void BuildRows_DisablesDocumentAndStatusActionsForAnnulledAct()
+    public void BuildRows_DisablesEditAndStatusActionsForSignedAct()
     {
         var service = new KnowledgeBaseActJournalService();
-        KbAct annulledAct = CreateAct("act-annulled", new DateTime(2026, 6, 26), "2026-0003");
-        annulledAct.Status = KbActStatus.Annulled;
+        KbAct signedAct = CreateAct("act-signed", new DateTime(2026, 6, 26), "2026-0003");
+        signedAct.Status = KbActStatus.Signed;
 
         KnowledgeBaseActJournalRow row = Assert.Single(service.BuildRows(
-            new[] { annulledAct },
+            new[] { signedAct },
             Array.Empty<KbActDocument>()));
 
-        Assert.Equal("Аннулирован", row.StatusText);
+        Assert.Equal("Подписан", row.StatusText);
         Assert.False(row.CanDeletePhysically);
-        Assert.False(row.CanChangeStatus);
+        Assert.False(row.CanEdit);
+        Assert.False(row.CanSign);
+        Assert.False(row.CanCancel);
         Assert.False(row.CanGenerateDocument);
     }
 

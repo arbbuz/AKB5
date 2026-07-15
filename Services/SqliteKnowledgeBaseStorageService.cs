@@ -10,7 +10,7 @@ namespace AsutpKnowledgeBase.Services
 {
     public sealed class SqliteKnowledgeBaseStorageService : IKnowledgeBaseStorageService
     {
-        public const int CurrentDatabaseSchemaVersion = 17;
+        public const int CurrentDatabaseSchemaVersion = 18;
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -693,7 +693,9 @@ namespace AsutpKnowledgeBase.Services
                 ("object_name_snapshot", "object_name_snapshot TEXT NOT NULL DEFAULT ''"),
                 ("equipment_name", "equipment_name TEXT NOT NULL DEFAULT ''"),
                 ("approver_name", "approver_name TEXT NOT NULL DEFAULT ''"),
-                ("approver_position", "approver_position TEXT NOT NULL DEFAULT ''")
+                ("approver_position", "approver_position TEXT NOT NULL DEFAULT ''"),
+                ("signed_at", "signed_at TEXT NULL"),
+                ("status_history_json", "status_history_json TEXT NOT NULL DEFAULT '[]'")
             ];
 
             foreach ((string columnName, string definition) in columns)
@@ -705,6 +707,14 @@ namespace AsutpKnowledgeBase.Services
                     connection,
                     transaction,
                     $"ALTER TABLE acts ADD COLUMN {definition};");
+            }
+
+            if (ColumnExists(connection, transaction, "acts", "cancellation_reason"))
+            {
+                ExecuteNonQuery(
+                    connection,
+                    transaction,
+                    "ALTER TABLE acts DROP COLUMN cancellation_reason;");
             }
         }
 
@@ -1653,13 +1663,15 @@ namespace AsutpKnowledgeBase.Services
                         workshop_name, lvl3_node_id, lvl3_name_snapshot, object_name_snapshot, object_path_snapshot, rack_id, rack_number_snapshot,
                         rack_name_snapshot, composition_entry_id, equipment_name, equipment_snapshot_json, failure_date,
                         fault_description, failure_reason, inspection_result, fault_criterion, request_document,
-                        actual_labor_hours, customer_name, customer_position, approver_name, approver_position, created_by, created_at, updated_at)
+                        actual_labor_hours, customer_name, customer_position, approver_name, approver_position, created_by, created_at, updated_at,
+                        signed_at, status_history_json)
                     VALUES (
                         @act_id, @entry_order, @act_year, @act_number, @act_type, @status, @act_date,
                         @workshop_name, @lvl3_node_id, @lvl3_name_snapshot, @object_name_snapshot, @object_path_snapshot, @rack_id, @rack_number_snapshot,
                         @rack_name_snapshot, @composition_entry_id, @equipment_name, @equipment_snapshot_json, @failure_date,
                         @fault_description, @failure_reason, @inspection_result, @fault_criterion, @request_document,
-                        @actual_labor_hours, @customer_name, @customer_position, @approver_name, @approver_position, @created_by, @created_at, @updated_at);
+                        @actual_labor_hours, @customer_name, @customer_position, @approver_name, @approver_position, @created_by, @created_at, @updated_at,
+                        @signed_at, @status_history_json);
                     """,
                     ("@act_id", act.ActId),
                     ("@entry_order", i),
@@ -1692,7 +1704,9 @@ namespace AsutpKnowledgeBase.Services
                     ("@approver_position", act.ApproverPosition),
                     ("@created_by", act.CreatedBy),
                     ("@created_at", FormatDateTime(act.CreatedAt)),
-                    ("@updated_at", FormatDateTime(act.UpdatedAt)));
+                    ("@updated_at", FormatDateTime(act.UpdatedAt)),
+                    ("@signed_at", FormatDateTime(act.SignedAt)),
+                    ("@status_history_json", SerializeJson(act.StatusHistory)));
             }
         }
 
@@ -1732,7 +1746,10 @@ namespace AsutpKnowledgeBase.Services
                     ApproverPosition = GetString(reader, "approver_position"),
                     CreatedBy = GetString(reader, "created_by"),
                     CreatedAt = GetNullableDateTime(reader, "created_at"),
-                    UpdatedAt = GetNullableDateTime(reader, "updated_at")
+                    UpdatedAt = GetNullableDateTime(reader, "updated_at"),
+                    SignedAt = GetNullableDateTime(reader, "signed_at"),
+                    StatusHistory = DeserializeJson<List<KbActStatusChange>>(
+                        GetString(reader, "status_history_json")) ?? new List<KbActStatusChange>()
                 }).ToList();
 
         private static void InsertActExecutors(
@@ -2431,6 +2448,8 @@ namespace AsutpKnowledgeBase.Services
                 act_number TEXT NOT NULL,
                 act_type INTEGER NOT NULL,
                 status INTEGER NOT NULL,
+                signed_at TEXT NULL,
+                status_history_json TEXT NOT NULL,
                 act_date TEXT NULL,
                 workshop_name TEXT NOT NULL,
                 lvl3_node_id TEXT NOT NULL,

@@ -718,10 +718,11 @@ namespace AsutpKnowledgeBase.Services
                 int actYear = act.ActYear > 0
                     ? act.ActYear
                     : act.ActDate?.Year ?? 0;
+                string actId = NormalizeActId(act.ActId, actYear, actNumber, normalizedIndex, usedActIds);
                 var equipmentSnapshot = NormalizeActEquipmentSnapshot(act.EquipmentSnapshot);
                 normalized.Add(new KbAct
                 {
-                    ActId = NormalizeActId(act.ActId, actYear, actNumber, normalizedIndex, usedActIds),
+                    ActId = actId,
                     ActYear = actYear,
                     ActNumber = actNumber,
                     ActType = Enum.IsDefined(typeof(KbActType), act.ActType)
@@ -730,6 +731,8 @@ namespace AsutpKnowledgeBase.Services
                     Status = Enum.IsDefined(typeof(KbActStatus), act.Status)
                         ? act.Status
                         : KbActStatus.Draft,
+                    SignedAt = act.SignedAt?.Date,
+                    StatusHistory = NormalizeActStatusHistory(act.StatusHistory, actId),
                     ActDate = act.ActDate,
                     WorkshopName = act.WorkshopName?.Trim() ?? string.Empty,
                     Lvl3NodeId = act.Lvl3NodeId?.Trim() ?? string.Empty,
@@ -765,6 +768,51 @@ namespace AsutpKnowledgeBase.Services
                 .OrderBy(static act => act.ActYear)
                 .ThenBy(static act => act.ActNumber, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(static act => act.ActId, StringComparer.Ordinal)
+                .ToList();
+        }
+
+        public static List<KbActStatusChange> NormalizeActStatusHistory(
+            IEnumerable<KbActStatusChange>? statusHistory,
+            string actId)
+        {
+            var normalized = new List<KbActStatusChange>();
+            if (statusHistory == null)
+                return normalized;
+
+            var usedChangeIds = new HashSet<string>(StringComparer.Ordinal);
+            int normalizedIndex = 0;
+            foreach (KbActStatusChange? change in statusHistory)
+            {
+                if (change == null)
+                    continue;
+
+                string changedBy = change.ChangedBy?.Trim() ?? string.Empty;
+                if (change.ChangedAt == default)
+                    continue;
+
+                normalized.Add(new KbActStatusChange
+                {
+                    ChangeId = NormalizeOwnedRecordId(
+                        change.ChangeId,
+                        "act-status-change",
+                        actId,
+                        normalizedIndex.ToString(CultureInfo.InvariantCulture),
+                        usedChangeIds),
+                    PreviousStatus = Enum.IsDefined(typeof(KbActStatus), change.PreviousStatus)
+                        ? change.PreviousStatus
+                        : KbActStatus.Draft,
+                    NewStatus = Enum.IsDefined(typeof(KbActStatus), change.NewStatus)
+                        ? change.NewStatus
+                        : KbActStatus.Draft,
+                    ChangedAt = change.ChangedAt,
+                    ChangedBy = changedBy
+                });
+                normalizedIndex++;
+            }
+
+            return normalized
+                .OrderBy(static change => change.ChangedAt)
+                .ThenBy(static change => change.ChangeId, StringComparer.Ordinal)
                 .ToList();
         }
 

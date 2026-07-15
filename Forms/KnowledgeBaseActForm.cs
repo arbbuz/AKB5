@@ -499,8 +499,6 @@ namespace AsutpKnowledgeBase
                 KbActStatus.Generated => "Сформирован",
                 KbActStatus.Signed => "Подписан",
                 KbActStatus.Cancelled => "Отменен",
-                KbActStatus.Archived => "Архив",
-                KbActStatus.Annulled => "Аннулирован",
                 _ => "Черновик"
             };
 

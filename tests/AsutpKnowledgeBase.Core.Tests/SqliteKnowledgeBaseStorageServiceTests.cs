@@ -67,6 +67,41 @@ public class SqliteKnowledgeBaseStorageServiceTests
             Assert.Contains("workshop_name", actColumns);
             Assert.Contains("object_name_snapshot", actColumns);
             Assert.Contains("equipment_name", actColumns);
+            Assert.DoesNotContain("cancellation_reason", actColumns);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void EnsureSchema_RemovesObsoleteCancellationReasonColumn()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "knowledge-base.akb");
+            var service = new SqliteKnowledgeBaseStorageService(path);
+            service.EnsureSchema();
+
+            using (var connection = new SqliteConnection($"Data Source={path};Pooling=False"))
+            {
+                connection.Open();
+                using var command = connection.CreateCommand();
+                command.CommandText =
+                    "ALTER TABLE acts ADD COLUMN cancellation_reason TEXT NOT NULL DEFAULT '';";
+                command.ExecuteNonQuery();
+            }
+
+            service.EnsureSchema();
+
+            using var migratedConnection = new SqliteConnection($"Data Source={path};Pooling=False");
+            migratedConnection.Open();
+            Assert.DoesNotContain(
+                "cancellation_reason",
+                ReadColumnNames(migratedConnection, "acts"));
         }
         finally
         {
@@ -110,6 +145,87 @@ public class SqliteKnowledgeBaseStorageServiceTests
             Assert.Equal(1, CountRows(connection, "act_executors"));
             Assert.Equal(1, CountRows(connection, "act_documents"));
             Assert.Equal(1, CountRows(connection, "act_number_sequences"));
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void SaveAndLoad_PersistsActStatusFieldsAndHistory()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "knowledge-base.akb");
+            var service = new SqliteKnowledgeBaseStorageService(path);
+            SavedData data = KnowledgeBaseDataService.CreateDefaultData();
+            data.Acts =
+            [
+                new KbAct
+                {
+                    ActId = "act-generated",
+                    Status = KbActStatus.Generated,
+                    StatusHistory =
+                    [
+                        new KbActStatusChange
+                        {
+                            ChangeId = "status-generated",
+                            PreviousStatus = KbActStatus.Draft,
+                            NewStatus = KbActStatus.Generated,
+                            ChangedAt = new DateTime(2026, 7, 13, 8, 0, 0)
+                        }
+                    ]
+                },
+                new KbAct
+                {
+                    ActId = "act-signed",
+                    Status = KbActStatus.Signed,
+                    SignedAt = new DateTime(2026, 7, 14),
+                    StatusHistory =
+                    [
+                        new KbActStatusChange
+                        {
+                            ChangeId = "status-1",
+                            PreviousStatus = KbActStatus.Generated,
+                            NewStatus = KbActStatus.Signed,
+                            ChangedAt = new DateTime(2026, 7, 14, 10, 30, 0),
+                            ChangedBy = "Иванов И.И."
+                        }
+                    ]
+                },
+                new KbAct
+                {
+                    ActId = "act-cancelled",
+                    Status = KbActStatus.Cancelled,
+                    StatusHistory =
+                    [
+                        new KbActStatusChange
+                        {
+                            ChangeId = "status-2",
+                            PreviousStatus = KbActStatus.Draft,
+                            NewStatus = KbActStatus.Cancelled,
+                            ChangedAt = new DateTime(2026, 7, 15, 9, 0, 0),
+                            ChangedBy = "Петров П.П."
+                        }
+                    ]
+                }
+            ];
+
+            Assert.True(service.Save(data, out string? errorMessage), errorMessage);
+
+            KnowledgeBaseStorageLoadResult loadResult = service.Load();
+
+            Assert.True(loadResult.IsSuccess, loadResult.ErrorMessage);
+            KbAct generatedAct = Assert.Single(loadResult.Data!.Acts.Where(act => act.ActId == "act-generated"));
+            KbAct signedAct = Assert.Single(loadResult.Data.Acts.Where(act => act.ActId == "act-signed"));
+            KbAct cancelledAct = Assert.Single(loadResult.Data.Acts.Where(act => act.ActId == "act-cancelled"));
+            Assert.Equal(string.Empty, Assert.Single(generatedAct.StatusHistory).ChangedBy);
+            Assert.Equal(new DateTime(2026, 7, 14), signedAct.SignedAt);
+            Assert.Equal("Иванов И.И.", Assert.Single(signedAct.StatusHistory).ChangedBy);
+            Assert.Equal(KbActStatus.Cancelled, Assert.Single(cancelledAct.StatusHistory).NewStatus);
         }
         finally
         {

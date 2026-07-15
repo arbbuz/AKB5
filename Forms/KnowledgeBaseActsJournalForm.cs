@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using AsutpKnowledgeBase.Services;
 
 namespace AsutpKnowledgeBase
@@ -8,8 +9,8 @@ namespace AsutpKnowledgeBase
         Open = 1,
         GenerateDocument = 2,
         DeleteDraft = 3,
-        CancelAct = 4,
-        AnnulAct = 5,
+        SignAct = 4,
+        CancelAct = 5,
         OpenDocument = 6
     }
 
@@ -42,7 +43,8 @@ namespace AsutpKnowledgeBase
         private readonly Button _btnGenerateDocument;
         private readonly Button _btnDeleteDraft;
         private readonly Button _btnCancelAct;
-        private readonly Button _btnAnnulAct;
+        private readonly Button _btnSignAct;
+        private readonly ContextMenuStrip _rowContextMenu;
         private readonly KnowledgeBaseActJournalFilterService _filterService = new();
         private readonly KnowledgeBaseActJournalFilterState _columnFilterState = new();
         private readonly Dictionary<string, string> _columnHeaderTexts = new(StringComparer.Ordinal);
@@ -122,11 +124,16 @@ namespace AsutpKnowledgeBase
             _grid.ColumnWidthChanged += Grid_ColumnWidthChanged;
             _grid.ColumnHeaderMouseClick += Grid_ColumnHeaderMouseClick;
             _grid.CellPainting += Grid_CellPainting;
+            _grid.CellMouseDown += Grid_CellMouseDown;
             _grid.CellDoubleClick += (_, e) =>
             {
                 if (e.RowIndex >= 0)
                     RequestAction(KnowledgeBaseActsJournalAction.Open);
             };
+            _rowContextMenu = new ContextMenuStrip();
+            _rowContextMenu.Opening += RowContextMenu_Opening;
+            _grid.ContextMenuStrip = _rowContextMenu;
+            FormClosed += (_, _) => _rowContextMenu.Dispose();
 
             var buttonsPanel = new FlowLayoutPanel
             {
@@ -143,7 +150,7 @@ namespace AsutpKnowledgeBase
                 AutoSize = true
             };
             btnClose.Click += (_, _) => Close();
-            _btnAnnulAct = CreateButton("Аннулировать", KnowledgeBaseActsJournalAction.AnnulAct);
+            _btnSignAct = CreateButton("Подписать", KnowledgeBaseActsJournalAction.SignAct);
             _btnCancelAct = CreateButton("Отменить", KnowledgeBaseActsJournalAction.CancelAct);
             _btnDeleteDraft = CreateButton("Удалить черновик", KnowledgeBaseActsJournalAction.DeleteDraft);
             _btnGenerateDocument = CreateButton("Сформировать DOCX", KnowledgeBaseActsJournalAction.GenerateDocument);
@@ -151,7 +158,7 @@ namespace AsutpKnowledgeBase
             _btnOpen = CreateButton("Открыть", KnowledgeBaseActsJournalAction.Open);
 
             buttonsPanel.Controls.Add(btnClose);
-            buttonsPanel.Controls.Add(_btnAnnulAct);
+            buttonsPanel.Controls.Add(_btnSignAct);
             buttonsPanel.Controls.Add(_btnCancelAct);
             buttonsPanel.Controls.Add(_btnDeleteDraft);
             buttonsPanel.Controls.Add(_btnGenerateDocument);
@@ -335,6 +342,69 @@ namespace AsutpKnowledgeBase
             };
             button.Click += (_, _) => RequestAction(action);
             return button;
+        }
+
+        private void Grid_CellMouseDown(object? sender, DataGridViewCellMouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Right || e.RowIndex < 0)
+                return;
+
+            _grid.ClearSelection();
+            _grid.Rows[e.RowIndex].Selected = true;
+            if (e.ColumnIndex >= 0)
+                _grid.CurrentCell = _grid[e.ColumnIndex, e.RowIndex];
+        }
+
+        private void RowContextMenu_Opening(object? sender, CancelEventArgs e)
+        {
+            _rowContextMenu.Items.Clear();
+            KnowledgeBaseActJournalRow? row = GetSelectedRow();
+            if (_isActionInProgress || row == null)
+            {
+                e.Cancel = true;
+                return;
+            }
+
+            bool hasDocumentActions = false;
+            hasDocumentActions |= AddContextAction(
+                "Открыть",
+                KnowledgeBaseActsJournalAction.Open,
+                row.CanEdit);
+            hasDocumentActions |= AddContextAction(
+                "Открыть DOCX",
+                KnowledgeBaseActsJournalAction.OpenDocument,
+                row.CanOpenDocument);
+            hasDocumentActions |= AddContextAction(
+                "Сформировать DOCX",
+                KnowledgeBaseActsJournalAction.GenerateDocument,
+                row.CanGenerateDocument);
+
+            bool hasStatusActions = row.CanSign || row.CanCancel || row.CanDeletePhysically;
+            if (hasDocumentActions && hasStatusActions)
+                _rowContextMenu.Items.Add(new ToolStripSeparator());
+
+            AddContextAction("Подписать", KnowledgeBaseActsJournalAction.SignAct, row.CanSign);
+            AddContextAction("Отменить", KnowledgeBaseActsJournalAction.CancelAct, row.CanCancel);
+            AddContextAction(
+                "Удалить черновик",
+                KnowledgeBaseActsJournalAction.DeleteDraft,
+                row.CanDeletePhysically);
+
+            e.Cancel = _rowContextMenu.Items.Count == 0;
+        }
+
+        private bool AddContextAction(
+            string text,
+            KnowledgeBaseActsJournalAction action,
+            bool isAvailable)
+        {
+            if (!isAvailable)
+                return false;
+
+            var item = new ToolStripMenuItem(text);
+            item.Click += (_, _) => RequestAction(action);
+            _rowContextMenu.Items.Add(item);
+            return true;
         }
 
         private void ApplyRows(
@@ -572,18 +642,18 @@ namespace AsutpKnowledgeBase
                 _btnGenerateDocument.Enabled = false;
                 _btnDeleteDraft.Enabled = false;
                 _btnCancelAct.Enabled = false;
-                _btnAnnulAct.Enabled = false;
+                _btnSignAct.Enabled = false;
                 return;
             }
 
             KnowledgeBaseActJournalRow? row = GetSelectedRow();
             bool hasSelection = row != null;
-            _btnOpen.Enabled = hasSelection;
+            _btnOpen.Enabled = row?.CanEdit == true;
             _btnOpenDocument.Enabled = row?.CanOpenDocument == true;
             _btnGenerateDocument.Enabled = row?.CanGenerateDocument == true;
             _btnDeleteDraft.Enabled = row?.CanDeletePhysically == true;
-            _btnCancelAct.Enabled = row?.CanChangeStatus == true;
-            _btnAnnulAct.Enabled = row?.CanChangeStatus == true;
+            _btnSignAct.Enabled = row?.CanSign == true;
+            _btnCancelAct.Enabled = row?.CanCancel == true;
         }
 
         private void RequestAction(KnowledgeBaseActsJournalAction action)
