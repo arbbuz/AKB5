@@ -110,7 +110,7 @@ namespace AsutpKnowledgeBase.Services
                     return "Укажите причину отказа.";
 
                 if (string.IsNullOrWhiteSpace(act.FaultCriterion))
-                    return "Укажите критерий отказа.";
+                    return "Укажите критерий неисправности.";
             }
 
             if (act.ActType == KbActType.InspectionWork &&

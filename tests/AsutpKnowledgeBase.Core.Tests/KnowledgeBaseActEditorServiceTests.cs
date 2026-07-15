@@ -102,7 +102,7 @@ public class KnowledgeBaseActEditorServiceTests
         var result = service.PrepareForSave(draft);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal("Укажите критерий отказа.", result.ErrorMessage);
+        Assert.Equal("Укажите критерий неисправности.", result.ErrorMessage);
     }
 
     [Fact]

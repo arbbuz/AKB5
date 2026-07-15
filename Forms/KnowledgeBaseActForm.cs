@@ -44,6 +44,7 @@ namespace AsutpKnowledgeBase
         private readonly KbAct _draft;
         private readonly List<KbActExecutor> _draftExecutors;
         private readonly KnowledgeBaseActEditorService _editorService = new();
+        private string _lastFaultCriterionText = DefaultFaultCriterion;
 
         private ComboBox _cmbActType = null!;
         private TextBox _txtStatus = null!;
@@ -213,9 +214,10 @@ namespace AsutpKnowledgeBase
 
             _dtpFailureDate = CreateOptionalDatePicker(_draft.FailureDate ?? _draft.ActDate ?? DateTime.Today);
             _dtpFailureDate.Checked = _draft.FailureDate.HasValue || _draft.ActDate.HasValue;
+            _lastFaultCriterionText = SelectDefault(_draft.FaultCriterion, DefaultFaultCriterion);
             _cmbFaultCriterion = CreateEditableComboBox(
                 FaultCriterionOptions,
-                SelectDefault(_draft.FaultCriterion, DefaultFaultCriterion));
+                _lastFaultCriterionText);
             _txtRequestDocument = CreateTextBox(_draft.RequestDocument);
             _txtActualLaborHours = CreateTextBox(_draft.ActualLaborHours);
             _txtCustomerName = CreateTextBox(_draft.CustomerName);
@@ -232,7 +234,7 @@ namespace AsutpKnowledgeBase
                 SelectDefault(firstExecutor?.Position, DefaultExecutorPosition));
 
             AddRow(layout, 0, "Дата отказа", _dtpFailureDate);
-            AddRow(layout, 1, "Критерий отказа", _cmbFaultCriterion);
+            AddRow(layout, 1, "Критерий неисправности", _cmbFaultCriterion);
             AddRow(layout, 2, "Заявка / основание", _txtRequestDocument);
             AddRow(layout, 3, "Трудозатраты", _txtActualLaborHours);
             AddRow(layout, 4, "Представитель цеха", _txtCustomerName);
@@ -301,7 +303,9 @@ namespace AsutpKnowledgeBase
             act.FaultDescription = _txtFaultDescription.Text;
             act.FailureReason = _txtFailureReason.Text;
             act.InspectionResult = _txtInspectionResult.Text;
-            act.FaultCriterion = _cmbFaultCriterion.Text;
+            act.FaultCriterion = act.ActType == KbActType.EquipmentFailure
+                ? _cmbFaultCriterion.Text
+                : string.Empty;
             act.RequestDocument = _txtRequestDocument.Text;
             act.ActualLaborHours = _txtActualLaborHours.Text;
             act.CustomerName = _txtCustomerName.Text;
@@ -359,7 +363,7 @@ namespace AsutpKnowledgeBase
 
         private void UpdateDescriptionFieldsState()
         {
-            if (_txtFaultDescription == null || _txtFailureReason == null)
+            if (_txtFaultDescription == null || _txtFailureReason == null || _cmbFaultCriterion == null)
                 return;
 
             bool isInspectionWork = _cmbActType.SelectedItem is ActTypeOption option &&
@@ -367,6 +371,19 @@ namespace AsutpKnowledgeBase
 
             _txtFaultDescription.Enabled = !isInspectionWork;
             _txtFailureReason.Enabled = !isInspectionWork;
+            _cmbFaultCriterion.Enabled = !isInspectionWork;
+
+            if (isInspectionWork)
+            {
+                if (!string.IsNullOrWhiteSpace(_cmbFaultCriterion.Text))
+                    _lastFaultCriterionText = _cmbFaultCriterion.Text;
+
+                _cmbFaultCriterion.Text = string.Empty;
+            }
+            else if (string.IsNullOrWhiteSpace(_cmbFaultCriterion.Text))
+            {
+                _cmbFaultCriterion.Text = SelectDefault(_lastFaultCriterionText, DefaultFaultCriterion);
+            }
         }
 
         private static TableLayoutPanel CreateFormLayout(int rowCount)
