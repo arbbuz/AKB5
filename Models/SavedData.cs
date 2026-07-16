@@ -18,6 +18,7 @@ namespace AsutpKnowledgeBase.Models
         public List<KbActExecutor> ActExecutors { get; set; } = new();
         public List<KbActDocument> ActDocuments { get; set; } = new();
         public List<KbActNumberSequence> ActNumberSequences { get; set; } = new();
+        public List<KbActInputHistoryEntry> ActInputHistory { get; set; } = new();
         public string LastWorkshop { get; set; } = string.Empty;
     }
 }

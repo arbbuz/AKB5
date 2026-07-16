@@ -44,6 +44,7 @@ namespace AsutpKnowledgeBase.Services
                 ActExecutors = new List<KbActExecutor>(),
                 ActDocuments = new List<KbActDocument>(),
                 ActNumberSequences = new List<KbActNumberSequence>(),
+                ActInputHistory = new List<KbActInputHistoryEntry>(),
                 LastWorkshop = "Новый цех"
             };
 
@@ -65,6 +66,7 @@ namespace AsutpKnowledgeBase.Services
             var normalizedActExecutors = NormalizeActExecutors(source.ActExecutors, knownActIds);
             var normalizedActDocuments = NormalizeActDocuments(source.ActDocuments, knownActIds);
             var normalizedActNumberSequences = NormalizeActNumberSequences(source.ActNumberSequences);
+            var normalizedActInputHistory = NormalizeActInputHistory(source.ActInputHistory);
             var reindexService = new KnowledgeBaseService(normalizedConfig, normalizedWorkshops);
 
             foreach (var roots in normalizedWorkshops.Values)
@@ -89,6 +91,7 @@ namespace AsutpKnowledgeBase.Services
                 ActExecutors = normalizedActExecutors,
                 ActDocuments = normalizedActDocuments,
                 ActNumberSequences = normalizedActNumberSequences,
+                ActInputHistory = normalizedActInputHistory,
                 LastWorkshop = ResolveWorkshop(normalizedWorkshops, source.LastWorkshop)
             };
         }
@@ -424,7 +427,8 @@ namespace AsutpKnowledgeBase.Services
             IReadOnlyList<KbActDocument>? actDocuments,
             IReadOnlyList<KbActNumberSequence>? actNumberSequences,
             string currentWorkshop,
-            bool includeCurrentWorkshop)
+            bool includeCurrentWorkshop,
+            IReadOnlyList<KbActInputHistoryEntry>? actInputHistory = null)
         {
             var data = new SavedData
             {
@@ -442,6 +446,7 @@ namespace AsutpKnowledgeBase.Services
                 ActExecutors = actExecutors?.ToList() ?? new List<KbActExecutor>(),
                 ActDocuments = actDocuments?.ToList() ?? new List<KbActDocument>(),
                 ActNumberSequences = actNumberSequences?.ToList() ?? new List<KbActNumberSequence>(),
+                ActInputHistory = actInputHistory?.ToList() ?? new List<KbActInputHistoryEntry>(),
                 LastWorkshop = includeCurrentWorkshop ? currentWorkshop : string.Empty
             };
 
@@ -979,6 +984,10 @@ namespace AsutpKnowledgeBase.Services
                 })
                 .ToList();
         }
+
+        public static List<KbActInputHistoryEntry> NormalizeActInputHistory(
+            IEnumerable<KbActInputHistoryEntry>? entries) =>
+            new KnowledgeBaseActInputHistoryService().NormalizeEntries(entries);
 
         public static KbActEquipmentSnapshot NormalizeActEquipmentSnapshot(KbActEquipmentSnapshot? snapshot)
         {

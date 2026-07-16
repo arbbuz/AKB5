@@ -373,6 +373,7 @@ namespace AsutpKnowledgeBase.Services
                 ActExecutors = data.ActExecutors ?? new List<KbActExecutor>(),
                 ActDocuments = data.ActDocuments ?? new List<KbActDocument>(),
                 ActNumberSequences = data.ActNumberSequences ?? new List<KbActNumberSequence>(),
+                ActInputHistory = data.ActInputHistory ?? new List<KbActInputHistoryEntry>(),
                 LastWorkshop = lastWorkshop
             };
 

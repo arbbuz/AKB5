@@ -10,7 +10,7 @@ namespace AsutpKnowledgeBase.Services
 {
     public sealed class SqliteKnowledgeBaseStorageService : IKnowledgeBaseStorageService
     {
-        public const int CurrentDatabaseSchemaVersion = 18;
+        public const int CurrentDatabaseSchemaVersion = 19;
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -803,6 +803,7 @@ namespace AsutpKnowledgeBase.Services
             InsertActExecutors(connection, transaction, data.ActExecutors);
             InsertActDocuments(connection, transaction, data.ActDocuments);
             InsertActNumberSequences(connection, transaction, data.ActNumberSequences);
+            InsertActInputHistory(connection, transaction, data.ActInputHistory);
         }
 
         private static SavedData LoadData(SqliteConnection connection)
@@ -828,6 +829,7 @@ namespace AsutpKnowledgeBase.Services
                 ActExecutors = LoadActExecutors(connection),
                 ActDocuments = LoadActDocuments(connection),
                 ActNumberSequences = LoadActNumberSequences(connection),
+                ActInputHistory = LoadActInputHistory(connection),
                 LastWorkshop = metadata.TryGetValue("last_workshop", out string? lastWorkshop)
                     ? lastWorkshop
                     : string.Empty
@@ -1873,6 +1875,47 @@ namespace AsutpKnowledgeBase.Services
                     NextNumber = GetInt(reader, "next_number")
                 }).ToList();
 
+        private static void InsertActInputHistory(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            IReadOnlyList<KbActInputHistoryEntry> entries)
+        {
+            foreach (KbActInputHistoryEntry entry in entries)
+            {
+                Execute(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO act_input_history (
+                        workshop_name, field_key, display_value, normalized_value, use_order)
+                    VALUES (
+                        @workshop_name, @field_key, @display_value, @normalized_value, @use_order);
+                    """,
+                    ("@workshop_name", entry.WorkshopName),
+                    ("@field_key", (int)entry.Field),
+                    ("@display_value", entry.DisplayValue),
+                    ("@normalized_value", entry.NormalizedValue),
+                    ("@use_order", entry.UseOrder));
+            }
+        }
+
+        private static List<KbActInputHistoryEntry> LoadActInputHistory(SqliteConnection connection) =>
+            Query(
+                connection,
+                """
+                SELECT workshop_name, field_key, display_value, normalized_value, use_order
+                FROM act_input_history
+                ORDER BY workshop_name COLLATE NOCASE, field_key, use_order DESC;
+                """,
+                static reader => new KbActInputHistoryEntry
+                {
+                    WorkshopName = GetString(reader, "workshop_name"),
+                    Field = ToEnum(GetInt(reader, "field_key"), KbActInputHistoryField.ExecutorName),
+                    DisplayValue = GetString(reader, "display_value"),
+                    NormalizedValue = GetString(reader, "normalized_value"),
+                    UseOrder = GetInt64(reader, "use_order")
+                }).ToList();
+
         private static void UpsertMetadata(
             SqliteConnection connection,
             SqliteTransaction transaction,
@@ -2198,6 +2241,7 @@ namespace AsutpKnowledgeBase.Services
 
         private static readonly string[] DataTablesInDeleteOrder =
         [
+            "act_input_history",
             "act_documents",
             "act_executors",
             "acts",
@@ -2513,6 +2557,16 @@ namespace AsutpKnowledgeBase.Services
             );
             """,
             """
+            CREATE TABLE IF NOT EXISTS act_input_history (
+                workshop_name TEXT NOT NULL COLLATE NOCASE,
+                field_key INTEGER NOT NULL,
+                display_value TEXT NOT NULL,
+                normalized_value TEXT NOT NULL COLLATE NOCASE,
+                use_order INTEGER NOT NULL,
+                PRIMARY KEY (workshop_name, field_key, normalized_value)
+            );
+            """,
+            """
             CREATE INDEX IF NOT EXISTS idx_acts_year_number
             ON acts(act_year, act_number);
             """,
@@ -2531,6 +2585,10 @@ namespace AsutpKnowledgeBase.Services
             """
             CREATE INDEX IF NOT EXISTS idx_act_documents_act_id
             ON act_documents(act_id);
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_act_input_history_scope_order
+            ON act_input_history(workshop_name, field_key, use_order DESC);
             """
         ];
     }

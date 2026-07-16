@@ -75,14 +75,19 @@ namespace AsutpKnowledgeBase
 
             IEnumerable<KbActExecutor> currentExecutors = _session.ActExecutors
                 .Where(executor => string.Equals(executor.ActId, result.Act.ActId, StringComparison.Ordinal));
-            using var dialog = new KnowledgeBaseActForm(result.Act, currentExecutors);
+            using var dialog = new KnowledgeBaseActForm(
+                result.Act,
+                currentExecutors,
+                _session.CurrentWorkshop,
+                _session.ActInputHistory);
             if (dialog.ShowDialog(this) != DialogResult.OK)
                 return;
 
             ActFormSaveResult saveResult = SaveActFromForm(
                 dialog.Result,
                 dialog.ResultExecutors,
-                prepareDocumentPath: dialog.DocumentGenerationRequested);
+                prepareDocumentPath: dialog.DocumentGenerationRequested,
+                inputHistory: dialog.ResultInputHistory);
             if (!saveResult.IsSuccess)
                 return;
 
@@ -205,7 +210,11 @@ namespace AsutpKnowledgeBase
             }
 
             IReadOnlyList<KbActExecutor> executors = GetActExecutors(actId);
-            using var dialog = new KnowledgeBaseActForm(act, executors);
+            using var dialog = new KnowledgeBaseActForm(
+                act,
+                executors,
+                _session.CurrentWorkshop,
+                _session.ActInputHistory);
             if (dialog.ShowDialog(owner) != DialogResult.OK)
                 return false;
 
@@ -220,7 +229,8 @@ namespace AsutpKnowledgeBase
                 dialog.Result,
                 dialog.ResultExecutors,
                 prepareDocumentPath: dialog.DocumentGenerationRequested,
-                owner);
+                owner,
+                inputHistory: dialog.ResultInputHistory);
             if (!saveResult.IsSuccess)
             {
                 return false;
@@ -522,7 +532,8 @@ namespace AsutpKnowledgeBase
             KbAct act,
             IReadOnlyList<KbActExecutor> executors,
             bool prepareDocumentPath,
-            IWin32Window? owner = null)
+            IWin32Window? owner = null,
+            IEnumerable<KbActInputHistoryEntry>? inputHistory = null)
         {
             KbAct? existingAct = FindActById(act.ActId);
             if (existingAct != null && !KnowledgeBaseActStatusService.CanEdit(existingAct.Status))
@@ -575,11 +586,24 @@ namespace AsutpKnowledgeBase
             IReadOnlyList<KbActExecutor> savedExecutors = KnowledgeBaseDataService.NormalizeActExecutors(
                 executors,
                 new[] { act.ActId });
+            List<KbActInputHistoryEntry>? previousInputHistory = inputHistory == null
+                ? null
+                : KnowledgeBaseDataService.NormalizeActInputHistory(_session.ActInputHistory);
             var actExecutors = _session.ActExecutors
                 .Where(existingExecutor => !string.Equals(existingExecutor.ActId, act.ActId, StringComparison.Ordinal))
                 .ToList();
             actExecutors.AddRange(savedExecutors);
             _session.ReplaceActExecutors(actExecutors);
+            if (inputHistory != null)
+            {
+                var inputHistoryService = new KnowledgeBaseActInputHistoryService();
+                _session.ReplaceActInputHistory(inputHistoryService.RecordActValues(
+                    inputHistory,
+                    _session.CurrentWorkshop,
+                    act,
+                    savedExecutors));
+            }
+
             if (prepareDocumentPath)
             {
                 _session.ReplaceActDocuments(actDocuments);
@@ -613,6 +637,12 @@ namespace AsutpKnowledgeBase
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             SetLastActionText($"Ошибка сохранения акта: {saveResult.ErrorMessage}");
+            if (previousInputHistory != null)
+            {
+                _session.ReplaceActInputHistory(previousInputHistory);
+                UpdateDirtyState();
+            }
+
             return ActFormSaveResult.Failed();
         }
 

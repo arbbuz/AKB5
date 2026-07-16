@@ -37,6 +37,8 @@ namespace AsutpKnowledgeBase.Services
 
         public List<KbActNumberSequence> ActNumberSequences { get; private set; } = new();
 
+        public List<KbActInputHistoryEntry> ActInputHistory { get; private set; } = new();
+
         public string CurrentWorkshop { get; private set; } = string.Empty;
 
         public string LastSavedWorkshop { get; private set; } = string.Empty;
@@ -72,6 +74,7 @@ namespace AsutpKnowledgeBase.Services
             ActExecutors = normalizedData.ActExecutors;
             ActDocuments = normalizedData.ActDocuments;
             ActNumberSequences = normalizedData.ActNumberSequences;
+            ActInputHistory = normalizedData.ActInputHistory;
             CurrentWorkshop = normalizedData.LastWorkshop;
 
             if (recordAsSavedState)
@@ -99,6 +102,7 @@ namespace AsutpKnowledgeBase.Services
                 ActExecutors = ActExecutors,
                 ActDocuments = ActDocuments,
                 ActNumberSequences = ActNumberSequences,
+                ActInputHistory = ActInputHistory,
                 LastWorkshop = CurrentWorkshop
             });
         }
@@ -121,7 +125,8 @@ namespace AsutpKnowledgeBase.Services
                 ActDocuments,
                 ActNumberSequences,
                 CurrentWorkshop,
-                includeCurrentWorkshop);
+                includeCurrentWorkshop,
+                ActInputHistory);
         }
 
         public void RecordSavedState(List<KbNode> currentWorkshopRoots)
@@ -473,6 +478,9 @@ namespace AsutpKnowledgeBase.Services
                 ActNumberSequences = actNumberSequences?.ToList() ?? new List<KbActNumberSequence>(),
                 LastWorkshop = CurrentWorkshop
             }).ActNumberSequences;
+
+        public void ReplaceActInputHistory(IEnumerable<KbActInputHistoryEntry> entries) =>
+            ActInputHistory = KnowledgeBaseDataService.NormalizeActInputHistory(entries);
 
         public void SetRequiresSave(bool requiresSave) => RequiresSave = requiresSave;
 

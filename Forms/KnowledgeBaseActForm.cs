@@ -1,3 +1,4 @@
+using AsutpKnowledgeBase.Controls;
 using AsutpKnowledgeBase.Models;
 using AsutpKnowledgeBase.Services;
 
@@ -6,9 +7,6 @@ namespace AsutpKnowledgeBase
     public sealed class KnowledgeBaseActForm : Form
     {
         private const string DefaultFaultCriterion = "Электрическая часть";
-        private const string DefaultCustomerPosition = "Начальник участка ЭнЦ";
-        private const string DefaultExecutorPosition = "инженер-электроник ОА БСО АСУ ТП УИТиА";
-        private const string DefaultApproverPosition = "Начальник отдела автоматизации";
 
         private static readonly string[] FaultCriterionOptions =
         [
@@ -18,32 +16,12 @@ namespace AsutpKnowledgeBase
             "Консультация персонала"
         ];
 
-        private static readonly string[] CustomerPositionOptions =
-        [
-            "Начальник участка ЭнЦ",
-            "Заместитель начальника цеха",
-            "Мастер по ремонту оборудования"
-        ];
-
-        private static readonly string[] ExecutorPositionOptions =
-        [
-            "инженер-электроник ОА БСО АСУ ТП УИТиА",
-            "инженер-электроник ОА БСО УИТиА",
-            "Ведущий инженер-электроник",
-            "Ведущий инженер-электроник ОА БСО АСУ ТП",
-            "Инженер-электроник",
-            "ведущий инженер-электроник ОА БСО АСУ ТП УИТиА",
-            "ведущий инженер-электроник ОА БСО УИТиА"
-        ];
-
-        private static readonly string[] ApproverPositionOptions =
-        [
-            DefaultApproverPosition
-        ];
-
         private readonly KbAct _draft;
         private readonly List<KbActExecutor> _draftExecutors;
         private readonly KnowledgeBaseActEditorService _editorService = new();
+        private readonly KnowledgeBaseActInputHistoryService _inputHistoryService = new();
+        private readonly string _inputHistoryWorkshop;
+        private List<KbActInputHistoryEntry> _inputHistory;
         private string _lastFaultCriterionText = DefaultFaultCriterion;
 
         private ComboBox _cmbActType = null!;
@@ -60,19 +38,28 @@ namespace AsutpKnowledgeBase
         private ComboBox _cmbFaultCriterion = null!;
         private TextBox _txtRequestDocument = null!;
         private TextBox _txtActualLaborHours = null!;
-        private TextBox _txtCustomerName = null!;
-        private ComboBox _cmbCustomerPosition = null!;
-        private TextBox _txtApproverName = null!;
-        private ComboBox _cmbApproverPosition = null!;
-        private TextBox _txtExecutorName = null!;
-        private ComboBox _cmbExecutorPosition = null!;
+        private HistoryInputControl _txtCustomerName = null!;
+        private HistoryInputControl _cmbCustomerPosition = null!;
+        private HistoryInputControl _txtApproverName = null!;
+        private HistoryInputControl _cmbApproverPosition = null!;
+        private HistoryInputControl _txtExecutorName = null!;
+        private HistoryInputControl _cmbExecutorPosition = null!;
 
-        public KnowledgeBaseActForm(KbAct draft, IEnumerable<KbActExecutor>? executors = null)
+        public KnowledgeBaseActForm(
+            KbAct draft,
+            IEnumerable<KbActExecutor>? executors = null,
+            string? inputHistoryWorkshop = null,
+            IEnumerable<KbActInputHistoryEntry>? inputHistory = null)
         {
             _draft = KnowledgeBaseActEditorService.CloneAct(draft);
             _draftExecutors = executors?.Select(CloneExecutor).ToList() ?? new List<KbActExecutor>();
+            _inputHistoryWorkshop = string.IsNullOrWhiteSpace(inputHistoryWorkshop)
+                ? _draft.WorkshopName?.Trim() ?? string.Empty
+                : inputHistoryWorkshop.Trim();
+            _inputHistory = _inputHistoryService.NormalizeEntries(inputHistory);
             Result = KnowledgeBaseActEditorService.CloneAct(draft);
             ResultExecutors = new List<KbActExecutor>();
+            ResultInputHistory = _inputHistoryService.NormalizeEntries(_inputHistory);
 
             Text = "Акт";
             StartPosition = FormStartPosition.CenterParent;
@@ -148,6 +135,8 @@ namespace AsutpKnowledgeBase
 
         public IReadOnlyList<KbActExecutor> ResultExecutors { get; private set; }
 
+        public IReadOnlyList<KbActInputHistoryEntry> ResultInputHistory { get; private set; }
+
         public bool DocumentGenerationRequested { get; private set; }
 
         private TabPage CreateGeneralTab()
@@ -220,18 +209,24 @@ namespace AsutpKnowledgeBase
                 _lastFaultCriterionText);
             _txtRequestDocument = CreateTextBox(_draft.RequestDocument);
             _txtActualLaborHours = CreateTextBox(_draft.ActualLaborHours);
-            _txtCustomerName = CreateTextBox(_draft.CustomerName);
-            _cmbCustomerPosition = CreateEditableComboBox(
-                CustomerPositionOptions,
-                SelectDefault(_draft.CustomerPosition, DefaultCustomerPosition));
-            _txtApproverName = CreateTextBox(_draft.ApproverName);
-            _cmbApproverPosition = CreateEditableComboBox(
-                ApproverPositionOptions,
-                SelectDefault(_draft.ApproverPosition, DefaultApproverPosition));
-            _txtExecutorName = CreateTextBox(FormatExecutorName(firstExecutor));
-            _cmbExecutorPosition = CreateEditableComboBox(
-                ExecutorPositionOptions,
-                SelectDefault(firstExecutor?.Position, DefaultExecutorPosition));
+            _txtCustomerName = CreateHistoryInput(
+                KbActInputHistoryField.CustomerName,
+                _draft.CustomerName);
+            _cmbCustomerPosition = CreateHistoryInput(
+                KbActInputHistoryField.CustomerPosition,
+                _draft.CustomerPosition);
+            _txtApproverName = CreateHistoryInput(
+                KbActInputHistoryField.ApproverName,
+                _draft.ApproverName);
+            _cmbApproverPosition = CreateHistoryInput(
+                KbActInputHistoryField.ApproverPosition,
+                _draft.ApproverPosition);
+            _txtExecutorName = CreateHistoryInput(
+                KbActInputHistoryField.ExecutorName,
+                FormatExecutorName(firstExecutor));
+            _cmbExecutorPosition = CreateHistoryInput(
+                KbActInputHistoryField.ExecutorPosition,
+                firstExecutor?.Position);
 
             AddRow(layout, 0, "Дата отказа", _dtpFailureDate);
             AddRow(layout, 1, "Критерий неисправности", _cmbFaultCriterion);
@@ -270,6 +265,7 @@ namespace AsutpKnowledgeBase
             ResultExecutors = KnowledgeBaseDataService.NormalizeActExecutors(
                 executors,
                 new[] { Result.ActId });
+            ResultInputHistory = _inputHistoryService.NormalizeEntries(_inputHistory);
             DocumentGenerationRequested = requestDocumentGeneration;
             DialogResult = DialogResult.OK;
             Close();
@@ -308,10 +304,10 @@ namespace AsutpKnowledgeBase
                 : string.Empty;
             act.RequestDocument = _txtRequestDocument.Text;
             act.ActualLaborHours = _txtActualLaborHours.Text;
-            act.CustomerName = _txtCustomerName.Text;
-            act.CustomerPosition = _cmbCustomerPosition.Text;
-            act.ApproverName = _txtApproverName.Text;
-            act.ApproverPosition = _cmbApproverPosition.Text;
+            act.CustomerName = _txtCustomerName.Value;
+            act.CustomerPosition = _cmbCustomerPosition.Value;
+            act.ApproverName = _txtApproverName.Value;
+            act.ApproverPosition = _cmbApproverPosition.Value;
 
             act.EquipmentSnapshot ??= new KbActEquipmentSnapshot();
             act.EquipmentSnapshot.OrderNumber = _txtOrderNumber.Text;
@@ -322,8 +318,8 @@ namespace AsutpKnowledgeBase
         private List<KbActExecutor> BuildExecutors(string actId)
         {
             var executors = new List<KbActExecutor>();
-            string executorName = _txtExecutorName.Text.Trim();
-            string executorPosition = _cmbExecutorPosition.Text.Trim();
+            string executorName = _txtExecutorName.Value.Trim();
+            string executorPosition = _cmbExecutorPosition.Value.Trim();
             if (string.IsNullOrWhiteSpace(executorName) &&
                 string.IsNullOrWhiteSpace(executorPosition))
             {
@@ -467,6 +463,31 @@ namespace AsutpKnowledgeBase
             };
             comboBox.Items.AddRange(options.Cast<object>().ToArray());
             return comboBox;
+        }
+
+        private HistoryInputControl CreateHistoryInput(
+            KbActInputHistoryField field,
+            string? value)
+        {
+            var input = new HistoryInputControl
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 0, 0, 8),
+                Value = value ?? string.Empty
+            };
+            input.SetSuggestions(_inputHistoryService.GetSuggestions(
+                _inputHistory,
+                _inputHistoryWorkshop,
+                field));
+            input.SuggestionDeleted += (_, e) =>
+            {
+                _inputHistory = _inputHistoryService.Delete(
+                    _inputHistory,
+                    _inputHistoryWorkshop,
+                    field,
+                    e.Value);
+            };
+            return input;
         }
 
         private static DateTimePicker CreateDatePicker(DateTime value) =>

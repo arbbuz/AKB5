@@ -44,6 +44,7 @@ public class SqliteKnowledgeBaseStorageServiceTests
             Assert.Contains("act_executors", tables);
             Assert.Contains("act_documents", tables);
             Assert.Contains("act_number_sequences", tables);
+            Assert.Contains("act_input_history", tables);
 
             var compositionColumns = ReadColumnNames(connection, "composition_entries");
             Assert.Contains("order_number", compositionColumns);
@@ -110,6 +111,40 @@ public class SqliteKnowledgeBaseStorageServiceTests
     }
 
     [Fact]
+    public void EnsureSchema_AddsEmptyActInputHistoryTableToExistingDatabase()
+    {
+        string tempDirectory = CreateTempDirectory();
+
+        try
+        {
+            string path = Path.Combine(tempDirectory, "knowledge-base.akb");
+            using (var connection = new SqliteConnection($"Data Source={path};Pooling=False"))
+            {
+                connection.Open();
+                using var command = connection.CreateCommand();
+                command.CommandText =
+                    """
+                    CREATE TABLE app_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+                    PRAGMA user_version=18;
+                    """;
+                command.ExecuteNonQuery();
+            }
+
+            var service = new SqliteKnowledgeBaseStorageService(path);
+            service.EnsureSchema();
+
+            using var migratedConnection = new SqliteConnection($"Data Source={path};Pooling=False");
+            migratedConnection.Open();
+            Assert.Contains("act_input_history", ReadTableNames(migratedConnection));
+            Assert.Equal(0, CountRows(migratedConnection, "act_input_history"));
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void SaveAndLoad_RoundTripsNormalizedSavedData()
     {
         string tempDirectory = CreateTempDirectory();
@@ -145,6 +180,7 @@ public class SqliteKnowledgeBaseStorageServiceTests
             Assert.Equal(1, CountRows(connection, "act_executors"));
             Assert.Equal(1, CountRows(connection, "act_documents"));
             Assert.Equal(1, CountRows(connection, "act_number_sequences"));
+            Assert.Equal(2, CountRows(connection, "act_input_history"));
         }
         finally
         {
@@ -942,6 +978,25 @@ public class SqliteKnowledgeBaseStorageServiceTests
                 {
                     Year = 2026,
                     NextNumber = 2
+                }
+            },
+            ActInputHistory = new List<KbActInputHistoryEntry>
+            {
+                new()
+                {
+                    WorkshopName = workshopA,
+                    Field = KbActInputHistoryField.ExecutorName,
+                    DisplayValue = "Иванов Иван Иванович",
+                    NormalizedValue = "ИВАНОВ ИВАН ИВАНОВИЧ",
+                    UseOrder = 1
+                },
+                new()
+                {
+                    WorkshopName = workshopA,
+                    Field = KbActInputHistoryField.ExecutorPosition,
+                    DisplayValue = "Инженер",
+                    NormalizedValue = "ИНЖЕНЕР",
+                    UseOrder = 2
                 }
             },
             LastWorkshop = workshopA
