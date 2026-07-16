@@ -78,8 +78,9 @@ namespace AsutpKnowledgeBase
             using var dialog = new KnowledgeBaseActForm(
                 result.Act,
                 currentExecutors,
-                _session.CurrentWorkshop,
-                _session.ActInputHistory);
+                result.Act.WorkshopName,
+                _session.ActInputHistory,
+                TryDeleteActInputHistorySuggestion);
             if (dialog.ShowDialog(this) != DialogResult.OK)
                 return;
 
@@ -213,8 +214,9 @@ namespace AsutpKnowledgeBase
             using var dialog = new KnowledgeBaseActForm(
                 act,
                 executors,
-                _session.CurrentWorkshop,
-                _session.ActInputHistory);
+                act.WorkshopName,
+                _session.ActInputHistory,
+                TryDeleteActInputHistorySuggestion);
             if (dialog.ShowDialog(owner) != DialogResult.OK)
                 return false;
 
@@ -595,14 +597,7 @@ namespace AsutpKnowledgeBase
             actExecutors.AddRange(savedExecutors);
             _session.ReplaceActExecutors(actExecutors);
             if (inputHistory != null)
-            {
-                var inputHistoryService = new KnowledgeBaseActInputHistoryService();
-                _session.ReplaceActInputHistory(inputHistoryService.RecordActValues(
-                    inputHistory,
-                    _session.CurrentWorkshop,
-                    act,
-                    savedExecutors));
-            }
+                _session.ReplaceActInputHistory(inputHistory);
 
             if (prepareDocumentPath)
             {
@@ -644,6 +639,29 @@ namespace AsutpKnowledgeBase
             }
 
             return ActFormSaveResult.Failed();
+        }
+
+        private string? TryDeleteActInputHistorySuggestion(
+            string workshopName,
+            KbActInputHistoryField field,
+            string value)
+        {
+            List<KbActInputHistoryEntry> previousInputHistory =
+                KnowledgeBaseDataService.NormalizeActInputHistory(_session.ActInputHistory);
+            if (!_session.TryDeleteActInputHistoryValue(workshopName, field, value))
+                return null;
+
+            UpdateDirtyState();
+            KnowledgeBaseFileSaveResult saveResult = _fileWorkflowService.Save(GetPersistedTreeData());
+            UpdateUI();
+            if (saveResult.IsSuccess)
+                return null;
+
+            _session.ReplaceActInputHistory(previousInputHistory);
+            UpdateDirtyState();
+            UpdateUI();
+            SetLastActionText($"Ошибка сохранения истории ввода: {saveResult.ErrorMessage}");
+            return $"Не удалось удалить значение из истории ввода: {saveResult.ErrorMessage}";
         }
 
         private bool GenerateActDocumentAfterSave(ActFormSaveResult saveResult, IWin32Window? owner = null)

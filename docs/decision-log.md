@@ -1,6 +1,6 @@
 # Decision Log
 
-Last updated: `2026-06-18`
+Last updated: `2026-07-16`
 
 This file keeps durable AKB5 decisions only. Do not use it as a changelog,
 handoff transcript, validation log, or phase archive.
@@ -29,6 +29,15 @@ handoff transcript, validation log, or phase archive.
 - Before overwriting or restoring an existing `.akb`, create an external timestamped backup under `backups\yyyy-MM-dd\`.
 - The first SQLite implementation does not support simultaneous multi-user editing.
 - SQLite snapshots/history belong inside `.akb`; legacy JSON may report that history is unavailable.
+
+## Acts Input History
+
+- Repeated act-form values use editable input history, not a separate people/position directory.
+- History is limited to six fields: executor name/position, customer representative name/position, and approver name/position.
+- History is scoped by workshop and field, deduplicated case-insensitively after whitespace normalization, and ordered by latest successful use. No last-used date is stored.
+- Old acts and hardcoded defaults are not imported into the history. Values enter it only after a successful act save.
+- Deleting a suggestion by `×` persists immediately and remains deleted after cancelling the form or restarting the app. It can return only after later manual input and a successful save.
+- Workshop rename moves its history; workshop deletion removes its history. Neither operation rewrites historical act snapshots.
 
 ## Publish And Startup
 

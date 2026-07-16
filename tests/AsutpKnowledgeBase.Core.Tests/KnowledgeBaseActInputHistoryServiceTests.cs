@@ -68,6 +68,62 @@ public class KnowledgeBaseActInputHistoryServiceTests
     }
 
     [Fact]
+    public void RenameWorkshop_MovesOnlyMatchingWorkshopHistory()
+    {
+        List<KbActInputHistoryEntry> entries =
+        [
+            Entry("Цех 1", KbActInputHistoryField.ExecutorName, "Иванов", 1),
+            Entry("Цех 1", KbActInputHistoryField.ExecutorPosition, "Инженер", 2),
+            Entry("Цех 2", KbActInputHistoryField.ExecutorName, "Петров", 3)
+        ];
+
+        List<KbActInputHistoryEntry> result = _service.RenameWorkshop(
+            entries,
+            " цех 1 ",
+            " Новый цех ");
+
+        Assert.Equal(2, result.Count(entry => entry.WorkshopName == "Новый цех"));
+        Assert.Single(result, entry => entry.WorkshopName == "Цех 2");
+        Assert.DoesNotContain(result, entry =>
+            string.Equals(entry.WorkshopName, "Цех 1", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void DeleteWorkshop_RemovesAllFieldsOnlyForMatchingWorkshop()
+    {
+        List<KbActInputHistoryEntry> entries =
+        [
+            Entry("Цех 1", KbActInputHistoryField.ExecutorName, "Иванов", 1),
+            Entry("Цех 1", KbActInputHistoryField.CustomerPosition, "Мастер", 2),
+            Entry("Цех 2", KbActInputHistoryField.ExecutorName, "Иванов", 3)
+        ];
+
+        List<KbActInputHistoryEntry> result = _service.DeleteWorkshop(entries, "ЦЕХ 1");
+
+        KbActInputHistoryEntry remaining = Assert.Single(result);
+        Assert.Equal("Цех 2", remaining.WorkshopName);
+    }
+
+    [Fact]
+    public void AddOrTouch_PreservesLongValueAndIgnoresEmptyValue()
+    {
+        string longValue = string.Join(" ", Enumerable.Repeat("длинное значение", 40));
+
+        List<KbActInputHistoryEntry> result = _service.AddOrTouch(
+            Array.Empty<KbActInputHistoryEntry>(),
+            "Цех 1",
+            KbActInputHistoryField.ApproverPosition,
+            longValue);
+        result = _service.AddOrTouch(
+            result,
+            "Цех 1",
+            KbActInputHistoryField.ApproverPosition,
+            "   ");
+
+        Assert.Equal(longValue, Assert.Single(result).DisplayValue);
+    }
+
+    [Fact]
     public void GetSuggestions_ReturnsOnlyRequestedWorkshopAndFieldInRecentOrder()
     {
         List<KbActInputHistoryEntry> entries =

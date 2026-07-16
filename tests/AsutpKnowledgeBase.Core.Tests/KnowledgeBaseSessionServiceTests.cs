@@ -293,6 +293,31 @@ public class KnowledgeBaseSessionServiceTests
                     ],
                     ["Цех 2"] = new()
                 },
+                ActInputHistory =
+                [
+                    new KbActInputHistoryEntry
+                    {
+                        WorkshopName = "Цех 1",
+                        Field = KbActInputHistoryField.ExecutorName,
+                        DisplayValue = "Иванов",
+                        UseOrder = 1
+                    },
+                    new KbActInputHistoryEntry
+                    {
+                        WorkshopName = "Цех 2",
+                        Field = KbActInputHistoryField.ExecutorName,
+                        DisplayValue = "Петров",
+                        UseOrder = 2
+                    }
+                ],
+                Acts =
+                [
+                    new KbAct
+                    {
+                        ActId = "act-1",
+                        WorkshopName = "Цех 1"
+                    }
+                ],
                 LastWorkshop = "Цех 1"
             },
             recordAsSavedState: true);
@@ -304,6 +329,9 @@ public class KnowledgeBaseSessionServiceTests
         Assert.Equal("Новый цех", wrapper.Name);
         Assert.Equal(KbNodeType.WorkshopRoot, wrapper.NodeType);
         Assert.Equal("Отделение", wrapper.Children.Single().Name);
+        Assert.Single(session.ActInputHistory, entry => entry.WorkshopName == "Новый цех");
+        Assert.Single(session.ActInputHistory, entry => entry.WorkshopName == "Цех 2");
+        Assert.Equal("Цех 1", Assert.Single(session.Acts).WorkshopName);
     }
 
     [Fact]
@@ -349,6 +377,31 @@ public class KnowledgeBaseSessionServiceTests
                     ["Цех 1"] = new(),
                     ["Цех 2"] = new()
                 },
+                ActInputHistory =
+                [
+                    new KbActInputHistoryEntry
+                    {
+                        WorkshopName = "Цех 1",
+                        Field = KbActInputHistoryField.ExecutorName,
+                        DisplayValue = "Иванов",
+                        UseOrder = 1
+                    },
+                    new KbActInputHistoryEntry
+                    {
+                        WorkshopName = "Цех 2",
+                        Field = KbActInputHistoryField.ExecutorName,
+                        DisplayValue = "Петров",
+                        UseOrder = 2
+                    }
+                ],
+                Acts =
+                [
+                    new KbAct
+                    {
+                        ActId = "act-1",
+                        WorkshopName = "Цех 1"
+                    }
+                ],
                 LastWorkshop = "Цех 1"
             },
             recordAsSavedState: true);
@@ -357,6 +410,59 @@ public class KnowledgeBaseSessionServiceTests
         Assert.False(session.Workshops.ContainsKey("Цех 1"));
         Assert.Equal("Цех 2", session.CurrentWorkshop);
         Assert.Single(session.Workshops);
+        Assert.Equal("Цех 2", Assert.Single(session.ActInputHistory).WorkshopName);
+        Assert.Equal("Цех 1", Assert.Single(session.Acts).WorkshopName);
+    }
+
+    [Fact]
+    public void TryDeleteActInputHistoryValue_RemovesOnlyExactWorkshopFieldAndValue()
+    {
+        var session = new KnowledgeBaseSessionService();
+        session.ApplyLoadedData(
+            new SavedData
+            {
+                Workshops = new Dictionary<string, List<KbNode>>
+                {
+                    ["Цех 1"] = new(),
+                    ["Цех 2"] = new()
+                },
+                ActInputHistory =
+                [
+                    new KbActInputHistoryEntry
+                    {
+                        WorkshopName = "Цех 1",
+                        Field = KbActInputHistoryField.ExecutorName,
+                        DisplayValue = "Иванов",
+                        UseOrder = 1
+                    },
+                    new KbActInputHistoryEntry
+                    {
+                        WorkshopName = "Цех 1",
+                        Field = KbActInputHistoryField.CustomerName,
+                        DisplayValue = "Иванов",
+                        UseOrder = 2
+                    },
+                    new KbActInputHistoryEntry
+                    {
+                        WorkshopName = "Цех 2",
+                        Field = KbActInputHistoryField.ExecutorName,
+                        DisplayValue = "Иванов",
+                        UseOrder = 3
+                    }
+                ],
+                LastWorkshop = "Цех 1"
+            },
+            recordAsSavedState: true);
+
+        Assert.True(session.TryDeleteActInputHistoryValue(
+            " цех 1 ",
+            KbActInputHistoryField.ExecutorName,
+            " иванов "));
+        Assert.Equal(2, session.ActInputHistory.Count);
+        Assert.False(session.TryDeleteActInputHistoryValue(
+            "Цех 1",
+            KbActInputHistoryField.ExecutorName,
+            "Иванов"));
     }
 
     [Fact]

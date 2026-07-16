@@ -1,6 +1,6 @@
 # Lessons Learned
 
-Last updated: `2026-05-20`
+Last updated: `2026-07-16`
 
 ## UI and tree behavior
 
@@ -16,6 +16,9 @@ Last updated: `2026-05-20`
 - When catalog data is used inside composition editing, keep the picker behavior aligned with the catalog browser: same visible columns, same local search scope, same sorting expectations, and same remembered layout behavior.
 - Avoid leaving demo-like hardcoded templates under user-facing production commands. If users need real operational templates, make them persisted and manageable from the UI instead of requiring code edits.
 - Distinguish clearly between `composition templates` and `object templates`: composition templates currently fill only `SavedData.CompositionEntries`, while object templates can carry tree substructure plus typed records. Similar menu labels can otherwise lead users to expect one system to manage the other.
+- For repeated free-form act fields, workshop-scoped input history is lighter and more useful than a separate reference-data screen: keep manual editing, remember only successfully saved values, and allow direct removal of stale entries.
+- A destructive action inside a dropdown needs its own safe click zone, separated from value selection and the dropdown arrow; deletion should be persisted before the UI removes the row so a failed save can leave the suggestion visible.
+- If a deleted suggestion is still present in the current text field, ordinary form save must not silently recreate it. Track that deletion until the value is manually entered again.
 
 ## Network passport workflow
 

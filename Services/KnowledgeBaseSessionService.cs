@@ -221,6 +221,10 @@ namespace AsutpKnowledgeBase.Services
 
             RenameTechnicalWrapperIfNeeded(normalizedWorkshop, roots);
             Workshops = ReplaceWorkshopKey(resolvedCurrentWorkshop, normalizedWorkshop);
+            ActInputHistory = new KnowledgeBaseActInputHistoryService().RenameWorkshop(
+                ActInputHistory,
+                resolvedCurrentWorkshop,
+                normalizedWorkshop);
             CurrentWorkshop = normalizedWorkshop;
             return true;
         }
@@ -246,6 +250,9 @@ namespace AsutpKnowledgeBase.Services
                 return false;
 
             Workshops = remainingWorkshops;
+            ActInputHistory = new KnowledgeBaseActInputHistoryService().DeleteWorkshop(
+                ActInputHistory,
+                resolvedCurrentWorkshop);
             CurrentWorkshop = KnowledgeBaseDataService.ResolveWorkshop(Workshops, preferredWorkshop: null);
             return true;
         }
@@ -481,6 +488,24 @@ namespace AsutpKnowledgeBase.Services
 
         public void ReplaceActInputHistory(IEnumerable<KbActInputHistoryEntry> entries) =>
             ActInputHistory = KnowledgeBaseDataService.NormalizeActInputHistory(entries);
+
+        public bool TryDeleteActInputHistoryValue(
+            string? workshopName,
+            KbActInputHistoryField field,
+            string? value)
+        {
+            var historyService = new KnowledgeBaseActInputHistoryService();
+            List<KbActInputHistoryEntry> updated = historyService.Delete(
+                ActInputHistory,
+                workshopName,
+                field,
+                value);
+            if (updated.Count == ActInputHistory.Count)
+                return false;
+
+            ActInputHistory = updated;
+            return true;
+        }
 
         public void SetRequiresSave(bool requiresSave) => RequiresSave = requiresSave;
 

@@ -21,7 +21,9 @@ namespace AsutpKnowledgeBase
         private readonly KnowledgeBaseActEditorService _editorService = new();
         private readonly KnowledgeBaseActInputHistoryService _inputHistoryService = new();
         private readonly string _inputHistoryWorkshop;
+        private readonly Func<string, KbActInputHistoryField, string, string?>? _inputHistoryDeleteHandler;
         private List<KbActInputHistoryEntry> _inputHistory;
+        private readonly Dictionary<KbActInputHistoryField, HashSet<string>> _deletedInputHistoryValues = new();
         private string _lastFaultCriterionText = DefaultFaultCriterion;
 
         private ComboBox _cmbActType = null!;
@@ -49,7 +51,8 @@ namespace AsutpKnowledgeBase
             KbAct draft,
             IEnumerable<KbActExecutor>? executors = null,
             string? inputHistoryWorkshop = null,
-            IEnumerable<KbActInputHistoryEntry>? inputHistory = null)
+            IEnumerable<KbActInputHistoryEntry>? inputHistory = null,
+            Func<string, KbActInputHistoryField, string, string?>? inputHistoryDeleteHandler = null)
         {
             _draft = KnowledgeBaseActEditorService.CloneAct(draft);
             _draftExecutors = executors?.Select(CloneExecutor).ToList() ?? new List<KbActExecutor>();
@@ -57,6 +60,7 @@ namespace AsutpKnowledgeBase
                 ? _draft.WorkshopName?.Trim() ?? string.Empty
                 : inputHistoryWorkshop.Trim();
             _inputHistory = _inputHistoryService.NormalizeEntries(inputHistory);
+            _inputHistoryDeleteHandler = inputHistoryDeleteHandler;
             Result = KnowledgeBaseActEditorService.CloneAct(draft);
             ResultExecutors = new List<KbActExecutor>();
             ResultInputHistory = _inputHistoryService.NormalizeEntries(_inputHistory);
@@ -265,7 +269,7 @@ namespace AsutpKnowledgeBase
             ResultExecutors = KnowledgeBaseDataService.NormalizeActExecutors(
                 executors,
                 new[] { Result.ActId });
-            ResultInputHistory = _inputHistoryService.NormalizeEntries(_inputHistory);
+            ResultInputHistory = BuildResultInputHistory(Result, ResultExecutors);
             DocumentGenerationRequested = requestDocumentGeneration;
             DialogResult = DialogResult.OK;
             Close();
@@ -481,13 +485,68 @@ namespace AsutpKnowledgeBase
                 field));
             input.SuggestionDeleted += (_, e) =>
             {
+                string? deleteError = _inputHistoryDeleteHandler?.Invoke(
+                    _inputHistoryWorkshop,
+                    field,
+                    e.Value);
+                if (!string.IsNullOrWhiteSpace(deleteError))
+                {
+                    e.Cancel = true;
+                    MessageBox.Show(
+                        this,
+                        deleteError,
+                        "История ввода",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    return;
+                }
+
                 _inputHistory = _inputHistoryService.Delete(
                     _inputHistory,
                     _inputHistoryWorkshop,
                     field,
                     e.Value);
+                if (!_deletedInputHistoryValues.TryGetValue(field, out HashSet<string>? deletedValues))
+                {
+                    deletedValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    _deletedInputHistoryValues[field] = deletedValues;
+                }
+
+                deletedValues.Add(KnowledgeBaseActInputHistoryService.NormalizeValue(e.Value));
+            };
+            input.InputValueChanged += (_, _) =>
+            {
+                if (_deletedInputHistoryValues.TryGetValue(field, out HashSet<string>? deletedValues))
+                {
+                    deletedValues.Remove(KnowledgeBaseActInputHistoryService.NormalizeValue(input.Value));
+                }
             };
             return input;
+        }
+
+        private List<KbActInputHistoryEntry> BuildResultInputHistory(
+            KbAct act,
+            IEnumerable<KbActExecutor> executors)
+        {
+            List<KbActInputHistoryEntry> result = _inputHistoryService.RecordActValues(
+                _inputHistory,
+                _inputHistoryWorkshop,
+                act,
+                executors);
+
+            foreach ((KbActInputHistoryField field, HashSet<string> deletedValues) in _deletedInputHistoryValues)
+            {
+                foreach (string deletedValue in deletedValues)
+                {
+                    result = _inputHistoryService.Delete(
+                        result,
+                        _inputHistoryWorkshop,
+                        field,
+                        deletedValue);
+                }
+            }
+
+            return result;
         }
 
         private static DateTimePicker CreateDatePicker(DateTime value) =>

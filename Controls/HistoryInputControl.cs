@@ -8,6 +8,8 @@ namespace AsutpKnowledgeBase.Controls
         }
 
         public string Value { get; }
+
+        public bool Cancel { get; set; }
     }
 
     public sealed class HistoryInputControl : UserControl
@@ -66,6 +68,12 @@ namespace AsutpKnowledgeBase.Controls
         }
 
         public event EventHandler<HistorySuggestionDeletedEventArgs>? SuggestionDeleted;
+
+        public event EventHandler? InputValueChanged
+        {
+            add => _textBox.TextChanged += value;
+            remove => _textBox.TextChanged -= value;
+        }
 
         public void SetSuggestions(IEnumerable<string>? suggestions)
         {
@@ -206,9 +214,13 @@ namespace AsutpKnowledgeBase.Controls
 
         private void DeleteSuggestion(string value)
         {
+            var eventArgs = new HistorySuggestionDeletedEventArgs(value);
+            SuggestionDeleted?.Invoke(this, eventArgs);
+            if (eventArgs.Cancel)
+                return;
+
             _suggestions.RemoveAll(existing =>
                 string.Equals(existing, value, StringComparison.OrdinalIgnoreCase));
-            SuggestionDeleted?.Invoke(this, new HistorySuggestionDeletedEventArgs(value));
             CloseDropDown();
             UpdateDropDownButtonState();
         }

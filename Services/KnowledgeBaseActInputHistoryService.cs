@@ -101,6 +101,42 @@ namespace AsutpKnowledgeBase.Services
                 .ToList();
         }
 
+        public List<KbActInputHistoryEntry> RenameWorkshop(
+            IEnumerable<KbActInputHistoryEntry>? entries,
+            string? currentWorkshopName,
+            string? newWorkshopName)
+        {
+            string normalizedCurrentWorkshop = NormalizeWorkshopName(currentWorkshopName);
+            string normalizedNewWorkshop = NormalizeWorkshopName(newWorkshopName);
+            List<KbActInputHistoryEntry> normalizedEntries = NormalizeEntries(entries);
+            if (string.IsNullOrWhiteSpace(normalizedCurrentWorkshop) ||
+                string.IsNullOrWhiteSpace(normalizedNewWorkshop))
+            {
+                return normalizedEntries;
+            }
+
+            foreach (KbActInputHistoryEntry entry in normalizedEntries)
+            {
+                if (WorkshopNamesEqual(entry.WorkshopName, normalizedCurrentWorkshop))
+                    entry.WorkshopName = normalizedNewWorkshop;
+            }
+
+            return NormalizeEntries(normalizedEntries);
+        }
+
+        public List<KbActInputHistoryEntry> DeleteWorkshop(
+            IEnumerable<KbActInputHistoryEntry>? entries,
+            string? workshopName)
+        {
+            string normalizedWorkshop = NormalizeWorkshopName(workshopName);
+            if (string.IsNullOrWhiteSpace(normalizedWorkshop))
+                return NormalizeEntries(entries);
+
+            return NormalizeEntries(entries)
+                .Where(entry => !WorkshopNamesEqual(entry.WorkshopName, normalizedWorkshop))
+                .ToList();
+        }
+
         public IReadOnlyList<string> GetSuggestions(
             IEnumerable<KbActInputHistoryEntry>? entries,
             string? workshopName,
