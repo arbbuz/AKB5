@@ -14,7 +14,7 @@ namespace AsutpKnowledgeBase.Services
         private const int FixedExecutorSlotCount = 3;
         private const int ObjectLineMaxLength = 105;
         private const int InspectionResultBaseLineCount = 8;
-        private const float InspectionResultWidthSafetyMarginPoints = 8F;
+        private const float TextWidthSafetyMarginPoints = 8F;
         private const string WordprocessingNamespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
         private const int CustomerNamePositionLineMaxLength = 95;
         private const int ExecutorNamePositionMaxLength = 49;
@@ -63,6 +63,10 @@ namespace AsutpKnowledgeBase.Services
                         BuildScalarReplacements(request.Act),
                         StringComparer.Ordinal);
                     IReadOnlyList<KbActExecutor> executors = NormalizeExecutors(request.Executors);
+                    AddExpandableFailureTextFieldReplacements(
+                        replacements,
+                        request.Act,
+                        mainPart);
                     int inspectionResultLineCount = AddAcceptedInspectionTemplateReplacements(
                         replacements,
                         request.Act,
@@ -183,6 +187,77 @@ namespace AsutpKnowledgeBase.Services
             return inspectionResultLines.Length;
         }
 
+        private static void AddExpandableFailureTextFieldReplacements(
+            IDictionary<string, string> replacements,
+            KbAct act,
+            MainDocumentPart mainPart)
+        {
+            if (act.ActType != KbActType.EquipmentFailure)
+                return;
+
+            AddExpandableParagraphFieldReplacements(
+                replacements,
+                mainPart,
+                "{{FaultDescription}}",
+                act.FaultDescription);
+            AddExpandableParagraphFieldReplacements(
+                replacements,
+                mainPart,
+                "{{FailureReason}}",
+                act.FailureReason);
+        }
+
+        private static void AddExpandableParagraphFieldReplacements(
+            IDictionary<string, string> replacements,
+            MainDocumentPart mainPart,
+            string placeholder,
+            string value)
+        {
+            ExpandableParagraphField? field = ResolveExpandableParagraphField(mainPart, placeholder);
+            if (field == null)
+                return;
+
+            string[] lines = SplitIntoWidthFittedLines(value, field.Layout, minimumLineCount: 1);
+            replacements[placeholder] = lines[0];
+            OpenXmlElement insertAfter = field.LineParagraph;
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string linePlaceholder = BuildLinePlaceholder(placeholder, i + 1);
+                var paragraph = (Paragraph)field.MarkerParagraph.CloneNode(deep: true);
+                ParagraphProperties properties = paragraph.ParagraphProperties ??
+                    paragraph.PrependChild(new ParagraphProperties());
+                properties.NumberingProperties = null;
+                if (field.Indentation == null)
+                {
+                    properties.Indentation = null;
+                }
+                else
+                {
+                    var indentation = (Indentation)field.Indentation.CloneNode(deep: true);
+                    indentation.Hanging = null;
+                    indentation.FirstLine = null;
+                    properties.Indentation = indentation;
+                }
+
+                ReplacePlaceholdersInParagraph(
+                    paragraph,
+                    new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        [placeholder] = linePlaceholder
+                    });
+                insertAfter.InsertAfterSelf(paragraph);
+                insertAfter = paragraph;
+
+                var lineParagraph = (Paragraph)field.LineParagraph.CloneNode(deep: true);
+                insertAfter.InsertAfterSelf(lineParagraph);
+                insertAfter = lineParagraph;
+                replacements[linePlaceholder] = lines[i];
+            }
+        }
+
+        private static string BuildLinePlaceholder(string placeholder, int lineNumber) =>
+            placeholder[..^2] + "Line" + lineNumber.ToString(CultureInfo.InvariantCulture) + "}}";
+
         private static string FormatInstallationPlace(KbAct act)
         {
             string workshopName = act.WorkshopName?.Trim() ?? string.Empty;
@@ -273,7 +348,7 @@ namespace AsutpKnowledgeBase.Services
 
         private static string[] SplitIntoWidthFittedLines(
             string value,
-            InspectionResultLayout layout,
+            TextFieldLayout layout,
             int minimumLineCount)
         {
             var lines = new List<string>(minimumLineCount);
@@ -393,7 +468,122 @@ namespace AsutpKnowledgeBase.Services
             return true;
         }
 
-        private static InspectionResultLayout ResolveInspectionResultLayout(Body body)
+        private static ExpandableParagraphField? ResolveExpandableParagraphField(
+            MainDocumentPart mainPart,
+            string placeholder)
+        {
+            Body? body = mainPart.Document.Body;
+            Paragraph? markerParagraph = body?
+                .Descendants<Paragraph>()
+                .FirstOrDefault(paragraph => string.Equals(
+                    string.Concat(paragraph.Descendants<Text>().Select(static text => text.Text)).Trim(),
+                    placeholder,
+                    StringComparison.Ordinal));
+            if (body == null || markerParagraph == null)
+                return null;
+
+            Text markerText = ResolvePlaceholderFormatText(markerParagraph, placeholder);
+
+            Paragraph? lineParagraph = markerParagraph.NextSibling<Paragraph>();
+            if (lineParagraph == null ||
+                lineParagraph.InnerText.Trim().Any(static character => character != '_'))
+            {
+                return null;
+            }
+
+            SectionProperties? section = body.Elements<SectionProperties>().LastOrDefault();
+            OpenXmlElement? pageSize = FindChild(section, "pgSz");
+            OpenXmlElement? pageMargin = FindChild(section, "pgMar");
+            int pageWidthTwips = GetIntegerAttribute(pageSize, "w");
+            int leftMarginTwips = GetIntegerAttribute(pageMargin, "left");
+            int rightMarginTwips = GetIntegerAttribute(pageMargin, "right");
+            if (pageWidthTwips <= 0)
+                throw new InvalidDataException($"Для поля {placeholder} не задана ширина страницы.");
+
+            Indentation? indentation = ResolveParagraphIndentation(mainPart, markerParagraph);
+            int leftIndentTwips = GetFirstIntegerAttribute(indentation, "left", "start");
+            int rightIndentTwips = GetFirstIntegerAttribute(indentation, "right", "end");
+            int usableWidthTwips = pageWidthTwips -
+                leftMarginTwips -
+                rightMarginTwips -
+                leftIndentTwips -
+                rightIndentTwips;
+            float usableWidthPoints = usableWidthTwips / 20F - TextWidthSafetyMarginPoints;
+            if (usableWidthPoints <= 0F)
+                throw new InvalidDataException($"Полезная ширина поля {placeholder} должна быть положительной.");
+
+            TextFormat textFormat = ResolvePlaceholderTextFormat(
+                markerText,
+                markerParagraph,
+                placeholder);
+            return new ExpandableParagraphField(
+                markerParagraph,
+                lineParagraph,
+                indentation,
+                new TextFieldLayout(
+                    usableWidthPoints,
+                    textFormat.FontName,
+                    textFormat.FontSizePoints));
+        }
+
+        private static Text ResolvePlaceholderFormatText(
+            Paragraph paragraph,
+            string placeholder)
+        {
+            List<Text> textNodes = paragraph.Descendants<Text>().ToList();
+            string combined = string.Concat(textNodes.Select(static text => text.Text));
+            int matchStart = combined.IndexOf(placeholder, StringComparison.Ordinal);
+            if (matchStart < 0)
+                throw new InvalidDataException($"Не найден плейсхолдер {placeholder}.");
+
+            int[] nodeStarts = new int[textNodes.Count];
+            int currentStart = 0;
+            for (int i = 0; i < textNodes.Count; i++)
+            {
+                nodeStarts[i] = currentStart;
+                currentStart += textNodes[i].Text.Length;
+            }
+
+            int matchEnd = matchStart + placeholder.Length;
+            int startNodeIndex = FindTextNodeIndex(textNodes, nodeStarts, matchStart);
+            int endNodeIndex = FindTextNodeIndex(textNodes, nodeStarts, matchEnd - 1);
+            int formatNodeIndex = FindPlaceholderFormatNodeIndex(
+                textNodes,
+                startNodeIndex,
+                endNodeIndex,
+                matchStart - nodeStarts[startNodeIndex],
+                matchEnd - nodeStarts[endNodeIndex]);
+            return textNodes[formatNodeIndex];
+        }
+
+        private static Indentation? ResolveParagraphIndentation(
+            MainDocumentPart mainPart,
+            Paragraph paragraph)
+        {
+            Indentation? directIndentation = paragraph.ParagraphProperties?.Indentation;
+            if (directIndentation != null)
+                return directIndentation;
+
+            OpenXmlElement? numberingProperties = FindChild(paragraph.ParagraphProperties, "numPr");
+            int numberingId = GetIntegerAttribute(FindChild(numberingProperties, "numId"), "val");
+            int levelIndex = GetIntegerAttribute(FindChild(numberingProperties, "ilvl"), "val");
+            OpenXmlElement? numbering = mainPart.NumberingDefinitionsPart?.Numbering;
+            OpenXmlElement? numberingInstance = numbering?.ChildElements.FirstOrDefault(element =>
+                string.Equals(element.LocalName, "num", StringComparison.Ordinal) &&
+                GetIntegerAttribute(element, "numId") == numberingId);
+            int abstractNumberingId = GetIntegerAttribute(
+                FindChild(numberingInstance, "abstractNumId"),
+                "val");
+            OpenXmlElement? abstractNumbering = numbering?.ChildElements.FirstOrDefault(element =>
+                string.Equals(element.LocalName, "abstractNum", StringComparison.Ordinal) &&
+                GetIntegerAttribute(element, "abstractNumId") == abstractNumberingId);
+            OpenXmlElement? level = abstractNumbering?.ChildElements.FirstOrDefault(element =>
+                string.Equals(element.LocalName, "lvl", StringComparison.Ordinal) &&
+                GetIntegerAttribute(element, "ilvl") == levelIndex);
+            return FindChild(FindChild(level, "pPr"), "ind") as Indentation;
+        }
+
+        private static TextFieldLayout ResolveInspectionResultLayout(Body body)
         {
             Text? markerText = body
                 .Descendants<Text>()
@@ -404,7 +594,10 @@ namespace AsutpKnowledgeBase.Services
             if (cell == null || paragraph == null)
                 throw new InvalidDataException("В шаблоне не найдено поле {{InspectionResultLine1}}.");
 
-            InspectionResultTextFormat textFormat = ResolveInspectionResultTextFormat(markerText, paragraph);
+            TextFormat textFormat = ResolvePlaceholderTextFormat(
+                markerText,
+                paragraph,
+                "{{InspectionResultLine1}}");
 
             OpenXmlElement? cellWidth = FindChild(cell.TableCellProperties, "tcW");
             string widthType = GetAttributeValue(cellWidth, "type");
@@ -435,7 +628,7 @@ namespace AsutpKnowledgeBase.Services
             if (usableWidthTwips <= 0)
                 throw new InvalidDataException("Полезная ширина поля {{InspectionResultLine1}} должна быть положительной.");
 
-            float usableWidthPoints = usableWidthTwips / 20F - InspectionResultWidthSafetyMarginPoints;
+            float usableWidthPoints = usableWidthTwips / 20F - TextWidthSafetyMarginPoints;
             string fixedParagraphText = paragraph.InnerText.Replace(
                 "{{InspectionResultLine1}}",
                 string.Empty,
@@ -451,15 +644,16 @@ namespace AsutpKnowledgeBase.Services
             if (usableWidthPoints <= 0F)
                 throw new InvalidDataException("Полезная ширина текста {{InspectionResultLine1}} должна быть положительной.");
 
-            return new InspectionResultLayout(
+            return new TextFieldLayout(
                 usableWidthPoints,
                 textFormat.FontName,
                 textFormat.FontSizePoints);
         }
 
-        private static InspectionResultTextFormat ResolveInspectionResultTextFormat(
+        private static TextFormat ResolvePlaceholderTextFormat(
             Text markerText,
-            Paragraph paragraph)
+            Paragraph paragraph,
+            string placeholder)
         {
             OpenXmlElement? runProperties = markerText.Ancestors<Run>().FirstOrDefault()?.RunProperties;
             OpenXmlElement? paragraphRunProperties = FindChild(paragraph.ParagraphProperties, "rPr");
@@ -480,10 +674,10 @@ namespace AsutpKnowledgeBase.Services
                 parsedHalfPoints <= 0F)
             {
                 throw new InvalidDataException(
-                    "Для поля {{InspectionResultLine1}} должны быть явно заданы шрифт и размер.");
+                    $"Для поля {placeholder} должны быть явно заданы шрифт и размер.");
             }
 
-            return new InspectionResultTextFormat(fontName, parsedHalfPoints / 2F);
+            return new TextFormat(fontName, parsedHalfPoints / 2F);
         }
 
         private static string GetRunFontName(OpenXmlElement? runProperties)
@@ -901,14 +1095,20 @@ namespace AsutpKnowledgeBase.Services
                 out NativeSize size);
         }
 
-        private readonly record struct InspectionResultTextFormat(
+        private readonly record struct TextFormat(
             string FontName,
             float FontSizePoints);
 
-        private readonly record struct InspectionResultLayout(
+        private readonly record struct TextFieldLayout(
             float UsableWidthPoints,
             string FontName,
             float FontSizePoints);
+
+        private sealed record ExpandableParagraphField(
+            Paragraph MarkerParagraph,
+            Paragraph LineParagraph,
+            Indentation? Indentation,
+            TextFieldLayout Layout);
 
         private static KnowledgeBaseActDocxGenerationResult Failure(string errorMessage) =>
             new()

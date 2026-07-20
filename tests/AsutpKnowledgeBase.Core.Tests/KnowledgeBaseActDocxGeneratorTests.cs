@@ -208,7 +208,10 @@ public sealed class KnowledgeBaseActDocxGeneratorTests
 
         Assert.True(result.IsSuccess, result.ErrorMessage);
         string documentText = ReadDocumentText(outputPath);
-        Assert.Contains("выхода из строя электрооборудования", documentText, StringComparison.Ordinal);
+        Assert.Contains(
+            "выхода из строя электрооборудования",
+            documentText.Replace("\n", string.Empty, StringComparison.Ordinal),
+            StringComparison.Ordinal);
         Assert.Contains(
             "Купоросный цех (КЦ), АСУ использования конденсатов КЦ для выработки пара в котельной",
             documentText,
@@ -271,6 +274,78 @@ public sealed class KnowledgeBaseActDocxGeneratorTests
         Assert.DoesNotContain("Малашкеевич", documentText, StringComparison.Ordinal);
         Assert.DoesNotContain("2025", documentText, StringComparison.Ordinal);
         Assert.DoesNotContain("{{", documentText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_WithLongExternalFailureFields_AddsUnnumberedParagraphs()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string templatePath = Path.Combine(
+            repositoryRoot,
+            "Templates",
+            "Acts",
+            KnowledgeBaseActDocxTemplateService.GetTemplateFileName(KbActType.EquipmentFailure));
+        string outputPath = Path.Combine(CreateTempDirectory(), "external-template-long-failure-fields.docx");
+        KbAct act = CreateAct();
+        act.FaultDescription = string.Join(
+            " ",
+            Enumerable.Range(1, 45).Select(static index => $"fault-segment-{index:D2}"));
+        act.FailureReason = string.Join(
+            " ",
+            Enumerable.Range(1, 45).Select(static index => $"reason-segment-{index:D2}"));
+        var generator = new KnowledgeBaseActDocxGeneratorPlugin();
+
+        KnowledgeBaseActDocxGenerationResult result = generator.Generate(
+            new KnowledgeBaseActDocxGenerationRequest
+            {
+                Act = act,
+                Executors =
+                [
+                    CreateExecutor(
+                        "executor-1",
+                        1,
+                        "Executor",
+                        "Person",
+                        string.Empty,
+                        "Executor Position")
+                ],
+                TemplatePath = templatePath,
+                OutputPath = outputPath
+            });
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        using WordprocessingDocument document = WordprocessingDocument.Open(outputPath, false);
+        List<Paragraph> faultParagraphs = document.MainDocumentPart!.Document
+            .Descendants<Paragraph>()
+            .Where(static paragraph => paragraph.InnerText.Contains("fault-segment-", StringComparison.Ordinal))
+            .ToList();
+        List<Paragraph> reasonParagraphs = document.MainDocumentPart.Document
+            .Descendants<Paragraph>()
+            .Where(static paragraph => paragraph.InnerText.Contains("reason-segment-", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.True(faultParagraphs.Count > 1);
+        Assert.True(reasonParagraphs.Count > 1);
+        Assert.NotNull(faultParagraphs[0].ParagraphProperties?.NumberingProperties);
+        Assert.NotNull(reasonParagraphs[0].ParagraphProperties?.NumberingProperties);
+        Assert.All(faultParagraphs.Skip(1), static paragraph =>
+            Assert.Null(paragraph.ParagraphProperties?.NumberingProperties));
+        Assert.All(reasonParagraphs.Skip(1), static paragraph =>
+            Assert.Null(paragraph.ParagraphProperties?.NumberingProperties));
+        Assert.All(faultParagraphs, AssertFollowedByFieldLine);
+        Assert.All(reasonParagraphs, AssertFollowedByFieldLine);
+        string documentText = ReadDocumentText(outputPath);
+        Assert.Contains("fault-segment-45", documentText, StringComparison.Ordinal);
+        Assert.Contains("reason-segment-45", documentText, StringComparison.Ordinal);
+        Assert.DoesNotContain("{{", documentText, StringComparison.Ordinal);
+    }
+
+    private static void AssertFollowedByFieldLine(Paragraph paragraph)
+    {
+        Paragraph? lineParagraph = paragraph.NextSibling<Paragraph>();
+        Assert.NotNull(lineParagraph);
+        Assert.NotEmpty(lineParagraph.InnerText.Trim());
+        Assert.All(lineParagraph.InnerText.Trim(), static character => Assert.Equal('_', character));
     }
 
     [Fact]
