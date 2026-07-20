@@ -473,7 +473,7 @@ namespace AsutpKnowledgeBase
         {
             var menu = new ContextMenuStrip();
             ToolStripMenuItem copyCellItem = CreateContextMenuItem("Копировать ячейку", CopyContextCell);
-            ToolStripMenuItem createActItem = CreateContextMenuItem("Создать акт...", () => CreateActRequested?.Invoke(this, EventArgs.Empty));
+            ToolStripMenuItem createActItem = CreateContextMenuItem("Создать акт выхода из строя...", () => CreateActRequested?.Invoke(this, EventArgs.Empty));
             ToolStripMenuItem editItem = CreateContextMenuItem("Изменить", () => EditSelectedRequested?.Invoke(this, EventArgs.Empty));
             ToolStripMenuItem addItem = CreateContextMenuItem("Добавить", () => AddRequested?.Invoke(this, EventArgs.Empty));
             ToolStripMenuItem deleteItem = CreateContextMenuItem("Удалить", () => DeleteSelectedRequested?.Invoke(this, EventArgs.Empty));

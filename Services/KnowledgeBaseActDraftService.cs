@@ -5,12 +5,15 @@ namespace AsutpKnowledgeBase.Services
     public enum KnowledgeBaseActDraftSource
     {
         Composition = 0,
-        AdditionalEquipment = 1
+        AdditionalEquipment = 1,
+        Lvl2Object = 2
     }
 
     public sealed class KnowledgeBaseActDraftRequest
     {
         public KbNode? Lvl3Node { get; init; }
+
+        public KbNode? ObjectNode { get; init; }
 
         public IReadOnlyList<KbNode>? WorkshopRoots { get; init; }
 
@@ -61,37 +64,53 @@ namespace AsutpKnowledgeBase.Services
             if (request == null)
                 return Failure("Не переданы данные для создания черновика акта.");
 
-            KbNode? lvl3Node = request.Lvl3Node;
-            if (lvl3Node == null)
-                return Failure("Не выбран объект Lvl3.");
+            bool requiresEquipment = request.ActType == KbActType.EquipmentFailure;
+            KbNode? sourceNode = requiresEquipment ? request.Lvl3Node : request.ObjectNode;
+            if (sourceNode == null)
+            {
+                return requiresEquipment
+                    ? Failure("Не выбран объект Lvl3.")
+                    : Failure("Не выбран объект Lvl2.");
+            }
 
-            if (!KnowledgeBaseCompositionStateService.SupportsComposition(lvl3Node.NodeType, request.VisibleLevel))
-                return Failure("Черновик акта можно создать только из вкладок \"Состав\" или \"Доп. оборудование\" объекта Lvl3.");
+            if (requiresEquipment &&
+                !KnowledgeBaseCompositionStateService.SupportsComposition(sourceNode.NodeType, request.VisibleLevel))
+            {
+                return Failure("Акт выхода из строя можно создать только для оборудования объекта Lvl3.");
+            }
+
+            if (!requiresEquipment && request.VisibleLevel != 2)
+                return Failure("Акт выполненных работ можно создать только для объекта Lvl2.");
 
             KbCompositionEntry? entry = request.CompositionEntry;
-            if (entry == null)
+            if (requiresEquipment && entry == null)
                 return Failure("Не выбрана строка оборудования.");
 
-            string entryId = entry.EntryId?.Trim() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(entryId))
+            string entryId = requiresEquipment ? entry!.EntryId?.Trim() ?? string.Empty : string.Empty;
+            if (requiresEquipment && string.IsNullOrWhiteSpace(entryId))
                 return Failure("Нельзя создать акт по пустой строке оборудования.");
 
-            string lvl3NodeId = lvl3Node.NodeId?.Trim() ?? string.Empty;
-            string entryParentNodeId = entry.ParentNodeId?.Trim() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(lvl3NodeId) ||
-                !string.Equals(entryParentNodeId, lvl3NodeId, StringComparison.Ordinal))
+            string sourceNodeId = sourceNode.NodeId?.Trim() ?? string.Empty;
+            string entryParentNodeId = requiresEquipment ? entry!.ParentNodeId?.Trim() ?? string.Empty : string.Empty;
+            if (string.IsNullOrWhiteSpace(sourceNodeId))
+                return Failure("У выбранного объекта отсутствует идентификатор.");
+
+            if (requiresEquipment &&
+                !string.Equals(entryParentNodeId, sourceNodeId, StringComparison.Ordinal))
             {
                 return Failure("Выбранная строка состава не принадлежит выбранному объекту Lvl3.");
             }
 
-            bool useRackSnapshot = request.Source == KnowledgeBaseActDraftSource.Composition;
+            bool useRackSnapshot = requiresEquipment && request.Source == KnowledgeBaseActDraftSource.Composition;
             KbCompositionRack? rack = useRackSnapshot ? request.Rack : null;
-            int entryRackNumber = KnowledgeBaseCompositionRackSlotRulesService.NormalizeRackNumber(entry.RackNumber);
+            int entryRackNumber = requiresEquipment
+                ? KnowledgeBaseCompositionRackSlotRulesService.NormalizeRackNumber(entry!.RackNumber)
+                : 0;
             if (rack != null)
             {
                 string rackParentNodeId = rack.ParentNodeId?.Trim() ?? string.Empty;
                 if (!string.IsNullOrWhiteSpace(rackParentNodeId) &&
-                    !string.Equals(rackParentNodeId, lvl3NodeId, StringComparison.Ordinal))
+                    !string.Equals(rackParentNodeId, sourceNodeId, StringComparison.Ordinal))
                 {
                     return Failure("Выбранный Rack не принадлежит выбранному объекту Lvl3.");
                 }
@@ -105,9 +124,11 @@ namespace AsutpKnowledgeBase.Services
             DateTime actDate = (request.ActDate ?? now).Date;
             string workshopName = request.WorkshopName?.Trim() ?? string.Empty;
             string objectPath = request.WorkshopRoots == null || request.WorkshopRoots.Count == 0
-                ? lvl3Node.Name
-                : _nodePresentationService.BuildNodePath(request.WorkshopRoots, lvl3Node);
-            string objectName = ResolveParentNodeName(request.WorkshopRoots, lvl3Node);
+                ? sourceNode.Name
+                : _nodePresentationService.BuildNodePath(request.WorkshopRoots, sourceNode);
+            string objectName = requiresEquipment
+                ? ResolveParentNodeName(request.WorkshopRoots, sourceNode)
+                : sourceNode.Name?.Trim() ?? string.Empty;
             int rackNumberSnapshot = useRackSnapshot ? entryRackNumber : 0;
             string rackName = !useRackSnapshot
                 ? string.Empty
@@ -120,22 +141,21 @@ namespace AsutpKnowledgeBase.Services
 
             var equipmentSnapshot = new KbActEquipmentSnapshot
             {
-                Lvl3Name = lvl3Node.Name,
+                Lvl3Name = requiresEquipment ? sourceNode.Name ?? string.Empty : string.Empty,
                 ObjectPath = objectPath,
                 RackId = rack?.RackId ?? string.Empty,
                 RackNumber = rackNumberSnapshot,
                 RackName = rackName,
                 CompositionEntryId = entryId,
-                ComponentType = entry.ComponentType,
-                Model = entry.Model,
-                OrderNumber = entry.OrderNumber,
+                ComponentType = requiresEquipment ? entry!.ComponentType : string.Empty,
+                Model = requiresEquipment ? entry!.Model : string.Empty,
+                OrderNumber = requiresEquipment ? entry!.OrderNumber : string.Empty,
                 SerialNumber = string.Empty,
-                Notes = entry.Notes
+                Notes = requiresEquipment ? entry!.Notes : string.Empty
             };
-            string equipmentName = BuildDefaultEquipmentName(
-                entry.ComponentType,
-                entry.Model,
-                entry.OrderNumber);
+            string equipmentName = requiresEquipment
+                ? BuildDefaultEquipmentName(entry!.ComponentType, entry.Model, entry.OrderNumber)
+                : string.Empty;
 
             var act = new KbAct
             {
@@ -146,8 +166,8 @@ namespace AsutpKnowledgeBase.Services
                 Status = KbActStatus.Draft,
                 ActDate = actDate,
                 WorkshopName = workshopName,
-                Lvl3NodeId = lvl3NodeId,
-                Lvl3NameSnapshot = lvl3Node.Name,
+                Lvl3NodeId = requiresEquipment ? sourceNodeId : string.Empty,
+                Lvl3NameSnapshot = requiresEquipment ? sourceNode.Name ?? string.Empty : string.Empty,
                 ObjectNameSnapshot = objectName,
                 ObjectPathSnapshot = objectPath,
                 RackId = rack?.RackId ?? string.Empty,

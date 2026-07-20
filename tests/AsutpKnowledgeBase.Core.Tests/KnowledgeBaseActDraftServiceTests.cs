@@ -6,6 +6,42 @@ namespace AsutpKnowledgeBase.Core.Tests;
 public class KnowledgeBaseActDraftServiceTests
 {
     [Fact]
+    public void CreateDraft_FromLvl2Object_CreatesInspectionActWithoutEquipmentLink()
+    {
+        (List<KbNode> roots, _) = CreateLvl3Tree();
+        KbNode lvl2Node = roots[0].Children.Single();
+        DateTime now = new(2026, 7, 17, 9, 15, 0);
+        var service = new KnowledgeBaseActDraftService(
+            clock: () => now,
+            actIdFactory: () => "act-inspection-1");
+
+        KnowledgeBaseActDraftResult result = service.CreateDraft(new KnowledgeBaseActDraftRequest
+        {
+            ObjectNode = lvl2Node,
+            WorkshopRoots = roots,
+            WorkshopName = "Цех 1",
+            VisibleLevel = 2,
+            Source = KnowledgeBaseActDraftSource.Lvl2Object,
+            ActType = KbActType.InspectionWork
+        });
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        KbAct act = Assert.IsType<KbAct>(result.Act);
+        Assert.Equal("act-inspection-1", act.ActId);
+        Assert.Equal(KbActType.InspectionWork, act.ActType);
+        Assert.Equal(string.Empty, act.Lvl3NodeId);
+        Assert.Equal(string.Empty, act.Lvl3NameSnapshot);
+        Assert.Equal("Линия 1", act.ObjectNameSnapshot);
+        Assert.Equal("Цех 1 / Линия 1", act.ObjectPathSnapshot);
+        Assert.Equal(string.Empty, act.CompositionEntryId);
+        Assert.Equal(string.Empty, act.RackId);
+        Assert.Equal(string.Empty, act.EquipmentName);
+        Assert.Equal(string.Empty, act.EquipmentSnapshot.Lvl3Name);
+        Assert.Equal(string.Empty, act.EquipmentSnapshot.CompositionEntryId);
+        Assert.Equal(string.Empty, act.EquipmentSnapshot.OrderNumber);
+    }
+
+    [Fact]
     public void CreateDraft_FromLvl3RackEntry_CreatesActWithEquipmentSnapshot()
     {
         (List<KbNode> roots, KbNode lvl3Node) = CreateLvl3Tree();

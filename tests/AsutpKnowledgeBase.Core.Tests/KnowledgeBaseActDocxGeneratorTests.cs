@@ -256,14 +256,15 @@ public sealed class KnowledgeBaseActDocxGeneratorTests
             "Купоросный цех (КЦ), АСУ использования конденсатов КЦ для выработки пара в котельной",
             documentText,
             StringComparison.Ordinal);
-        Assert.Contains("SIMATIC S7-300, PS 307, БЛОК ПИТАНИЯ", documentText, StringComparison.Ordinal);
-        Assert.Contains("Проверка после ремонта", documentText, StringComparison.Ordinal);
+        Assert.DoesNotContain("SIMATIC S7-300, PS 307, БЛОК ПИТАНИЯ", documentText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Проверка после ремонта", documentText, StringComparison.Ordinal);
         Assert.Contains("Заявка 1", documentText, StringComparison.Ordinal);
         Assert.Contains("Работы выполнены, замечаний нет", documentText, StringComparison.Ordinal);
         Assert.Contains("2", documentText, StringComparison.Ordinal);
         Assert.Contains("Сидоров Сидор Сидорович", documentText, StringComparison.Ordinal);
         Assert.Contains("Иванов Иван Иванович", documentText, StringComparison.Ordinal);
         Assert.Contains("Павлов Павел Павлович", documentText, StringComparison.Ordinal);
+        Assert.Contains("начальник цеха", documentText, StringComparison.Ordinal);
         Assert.DoesNotContain("ШКМ1", documentText, StringComparison.Ordinal);
         Assert.DoesNotContain("Rack", documentText, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Slot", documentText, StringComparison.OrdinalIgnoreCase);
@@ -316,6 +317,111 @@ public sealed class KnowledgeBaseActDocxGeneratorTests
         Assert.Contains("executor-position-tail-token", normalizedDocumentText, StringComparison.Ordinal);
         Assert.DoesNotContain("...", normalizedDocumentText, StringComparison.Ordinal);
         Assert.DoesNotContain("{{", documentText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_WithExternalInspectionTemplate_UsesCellWidthAndKeepsWordsWhole()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string templatePath = Path.Combine(
+            repositoryRoot,
+            "Templates",
+            "Acts",
+            KnowledgeBaseActDocxTemplateService.GetTemplateFileName(KbActType.InspectionWork));
+        string outputPath = Path.Combine(CreateTempDirectory(), "inspection-template-width-wrapping.docx");
+        string expectedFontName;
+        string expectedFontSize;
+        using (WordprocessingDocument template = WordprocessingDocument.Open(templatePath, false))
+        {
+            Run markerRun = template.MainDocumentPart!.Document
+                .Descendants<Run>()
+                .First(run => string.Concat(run.Descendants<Text>().Select(static text => text.Text))
+                    .Contains("{{InspectionResultLine1}}", StringComparison.Ordinal));
+            expectedFontName = markerRun.RunProperties?.RunFonts?.Ascii?.Value ?? string.Empty;
+            expectedFontSize = markerRun.RunProperties?.FontSize?.Val?.Value ?? string.Empty;
+        }
+
+        Assert.False(string.IsNullOrWhiteSpace(expectedFontName));
+        Assert.False(string.IsNullOrWhiteSpace(expectedFontSize));
+        KbAct act = CreateInspectionAct();
+        const string wholeWord = "производительность";
+        act.InspectionResult = $"маркер {string.Join(" ", Enumerable.Repeat("и", 80))} {wholeWord} конец";
+        var generator = new KnowledgeBaseActDocxGeneratorPlugin();
+
+        KnowledgeBaseActDocxGenerationResult result = generator.Generate(
+            new KnowledgeBaseActDocxGenerationRequest
+            {
+                Act = act,
+                Executors = [CreateExecutor("executor-1", 1, "Иванов", "Иван", "Иванович", "Инженер")],
+                TemplatePath = templatePath,
+                OutputPath = outputPath
+            });
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        using WordprocessingDocument document = WordprocessingDocument.Open(outputPath, false);
+        TableCell firstResultCell = document.MainDocumentPart!.Document
+            .Descendants<TableCell>()
+            .First(cell => GetCellText(cell).TrimStart().StartsWith("маркер", StringComparison.Ordinal));
+        string firstLine = GetCellText(firstResultCell).Trim();
+        Assert.True(firstLine.Length > 78, $"Первая строка содержит только {firstLine.Length} символов: {firstLine}");
+
+        IReadOnlyList<string> cellTexts = document.MainDocumentPart.Document
+            .Descendants<TableCell>()
+            .Select(GetCellText)
+            .ToList();
+        Assert.Contains(cellTexts, text => text.Split(' ').Contains(wholeWord, StringComparer.Ordinal));
+        Assert.DoesNotContain(cellTexts, text => text.Contains("производи-", StringComparison.Ordinal));
+
+        Run resultRun = firstResultCell.Descendants<Run>()
+            .First(run => string.Concat(run.Descendants<Text>().Select(static text => text.Text))
+                .Contains("маркер", StringComparison.Ordinal));
+        Assert.Equal(expectedFontName, resultRun.RunProperties?.RunFonts?.Ascii?.Value);
+        Assert.Equal(expectedFontSize, resultRun.RunProperties?.FontSize?.Val?.Value);
+    }
+
+    [Fact]
+    public void Generate_WithSplitPlaceholders_PreservesPlaceholderRunFormatting()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string templatePath = Path.Combine(
+            repositoryRoot,
+            "Templates",
+            "Acts",
+            KnowledgeBaseActDocxTemplateService.GetTemplateFileName(KbActType.InspectionWork));
+        string outputPath = Path.Combine(CreateTempDirectory(), "inspection-template-placeholder-formatting.docx");
+        (string ExecutorFont, string ExecutorSize) = ReadPlaceholderFormat(
+            templatePath,
+            "ExecutorNamePosition");
+        (string CustomerFont, string CustomerSize) = ReadPlaceholderFormat(
+            templatePath,
+            "CustomerNamePosition");
+        KbAct act = CreateInspectionAct();
+        act.CustomerName = "Customer Person";
+        act.CustomerPosition = "Customer Position";
+        var generator = new KnowledgeBaseActDocxGeneratorPlugin();
+
+        KnowledgeBaseActDocxGenerationResult result = generator.Generate(
+            new KnowledgeBaseActDocxGenerationRequest
+            {
+                Act = act,
+                Executors =
+                [
+                    CreateExecutor(
+                        "executor-1",
+                        1,
+                        "Executor",
+                        "Person",
+                        string.Empty,
+                        "Executor Position")
+                ],
+                TemplatePath = templatePath,
+                OutputPath = outputPath
+            });
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        using WordprocessingDocument document = WordprocessingDocument.Open(outputPath, false);
+        AssertRunFormat(document, "Executor Person, Executor Position", ExecutorFont, ExecutorSize);
+        AssertRunFormat(document, "Customer Person, Customer Position", CustomerFont, CustomerSize);
     }
 
     [Fact]
@@ -424,6 +530,9 @@ public sealed class KnowledgeBaseActDocxGeneratorTests
     private static TableCell CreateCell(string text) =>
         new(new Paragraph(new Run(new Text(text))));
 
+    private static string GetCellText(TableCell cell) =>
+        string.Concat(cell.Descendants<Text>().Select(static text => text.Text));
+
     private static string ReadDocumentText(string path)
     {
         using WordprocessingDocument document = WordprocessingDocument.Open(path, false);
@@ -442,6 +551,36 @@ public sealed class KnowledgeBaseActDocxGeneratorTests
         string path = Path.Combine(Path.GetTempPath(), $"akb5-act-docx-{Guid.NewGuid():N}");
         Directory.CreateDirectory(path);
         return path;
+    }
+
+    private static (string FontName, string FontSize) ReadPlaceholderFormat(
+        string templatePath,
+        string placeholderText)
+    {
+        using WordprocessingDocument template = WordprocessingDocument.Open(templatePath, false);
+        Run run = template.MainDocumentPart!.Document
+            .Descendants<Run>()
+            .First(candidate => string.Concat(candidate.Descendants<Text>().Select(static text => text.Text))
+                .Contains(placeholderText, StringComparison.Ordinal));
+        string fontName = run.RunProperties?.RunFonts?.Ascii?.Value ?? string.Empty;
+        string fontSize = run.RunProperties?.FontSize?.Val?.Value ?? string.Empty;
+        Assert.False(string.IsNullOrWhiteSpace(fontName));
+        Assert.False(string.IsNullOrWhiteSpace(fontSize));
+        return (fontName, fontSize);
+    }
+
+    private static void AssertRunFormat(
+        WordprocessingDocument document,
+        string expectedText,
+        string expectedFontName,
+        string expectedFontSize)
+    {
+        Run run = document.MainDocumentPart!.Document
+            .Descendants<Run>()
+            .First(candidate => string.Concat(candidate.Descendants<Text>().Select(static text => text.Text))
+                .Contains(expectedText, StringComparison.Ordinal));
+        Assert.Equal(expectedFontName, run.RunProperties?.RunFonts?.Ascii?.Value);
+        Assert.Equal(expectedFontSize, run.RunProperties?.FontSize?.Val?.Value);
     }
 
     private static string FindRepositoryRoot()

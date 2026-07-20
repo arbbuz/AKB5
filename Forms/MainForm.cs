@@ -113,6 +113,7 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem ctxCreateObjectFromTemplateAtRoot = null!;
         private ToolStripMenuItem ctxCreateObjectFromTemplate = null!;
         private ToolStripMenuItem ctxSaveObjectAsTemplate = null!;
+        private ToolStripMenuItem ctxCreateInspectionAct = null!;
         private ToolStripMenuItem ctxCopy = null!;
         private ToolStripMenuItem ctxPaste = null!;
         private ToolStripMenuItem ctxRename = null!;
@@ -612,6 +613,8 @@ namespace AsutpKnowledgeBase
             ctxTemplates.Enabled =
                 ctxCreateObjectFromTemplate.Enabled ||
                 ctxSaveObjectAsTemplate.Enabled;
+            ctxCreateInspectionAct.Enabled = hasSelection &&
+                GetVisibleLevelForNode(selectedNode!) == 2;
             ctxPaste.Enabled = hasSelection && _treeMutationWorkflowService.CanPasteNode(selectedNode!);
             bool hasCurrentWorkshop = !string.IsNullOrWhiteSpace(_currentWorkshop);
             menuRenameWorkshop.Enabled = hasCurrentWorkshop;
@@ -887,7 +890,10 @@ namespace AsutpKnowledgeBase
 
         private void ApplyTreeContextMenuVisibility()
         {
-            bool hasSelection = tvTree.SelectedNode?.Tag is KbNode;
+            KbNode? selectedNode = tvTree.SelectedNode?.Tag as KbNode;
+            bool hasSelection = selectedNode != null;
+            bool canCreateInspectionAct = hasSelection &&
+                GetVisibleLevelForNode(selectedNode!) == 2;
 
             ctxAdd.Visible = !hasSelection;
             ctxCreateObjectFromCatalogAtRoot.Visible = !hasSelection;
@@ -895,6 +901,7 @@ namespace AsutpKnowledgeBase
             ctxAddChild.Visible = hasSelection;
             ctxCreateObjectFromCatalog.Visible = hasSelection;
             ctxTemplates.Visible = hasSelection;
+            ctxCreateInspectionAct.Visible = canCreateInspectionAct;
             ctxEditSeparator.Visible = hasSelection;
             ctxCopy.Visible = hasSelection;
             ctxPaste.Visible = hasSelection;

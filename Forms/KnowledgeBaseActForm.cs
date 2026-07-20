@@ -158,6 +158,7 @@ namespace AsutpKnowledgeBase
             _cmbActType.Items.Add(new ActTypeOption(KbActType.InspectionWork, "Осмотр / выполненные работы"));
             _cmbActType.SelectedIndexChanged += (_, _) => UpdateDescriptionFieldsState();
             SelectActType(_draft.ActType);
+            _cmbActType.Enabled = false;
 
             _dtpActDate = CreateDatePicker(_draft.ActDate ?? DateTime.Today);
             _txtStatus = CreateReadOnlyTextBox(FormatStatus(_draft.Status));
@@ -192,6 +193,9 @@ namespace AsutpKnowledgeBase
             AddRow(layout, 0, "Неисправность", _txtFaultDescription);
             AddRow(layout, 1, "Причина", _txtFailureReason);
             AddRow(layout, 2, "Результат осмотра", _txtInspectionResult);
+            layout.RowStyles[2] = new RowStyle(SizeType.Percent, 100F);
+            layout.RowStyles[3] = new RowStyle(SizeType.Absolute, 0F);
+            _txtInspectionResult.MinimumSize = new Size(0, 120);
 
             page.Controls.Add(layout);
             return page;
@@ -236,10 +240,10 @@ namespace AsutpKnowledgeBase
             AddRow(layout, 1, "Критерий неисправности", _cmbFaultCriterion);
             AddRow(layout, 2, "Заявка / основание", _txtRequestDocument);
             AddRow(layout, 3, "Трудозатраты", _txtActualLaborHours);
-            AddRow(layout, 4, "Представитель цеха", _txtCustomerName);
-            AddRow(layout, 5, "Должность представителя", _cmbCustomerPosition);
-            AddRow(layout, 6, "Утверждающий", _txtApproverName);
-            AddRow(layout, 7, "Должность утверждающего", _cmbApproverPosition);
+            AddRow(layout, 4, "Утверждающий", _txtApproverName);
+            AddRow(layout, 5, "Должность утверждающего", _cmbApproverPosition);
+            AddRow(layout, 6, "Представитель цеха", _txtCustomerName);
+            AddRow(layout, 7, "Должность представителя", _cmbCustomerPosition);
             AddRow(layout, 8, "Исполнитель", _txtExecutorName);
             AddRow(layout, 9, "Должность исполнителя", _cmbExecutorPosition);
 
@@ -296,25 +300,43 @@ namespace AsutpKnowledgeBase
             act.ActYear = _dtpActDate.Value.Year;
             act.WorkshopName = _txtWorkshop.Text;
             act.ObjectNameSnapshot = _txtObject.Text;
-            act.EquipmentName = _txtEquipment.Text;
-            act.FailureDate = _dtpFailureDate.Checked
-                ? _dtpFailureDate.Value.Date
-                : null;
-            act.FaultDescription = _txtFaultDescription.Text;
-            act.FailureReason = _txtFailureReason.Text;
-            act.InspectionResult = _txtInspectionResult.Text;
-            act.FaultCriterion = act.ActType == KbActType.EquipmentFailure
-                ? _cmbFaultCriterion.Text
-                : string.Empty;
-            act.RequestDocument = _txtRequestDocument.Text;
-            act.ActualLaborHours = _txtActualLaborHours.Text;
-            act.CustomerName = _txtCustomerName.Value;
-            act.CustomerPosition = _cmbCustomerPosition.Value;
-            act.ApproverName = _txtApproverName.Value;
-            act.ApproverPosition = _cmbApproverPosition.Value;
+            if (act.ActType == KbActType.EquipmentFailure)
+            {
+                act.EquipmentName = _txtEquipment.Text;
+                act.FailureDate = _dtpFailureDate.Checked
+                    ? _dtpFailureDate.Value.Date
+                    : null;
+                act.FaultDescription = _txtFaultDescription.Text;
+                act.FailureReason = _txtFailureReason.Text;
+                act.FaultCriterion = _cmbFaultCriterion.Text;
+                act.InspectionResult = string.Empty;
+                act.RequestDocument = string.Empty;
+                act.ActualLaborHours = string.Empty;
+                act.CustomerName = string.Empty;
+                act.CustomerPosition = string.Empty;
+                act.ApproverName = string.Empty;
+                act.ApproverPosition = string.Empty;
+            }
+            else
+            {
+                act.EquipmentName = string.Empty;
+                act.FailureDate = null;
+                act.FaultDescription = string.Empty;
+                act.FailureReason = string.Empty;
+                act.FaultCriterion = string.Empty;
+                act.InspectionResult = _txtInspectionResult.Text;
+                act.RequestDocument = _txtRequestDocument.Text;
+                act.ActualLaborHours = _txtActualLaborHours.Text;
+                act.CustomerName = _txtCustomerName.Value;
+                act.CustomerPosition = _cmbCustomerPosition.Value;
+                act.ApproverName = _txtApproverName.Value;
+                act.ApproverPosition = _cmbApproverPosition.Value;
+            }
 
             act.EquipmentSnapshot ??= new KbActEquipmentSnapshot();
-            act.EquipmentSnapshot.OrderNumber = _txtOrderNumber.Text;
+            act.EquipmentSnapshot.OrderNumber = act.ActType == KbActType.EquipmentFailure
+                ? _txtOrderNumber.Text
+                : string.Empty;
 
             return act;
         }
@@ -363,26 +385,52 @@ namespace AsutpKnowledgeBase
 
         private void UpdateDescriptionFieldsState()
         {
-            if (_txtFaultDescription == null || _txtFailureReason == null || _cmbFaultCriterion == null)
+            if (_txtFaultDescription == null || _txtFailureReason == null || _cmbFaultCriterion == null ||
+                _dtpFailureDate == null)
                 return;
 
             bool isInspectionWork = _cmbActType.SelectedItem is ActTypeOption option &&
                 option.Value == KbActType.InspectionWork;
 
+            _txtEquipment.Enabled = !isInspectionWork;
+            _txtOrderNumber.Enabled = !isInspectionWork;
             _txtFaultDescription.Enabled = !isInspectionWork;
             _txtFailureReason.Enabled = !isInspectionWork;
             _cmbFaultCriterion.Enabled = !isInspectionWork;
+            _dtpFailureDate.Enabled = !isInspectionWork;
+            _txtInspectionResult.Enabled = isInspectionWork;
+            _txtRequestDocument.Enabled = isInspectionWork;
+            _txtActualLaborHours.Enabled = isInspectionWork;
+            _txtCustomerName.Enabled = isInspectionWork;
+            _cmbCustomerPosition.Enabled = isInspectionWork;
+            _txtApproverName.Enabled = isInspectionWork;
+            _cmbApproverPosition.Enabled = isInspectionWork;
 
             if (isInspectionWork)
             {
                 if (!string.IsNullOrWhiteSpace(_cmbFaultCriterion.Text))
                     _lastFaultCriterionText = _cmbFaultCriterion.Text;
 
+                _dtpFailureDate.Checked = false;
+                _txtEquipment.Clear();
+                _txtOrderNumber.Clear();
+                _txtFaultDescription.Clear();
+                _txtFailureReason.Clear();
                 _cmbFaultCriterion.Text = string.Empty;
             }
-            else if (string.IsNullOrWhiteSpace(_cmbFaultCriterion.Text))
+            else
             {
-                _cmbFaultCriterion.Text = SelectDefault(_lastFaultCriterionText, DefaultFaultCriterion);
+                _dtpFailureDate.Checked = true;
+                _txtInspectionResult.Clear();
+                _txtRequestDocument.Clear();
+                _txtActualLaborHours.Clear();
+                _txtCustomerName.Value = string.Empty;
+                _cmbCustomerPosition.Value = string.Empty;
+                _txtApproverName.Value = string.Empty;
+                _cmbApproverPosition.Value = string.Empty;
+
+                if (string.IsNullOrWhiteSpace(_cmbFaultCriterion.Text))
+                    _cmbFaultCriterion.Text = SelectDefault(_lastFaultCriterionText, DefaultFaultCriterion);
             }
         }
 

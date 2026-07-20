@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using AsutpKnowledgeBase.Models;
 using DocumentFormat.OpenXml;
@@ -12,7 +14,8 @@ namespace AsutpKnowledgeBase.Services
         private const int FixedExecutorSlotCount = 3;
         private const int ObjectLineMaxLength = 105;
         private const int InspectionResultBaseLineCount = 8;
-        private const int InspectionResultLineMaxLength = 78;
+        private const float InspectionResultWidthSafetyMarginPoints = 8F;
+        private const string WordprocessingNamespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
         private const int CustomerNamePositionLineMaxLength = 95;
         private const int ExecutorNamePositionMaxLength = 49;
         private const int SignatureNameMaxLength = 48;
@@ -63,7 +66,8 @@ namespace AsutpKnowledgeBase.Services
                     int inspectionResultLineCount = AddAcceptedInspectionTemplateReplacements(
                         replacements,
                         request.Act,
-                        executors);
+                        executors,
+                        mainPart.Document.Body);
                     EnsureAcceptedInspectionResultRows(mainPart.Document.Body, inspectionResultLineCount);
                     AddFixedExecutorReplacements(replacements, executors);
                     PopulateExecutorTable(mainPart.Document.Body, replacements, executors);
@@ -104,7 +108,6 @@ namespace AsutpKnowledgeBase.Services
                     ? act.ActYear.ToString(CultureInfo.InvariantCulture)
                     : string.Empty,
                 ["{{ActDate}}"] = FormatDate(act.ActDate),
-                ["{{ApprovalDate}}"] = FormatDate(act.ActDate),
                 ["{{ActType}}"] = KnowledgeBaseActJournalService.FormatActType(act.ActType),
                 ["{{Status}}"] = KnowledgeBaseActJournalService.FormatStatus(act.Status),
                 ["{{WorkshopName}}"] = act.WorkshopName,
@@ -136,19 +139,20 @@ namespace AsutpKnowledgeBase.Services
         private static int AddAcceptedInspectionTemplateReplacements(
             IDictionary<string, string> replacements,
             KbAct act,
-            IReadOnlyList<KbActExecutor> executors)
+            IReadOnlyList<KbActExecutor> executors,
+            Body body)
         {
             replacements["{{ObjectLine1}}"] = FitSingleLine(
                 FormatInstallationPlace(act),
                 ObjectLineMaxLength);
-            replacements["{{ObjectLine2}}"] = FitSingleLine(
-                FormatEquipmentAndRequestDescription(act),
-                ObjectLineMaxLength);
+            replacements["{{ObjectLine2}}"] = string.Empty;
 
-            string[] inspectionResultLines = SplitIntoFixedLinesPreservingOverflow(
-                act.InspectionResult,
-                InspectionResultLineMaxLength,
-                minimumLineCount: InspectionResultBaseLineCount);
+            string[] inspectionResultLines = act.ActType == KbActType.InspectionWork
+                ? SplitIntoWidthFittedLines(
+                    act.InspectionResult,
+                    ResolveInspectionResultLayout(body),
+                    minimumLineCount: InspectionResultBaseLineCount)
+                : Enumerable.Repeat(string.Empty, InspectionResultBaseLineCount).ToArray();
             for (int i = 0; i < inspectionResultLines.Length; i++)
             {
                 string slot = (i + 1).ToString(CultureInfo.InvariantCulture);
@@ -199,19 +203,6 @@ namespace AsutpKnowledgeBase.Services
             string[] parts =
             [
                 FormatInstallationPlace(act),
-                act.EquipmentName?.Trim() ?? string.Empty,
-                act.FaultDescription?.Trim() ?? string.Empty
-            ];
-
-            return string.Join(
-                ". ",
-                parts.Where(static part => !string.IsNullOrWhiteSpace(part)));
-        }
-
-        private static string FormatEquipmentAndRequestDescription(KbAct act)
-        {
-            string[] parts =
-            [
                 act.EquipmentName?.Trim() ?? string.Empty,
                 act.FaultDescription?.Trim() ?? string.Empty
             ];
@@ -280,25 +271,38 @@ namespace AsutpKnowledgeBase.Services
             ];
         }
 
-        private static string[] SplitIntoFixedLinesPreservingOverflow(
+        private static string[] SplitIntoWidthFittedLines(
             string value,
-            int maxLength,
+            InspectionResultLayout layout,
             int minimumLineCount)
         {
             var lines = new List<string>(minimumLineCount);
-            string remaining = NormalizeInlineText(value);
-            while (!string.IsNullOrWhiteSpace(remaining))
+            string normalized = NormalizeInlineText(value);
+            if (!string.IsNullOrWhiteSpace(normalized))
             {
-                if (remaining.Length <= maxLength)
+                using var measurer = new GdiTextWidthMeasurer(
+                    layout.FontName,
+                    layout.FontSizePoints);
+
+                string currentLine = string.Empty;
+                foreach (string word in normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries))
                 {
-                    lines.Add(remaining);
-                    remaining = string.Empty;
-                    break;
+                    string candidate = string.IsNullOrEmpty(currentLine)
+                        ? word
+                        : $"{currentLine} {word}";
+                    float candidateWidth = measurer.MeasureWidthPoints(candidate);
+                    if (string.IsNullOrEmpty(currentLine) || candidateWidth <= layout.UsableWidthPoints)
+                    {
+                        currentLine = candidate;
+                        continue;
+                    }
+
+                    lines.Add(currentLine);
+                    currentLine = word;
                 }
 
-                int splitIndex = FindSplitIndex(remaining, maxLength);
-                lines.Add(remaining[..splitIndex].Trim());
-                remaining = remaining[splitIndex..].Trim();
+                if (!string.IsNullOrEmpty(currentLine))
+                    lines.Add(currentLine);
             }
 
             while (lines.Count < minimumLineCount)
@@ -389,6 +393,154 @@ namespace AsutpKnowledgeBase.Services
             return true;
         }
 
+        private static InspectionResultLayout ResolveInspectionResultLayout(Body body)
+        {
+            Text? markerText = body
+                .Descendants<Text>()
+                .FirstOrDefault(static text =>
+                    text.Text.Contains("{{InspectionResultLine1}}", StringComparison.Ordinal));
+            TableCell? cell = markerText?.Ancestors<TableCell>().FirstOrDefault();
+            Paragraph? paragraph = markerText?.Ancestors<Paragraph>().FirstOrDefault();
+            if (cell == null || paragraph == null)
+                throw new InvalidDataException("В шаблоне не найдено поле {{InspectionResultLine1}}.");
+
+            InspectionResultTextFormat textFormat = ResolveInspectionResultTextFormat(markerText, paragraph);
+
+            OpenXmlElement? cellWidth = FindChild(cell.TableCellProperties, "tcW");
+            string widthType = GetAttributeValue(cellWidth, "type");
+            int cellWidthTwips = GetIntegerAttribute(cellWidth, "w");
+            if (cellWidthTwips <= 0 ||
+                !string.IsNullOrEmpty(widthType) && !string.Equals(widthType, "dxa", StringComparison.Ordinal))
+            {
+                throw new InvalidDataException("Ширина поля {{InspectionResultLine1}} должна быть задана в twips.");
+            }
+
+            OpenXmlElement? margins = FindChild(cell.TableCellProperties, "tcMar");
+            if (margins == null)
+            {
+                Table? table = cell.Ancestors<Table>().FirstOrDefault();
+                margins = FindChild(FindChild(table, "tblPr"), "tblCellMar");
+            }
+
+            int leftMarginTwips = GetSideWidthTwips(margins, "left", "start");
+            int rightMarginTwips = GetSideWidthTwips(margins, "right", "end");
+            OpenXmlElement? indentation = FindChild(paragraph.ParagraphProperties, "ind");
+            int leftIndentTwips = GetFirstIntegerAttribute(indentation, "left", "start");
+            int rightIndentTwips = GetFirstIntegerAttribute(indentation, "right", "end");
+            int usableWidthTwips = cellWidthTwips -
+                leftMarginTwips -
+                rightMarginTwips -
+                leftIndentTwips -
+                rightIndentTwips;
+            if (usableWidthTwips <= 0)
+                throw new InvalidDataException("Полезная ширина поля {{InspectionResultLine1}} должна быть положительной.");
+
+            float usableWidthPoints = usableWidthTwips / 20F - InspectionResultWidthSafetyMarginPoints;
+            string fixedParagraphText = paragraph.InnerText.Replace(
+                "{{InspectionResultLine1}}",
+                string.Empty,
+                StringComparison.Ordinal);
+            if (!string.IsNullOrEmpty(fixedParagraphText))
+            {
+                using var measurer = new GdiTextWidthMeasurer(
+                    textFormat.FontName,
+                    textFormat.FontSizePoints);
+                usableWidthPoints -= measurer.MeasureWidthPoints(fixedParagraphText);
+            }
+
+            if (usableWidthPoints <= 0F)
+                throw new InvalidDataException("Полезная ширина текста {{InspectionResultLine1}} должна быть положительной.");
+
+            return new InspectionResultLayout(
+                usableWidthPoints,
+                textFormat.FontName,
+                textFormat.FontSizePoints);
+        }
+
+        private static InspectionResultTextFormat ResolveInspectionResultTextFormat(
+            Text markerText,
+            Paragraph paragraph)
+        {
+            OpenXmlElement? runProperties = markerText.Ancestors<Run>().FirstOrDefault()?.RunProperties;
+            OpenXmlElement? paragraphRunProperties = FindChild(paragraph.ParagraphProperties, "rPr");
+            string fontName = GetRunFontName(runProperties);
+            if (string.IsNullOrWhiteSpace(fontName))
+                fontName = GetRunFontName(paragraphRunProperties);
+
+            string fontSizeHalfPoints = GetRunFontSize(runProperties);
+            if (string.IsNullOrWhiteSpace(fontSizeHalfPoints))
+                fontSizeHalfPoints = GetRunFontSize(paragraphRunProperties);
+
+            if (string.IsNullOrWhiteSpace(fontName) ||
+                !float.TryParse(
+                    fontSizeHalfPoints,
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out float parsedHalfPoints) ||
+                parsedHalfPoints <= 0F)
+            {
+                throw new InvalidDataException(
+                    "Для поля {{InspectionResultLine1}} должны быть явно заданы шрифт и размер.");
+            }
+
+            return new InspectionResultTextFormat(fontName, parsedHalfPoints / 2F);
+        }
+
+        private static string GetRunFontName(OpenXmlElement? runProperties)
+        {
+            OpenXmlElement? runFonts = FindChild(runProperties, "rFonts");
+            return GetAttributeValue(runFonts, "ascii") is string ascii && !string.IsNullOrWhiteSpace(ascii)
+                ? ascii
+                : GetAttributeValue(runFonts, "hAnsi");
+        }
+
+        private static string GetRunFontSize(OpenXmlElement? runProperties) =>
+            GetAttributeValue(FindChild(runProperties, "sz"), "val");
+
+        private static int GetSideWidthTwips(
+            OpenXmlElement? margins,
+            string primarySide,
+            string alternateSide)
+        {
+            OpenXmlElement? side = FindChild(margins, primarySide) ?? FindChild(margins, alternateSide);
+            string widthType = GetAttributeValue(side, "type");
+            if (!string.IsNullOrEmpty(widthType) && !string.Equals(widthType, "dxa", StringComparison.Ordinal))
+                return 0;
+
+            return GetIntegerAttribute(side, "w");
+        }
+
+        private static OpenXmlElement? FindChild(OpenXmlElement? parent, string localName) =>
+            parent?.ChildElements.FirstOrDefault(child =>
+                string.Equals(child.LocalName, localName, StringComparison.Ordinal));
+
+        private static int GetFirstIntegerAttribute(OpenXmlElement? element, params string[] localNames)
+        {
+            foreach (string localName in localNames)
+            {
+                int value = GetIntegerAttribute(element, localName);
+                if (value != 0)
+                    return value;
+            }
+
+            return 0;
+        }
+
+        private static int GetIntegerAttribute(OpenXmlElement? element, string localName)
+        {
+            string value = GetAttributeValue(element, localName);
+            return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int result)
+                ? result
+                : 0;
+        }
+
+        private static string GetAttributeValue(OpenXmlElement? element, string localName) =>
+            element?.GetAttributes()
+                .FirstOrDefault(attribute =>
+                    string.Equals(attribute.LocalName, localName, StringComparison.Ordinal) &&
+                    string.Equals(attribute.NamespaceUri, WordprocessingNamespace, StringComparison.Ordinal))
+                .Value ?? string.Empty;
+
         private static void EnsureAcceptedInspectionResultRows(Body body, int lineCount)
         {
             if (lineCount <= InspectionResultBaseLineCount)
@@ -450,20 +602,93 @@ namespace AsutpKnowledgeBase.Services
             if (textNodes.Count == 0)
                 return;
 
-            foreach (Text text in textNodes)
-                text.Text = ReplacePlaceholdersInValue(text.Text, replacements);
+            foreach (var pair in replacements)
+                ReplacePlaceholderInTextNodes(textNodes, pair.Key, pair.Value ?? string.Empty);
+        }
 
-            if (textNodes.Count <= 1)
-                return;
+        private static void ReplacePlaceholderInTextNodes(
+            IReadOnlyList<Text> textNodes,
+            string placeholder,
+            string replacement)
+        {
+            while (true)
+            {
+                string combined = string.Concat(textNodes.Select(static text => text.Text));
+                int matchStart = combined.IndexOf(placeholder, StringComparison.Ordinal);
+                if (matchStart < 0)
+                    return;
 
-            string combined = string.Concat(textNodes.Select(static text => text.Text));
-            string replaced = ReplacePlaceholdersInValue(combined, replacements);
-            if (string.Equals(combined, replaced, StringComparison.Ordinal))
-                return;
+                int[] nodeStarts = new int[textNodes.Count];
+                int currentStart = 0;
+                for (int i = 0; i < textNodes.Count; i++)
+                {
+                    nodeStarts[i] = currentStart;
+                    currentStart += textNodes[i].Text.Length;
+                }
 
-            textNodes[0].Text = replaced;
-            for (int i = 1; i < textNodes.Count; i++)
-                textNodes[i].Text = string.Empty;
+                int matchEnd = matchStart + placeholder.Length;
+                int startNodeIndex = FindTextNodeIndex(textNodes, nodeStarts, matchStart);
+                int endNodeIndex = FindTextNodeIndex(textNodes, nodeStarts, matchEnd - 1);
+                int startOffset = matchStart - nodeStarts[startNodeIndex];
+                int endOffset = matchEnd - nodeStarts[endNodeIndex];
+                int formatNodeIndex = FindPlaceholderFormatNodeIndex(
+                    textNodes,
+                    startNodeIndex,
+                    endNodeIndex,
+                    startOffset,
+                    endOffset);
+
+                for (int i = startNodeIndex; i <= endNodeIndex; i++)
+                {
+                    string original = textNodes[i].Text;
+                    string prefix = i == startNodeIndex ? original[..startOffset] : string.Empty;
+                    string suffix = i == endNodeIndex ? original[endOffset..] : string.Empty;
+                    textNodes[i].Text = i == formatNodeIndex
+                        ? prefix + replacement + suffix
+                        : prefix + suffix;
+                }
+            }
+        }
+
+        private static int FindTextNodeIndex(
+            IReadOnlyList<Text> textNodes,
+            IReadOnlyList<int> nodeStarts,
+            int position)
+        {
+            for (int i = 0; i < textNodes.Count; i++)
+            {
+                int nodeEnd = nodeStarts[i] + textNodes[i].Text.Length;
+                if (position >= nodeStarts[i] && position < nodeEnd)
+                    return i;
+            }
+
+            throw new InvalidDataException("Не удалось определить часть текста для замены плейсхолдера.");
+        }
+
+        private static int FindPlaceholderFormatNodeIndex(
+            IReadOnlyList<Text> textNodes,
+            int startNodeIndex,
+            int endNodeIndex,
+            int startOffset,
+            int endOffset)
+        {
+            int bestNodeIndex = startNodeIndex;
+            int bestScore = -1;
+            for (int i = startNodeIndex; i <= endNodeIndex; i++)
+            {
+                string text = textNodes[i].Text;
+                int segmentStart = i == startNodeIndex ? startOffset : 0;
+                int segmentEnd = i == endNodeIndex ? endOffset : text.Length;
+                int score = text[segmentStart..segmentEnd].Count(static character =>
+                    character != '{' && character != '}' && !char.IsWhiteSpace(character));
+                if (score <= bestScore)
+                    continue;
+
+                bestNodeIndex = i;
+                bestScore = score;
+            }
+
+            return bestNodeIndex;
         }
 
         private static string ReplacePlaceholdersInValue(
@@ -539,6 +764,151 @@ namespace AsutpKnowledgeBase.Services
                 // Best effort cleanup; the original generation error is more important.
             }
         }
+
+        private sealed class GdiTextWidthMeasurer : IDisposable
+        {
+            private const int LogPixelsX = 88;
+            private const int LogPixelsY = 90;
+            private const int NormalFontWeight = 400;
+            private const uint RussianCharset = 204;
+            private const uint ClearTypeQuality = 5;
+
+            private readonly IntPtr _deviceContext;
+            private readonly IntPtr _font;
+            private readonly IntPtr _previousFont;
+            private readonly int _dpiX;
+            private bool _disposed;
+
+            public GdiTextWidthMeasurer(string fontName, float fontSizePoints)
+            {
+                if (!OperatingSystem.IsWindows())
+                    throw new PlatformNotSupportedException("Измерение текста DOCX поддерживается только в Windows.");
+
+                _deviceContext = CreateCompatibleDC(IntPtr.Zero);
+                if (_deviceContext == IntPtr.Zero)
+                    throw new Win32Exception(Marshal.GetLastWin32Error(), "Не удалось создать контекст измерения текста.");
+
+                _dpiX = GetDeviceCaps(_deviceContext, LogPixelsX);
+                int dpiY = GetDeviceCaps(_deviceContext, LogPixelsY);
+                if (_dpiX <= 0 || dpiY <= 0)
+                {
+                    DeleteDC(_deviceContext);
+                    throw new InvalidOperationException("Не удалось определить разрешение контекста измерения текста.");
+                }
+
+                int fontHeight = -(int)Math.Round(fontSizePoints * dpiY / 72F, MidpointRounding.AwayFromZero);
+                _font = CreateFontW(
+                    fontHeight,
+                    0,
+                    0,
+                    0,
+                    NormalFontWeight,
+                    0,
+                    0,
+                    0,
+                    RussianCharset,
+                    0,
+                    0,
+                    ClearTypeQuality,
+                    0,
+                    fontName);
+                if (_font == IntPtr.Zero)
+                {
+                    DeleteDC(_deviceContext);
+                    throw new Win32Exception(Marshal.GetLastWin32Error(), $"Не удалось загрузить шрифт {fontName}.");
+                }
+
+                _previousFont = SelectObject(_deviceContext, _font);
+                if (_previousFont == IntPtr.Zero || _previousFont == new IntPtr(-1))
+                {
+                    DeleteObject(_font);
+                    DeleteDC(_deviceContext);
+                    throw new Win32Exception(Marshal.GetLastWin32Error(), "Не удалось выбрать шрифт для измерения текста.");
+                }
+            }
+
+            public float MeasureWidthPoints(string value)
+            {
+                ObjectDisposedException.ThrowIf(_disposed, this);
+                if (string.IsNullOrEmpty(value))
+                    return 0F;
+
+                if (!GetTextExtentPoint32W(_deviceContext, value, value.Length, out NativeSize size))
+                    throw new Win32Exception(Marshal.GetLastWin32Error(), "Не удалось измерить ширину текста.");
+
+                return size.Width * 72F / _dpiX;
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                    return;
+
+                SelectObject(_deviceContext, _previousFont);
+                DeleteObject(_font);
+                DeleteDC(_deviceContext);
+                _disposed = true;
+            }
+
+            [StructLayout(LayoutKind.Sequential)]
+            private struct NativeSize
+            {
+                public int Width;
+
+                public int Height;
+            }
+
+            [DllImport("gdi32.dll", SetLastError = true)]
+            private static extern IntPtr CreateCompatibleDC(IntPtr deviceContext);
+
+            [DllImport("gdi32.dll", SetLastError = true)]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            private static extern bool DeleteDC(IntPtr deviceContext);
+
+            [DllImport("gdi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+            private static extern IntPtr CreateFontW(
+                int height,
+                int width,
+                int escapement,
+                int orientation,
+                int weight,
+                uint italic,
+                uint underline,
+                uint strikeOut,
+                uint characterSet,
+                uint outputPrecision,
+                uint clipPrecision,
+                uint quality,
+                uint pitchAndFamily,
+                string faceName);
+
+            [DllImport("gdi32.dll", SetLastError = true)]
+            private static extern IntPtr SelectObject(IntPtr deviceContext, IntPtr graphicsObject);
+
+            [DllImport("gdi32.dll", SetLastError = true)]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            private static extern bool DeleteObject(IntPtr graphicsObject);
+
+            [DllImport("gdi32.dll")]
+            private static extern int GetDeviceCaps(IntPtr deviceContext, int index);
+
+            [DllImport("gdi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            private static extern bool GetTextExtentPoint32W(
+                IntPtr deviceContext,
+                string text,
+                int textLength,
+                out NativeSize size);
+        }
+
+        private readonly record struct InspectionResultTextFormat(
+            string FontName,
+            float FontSizePoints);
+
+        private readonly record struct InspectionResultLayout(
+            float UsableWidthPoints,
+            string FontName,
+            float FontSizePoints);
 
         private static KnowledgeBaseActDocxGenerationResult Failure(string errorMessage) =>
             new()

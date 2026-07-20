@@ -59,9 +59,36 @@ namespace AsutpKnowledgeBase
                 VisibleLevel = GetVisibleLevelForNode(parentNode),
                 Source = source,
                 Rack = rackFactory(parentNode),
-                CompositionEntry = selectedEntry
+                CompositionEntry = selectedEntry,
+                ActType = KbActType.EquipmentFailure
             });
 
+            OpenNewActDraft(result);
+        }
+
+        private void CreateInspectionActFromSelectedObject()
+        {
+            if (!TryGetSelectedTreeNode(out KbNode selectedNode) ||
+                GetVisibleLevelForNode(selectedNode) != 2)
+            {
+                return;
+            }
+
+            var result = _actDraftService.CreateDraft(new KnowledgeBaseActDraftRequest
+            {
+                ObjectNode = selectedNode,
+                WorkshopRoots = GetVisibleTreeData(),
+                WorkshopName = _currentWorkshop,
+                VisibleLevel = GetVisibleLevelForNode(selectedNode),
+                Source = KnowledgeBaseActDraftSource.Lvl2Object,
+                ActType = KbActType.InspectionWork
+            });
+
+            OpenNewActDraft(result);
+        }
+
+        private void OpenNewActDraft(KnowledgeBaseActDraftResult result)
+        {
             if (!result.IsSuccess || result.Act == null)
             {
                 MessageBox.Show(

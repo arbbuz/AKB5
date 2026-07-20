@@ -35,6 +35,8 @@ namespace AsutpKnowledgeBase.Services
             if (candidate.FailureDate.HasValue)
                 candidate.FailureDate = candidate.FailureDate.Value.Date;
 
+            ClearFieldsNotUsedByActType(candidate);
+
             DateTime now = _clock();
             candidate.CreatedAt ??= now;
             candidate.UpdatedAt = now;
@@ -65,35 +67,24 @@ namespace AsutpKnowledgeBase.Services
             if (string.IsNullOrWhiteSpace(act.ObjectNameSnapshot))
                 return "Укажите объект.";
 
-            if (string.IsNullOrWhiteSpace(act.EquipmentName))
+            if (act.ActType == KbActType.EquipmentFailure &&
+                string.IsNullOrWhiteSpace(act.EquipmentName))
+            {
                 return "Укажите оборудование.";
+            }
 
-            if (act.EquipmentSnapshot == null ||
-                string.IsNullOrWhiteSpace(act.EquipmentSnapshot.OrderNumber))
+            if (act.ActType == KbActType.EquipmentFailure &&
+                (act.EquipmentSnapshot == null ||
+                    string.IsNullOrWhiteSpace(act.EquipmentSnapshot.OrderNumber)))
             {
                 return "Укажите заказной номер.";
             }
 
-            if (string.IsNullOrWhiteSpace(act.CompositionEntryId))
+            if (act.ActType == KbActType.EquipmentFailure &&
+                string.IsNullOrWhiteSpace(act.CompositionEntryId))
+            {
                 return "Не удалось связать акт со строкой состава.";
-
-            if (string.IsNullOrWhiteSpace(act.RequestDocument))
-                return "Укажите заявку или документ-основание.";
-
-            if (string.IsNullOrWhiteSpace(act.ActualLaborHours))
-                return "Укажите трудозатраты.";
-
-            if (string.IsNullOrWhiteSpace(act.CustomerName))
-                return "Укажите представителя цеха.";
-
-            if (string.IsNullOrWhiteSpace(act.CustomerPosition))
-                return "Укажите должность представителя цеха.";
-
-            if (string.IsNullOrWhiteSpace(act.ApproverName))
-                return "Укажите утверждающего.";
-
-            if (string.IsNullOrWhiteSpace(act.ApproverPosition))
-                return "Укажите должность утверждающего.";
+            }
 
             if (act.ActType == KbActType.EquipmentFailure &&
                 !act.FailureDate.HasValue)
@@ -113,13 +104,54 @@ namespace AsutpKnowledgeBase.Services
                     return "Укажите критерий неисправности.";
             }
 
-            if (act.ActType == KbActType.InspectionWork &&
-                string.IsNullOrWhiteSpace(act.InspectionResult))
+            if (act.ActType == KbActType.InspectionWork)
             {
-                return "Укажите результат осмотра.";
+                if (string.IsNullOrWhiteSpace(act.RequestDocument))
+                    return "Укажите заявку или документ-основание.";
+
+                if (string.IsNullOrWhiteSpace(act.ActualLaborHours))
+                    return "Укажите трудозатраты.";
+
+                if (string.IsNullOrWhiteSpace(act.CustomerName))
+                    return "Укажите представителя цеха.";
+
+                if (string.IsNullOrWhiteSpace(act.CustomerPosition))
+                    return "Укажите должность представителя цеха.";
+
+                if (string.IsNullOrWhiteSpace(act.ApproverName))
+                    return "Укажите утверждающего.";
+
+                if (string.IsNullOrWhiteSpace(act.ApproverPosition))
+                    return "Укажите должность утверждающего.";
+
+                if (string.IsNullOrWhiteSpace(act.InspectionResult))
+                    return "Укажите результат осмотра.";
             }
 
             return null;
+        }
+
+        private static void ClearFieldsNotUsedByActType(KbAct act)
+        {
+            if (act.ActType == KbActType.EquipmentFailure)
+            {
+                act.InspectionResult = string.Empty;
+                act.RequestDocument = string.Empty;
+                act.ActualLaborHours = string.Empty;
+                act.CustomerName = string.Empty;
+                act.CustomerPosition = string.Empty;
+                act.ApproverName = string.Empty;
+                act.ApproverPosition = string.Empty;
+                return;
+            }
+
+            act.EquipmentName = string.Empty;
+            if (act.EquipmentSnapshot != null)
+                act.EquipmentSnapshot.OrderNumber = string.Empty;
+            act.FailureDate = null;
+            act.FaultDescription = string.Empty;
+            act.FailureReason = string.Empty;
+            act.FaultCriterion = string.Empty;
         }
 
         public static string? ValidateExecutorsForSave(IEnumerable<KbActExecutor>? executors)

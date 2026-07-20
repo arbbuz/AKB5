@@ -668,6 +668,10 @@ namespace AsutpKnowledgeBase
                 "\ue1a1",
                 (s, e) => CreateObjectFromCatalog());
             ctxTemplates = CreateMaterialMenuItem("Шаблоны", "\uef42");
+            ctxCreateInspectionAct = CreateMaterialMenuItem(
+                "Создать акт выполненных работ...",
+                "\ue873",
+                (s, e) => CreateInspectionActFromSelectedObject());
             ctxCopy = CreateMaterialMenuItem("Копировать", "\ue14d", (s, e) => CopyNode());
             ctxPaste = CreateMaterialMenuItem("Вставить", "\ue14f", (s, e) => PasteNode());
             ctxRename = CreateMaterialMenuItem("Переименовать", "\ue3c9", (s, e) => RenameNode());
@@ -681,6 +685,7 @@ namespace AsutpKnowledgeBase
             ctxMenu.Items.Add(ctxAddChild);
             ctxMenu.Items.Add(ctxCreateObjectFromCatalog);
             ctxMenu.Items.Add(ctxTemplates);
+            ctxMenu.Items.Add(ctxCreateInspectionAct);
             ctxMenu.Items.Add(ctxEditSeparator);
             ctxMenu.Items.Add(ctxCopy);
             ctxMenu.Items.Add(ctxPaste);

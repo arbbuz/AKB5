@@ -20,8 +20,11 @@ public class KnowledgeBaseActEditorServiceTests
         Assert.Equal("SIMATIC S7-300, PS 307, БЛОК ПИТАНИЯ", act.EquipmentName);
         Assert.Equal("6ES7307-1BA00-0AA0", act.EquipmentSnapshot.OrderNumber);
         Assert.Equal("SN-42", act.EquipmentSnapshot.SerialNumber);
-        Assert.Equal("Начальник отдела", act.ApproverName);
-        Assert.Equal("Начальник отдела автоматизации", act.ApproverPosition);
+        Assert.Equal("Нет питания", act.FaultDescription);
+        Assert.Equal("Причина уточняется", act.FailureReason);
+        Assert.Equal("Невозможность эксплуатации", act.FaultCriterion);
+        Assert.Equal(string.Empty, act.ApproverName);
+        Assert.Equal(string.Empty, act.ApproverPosition);
         Assert.Equal(new DateTime(2026, 6, 25), act.ActDate);
         Assert.Equal(new DateTime(2026, 6, 25, 12, 30, 0), act.UpdatedAt);
     }
@@ -54,6 +57,53 @@ public class KnowledgeBaseActEditorServiceTests
     }
 
     [Fact]
+    public void PrepareForSave_InspectionActClearsEquipmentAndOrderNumber()
+    {
+        var service = new KnowledgeBaseActEditorService();
+        KbAct draft = CreateValidFailureAct(orderNumber: "6ES7307-1BA00-0AA0");
+        draft.ActType = KbActType.InspectionWork;
+        draft.FailureDate = null;
+        draft.FaultDescription = string.Empty;
+        draft.FailureReason = string.Empty;
+        draft.FaultCriterion = string.Empty;
+        draft.InspectionResult = "Работы выполнены в полном объеме.";
+
+        var result = service.PrepareForSave(draft);
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.Equal(string.Empty, result.Act!.EquipmentName);
+        Assert.Equal(string.Empty, result.Act.EquipmentSnapshot.OrderNumber);
+    }
+
+    [Fact]
+    public void PrepareForSave_InspectionActDoesNotRequireCompositionEntry()
+    {
+        var service = new KnowledgeBaseActEditorService();
+        KbAct draft = CreateValidFailureAct(orderNumber: "6ES7307-1BA00-0AA0");
+        draft.ActType = KbActType.InspectionWork;
+        draft.CompositionEntryId = string.Empty;
+        draft.EquipmentSnapshot.CompositionEntryId = string.Empty;
+
+        var result = service.PrepareForSave(draft);
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.Equal(string.Empty, result.Act!.CompositionEntryId);
+    }
+
+    [Fact]
+    public void PrepareForSave_FailureActRequiresCompositionEntry()
+    {
+        var service = new KnowledgeBaseActEditorService();
+        KbAct draft = CreateValidFailureAct(orderNumber: "6ES7307-1BA00-0AA0");
+        draft.CompositionEntryId = string.Empty;
+
+        var result = service.PrepareForSave(draft);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("Не удалось связать акт со строкой состава.", result.ErrorMessage);
+    }
+
+    [Fact]
     public void PrepareForSave_RequiresFailureDescriptionForFailureAct()
     {
         var service = new KnowledgeBaseActEditorService();
@@ -67,16 +117,31 @@ public class KnowledgeBaseActEditorServiceTests
     }
 
     [Fact]
-    public void PrepareForSave_RequiresRequestDocument()
+    public void PrepareForSave_RequiresRequestDocumentForInspectionAct()
     {
         var service = new KnowledgeBaseActEditorService();
         KbAct draft = CreateValidFailureAct(orderNumber: "6ES7307-1BA00-0AA0");
+        draft.ActType = KbActType.InspectionWork;
         draft.RequestDocument = " ";
 
         var result = service.PrepareForSave(draft);
 
         Assert.False(result.IsSuccess);
         Assert.Equal("Укажите заявку или документ-основание.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void PrepareForSave_RequiresActualLaborHoursForInspectionAct()
+    {
+        var service = new KnowledgeBaseActEditorService();
+        KbAct draft = CreateValidFailureAct(orderNumber: "6ES7307-1BA00-0AA0");
+        draft.ActType = KbActType.InspectionWork;
+        draft.ActualLaborHours = " ";
+
+        var result = service.PrepareForSave(draft);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("Укажите трудозатраты.", result.ErrorMessage);
     }
 
     [Fact]
@@ -106,22 +171,43 @@ public class KnowledgeBaseActEditorServiceTests
     }
 
     [Fact]
-    public void PrepareForSave_DoesNotRequireInspectionResultForFailureAct()
+    public void PrepareForSave_DoesNotRequireInspectionOnlyFieldsForFailureAct()
     {
         var service = new KnowledgeBaseActEditorService();
         KbAct draft = CreateValidFailureAct(orderNumber: "6ES7307-1BA00-0AA0");
-        draft.InspectionResult = " ";
 
         var result = service.PrepareForSave(draft);
 
         Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.Equal(string.Empty, result.Act!.InspectionResult);
+        Assert.Equal(string.Empty, result.Act.RequestDocument);
+        Assert.Equal(string.Empty, result.Act.ActualLaborHours);
+        Assert.Equal(string.Empty, result.Act.CustomerName);
+        Assert.Equal(string.Empty, result.Act.CustomerPosition);
+        Assert.Equal(string.Empty, result.Act.ApproverName);
+        Assert.Equal(string.Empty, result.Act.ApproverPosition);
     }
 
     [Fact]
-    public void PrepareForSave_RequiresCustomerPosition()
+    public void PrepareForSave_RequiresCustomerNameForInspectionAct()
     {
         var service = new KnowledgeBaseActEditorService();
         KbAct draft = CreateValidFailureAct(orderNumber: "6ES7307-1BA00-0AA0");
+        draft.ActType = KbActType.InspectionWork;
+        draft.CustomerName = " ";
+
+        var result = service.PrepareForSave(draft);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("Укажите представителя цеха.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void PrepareForSave_RequiresCustomerPositionForInspectionAct()
+    {
+        var service = new KnowledgeBaseActEditorService();
+        KbAct draft = CreateValidFailureAct(orderNumber: "6ES7307-1BA00-0AA0");
+        draft.ActType = KbActType.InspectionWork;
         draft.CustomerPosition = " ";
 
         var result = service.PrepareForSave(draft);
@@ -131,10 +217,11 @@ public class KnowledgeBaseActEditorServiceTests
     }
 
     [Fact]
-    public void PrepareForSave_RequiresApproverName()
+    public void PrepareForSave_RequiresApproverNameForInspectionAct()
     {
         var service = new KnowledgeBaseActEditorService();
         KbAct draft = CreateValidFailureAct(orderNumber: "6ES7307-1BA00-0AA0");
+        draft.ActType = KbActType.InspectionWork;
         draft.ApproverName = " ";
 
         var result = service.PrepareForSave(draft);
@@ -144,10 +231,11 @@ public class KnowledgeBaseActEditorServiceTests
     }
 
     [Fact]
-    public void PrepareForSave_RequiresApproverPosition()
+    public void PrepareForSave_RequiresApproverPositionForInspectionAct()
     {
         var service = new KnowledgeBaseActEditorService();
         KbAct draft = CreateValidFailureAct(orderNumber: "6ES7307-1BA00-0AA0");
+        draft.ActType = KbActType.InspectionWork;
         draft.ApproverPosition = " ";
 
         var result = service.PrepareForSave(draft);
@@ -219,12 +307,14 @@ public class KnowledgeBaseActEditorServiceTests
         var service = new KnowledgeBaseActEditorService();
         KbAct draft = CreateValidFailureAct(orderNumber: "6ES7307-1BA00-0AA0");
         draft.ActType = KbActType.InspectionWork;
-        draft.FaultDescription = " ";
-        draft.FailureReason = " ";
 
         var result = service.PrepareForSave(draft);
 
         Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.Null(result.Act!.FailureDate);
+        Assert.Equal(string.Empty, result.Act.FaultDescription);
+        Assert.Equal(string.Empty, result.Act.FailureReason);
+        Assert.Equal(string.Empty, result.Act.FaultCriterion);
     }
 
     private static KbAct CreateValidFailureAct(string orderNumber) =>
