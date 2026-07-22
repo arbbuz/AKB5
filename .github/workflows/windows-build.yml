@@ -3,18 +3,22 @@ name: Windows Build
 on:
   push:
     branches:
+      - main
       - to
       - card
       - Net
       - act
       - maintenance-v2
+      - interface
   pull_request:
     branches:
+      - main
       - to
       - card
       - Net
       - act
       - maintenance-v2
+      - interface
   workflow_dispatch:
 
 permissions:
