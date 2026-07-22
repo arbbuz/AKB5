@@ -147,12 +147,14 @@ namespace AsutpKnowledgeBase.Services
         {
             foreach (KbNode node in nodes)
             {
+                int currentVisibleLevel = GetEffectiveVisibleLevel(node, visibleLevel);
+                int currentPreorderIndex = preorderIndex++;
                 KbNode? currentLevel2Ancestor = level2Ancestor;
                 int currentLevel2AncestorPreorderIndex = level2AncestorPreorderIndex;
-                if (visibleLevel == 2)
+                if (currentVisibleLevel == 2)
                 {
                     currentLevel2Ancestor = node;
-                    currentLevel2AncestorPreorderIndex = preorderIndex;
+                    currentLevel2AncestorPreorderIndex = currentPreorderIndex;
                 }
 
                 string nodeId = node.NodeId?.Trim() ?? string.Empty;
@@ -160,21 +162,28 @@ namespace AsutpKnowledgeBase.Services
                 {
                     index[nodeId] = new IndexedNode(
                         node,
-                        visibleLevel,
-                        preorderIndex,
+                        currentVisibleLevel,
+                        currentPreorderIndex,
                         currentLevel2Ancestor,
                         currentLevel2AncestorPreorderIndex);
                 }
 
-                preorderIndex++;
                 IndexNodes(
                     node.Children,
-                    visibleLevel + 1,
+                    currentVisibleLevel + 1,
                     currentLevel2Ancestor,
                     currentLevel2AncestorPreorderIndex,
                     index,
                     ref preorderIndex);
             }
+        }
+
+        private static int GetEffectiveVisibleLevel(KbNode node, int visibleLevel)
+        {
+            if (node.NodeType == KbNodeType.WorkshopRoot && node.LevelIndex == 0)
+                return Math.Max(0, visibleLevel - 1);
+
+            return visibleLevel;
         }
 
         private static KnowledgeBaseMaintenanceMonthSheetModelBuildResult Success(KbMaintenanceMonthSheetModel sheetModel) =>
@@ -282,12 +291,28 @@ namespace AsutpKnowledgeBase.Services
                     _dayCellBuilders.Add(dayOfMonth, dayCellBuilder);
                 }
 
-                dayCellBuilder.WorkEntries.Add(new KbMaintenanceMonthSheetWorkEntry
+                int existingEntryIndex = dayCellBuilder.WorkEntries.FindIndex(entry => entry.WorkKind == assignment.WorkKind);
+                if (existingEntryIndex >= 0)
                 {
-                    WorkKind = assignment.WorkKind,
-                    Hours = assignment.Hours,
-                    PlanText = BuildPlanText(assignment.WorkKind, assignment.Hours)
-                });
+                    KbMaintenanceMonthSheetWorkEntry existingEntry = dayCellBuilder.WorkEntries[existingEntryIndex];
+                    int mergedHours = existingEntry.Hours + assignment.Hours;
+                    dayCellBuilder.WorkEntries[existingEntryIndex] = new KbMaintenanceMonthSheetWorkEntry
+                    {
+                        WorkKind = assignment.WorkKind,
+                        Hours = mergedHours,
+                        PlanText = BuildPlanText(assignment.WorkKind, mergedHours)
+                    };
+                }
+                else
+                {
+                    dayCellBuilder.WorkEntries.Add(new KbMaintenanceMonthSheetWorkEntry
+                    {
+                        WorkKind = assignment.WorkKind,
+                        Hours = assignment.Hours,
+                        PlanText = BuildPlanText(assignment.WorkKind, assignment.Hours)
+                    });
+                }
+
                 dayCellBuilder.TotalHours += assignment.Hours;
             }
 

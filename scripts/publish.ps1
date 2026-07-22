@@ -68,6 +68,7 @@ $publishArgs = @(
     "-p:PublishAot=false",
     "-p:RunAnalyzers=false",
     "-p:WarningLevel=0",
+    "-p:AKB5AllowDirectPublish=true",
     "-o",
     $OutputDirectory
 )

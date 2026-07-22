@@ -114,7 +114,8 @@ namespace AsutpKnowledgeBase.UiServices
             int totalMonthlyHourBudget,
             IReadOnlyList<KbNode>? roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
-            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears)
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default)
         {
             if (!TryGetPlugin<IKnowledgeBaseMaintenanceWorkbookGenerator>(out var generator, out string errorMessage))
                 return WorkbookGenerationFailure(errorMessage);
@@ -127,7 +128,8 @@ namespace AsutpKnowledgeBase.UiServices
                     totalMonthlyHourBudget,
                     roots,
                     maintenanceScheduleProfiles,
-                    productionCalendarYears);
+                    productionCalendarYears,
+                    planningMode);
             }
             catch (Exception ex)
             {
@@ -166,7 +168,8 @@ namespace AsutpKnowledgeBase.UiServices
             int totalMonthlyHourBudget,
             IReadOnlyList<KbNode>? roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
-            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears)
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default)
         {
             if (!TryGetPlugin<IKnowledgeBaseMaintenanceWorkbookGenerator>(out var generator, out string errorMessage))
                 return YearWorkbookGenerationFailure(errorMessage);
@@ -179,7 +182,8 @@ namespace AsutpKnowledgeBase.UiServices
                     totalMonthlyHourBudget,
                     roots,
                     maintenanceScheduleProfiles,
-                    productionCalendarYears);
+                    productionCalendarYears,
+                    planningMode);
             }
             catch (Exception ex)
             {
@@ -194,7 +198,8 @@ namespace AsutpKnowledgeBase.UiServices
             int totalMonthlyHourBudget,
             IReadOnlyList<KbNode>? roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
-            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears)
+            IReadOnlyList<KbProductionCalendarYear>? productionCalendarYears,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default)
         {
             if (!TryGetPlugin<IKnowledgeBaseMaintenanceWorkbookGenerator>(out var generator, out string errorMessage))
                 return YearWorkbookGenerationFailure(errorMessage);
@@ -208,7 +213,8 @@ namespace AsutpKnowledgeBase.UiServices
                     totalMonthlyHourBudget,
                     roots,
                     maintenanceScheduleProfiles,
-                    productionCalendarYears);
+                    productionCalendarYears,
+                    planningMode);
             }
             catch (Exception ex)
             {

@@ -79,10 +79,10 @@ namespace AsutpKnowledgeBase
             menuEditProductionCalendar = CreateMaterialMenuItem("Производственный календарь", "\ue878", EditProductionCalendar);
             menuImportProductionCalendarPdf = CreateMaterialMenuItem("Импорт производственного календаря PDF", "\ue2c4", ImportProductionCalendarPdf);
             menuImportProductionCalendar = CreateMaterialMenuItem("Импорт производственного календаря JSON", "\ue2c4", ImportProductionCalendar);
-            menuExportMaintenanceMonthWorkbook = CreateMaterialMenuItem("Сформировать график ТО на месяц", "\ue878", ExportMaintenanceMonthWorkbook);
             menuExportMaintenanceYearWorkbook = CreateMaterialMenuItem("Сформировать годовой график ТО", "\ue878", ExportMaintenanceYearWorkbook);
-            menuExportMaintenanceYearMonthlyWorkbook = CreateMaterialMenuItem("Сформировать график ТО помесячно", "\ue878", ExportMaintenanceYearMonthlyWorkbook);
-            menuRecalculateMaintenanceYearWorkbook = CreateMaterialMenuItem("Пересчитать график ТО до конца года", "\ue5d5", RecalculateMaintenanceYearWorkbookToDecember);
+            menuExportMaintenanceMonthWorkbookV3 = CreateMaterialMenuItem("Сформировать график ТО на месяц", "\ue878", ExportMaintenanceMonthWorkbookV3);
+            menuExportMaintenanceYearMonthlyWorkbookV3 = CreateMaterialMenuItem("Сформировать график ТО помесячно", "\ue878", ExportMaintenanceYearMonthlyWorkbookV3);
+            menuRecalculateMaintenanceYearWorkbookV3 = CreateMaterialMenuItem("Пересчитать график ТО до конца года", "\ue5d5", RecalculateMaintenanceYearWorkbookToDecemberV3);
 
             menuEditMaintenanceYearScheduleSource = CreateMaterialMenuItem("План ТО по месяцам", "\ue3c9", EditMaintenanceYearScheduleSource);
 
@@ -136,20 +136,20 @@ namespace AsutpKnowledgeBase
                 menuImportProductionCalendarPdf
             });
 
-            var menuMaintenanceWorkbookGeneration = CreateMaterialMenuItem("Формирование графиков", "\uebcc");
-            menuMaintenanceWorkbookGeneration.DropDownItems.AddRange(new ToolStripItem[]
+            var menuMaintenanceWorkbookGenerationV3 = CreateMaterialMenuItem("Формирование графиков", "\uebcc");
+            menuMaintenanceWorkbookGenerationV3.DropDownItems.AddRange(new ToolStripItem[]
             {
-                menuExportMaintenanceMonthWorkbook,
-                menuExportMaintenanceYearWorkbook,
-                menuExportMaintenanceYearMonthlyWorkbook,
-                menuRecalculateMaintenanceYearWorkbook
+                menuExportMaintenanceMonthWorkbookV3,
+                menuExportMaintenanceYearMonthlyWorkbookV3,
+                menuRecalculateMaintenanceYearWorkbookV3,
+                menuExportMaintenanceYearWorkbook
             });
 
             menuMaintenance.DropDownItems.AddRange(new ToolStripItem[]
             {
                 menuMaintenancePlanningData,
                 menuMaintenanceProductionCalendar,
-                menuMaintenanceWorkbookGeneration
+                menuMaintenanceWorkbookGenerationV3
             });
 
             btnSave = CreatePrimaryToolbarButton("\ue161", "Сохранить");

@@ -88,10 +88,10 @@ namespace AsutpKnowledgeBase
         private ToolStripMenuItem menuEditProductionCalendar = null!;
         private ToolStripMenuItem menuImportProductionCalendar = null!;
         private ToolStripMenuItem menuImportProductionCalendarPdf = null!;
-        private ToolStripMenuItem menuExportMaintenanceMonthWorkbook = null!;
         private ToolStripMenuItem menuExportMaintenanceYearWorkbook = null!;
-        private ToolStripMenuItem menuExportMaintenanceYearMonthlyWorkbook = null!;
-        private ToolStripMenuItem menuRecalculateMaintenanceYearWorkbook = null!;
+        private ToolStripMenuItem menuExportMaintenanceMonthWorkbookV3 = null!;
+        private ToolStripMenuItem menuExportMaintenanceYearMonthlyWorkbookV3 = null!;
+        private ToolStripMenuItem menuRecalculateMaintenanceYearWorkbookV3 = null!;
 
         private SplitContainer splitMain = null!;
         private ComboBox cmbWorkshops = null!;
@@ -637,9 +637,10 @@ namespace AsutpKnowledgeBase
             menuEditProductionCalendar.Enabled = true;
             menuImportProductionCalendar.Enabled = true;
             menuImportProductionCalendarPdf.Enabled = true;
-            menuExportMaintenanceMonthWorkbook.Enabled = hasCurrentWorkshop;
             menuExportMaintenanceYearWorkbook.Enabled = hasCurrentWorkshop;
-            menuRecalculateMaintenanceYearWorkbook.Enabled = hasCurrentWorkshop;
+            menuExportMaintenanceMonthWorkbookV3.Enabled = hasCurrentWorkshop;
+            menuExportMaintenanceYearMonthlyWorkbookV3.Enabled = hasCurrentWorkshop;
+            menuRecalculateMaintenanceYearWorkbookV3.Enabled = hasCurrentWorkshop;
 
             menuSave.Enabled = formState.CanSave;
             Text = formState.WindowTitle;

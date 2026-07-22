@@ -34,11 +34,24 @@ namespace AsutpKnowledgeBase.Services
         private const int MonthlyPlanCellCharactersPerLine = 8;
         private const int AnnualNameCharactersPerLine = 42;
         private const int AnnualPlanCellCharactersPerLine = 10;
+        private const double MonthlyDayColumnWidth = 3.109375d;
         private const string TotalsLabelText = "Итого:";
         private const string AnnualTotalsLabelText = "Итого";
         private const string PlanText = "план";
         private const string FactText = "факт";
         private const string DefaultDashText = "-";
+        private const string SignatureBlankText = "___________________";
+        private static readonly IReadOnlyDictionary<string, string> MaintenanceSignatureTextReplacements =
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["___________________ М.И.Малашкеевич"] = SignatureBlankText,
+                ["М.И.Малашкеевич"] = string.Empty,
+                ["М.Ю.Трушин"] = string.Empty,
+                ["/М.Ю.Трушин"] = string.Empty,
+                ["А.А.Данилов"] = string.Empty,
+                ["/А.А.Данилов"] = string.Empty,
+                ["А.А.Королев"] = string.Empty
+            };
 
         private readonly KnowledgeBaseMaintenanceWorkbookTemplateService _templateService;
 
@@ -95,6 +108,7 @@ namespace AsutpKnowledgeBase.Services
                         templateLayout,
                         sheetModel);
 
+                    RemoveMaintenanceSignatureNames(workbookPart);
                     ResetWorkbookCalculationChain(workbookPart);
                     targetWorksheetPart.Worksheet.Save();
                     workbookPart.Workbook.Save();
@@ -207,6 +221,7 @@ namespace AsutpKnowledgeBase.Services
                         layout,
                         workbookModel);
 
+                    RemoveMaintenanceSignatureNames(workbookPart);
                     ResetWorkbookCalculationChain(workbookPart);
                     targetWorksheetPart.Worksheet.Save();
                     workbookPart.Workbook.Save();
@@ -260,6 +275,7 @@ namespace AsutpKnowledgeBase.Services
 
             WriteHeader(targetWorksheet, targetLayout, sheetModel);
             NormalizeMonthSheetHeaderRows(targetWorksheet, targetLayout);
+            NormalizeMonthlyDayColumns(targetWorksheet, DateTime.DaysInMonth(sheetModel.Year, sheetModel.Month));
             ApplyHeaderDayCalendarStyles(workbookPart, targetWorksheet, targetLayout, sheetModel);
 
             uint currentRowIndex = targetLayout.DataStartRowIndex;
@@ -811,8 +827,6 @@ namespace AsutpKnowledgeBase.Services
             KbMaintenanceMonthSheetModel sheetModel)
         {
             uint totalsRowIndex = footerStartRowIndex;
-            uint dayCountRowIndex = footerStartRowIndex + 1;
-            uint groupedTotalsRowIndex = footerStartRowIndex + 2;
 
             Row totalsRow = GetOrCreateRow(worksheet, totalsRowIndex);
             ClearRowValues(totalsRow, FirstDayColumnIndex, TotalHoursColumnIndex - 1);
@@ -830,29 +844,16 @@ namespace AsutpKnowledgeBase.Services
                     $"SUM({GetCellReference(dataStartRowIndex, TotalHoursColumnIndex)}:{GetCellReference(dataEndRowIndex, TotalHoursColumnIndex)})");
             }
 
-            for (int dayOfMonth = 1; dayOfMonth <= 31; dayOfMonth++)
-            {
-                int dayColumnIndex = FirstDayColumnIndex + dayOfMonth - 1;
-                if (dayOfMonth <= DateTime.DaysInMonth(sheetModel.Year, sheetModel.Month) && sheetModel.SystemGroups.Count > 0)
-                {
-                    SetSheetCellFormula(
-                        worksheet,
-                        dayCountRowIndex,
-                        dayColumnIndex,
-                        $"COUNTA({GetCellReference(dataStartRowIndex, dayColumnIndex)}:{GetCellReference(dataEndRowIndex, dayColumnIndex)})");
-                }
-                else
-                {
-                    SetSheetCellNumber(worksheet, dayCountRowIndex, dayColumnIndex, 0);
-                }
-            }
+            ClearMonthlyFooterDiagnosticValues(worksheet, footerStartRowIndex + 1, footerStartRowIndex + 2);
+        }
 
-            SetSheetCellFormula(worksheet, groupedTotalsRowIndex, 6, $"SUM(F{dayCountRowIndex}:M{dayCountRowIndex})");
-            SetSheetCellFormula(worksheet, groupedTotalsRowIndex, 13, $"SUM(N{dayCountRowIndex}:T{dayCountRowIndex})");
-            SetSheetCellFormula(worksheet, groupedTotalsRowIndex, 20, $"SUM(U{dayCountRowIndex}:AA{dayCountRowIndex})");
-            SetSheetCellFormula(worksheet, groupedTotalsRowIndex, 27, $"SUM(AB{dayCountRowIndex}:AH{dayCountRowIndex})");
-            SetSheetCellFormula(worksheet, groupedTotalsRowIndex, 34, $"SUM(AI{dayCountRowIndex}:AJ{dayCountRowIndex})");
-            SetSheetCellFormula(worksheet, groupedTotalsRowIndex, TotalHoursColumnIndex, $"SUM(F{groupedTotalsRowIndex}:AJ{groupedTotalsRowIndex})");
+        private static void ClearMonthlyFooterDiagnosticValues(Worksheet worksheet, uint startRowIndex, uint endRowIndex)
+        {
+            for (uint rowIndex = startRowIndex; rowIndex <= endRowIndex; rowIndex++)
+            {
+                Row row = GetOrCreateRow(worksheet, rowIndex);
+                ClearRowValues(row, FirstDayColumnIndex, TotalHoursColumnIndex);
+            }
         }
 
         private static void PopulateAnnualTotalsRow(
@@ -985,6 +986,32 @@ namespace AsutpKnowledgeBase.Services
             calculationProperties.CalculationMode = CalculateModeValues.Auto;
             calculationProperties.ForceFullCalculation = true;
             calculationProperties.FullCalculationOnLoad = true;
+        }
+
+        private static void RemoveMaintenanceSignatureNames(WorkbookPart workbookPart)
+        {
+            SharedStringTable? sharedStringTable = workbookPart.SharedStringTablePart?.SharedStringTable;
+            if (sharedStringTable == null)
+                return;
+
+            bool changed = false;
+            foreach (SharedStringItem item in sharedStringTable.Elements<SharedStringItem>())
+            {
+                string text = string.Concat(item.Descendants<Text>().Select(static value => value.Text));
+                if (!MaintenanceSignatureTextReplacements.TryGetValue(text.Trim(), out string? replacement))
+                    continue;
+
+                item.RemoveAllChildren();
+                item.AppendChild(
+                    new Text(replacement)
+                    {
+                        Space = SpaceProcessingModeValues.Preserve
+                    });
+                changed = true;
+            }
+
+            if (changed)
+                sharedStringTable.Save();
         }
 
         private static void PruneDefinedNamesToSingleSheet(WorkbookPart workbookPart, int originalLocalSheetId)
@@ -1810,6 +1837,87 @@ namespace AsutpKnowledgeBase.Services
                 Cell cell = GetOrCreateCell(row, columnIndex);
                 cell.StyleIndex ??= dayCellStyleIndex.Value;
             }
+        }
+
+        private static void NormalizeMonthlyDayColumns(Worksheet worksheet, int daysInMonth)
+        {
+            const uint firstDayColumnIndex = FirstDayColumnIndex;
+            const uint lastDayColumnIndex = FirstDayColumnIndex + 30;
+            uint lastVisibleDayColumnIndex = firstDayColumnIndex + (uint)Math.Clamp(daysInMonth, 1, 31) - 1;
+
+            Columns columns = GetOrCreateColumns(worksheet);
+            List<Column> preservedColumns = new();
+
+            foreach (Column column in columns.Elements<Column>().ToList())
+            {
+                uint min = column.Min?.Value ?? 1U;
+                uint max = column.Max?.Value ?? min;
+
+                if (max < firstDayColumnIndex || min > lastDayColumnIndex)
+                {
+                    preservedColumns.Add((Column)column.CloneNode(true));
+                    continue;
+                }
+
+                if (min < firstDayColumnIndex)
+                {
+                    Column leftColumn = (Column)column.CloneNode(true);
+                    leftColumn.Max = firstDayColumnIndex - 1;
+                    preservedColumns.Add(leftColumn);
+                }
+
+                if (max > lastDayColumnIndex)
+                {
+                    Column rightColumn = (Column)column.CloneNode(true);
+                    rightColumn.Min = lastDayColumnIndex + 1;
+                    preservedColumns.Add(rightColumn);
+                }
+            }
+
+            preservedColumns.Add(new Column
+            {
+                Min = firstDayColumnIndex,
+                Max = lastVisibleDayColumnIndex,
+                Width = MonthlyDayColumnWidth,
+                CustomWidth = true,
+                Hidden = false
+            });
+
+            if (lastVisibleDayColumnIndex < lastDayColumnIndex)
+            {
+                preservedColumns.Add(new Column
+                {
+                    Min = lastVisibleDayColumnIndex + 1,
+                    Max = lastDayColumnIndex,
+                    Width = MonthlyDayColumnWidth,
+                    CustomWidth = true,
+                    Hidden = true
+                });
+            }
+
+            columns.RemoveAllChildren<Column>();
+            foreach (Column column in preservedColumns
+                         .OrderBy(static column => column.Min?.Value ?? 1U)
+                         .ThenBy(static column => column.Max?.Value ?? column.Min?.Value ?? 1U))
+            {
+                columns.Append(column);
+            }
+        }
+
+        private static Columns GetOrCreateColumns(Worksheet worksheet)
+        {
+            Columns? columns = worksheet.Elements<Columns>().FirstOrDefault();
+            if (columns != null)
+                return columns;
+
+            columns = new Columns();
+            SheetData? sheetData = worksheet.GetFirstChild<SheetData>();
+            if (sheetData == null)
+                worksheet.Append(columns);
+            else
+                worksheet.InsertBefore(columns, sheetData);
+
+            return columns;
         }
 
         private static uint? ResolveMostCommonStyleIndex(Row row, int startColumnIndex, int endColumnIndex)

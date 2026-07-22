@@ -542,6 +542,49 @@ public sealed class KnowledgeBaseActDocxGeneratorTests
     }
 
 
+    [Fact]
+    public void Generate_WithBlankPersonNames_CreatesDocumentWithoutConcreteNames()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string templatePath = Path.Combine(
+            repositoryRoot,
+            "Templates",
+            "Acts",
+            KnowledgeBaseActDocxTemplateService.GetTemplateFileName(KbActType.EquipmentFailure));
+        string outputPath = Path.Combine(CreateTempDirectory(), "blank-person-names-result.docx");
+        KbAct act = CreateAct();
+        act.CustomerName = string.Empty;
+        act.ApproverName = string.Empty;
+        var generator = new KnowledgeBaseActDocxGeneratorPlugin();
+
+        KnowledgeBaseActDocxGenerationResult result = generator.Generate(
+            new KnowledgeBaseActDocxGenerationRequest
+            {
+                Act = act,
+                Executors =
+                [
+                    CreateExecutor(
+                        "executor-1",
+                        1,
+                        string.Empty,
+                        string.Empty,
+                        string.Empty,
+                        "электромеханик")
+                ],
+                TemplatePath = templatePath,
+                OutputPath = outputPath
+            });
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        string documentText = ReadDocumentText(outputPath);
+        Assert.Contains("электромеханик", documentText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Иванов", documentText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Петров", documentText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Сидоров", documentText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Павлов", documentText, StringComparison.Ordinal);
+        Assert.DoesNotContain("{{", documentText, StringComparison.Ordinal);
+    }
+
     private static void CreateTemplate(string path)
     {
         using WordprocessingDocument document = WordprocessingDocument.Create(

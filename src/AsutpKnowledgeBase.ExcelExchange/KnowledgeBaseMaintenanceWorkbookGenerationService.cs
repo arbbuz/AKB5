@@ -6,17 +6,20 @@ namespace AsutpKnowledgeBase.Services
     public sealed class KnowledgeBaseMaintenanceWorkbookGenerationService
     {
         private readonly KnowledgeBaseMaintenanceMonthlyPlannerService _plannerService;
+        private readonly KnowledgeBaseMaintenanceMonthWorkResolverService _workResolverService;
         private readonly KnowledgeBaseMaintenanceMonthSheetModelBuilderService _sheetModelBuilderService;
         private readonly KnowledgeBaseMaintenanceAnnualWorkbookModelBuilderService _annualWorkbookModelBuilderService;
         private readonly KnowledgeBaseMaintenanceWorkbookExportService _workbookExportService;
 
         public KnowledgeBaseMaintenanceWorkbookGenerationService(
             KnowledgeBaseMaintenanceMonthlyPlannerService? plannerService = null,
+            KnowledgeBaseMaintenanceMonthWorkResolverService? workResolverService = null,
             KnowledgeBaseMaintenanceMonthSheetModelBuilderService? sheetModelBuilderService = null,
             KnowledgeBaseMaintenanceAnnualWorkbookModelBuilderService? annualWorkbookModelBuilderService = null,
             KnowledgeBaseMaintenanceWorkbookExportService? workbookExportService = null)
         {
             _plannerService = plannerService ?? new KnowledgeBaseMaintenanceMonthlyPlannerService();
+            _workResolverService = workResolverService ?? new KnowledgeBaseMaintenanceMonthWorkResolverService();
             _sheetModelBuilderService = sheetModelBuilderService ?? new KnowledgeBaseMaintenanceMonthSheetModelBuilderService();
             _annualWorkbookModelBuilderService = annualWorkbookModelBuilderService ?? new KnowledgeBaseMaintenanceAnnualWorkbookModelBuilderService();
             _workbookExportService = workbookExportService ?? new KnowledgeBaseMaintenanceWorkbookExportService();
@@ -28,7 +31,8 @@ namespace AsutpKnowledgeBase.Services
             int month,
             int totalMonthlyHourBudget,
             IReadOnlyList<KbNode>? roots,
-            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default)
         {
             return GenerateMonthWorkbookCore(
                 existingWorkbookPackage,
@@ -37,7 +41,8 @@ namespace AsutpKnowledgeBase.Services
                 totalMonthlyHourBudget,
                 roots,
                 maintenanceScheduleProfiles,
-                singleMonthWorkbook: false);
+                singleMonthWorkbook: false,
+                planningMode);
         }
 
         public KnowledgeBaseMaintenanceWorkbookGenerationResult GenerateSingleMonthWorkbook(
@@ -45,7 +50,8 @@ namespace AsutpKnowledgeBase.Services
             int month,
             int totalMonthlyHourBudget,
             IReadOnlyList<KbNode>? roots,
-            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default)
         {
             return GenerateMonthWorkbookCore(
                 existingWorkbookPackage: null,
@@ -54,7 +60,8 @@ namespace AsutpKnowledgeBase.Services
                 totalMonthlyHourBudget,
                 roots,
                 maintenanceScheduleProfiles,
-                singleMonthWorkbook: true);
+                singleMonthWorkbook: true,
+                planningMode);
         }
 
         private KnowledgeBaseMaintenanceWorkbookGenerationResult GenerateMonthWorkbookCore(
@@ -64,16 +71,20 @@ namespace AsutpKnowledgeBase.Services
             int totalMonthlyHourBudget,
             IReadOnlyList<KbNode>? roots,
             IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
-            bool singleMonthWorkbook)
+            bool singleMonthWorkbook,
+            KnowledgeBaseMaintenancePlanningMode planningMode)
         {
             IReadOnlyList<KbNode> normalizedRoots = roots ?? Array.Empty<KbNode>();
 
-            KnowledgeBaseMaintenanceMonthPlanResult planResult = _plannerService.PlanMonth(
-                year,
-                month,
-                totalMonthlyHourBudget,
-                normalizedRoots,
-                maintenanceScheduleProfiles);
+            KnowledgeBaseMaintenanceMonthPlanResult planResult = planningMode == KnowledgeBaseMaintenancePlanningMode.SequentialV3
+                ? PlanMonthSequentialV3(year, month, totalMonthlyHourBudget, normalizedRoots, maintenanceScheduleProfiles)
+                : _plannerService.PlanMonth(
+                    year,
+                    month,
+                    totalMonthlyHourBudget,
+                    normalizedRoots,
+                    maintenanceScheduleProfiles,
+                    planningMode);
             if (!planResult.IsSuccess)
             {
                 return Failure(
@@ -118,6 +129,26 @@ namespace AsutpKnowledgeBase.Services
             };
         }
 
+        private KnowledgeBaseMaintenanceMonthPlanResult PlanMonthSequentialV3(
+            int year,
+            int month,
+            int totalMonthlyHourBudget,
+            IReadOnlyList<KbNode> roots,
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
+        {
+            IReadOnlyList<KbMaintenanceMonthWorkItem> resolvedWorkItems =
+                _workResolverService.ResolveMonthWorkItems(year, month, roots, maintenanceScheduleProfiles);
+            IReadOnlyList<KbMaintenanceMonthWorkItem> orderedWorkItems =
+                _workbookExportService.OrderWorkItemsByMonthTemplate(month, resolvedWorkItems, roots);
+
+            return _plannerService.PlanMonth(
+                year,
+                month,
+                totalMonthlyHourBudget,
+                orderedWorkItems,
+                KnowledgeBaseMaintenancePlanningMode.SequentialV3);
+        }
+
         public KnowledgeBaseMaintenanceAnnualWorkbookGenerationResult GenerateAnnualWorkbook(
             int year,
             string workshopName,
@@ -158,7 +189,8 @@ namespace AsutpKnowledgeBase.Services
             int year,
             int totalMonthlyHourBudget,
             IReadOnlyList<KbNode>? roots,
-            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default)
         {
             // Full-year generation rewrites every month, so start from the monthly template.
             // Existing packages are only meaningful for partial recalculation from a selected month.
@@ -168,7 +200,8 @@ namespace AsutpKnowledgeBase.Services
                 startMonth: 1,
                 totalMonthlyHourBudget,
                 roots,
-                maintenanceScheduleProfiles);
+                maintenanceScheduleProfiles,
+                planningMode);
         }
 
         public KnowledgeBaseMaintenanceYearWorkbookGenerationResult GenerateYearWorkbookFromMonth(
@@ -177,7 +210,8 @@ namespace AsutpKnowledgeBase.Services
             int startMonth,
             int totalMonthlyHourBudget,
             IReadOnlyList<KbNode>? roots,
-            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles)
+            IReadOnlyList<KbMaintenanceScheduleProfile>? maintenanceScheduleProfiles,
+            KnowledgeBaseMaintenancePlanningMode planningMode = KnowledgeBaseMaintenancePlanningMode.Default)
         {
             if (year < 1)
                 return YearFailure("Год графика ТО должен быть положительным.");
@@ -206,7 +240,8 @@ namespace AsutpKnowledgeBase.Services
                     month,
                     totalMonthlyHourBudget,
                     roots,
-                    maintenanceScheduleProfiles);
+                    maintenanceScheduleProfiles,
+                    planningMode);
                 if (!monthResult.IsSuccess || monthResult.WorkbookPackage == null)
                 {
                     string errorMessage = string.IsNullOrWhiteSpace(monthResult.ErrorMessage)

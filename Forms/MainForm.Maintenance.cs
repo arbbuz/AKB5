@@ -74,6 +74,34 @@ namespace AsutpKnowledgeBase
                 SetLastActionText);
         }
 
+        private void ExportMaintenanceMonthWorkbookV2(object? sender, EventArgs e)
+        {
+            SaveCurrentWorkshopState();
+            _maintenanceWorkbookUiWorkflowService.Export(
+                this,
+                _currentWorkshop,
+                GetVisibleTreeData(),
+                _session.MaintenanceScheduleProfiles,
+                _session.Config.ProductionCalendarYears,
+                CurrentDataPath,
+                SetLastActionText,
+                KnowledgeBaseMaintenancePlanningMode.BalancedV2);
+        }
+
+        private void ExportMaintenanceMonthWorkbookV3(object? sender, EventArgs e)
+        {
+            SaveCurrentWorkshopState();
+            _maintenanceWorkbookUiWorkflowService.Export(
+                this,
+                _currentWorkshop,
+                GetVisibleTreeData(),
+                _session.MaintenanceScheduleProfiles,
+                _session.Config.ProductionCalendarYears,
+                CurrentDataPath,
+                SetLastActionText,
+                KnowledgeBaseMaintenancePlanningMode.SequentialV3);
+        }
+
         private void ExportMaintenanceYearWorkbook(object? sender, EventArgs e)
         {
             SaveCurrentWorkshopState();
@@ -100,6 +128,34 @@ namespace AsutpKnowledgeBase
                 SetLastActionText);
         }
 
+        private void ExportMaintenanceYearMonthlyWorkbookV2(object? sender, EventArgs e)
+        {
+            SaveCurrentWorkshopState();
+            _maintenanceWorkbookUiWorkflowService.ExportYearMonthly(
+                this,
+                _currentWorkshop,
+                GetVisibleTreeData(),
+                _session.MaintenanceScheduleProfiles,
+                _session.Config.ProductionCalendarYears,
+                CurrentDataPath,
+                SetLastActionText,
+                KnowledgeBaseMaintenancePlanningMode.BalancedV2);
+        }
+
+        private void ExportMaintenanceYearMonthlyWorkbookV3(object? sender, EventArgs e)
+        {
+            SaveCurrentWorkshopState();
+            _maintenanceWorkbookUiWorkflowService.ExportYearMonthly(
+                this,
+                _currentWorkshop,
+                GetVisibleTreeData(),
+                _session.MaintenanceScheduleProfiles,
+                _session.Config.ProductionCalendarYears,
+                CurrentDataPath,
+                SetLastActionText,
+                KnowledgeBaseMaintenancePlanningMode.SequentialV3);
+        }
+
         private void RecalculateMaintenanceYearWorkbookToDecember(object? sender, EventArgs e)
         {
             SaveCurrentWorkshopState();
@@ -111,6 +167,34 @@ namespace AsutpKnowledgeBase
                 _session.Config.ProductionCalendarYears,
                 CurrentDataPath,
                 SetLastActionText);
+        }
+
+        private void RecalculateMaintenanceYearWorkbookToDecemberV2(object? sender, EventArgs e)
+        {
+            SaveCurrentWorkshopState();
+            _maintenanceWorkbookUiWorkflowService.RecalculateYearToDecember(
+                this,
+                _currentWorkshop,
+                GetVisibleTreeData(),
+                _session.MaintenanceScheduleProfiles,
+                _session.Config.ProductionCalendarYears,
+                CurrentDataPath,
+                SetLastActionText,
+                KnowledgeBaseMaintenancePlanningMode.BalancedV2);
+        }
+
+        private void RecalculateMaintenanceYearWorkbookToDecemberV3(object? sender, EventArgs e)
+        {
+            SaveCurrentWorkshopState();
+            _maintenanceWorkbookUiWorkflowService.RecalculateYearToDecember(
+                this,
+                _currentWorkshop,
+                GetVisibleTreeData(),
+                _session.MaintenanceScheduleProfiles,
+                _session.Config.ProductionCalendarYears,
+                CurrentDataPath,
+                SetLastActionText,
+                KnowledgeBaseMaintenancePlanningMode.SequentialV3);
         }
 
         private void ImportMaintenanceScheduleNorms(object? sender, EventArgs e)

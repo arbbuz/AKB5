@@ -9,6 +9,10 @@
     <ApplicationIcon>resources\app.ico</ApplicationIcon>
   </PropertyGroup>
 
+  <Target Name="BlockDirectPublish" BeforeTargets="Publish" Condition="'$(AKB5AllowDirectPublish)' != 'true'">
+    <Error Text="Direct publish of asutpKB.csproj is blocked because it does not package external modules. Use scripts\publish.ps1 or scripts\publish.cmd." />
+  </Target>
+
   <ItemGroup>
     <Compile Remove="Models/**/*.cs" />
     <Compile Remove="Services/**/*.cs" />

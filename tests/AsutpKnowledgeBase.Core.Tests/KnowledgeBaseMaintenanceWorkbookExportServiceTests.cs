@@ -10,6 +10,13 @@ namespace AsutpKnowledgeBase.Core.Tests;
 public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
 {
     private readonly KnowledgeBaseMaintenanceWorkbookExportService _service = new();
+    private static readonly string[] ConcreteSignatureNames =
+    [
+        "М.И.Малашкеевич",
+        "М.Ю.Трушин",
+        "А.А.Данилов",
+        "А.А.Королев"
+    ];
 
     [Fact]
     public void ExportMonth_UsesTemplateAndWritesSelectedMonthSheet()
@@ -79,10 +86,12 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
 
         KnowledgeBaseMaintenanceWorkbookExportResult result = _service.ExportMonth(null, model);
 
-        Assert.True(result.IsSuccess);
+        Assert.True(result.IsSuccess, result.ErrorMessage);
         byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
         Assert.Empty(result.ErrorMessage);
         AssertValidWorkbook(packageBytes);
+        AssertNoConcreteSignatureNames(packageBytes);
+        AssertSingleMonthlyApprovalSignatureLine(packageBytes);
 
         Assert.Equal("на январь 2027 года", ReadCellText(packageBytes, "КЦ (1)", "A12"));
         Assert.Equal("____ _______________ 2027 года", ReadCellText(packageBytes, "КЦ (1)", "AF6"));
@@ -108,9 +117,59 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         Assert.Equal("'КЦ (1)'!$A$15:$AQ$25", ReadDefinedName(packageBytes, "_xlnm._FilterDatabase", 0));
         Assert.Equal("'КЦ (1)'!$A$1:$AR$28", ReadDefinedName(packageBytes, "_xlnm.Print_Area", 0));
         Assert.Equal("SUM(AK16:AK21)", ReadCellFormula(packageBytes, "КЦ (1)", "AK22"));
+        AssertMonthlyFooterDiagnosticsAreBlank(packageBytes, "КЦ (1)", totalsRowIndex: 22);
         Assert.False(HasCalculationChain(packageBytes));
         Assert.False(HasSharedFormulas(packageBytes, "КЦ (1)"));
         Assert.False(HasPanes(packageBytes, "КЦ (1)"));
+    }
+
+    [Fact]
+    public void ExportMonth_NormalizesMonthlyDayColumnWidthsForPrintLayout()
+    {
+        KnowledgeBaseMaintenanceWorkbookExportResult result = _service.ExportMonth(
+            null,
+            CreateModel(2027, 8, "System", "INV-PRINT"));
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        AssertValidWorkbook(packageBytes);
+
+        IReadOnlyList<double> dayColumnWidths = ReadColumnWidths(
+            packageBytes,
+            BuildMonthSheetName(8),
+            startColumnIndex: 6,
+            endColumnIndex: 36);
+
+        Assert.Equal(31, dayColumnWidths.Count);
+        Assert.All(dayColumnWidths, width => Assert.Equal(3.109375d, width, precision: 6));
+    }
+
+    [Fact]
+    public void ExportMonth_HidesCalendarColumnsOutsideMonth()
+    {
+        AssertVisibleAndHiddenMonthDayColumns(year: 2026, month: 2, visibleDayCount: 28);
+        AssertVisibleAndHiddenMonthDayColumns(year: 2028, month: 2, visibleDayCount: 29);
+    }
+
+    private void AssertVisibleAndHiddenMonthDayColumns(int year, int month, int visibleDayCount)
+    {
+        KnowledgeBaseMaintenanceWorkbookExportResult result = _service.ExportMonth(
+            null,
+            CreateModel(year, month, "System", $"INV-{year}-{month}"));
+
+        Assert.True(result.IsSuccess);
+        byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
+        AssertValidWorkbook(packageBytes);
+
+        IReadOnlyList<bool> hiddenStates = ReadColumnHiddenStates(
+            packageBytes,
+            BuildMonthSheetName(month),
+            startColumnIndex: 6,
+            endColumnIndex: 36);
+
+        Assert.Equal(31, hiddenStates.Count);
+        Assert.All(hiddenStates.Take(visibleDayCount), Assert.False);
+        Assert.All(hiddenStates.Skip(visibleDayCount), Assert.True);
     }
 
     [Fact]
@@ -676,6 +735,7 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         Assert.True(result.IsSuccess);
         byte[] packageBytes = Assert.IsType<byte[]>(result.WorkbookPackage);
         AssertValidWorkbook(packageBytes);
+        AssertNoConcreteSignatureNames(packageBytes);
 
         Assert.Equal(new[] { "КЦ (2)", "Лист1" }, ReadSheetNames(packageBytes));
         Assert.Equal("на 2027 год", ReadCellText(packageBytes, "КЦ (2)", "A10"));
@@ -941,6 +1001,29 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         Assert.Empty(errors);
     }
 
+    private static void AssertNoConcreteSignatureNames(byte[] packageBytes)
+    {
+        using SpreadsheetDocument document = OpenDocument(packageBytes);
+        foreach (string sharedString in ReadSharedStrings(document))
+        {
+            foreach (string forbiddenName in ConcreteSignatureNames)
+            {
+                Assert.False(
+                    sharedString.Contains(forbiddenName, StringComparison.Ordinal),
+                    $"Generated maintenance workbook still contains signature name '{forbiddenName}'.");
+            }
+        }
+    }
+
+    private static void AssertSingleMonthlyApprovalSignatureLine(byte[] packageBytes)
+    {
+        using SpreadsheetDocument document = OpenDocument(packageBytes);
+        int signatureLineCount = ReadSharedStrings(document)
+            .Count(static value => string.Equals(value, "___________________", StringComparison.Ordinal));
+
+        Assert.Equal(1, signatureLineCount);
+    }
+
     private static string ReadCellText(byte[] packageBytes, string sheetName, string cellReference)
     {
         using SpreadsheetDocument document = OpenDocument(packageBytes);
@@ -1023,6 +1106,97 @@ public class KnowledgeBaseMaintenanceWorkbookExportServiceTests
         using SpreadsheetDocument document = OpenDocument(packageBytes);
         WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
         return FindCell(worksheetPart, cellReference)?.CellFormula?.Text ?? string.Empty;
+    }
+
+    private static void AssertMonthlyFooterDiagnosticsAreBlank(byte[] packageBytes, string sheetName, uint totalsRowIndex)
+    {
+        using SpreadsheetDocument document = OpenDocument(packageBytes);
+        WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
+
+        for (uint rowIndex = totalsRowIndex + 1; rowIndex <= totalsRowIndex + 2; rowIndex++)
+        {
+            for (int columnIndex = 6; columnIndex <= 37; columnIndex++)
+            {
+                string cellReference = BuildCellReference(rowIndex, columnIndex);
+                Cell? cell = FindCell(worksheetPart, cellReference);
+                if (cell == null)
+                    continue;
+
+                string inlineText = cell.InlineString == null
+                    ? string.Empty
+                    : string.Concat(cell.InlineString.Descendants<Text>().Select(text => text.Text));
+                Assert.True(string.IsNullOrEmpty(cell.CellFormula?.Text), $"{sheetName} {cellReference} must not contain footer diagnostic formula.");
+                Assert.True(string.IsNullOrEmpty(cell.CellValue?.Text), $"{sheetName} {cellReference} must not contain footer diagnostic value.");
+                Assert.True(string.IsNullOrEmpty(inlineText), $"{sheetName} {cellReference} must not contain footer diagnostic text.");
+            }
+        }
+    }
+
+    private static string BuildCellReference(uint rowIndex, int columnIndex) => $"{BuildColumnName(columnIndex)}{rowIndex}";
+
+    private static string BuildColumnName(int columnIndex)
+    {
+        string columnName = string.Empty;
+        int current = columnIndex;
+        while (current > 0)
+        {
+            current--;
+            columnName = (char)('A' + current % 26) + columnName;
+            current /= 26;
+        }
+
+        return columnName;
+    }
+
+    private static IReadOnlyList<double> ReadColumnWidths(
+        byte[] packageBytes,
+        string sheetName,
+        int startColumnIndex,
+        int endColumnIndex)
+    {
+        using SpreadsheetDocument document = OpenDocument(packageBytes);
+        WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
+        IReadOnlyList<Column> columns = worksheetPart.Worksheet.Elements<Columns>()
+            .SelectMany(static item => item.Elements<Column>())
+            .ToArray();
+        List<double> widths = new();
+
+        for (uint columnIndex = (uint)startColumnIndex; columnIndex <= (uint)endColumnIndex; columnIndex++)
+        {
+            Column? column = columns.LastOrDefault(candidate =>
+                (candidate.Min?.Value ?? 1U) <= columnIndex &&
+                (candidate.Max?.Value ?? candidate.Min?.Value ?? 1U) >= columnIndex);
+            if (column?.Width?.Value == null)
+                throw new InvalidOperationException($"Column {columnIndex} width was not found on sheet '{sheetName}'.");
+
+            widths.Add(column.Width.Value);
+        }
+
+        return widths;
+    }
+
+    private static IReadOnlyList<bool> ReadColumnHiddenStates(
+        byte[] packageBytes,
+        string sheetName,
+        int startColumnIndex,
+        int endColumnIndex)
+    {
+        using SpreadsheetDocument document = OpenDocument(packageBytes);
+        WorksheetPart worksheetPart = GetWorksheetPart(document, sheetName);
+        IReadOnlyList<Column> columns = worksheetPart.Worksheet.Elements<Columns>()
+            .SelectMany(static item => item.Elements<Column>())
+            .ToArray();
+        List<bool> hiddenStates = new();
+
+        for (uint columnIndex = (uint)startColumnIndex; columnIndex <= (uint)endColumnIndex; columnIndex++)
+        {
+            Column? column = columns.LastOrDefault(candidate =>
+                (candidate.Min?.Value ?? 1U) <= columnIndex &&
+                (candidate.Max?.Value ?? candidate.Min?.Value ?? 1U) >= columnIndex);
+            hiddenStates.Add(column?.Hidden?.Value == true);
+        }
+
+        return hiddenStates;
     }
 
     private static IReadOnlyList<string> ReadMergedRanges(byte[] packageBytes, string sheetName)
