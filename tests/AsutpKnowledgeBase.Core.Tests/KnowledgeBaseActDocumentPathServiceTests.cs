@@ -67,6 +67,22 @@ public class KnowledgeBaseActDocumentPathServiceTests
     }
 
     [Fact]
+    public void BuildDocumentFileName_ForInspectionWork_OmitsDefaultEquipmentWhenEquipmentIsEmpty()
+    {
+        KbAct act = CreateAct();
+        act.ActType = KbActType.InspectionWork;
+        act.EquipmentName = string.Empty;
+        act.RequestDocument = "сз 0400-1000 ОА-4055";
+        act.EquipmentSnapshot.Model = string.Empty;
+        act.EquipmentSnapshot.OrderNumber = string.Empty;
+
+        string fileName = KnowledgeBaseActDocumentPathService.BuildDocumentFileName(act);
+
+        Assert.Equal("2026-0001_сз_0400-1000_ОА-4055.docx", fileName);
+        Assert.DoesNotContain("Оборудование", fileName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void BuildDocumentFileName_ForInspectionWork_SanitizesEnteredRequestText()
     {
         KbAct act = CreateAct();

@@ -98,19 +98,19 @@ namespace AsutpKnowledgeBase.Services
         {
             string actNumber = SanitizeFileNamePart(act.ActNumber);
             string equipmentName = SanitizeFileNamePart(BuildShortEquipmentName(act));
-            if (string.IsNullOrWhiteSpace(equipmentName))
-                equipmentName = "Оборудование";
-
             equipmentName = Shorten(equipmentName, MaxEquipmentPartLength);
             if (act.ActType == KbActType.InspectionWork)
                 return BuildInspectionDocumentFileName(actNumber, act.RequestDocument, equipmentName);
 
             string actType = SanitizeFileNamePart(GetActTypeFileNamePart(act.ActType));
-            string stem = $"{actNumber}_{actType}_{equipmentName}";
+            string stem = JoinFileNameParts(actNumber, actType, equipmentName);
             if (stem.Length > MaxFileStemLength)
             {
                 int availableEquipmentLength = Math.Max(20, MaxFileStemLength - actNumber.Length - actType.Length - 2);
-                stem = $"{actNumber}_{actType}_{Shorten(equipmentName, availableEquipmentLength)}";
+                stem = JoinFileNameParts(
+                    actNumber,
+                    actType,
+                    Shorten(equipmentName, availableEquipmentLength));
             }
 
             return $"{stem}.docx";
