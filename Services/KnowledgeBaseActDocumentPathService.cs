@@ -97,12 +97,15 @@ namespace AsutpKnowledgeBase.Services
         public static string BuildDocumentFileName(KbAct act)
         {
             string actNumber = SanitizeFileNamePart(act.ActNumber);
-            string actType = SanitizeFileNamePart(GetActTypeFileNamePart(act.ActType));
             string equipmentName = SanitizeFileNamePart(BuildShortEquipmentName(act));
             if (string.IsNullOrWhiteSpace(equipmentName))
                 equipmentName = "Оборудование";
 
             equipmentName = Shorten(equipmentName, MaxEquipmentPartLength);
+            if (act.ActType == KbActType.InspectionWork)
+                return BuildInspectionDocumentFileName(actNumber, act.RequestDocument, equipmentName);
+
+            string actType = SanitizeFileNamePart(GetActTypeFileNamePart(act.ActType));
             string stem = $"{actNumber}_{actType}_{equipmentName}";
             if (stem.Length > MaxFileStemLength)
             {
@@ -112,6 +115,39 @@ namespace AsutpKnowledgeBase.Services
 
             return $"{stem}.docx";
         }
+
+        private static string BuildInspectionDocumentFileName(
+            string actNumber,
+            string requestDocument,
+            string equipmentName)
+        {
+            string requestPart = SanitizeFileNamePart(requestDocument);
+            string stem = JoinFileNameParts(actNumber, requestPart, equipmentName);
+            if (stem.Length > MaxFileStemLength)
+            {
+                int excessLength = stem.Length - MaxFileStemLength;
+                equipmentName = Shorten(
+                    equipmentName,
+                    Math.Max(20, equipmentName.Length - excessLength));
+                stem = JoinFileNameParts(actNumber, requestPart, equipmentName);
+            }
+
+            if (stem.Length > MaxFileStemLength && !string.IsNullOrWhiteSpace(requestPart))
+            {
+                int excessLength = stem.Length - MaxFileStemLength;
+                requestPart = Shorten(
+                    requestPart,
+                    Math.Max(20, requestPart.Length - excessLength));
+                stem = JoinFileNameParts(actNumber, requestPart, equipmentName);
+            }
+
+            return $"{Shorten(stem, MaxFileStemLength)}.docx";
+        }
+
+        private static string JoinFileNameParts(params string[] parts) =>
+            string.Join(
+                "_",
+                parts.Where(static part => !string.IsNullOrWhiteSpace(part)));
 
         public static string ResolveDocumentsDirectory(KbConfig? config, string baseDirectory)
         {

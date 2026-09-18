@@ -51,6 +51,40 @@ public class KnowledgeBaseActDocumentPathServiceTests
     }
 
     [Fact]
+    public void BuildDocumentFileName_ForInspectionWork_UsesNumberRequestAndEquipment()
+    {
+        KbAct act = CreateAct();
+        act.ActType = KbActType.InspectionWork;
+        act.EquipmentName = string.Empty;
+        act.RequestDocument = "12345";
+        act.EquipmentSnapshot.Model = "SIMATIC S7-300";
+
+        string fileName = KnowledgeBaseActDocumentPathService.BuildDocumentFileName(act);
+
+        Assert.Equal("2026-0001_12345_SIMATIC_S7-300.docx", fileName);
+        Assert.DoesNotContain("Заявка", fileName, StringComparison.Ordinal);
+        Assert.DoesNotContain("Осмотр", fileName, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildDocumentFileName_ForInspectionWork_SanitizesEnteredRequestText()
+    {
+        KbAct act = CreateAct();
+        act.ActType = KbActType.InspectionWork;
+        act.RequestDocument = "Заявка: 12/34?";
+
+        string fileName = KnowledgeBaseActDocumentPathService.BuildDocumentFileName(act);
+
+        Assert.StartsWith(
+            "2026-0001_Заявка_12_34_",
+            fileName,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(":", fileName, StringComparison.Ordinal);
+        Assert.DoesNotContain("/", fileName, StringComparison.Ordinal);
+        Assert.DoesNotContain("?", fileName, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PrepareDocumentPath_UsesSelectedPathAndStoresLastDirectory()
     {
         string baseDirectory = Path.Combine(Path.GetTempPath(), $"akb5-act-docs-{Guid.NewGuid():N}");

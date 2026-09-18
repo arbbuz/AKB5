@@ -178,6 +178,40 @@ public class KnowledgeBaseActInputHistoryServiceTests
             result.Select(static entry => entry.Field).Order());
     }
 
+    [Fact]
+    public void RecordActValues_AddsNamesAndPositionsForAllExecutors()
+    {
+        KbActExecutor[] executors = Enumerable.Range(0, 3)
+            .Select(index => new KbActExecutor
+            {
+                ExecutorId = $"executor-{index + 1}",
+                SortOrder = index,
+                LastName = $"Исполнитель{index + 1}",
+                Position = $"Должность{index + 1}"
+            })
+            .ToArray();
+
+        List<KbActInputHistoryEntry> result = _service.RecordActValues(
+            Array.Empty<KbActInputHistoryEntry>(),
+            "Цех 1",
+            new KbAct(),
+            executors);
+
+        Assert.Equal(6, result.Count);
+        Assert.Equal(
+            ["Исполнитель1", "Исполнитель2", "Исполнитель3"],
+            result
+                .Where(entry => entry.Field == KbActInputHistoryField.ExecutorName)
+                .OrderBy(entry => entry.DisplayValue, StringComparer.Ordinal)
+                .Select(entry => entry.DisplayValue));
+        Assert.Equal(
+            ["Должность1", "Должность2", "Должность3"],
+            result
+                .Where(entry => entry.Field == KbActInputHistoryField.ExecutorPosition)
+                .OrderBy(entry => entry.DisplayValue, StringComparer.Ordinal)
+                .Select(entry => entry.DisplayValue));
+    }
+
     private static KbActInputHistoryEntry Entry(
         string workshopName,
         KbActInputHistoryField field,

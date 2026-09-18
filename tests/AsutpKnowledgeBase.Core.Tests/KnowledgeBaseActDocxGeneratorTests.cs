@@ -455,6 +455,44 @@ public sealed class KnowledgeBaseActDocxGeneratorTests
     }
 
     [Fact]
+    public void Generate_WithExternalInspectionTemplate_SplitsOverlongUnbrokenResultWithoutDataLoss()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string templatePath = Path.Combine(
+            repositoryRoot,
+            "Templates",
+            "Acts",
+            KnowledgeBaseActDocxTemplateService.GetTemplateFileName(KbActType.InspectionWork));
+        string outputPath = Path.Combine(CreateTempDirectory(), "inspection-template-unbroken-result.docx");
+        string unbrokenResult = new('1', 240);
+        KbAct act = CreateInspectionAct();
+        act.InspectionResult = unbrokenResult;
+        var generator = new KnowledgeBaseActDocxGeneratorPlugin();
+
+        KnowledgeBaseActDocxGenerationResult result = generator.Generate(
+            new KnowledgeBaseActDocxGenerationRequest
+            {
+                Act = act,
+                Executors = [CreateExecutor("executor-1", 1, "Иванов", "Иван", "Иванович", "Инженер")],
+                TemplatePath = templatePath,
+                OutputPath = outputPath
+            });
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        using WordprocessingDocument document = WordprocessingDocument.Open(outputPath, false);
+        IReadOnlyList<string> resultLines = document.MainDocumentPart!.Document
+            .Descendants<TableCell>()
+            .Select(GetCellText)
+            .Select(static text => text.Trim())
+            .Where(static text => text.Length > 0 && text.All(static character => character == '1'))
+            .ToList();
+
+        Assert.True(resultLines.Count > 1);
+        Assert.Equal(unbrokenResult, string.Concat(resultLines));
+        Assert.All(resultLines, line => Assert.True(line.Length < unbrokenResult.Length));
+    }
+
+    [Fact]
     public void Generate_WithSplitPlaceholders_PreservesPlaceholderRunFormatting()
     {
         string repositoryRoot = FindRepositoryRoot();
@@ -531,14 +569,110 @@ public sealed class KnowledgeBaseActDocxGeneratorTests
             });
 
         Assert.True(result.IsSuccess, result.ErrorMessage);
-        string documentText = ReadDocumentText(outputPath);
-        Assert.Contains("Belikov Alexey, lead engineer automation unit", documentText, StringComparison.Ordinal);
-        Assert.Contains("area block section tail-token", documentText, StringComparison.Ordinal);
-        Assert.DoesNotContain(
+        using WordprocessingDocument document = WordprocessingDocument.Open(outputPath, false);
+        Body body = document.MainDocumentPart!.Document.Body!;
+        Table executorTable = body
+            .Descendants<Table>()
+            .First(table => table.InnerText.Contains("представитель исполнителя работ", StringComparison.Ordinal));
+        IReadOnlyList<string> executorLines = executorTable
+            .Elements<TableRow>()
+            .Select(row => GetCellText(row.Elements<TableCell>().Last()).Trim())
+            .Where(static line => !string.IsNullOrWhiteSpace(line))
+            .ToList();
+        Assert.Equal(2, executorLines.Count);
+        Assert.Equal(
             "Belikov Alexey, lead engineer automation unit area block section tail-token",
-            documentText,
-            StringComparison.Ordinal);
-        Assert.DoesNotContain("{{", documentText, StringComparison.Ordinal);
+            string.Join(" ", executorLines));
+        Assert.DoesNotContain("{{", body.InnerText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_WithExternalInspectionTemplate_RendersThreeExecutorsAndThreeSignatureRows()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string templatePath = Path.Combine(
+            repositoryRoot,
+            "Templates",
+            "Acts",
+            KnowledgeBaseActDocxTemplateService.GetTemplateFileName(KbActType.InspectionWork));
+        string outputPath = Path.Combine(CreateTempDirectory(), "inspection-template-three-executors.docx");
+        var generator = new KnowledgeBaseActDocxGeneratorPlugin();
+
+        KnowledgeBaseActDocxGenerationResult result = generator.Generate(
+            new KnowledgeBaseActDocxGenerationRequest
+            {
+                Act = CreateInspectionAct(),
+                Executors =
+                [
+                    CreateExecutor("executor-1", 0, "Иванов", "Иван", "Иванович", "инженер"),
+                    CreateExecutor("executor-2", 1, "Петров", "Петр", "Петрович", "электромеханик"),
+                    CreateExecutor("executor-3", 2, "Сидоров", "Сидор", "Сидорович", "наладчик")
+                ],
+                TemplatePath = templatePath,
+                OutputPath = outputPath
+            });
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        using WordprocessingDocument document = WordprocessingDocument.Open(outputPath, false);
+        Body body = document.MainDocumentPart!.Document.Body!;
+        Table executorTable = body
+            .Descendants<Table>()
+            .First(table => table.InnerText.Contains("представитель исполнителя работ", StringComparison.Ordinal));
+        Assert.Equal(3, executorTable.Elements<TableRow>().Count());
+        Assert.Contains("Иванов Иван Иванович, инженер", executorTable.InnerText, StringComparison.Ordinal);
+        Assert.Contains("Петров Петр Петрович, электромеханик", executorTable.InnerText, StringComparison.Ordinal);
+        Assert.Contains("Сидоров Сидор Сидорович, наладчик", executorTable.InnerText, StringComparison.Ordinal);
+
+        Table signatureTable = body
+            .Descendants<Table>()
+            .First(table => table.InnerText.Contains("Представитель заказчика", StringComparison.Ordinal));
+        Assert.Equal(
+            3,
+            signatureTable
+                .Elements<TableRow>()
+                .Count(row => row.InnerText.Contains("Представитель исполнителя", StringComparison.Ordinal)));
+        Assert.Equal(8, signatureTable.Elements<TableRow>().Count());
+        Assert.DoesNotContain("{{", body.InnerText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_WithExternalInspectionTemplate_DoesNotKeepEmptyExecutorRows()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string templatePath = Path.Combine(
+            repositoryRoot,
+            "Templates",
+            "Acts",
+            KnowledgeBaseActDocxTemplateService.GetTemplateFileName(KbActType.InspectionWork));
+        string outputPath = Path.Combine(CreateTempDirectory(), "inspection-template-one-executor.docx");
+        var generator = new KnowledgeBaseActDocxGeneratorPlugin();
+
+        KnowledgeBaseActDocxGenerationResult result = generator.Generate(
+            new KnowledgeBaseActDocxGenerationRequest
+            {
+                Act = CreateInspectionAct(),
+                Executors = [CreateExecutor("executor-1", 0, "Иванов", "Иван", "Иванович", "инженер")],
+                TemplatePath = templatePath,
+                OutputPath = outputPath
+            });
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        using WordprocessingDocument document = WordprocessingDocument.Open(outputPath, false);
+        Body body = document.MainDocumentPart!.Document.Body!;
+        Table executorTable = body
+            .Descendants<Table>()
+            .First(table => table.InnerText.Contains("представитель исполнителя работ", StringComparison.Ordinal));
+        Assert.Single(executorTable.Elements<TableRow>());
+
+        Table signatureTable = body
+            .Descendants<Table>()
+            .First(table => table.InnerText.Contains("Представитель заказчика", StringComparison.Ordinal));
+        Assert.Equal(
+            1,
+            signatureTable
+                .Elements<TableRow>()
+                .Count(row => row.InnerText.Contains("Представитель исполнителя", StringComparison.Ordinal)));
+        Assert.Equal(4, signatureTable.Elements<TableRow>().Count());
     }
 
 

@@ -157,20 +157,23 @@ namespace AsutpKnowledgeBase.Services
             IEnumerable<KbActExecutor>? executors)
         {
             List<KbActInputHistoryEntry> updated = NormalizeEntries(entries);
-            KbActExecutor? executor = executors?
-                .OrderBy(static item => item.SortOrder)
-                .FirstOrDefault();
+            foreach (KbActExecutor executor in executors?
+                         .OrderBy(static item => item.SortOrder)
+                         .ThenBy(static item => item.ExecutorId, StringComparer.Ordinal) ??
+                     Enumerable.Empty<KbActExecutor>())
+            {
+                updated = AddOrTouch(
+                    updated,
+                    workshopName,
+                    KbActInputHistoryField.ExecutorName,
+                    FormatExecutorName(executor));
+                updated = AddOrTouch(
+                    updated,
+                    workshopName,
+                    KbActInputHistoryField.ExecutorPosition,
+                    executor.Position);
+            }
 
-            updated = AddOrTouch(
-                updated,
-                workshopName,
-                KbActInputHistoryField.ExecutorName,
-                FormatExecutorName(executor));
-            updated = AddOrTouch(
-                updated,
-                workshopName,
-                KbActInputHistoryField.ExecutorPosition,
-                executor?.Position);
             updated = AddOrTouch(
                 updated,
                 workshopName,
