@@ -17,7 +17,6 @@ namespace AsutpKnowledgeBase.Services
         private const float TextWidthSafetyMarginPoints = 8F;
         private const string WordprocessingNamespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
         private const int CustomerNamePositionLineMaxLength = 95;
-        private const int ExecutorNamePositionMaxLength = 49;
         private const int SignatureNameMaxLength = 48;
 
         private static readonly string[] ExecutorPlaceholders =
@@ -70,10 +69,23 @@ namespace AsutpKnowledgeBase.Services
                     int inspectionResultLineCount = AddAcceptedInspectionTemplateReplacements(
                         replacements,
                         request.Act,
-                        executors,
                         mainPart.Document.Body);
+                    int executorLineCount = request.Act.ActType == KbActType.InspectionWork
+                        ? AddAcceptedInspectionExecutorReplacements(
+                            replacements,
+                            executors,
+                            mainPart.Document.Body)
+                        : 0;
                     EnsureAcceptedInspectionResultRows(mainPart.Document.Body, inspectionResultLineCount);
                     AddFixedExecutorReplacements(replacements, executors);
+                    if (request.Act.ActType == KbActType.InspectionWork)
+                    {
+                        EnsureAcceptedInspectionExecutorRows(mainPart.Document.Body, executorLineCount);
+                        PopulateAcceptedInspectionExecutorSignatures(
+                            mainPart.Document.Body,
+                            replacements,
+                            executors);
+                    }
                     PopulateExecutorTable(mainPart.Document.Body, replacements, executors);
 
                     ReplacePlaceholders(mainPart.Document.Body, replacements);
@@ -143,7 +155,6 @@ namespace AsutpKnowledgeBase.Services
         private static int AddAcceptedInspectionTemplateReplacements(
             IDictionary<string, string> replacements,
             KbAct act,
-            IReadOnlyList<KbActExecutor> executors,
             Body body)
         {
             replacements["{{ObjectLine1}}"] = FitSingleLine(
@@ -154,8 +165,9 @@ namespace AsutpKnowledgeBase.Services
             string[] inspectionResultLines = act.ActType == KbActType.InspectionWork
                 ? SplitIntoWidthFittedLines(
                     act.InspectionResult,
-                    ResolveInspectionResultLayout(body),
-                    minimumLineCount: InspectionResultBaseLineCount)
+                    ResolveTableCellTextLayout(body, "{{InspectionResultLine1}}"),
+                    minimumLineCount: InspectionResultBaseLineCount,
+                    splitOverlongTokens: true)
                 : Enumerable.Repeat(string.Empty, InspectionResultBaseLineCount).ToArray();
             for (int i = 0; i < inspectionResultLines.Length; i++)
             {
@@ -172,19 +184,39 @@ namespace AsutpKnowledgeBase.Services
             replacements["{{CustomerNamePosition2}}"] = customerLines[1];
             replacements["{{CustomerSignatureName}}"] = FitSingleLine(act.CustomerName, SignatureNameMaxLength);
 
-            KbActExecutor? executor = executors.FirstOrDefault();
-            string executorName = executor == null ? string.Empty : FormatExecutorName(executor);
-            string[] executorLines = SplitIntoTwoLinesPreservingRemainder(
-                FormatNamePosition(executorName, executor?.Position ?? string.Empty),
-                ExecutorNamePositionMaxLength);
-            replacements["{{ExecutorNamePosition}}"] = executorLines[0];
-            replacements["{{ExecutorNamePosition2}}"] = executorLines[1];
-            replacements["{{ExecutorSignatureName}}"] = FitSingleLine(executorName, SignatureNameMaxLength);
-
             replacements["{{TransferredToLine}}"] = string.Empty;
             replacements["{{WorkStart}}"] = FormatDate(act.FailureDate ?? act.ActDate);
             replacements["{{WorkEnd}}"] = FormatDate(act.ActDate);
             return inspectionResultLines.Length;
+        }
+
+        private static int AddAcceptedInspectionExecutorReplacements(
+            IDictionary<string, string> replacements,
+            IReadOnlyList<KbActExecutor> executors,
+            Body body)
+        {
+            TextFieldLayout layout = ResolveTableCellTextLayout(body, "{{ExecutorNamePosition}}");
+            var lines = new List<string>();
+            foreach (KbActExecutor executor in executors.Take(FixedExecutorSlotCount))
+            {
+                lines.AddRange(SplitIntoWidthFittedLines(
+                    FormatNamePosition(FormatExecutorName(executor), executor.Position),
+                    layout,
+                    minimumLineCount: 1));
+            }
+
+            if (lines.Count == 0)
+                lines.Add(string.Empty);
+
+            for (int i = 0; i < lines.Count; i++)
+            {
+                string placeholder = i == 0
+                    ? "{{ExecutorNamePosition}}"
+                    : $"{{{{ExecutorNamePosition{i + 1}}}}}";
+                replacements[placeholder] = lines[i];
+            }
+
+            return lines.Count;
         }
 
         private static void AddExpandableFailureTextFieldReplacements(
@@ -332,24 +364,11 @@ namespace AsutpKnowledgeBase.Services
             return lines.ToArray();
         }
 
-        private static string[] SplitIntoTwoLinesPreservingRemainder(string value, int maxLength)
-        {
-            string remaining = NormalizeInlineText(value);
-            if (remaining.Length <= maxLength)
-                return [remaining, string.Empty];
-
-            int splitIndex = FindSplitIndex(remaining, maxLength);
-            return
-            [
-                remaining[..splitIndex].Trim(),
-                remaining[splitIndex..].Trim()
-            ];
-        }
-
         private static string[] SplitIntoWidthFittedLines(
             string value,
             TextFieldLayout layout,
-            int minimumLineCount)
+            int minimumLineCount,
+            bool splitOverlongTokens = false)
         {
             var lines = new List<string>(minimumLineCount);
             string normalized = NormalizeInlineText(value);
@@ -366,14 +385,39 @@ namespace AsutpKnowledgeBase.Services
                         ? word
                         : $"{currentLine} {word}";
                     float candidateWidth = measurer.MeasureWidthPoints(candidate);
-                    if (string.IsNullOrEmpty(currentLine) || candidateWidth <= layout.UsableWidthPoints)
+                    if (candidateWidth <= layout.UsableWidthPoints)
                     {
                         currentLine = candidate;
                         continue;
                     }
 
-                    lines.Add(currentLine);
-                    currentLine = word;
+                    if (!string.IsNullOrEmpty(currentLine))
+                    {
+                        lines.Add(currentLine);
+                        currentLine = string.Empty;
+                    }
+
+                    if (!splitOverlongTokens ||
+                        measurer.MeasureWidthPoints(word) <= layout.UsableWidthPoints)
+                    {
+                        currentLine = word;
+                        continue;
+                    }
+
+                    string remaining = word;
+                    while (!string.IsNullOrEmpty(remaining))
+                    {
+                        int prefixLength = FindFittingPrefixLength(
+                            remaining,
+                            measurer,
+                            layout.UsableWidthPoints);
+                        string chunk = remaining[..prefixLength];
+                        remaining = remaining[prefixLength..];
+                        if (string.IsNullOrEmpty(remaining))
+                            currentLine = chunk;
+                        else
+                            lines.Add(chunk);
+                    }
                 }
 
                 if (!string.IsNullOrEmpty(currentLine))
@@ -384,6 +428,31 @@ namespace AsutpKnowledgeBase.Services
                 lines.Add(string.Empty);
 
             return lines.ToArray();
+        }
+
+        private static int FindFittingPrefixLength(
+            string value,
+            GdiTextWidthMeasurer measurer,
+            float maximumWidthPoints)
+        {
+            int lowerBound = 1;
+            int upperBound = value.Length;
+            int bestLength = 1;
+            while (lowerBound <= upperBound)
+            {
+                int candidateLength = lowerBound + ((upperBound - lowerBound) / 2);
+                if (measurer.MeasureWidthPoints(value[..candidateLength]) <= maximumWidthPoints)
+                {
+                    bestLength = candidateLength;
+                    lowerBound = candidateLength + 1;
+                }
+                else
+                {
+                    upperBound = candidateLength - 1;
+                }
+            }
+
+            return bestLength;
         }
 
         private static int FindSplitIndex(string value, int maxLength)
@@ -583,21 +652,26 @@ namespace AsutpKnowledgeBase.Services
             return FindChild(FindChild(level, "pPr"), "ind") as Indentation;
         }
 
-        private static TextFieldLayout ResolveInspectionResultLayout(Body body)
+        private static TextFieldLayout ResolveTableCellTextLayout(Body body, string placeholder)
         {
-            Text? markerText = body
+            Paragraph? paragraph = body
+                .Descendants<Paragraph>()
+                .FirstOrDefault(candidate => string.Concat(
+                        candidate.Descendants<Text>().Select(static text => text.Text))
+                    .Contains(placeholder, StringComparison.Ordinal));
+            string markerToken = placeholder.Trim('{', '}');
+            Text? markerText = paragraph?
                 .Descendants<Text>()
-                .FirstOrDefault(static text =>
-                    text.Text.Contains("{{InspectionResultLine1}}", StringComparison.Ordinal));
-            TableCell? cell = markerText?.Ancestors<TableCell>().FirstOrDefault();
-            Paragraph? paragraph = markerText?.Ancestors<Paragraph>().FirstOrDefault();
-            if (cell == null || paragraph == null)
-                throw new InvalidDataException("В шаблоне не найдено поле {{InspectionResultLine1}}.");
+                .FirstOrDefault(text => text.Text.Contains(markerToken, StringComparison.Ordinal))
+                ?? paragraph?.Descendants<Text>().FirstOrDefault();
+            TableCell? cell = paragraph?.Ancestors<TableCell>().FirstOrDefault();
+            if (cell == null || paragraph == null || markerText == null)
+                throw new InvalidDataException($"В шаблоне не найдено поле {placeholder}.");
 
             TextFormat textFormat = ResolvePlaceholderTextFormat(
                 markerText,
                 paragraph,
-                "{{InspectionResultLine1}}");
+                placeholder);
 
             OpenXmlElement? cellWidth = FindChild(cell.TableCellProperties, "tcW");
             string widthType = GetAttributeValue(cellWidth, "type");
@@ -605,7 +679,7 @@ namespace AsutpKnowledgeBase.Services
             if (cellWidthTwips <= 0 ||
                 !string.IsNullOrEmpty(widthType) && !string.Equals(widthType, "dxa", StringComparison.Ordinal))
             {
-                throw new InvalidDataException("Ширина поля {{InspectionResultLine1}} должна быть задана в twips.");
+                throw new InvalidDataException($"Ширина поля {placeholder} должна быть задана в twips.");
             }
 
             OpenXmlElement? margins = FindChild(cell.TableCellProperties, "tcMar");
@@ -626,11 +700,13 @@ namespace AsutpKnowledgeBase.Services
                 leftIndentTwips -
                 rightIndentTwips;
             if (usableWidthTwips <= 0)
-                throw new InvalidDataException("Полезная ширина поля {{InspectionResultLine1}} должна быть положительной.");
+                throw new InvalidDataException($"Полезная ширина поля {placeholder} должна быть положительной.");
 
             float usableWidthPoints = usableWidthTwips / 20F - TextWidthSafetyMarginPoints;
-            string fixedParagraphText = paragraph.InnerText.Replace(
-                "{{InspectionResultLine1}}",
+            string fixedParagraphText = string.Concat(
+                    paragraph.Descendants<Text>().Select(static text => text.Text))
+                .Replace(
+                placeholder,
                 string.Empty,
                 StringComparison.Ordinal);
             if (!string.IsNullOrEmpty(fixedParagraphText))
@@ -642,7 +718,7 @@ namespace AsutpKnowledgeBase.Services
             }
 
             if (usableWidthPoints <= 0F)
-                throw new InvalidDataException("Полезная ширина текста {{InspectionResultLine1}} должна быть положительной.");
+                throw new InvalidDataException($"Полезная ширина текста {placeholder} должна быть положительной.");
 
             return new TextFieldLayout(
                 usableWidthPoints,
@@ -763,6 +839,91 @@ namespace AsutpKnowledgeBase.Services
                     });
                 parent.InsertAfter(row, insertAfter);
                 insertAfter = row;
+            }
+        }
+
+        private static void EnsureAcceptedInspectionExecutorRows(Body body, int lineCount)
+        {
+            TableRow? markerRow = body
+                .Descendants<TableRow>()
+                .FirstOrDefault(static row => row.InnerText.Contains(
+                    "{{ExecutorNamePosition2}}",
+                    StringComparison.Ordinal));
+            if (markerRow?.Parent == null)
+                return;
+
+            if (lineCount <= 1)
+            {
+                markerRow.Remove();
+                return;
+            }
+
+            OpenXmlElement parent = markerRow.Parent;
+            OpenXmlElement insertAfter = markerRow;
+            for (int line = 3; line <= lineCount; line++)
+            {
+                var row = (TableRow)markerRow.CloneNode(deep: true);
+                ReplacePlaceholders(
+                    row,
+                    new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        ["{{ExecutorNamePosition2}}"] = $"{{{{ExecutorNamePosition{line}}}}}"
+                    });
+                parent.InsertAfter(row, insertAfter);
+                insertAfter = row;
+            }
+        }
+
+        private static void PopulateAcceptedInspectionExecutorSignatures(
+            Body body,
+            IDictionary<string, string> replacements,
+            IReadOnlyList<KbActExecutor> executors)
+        {
+            const string placeholder = "{{ExecutorSignatureName}}";
+            TableRow? markerRow = body
+                .Descendants<TableRow>()
+                .FirstOrDefault(static row => row.InnerText.Contains(
+                    placeholder,
+                    StringComparison.Ordinal));
+            if (markerRow == null)
+                return;
+
+            TableRow? captionRow = markerRow.NextSibling<TableRow>();
+            List<KbActExecutor> visibleExecutors = executors
+                .Take(FixedExecutorSlotCount)
+                .ToList();
+            if (visibleExecutors.Count == 0)
+            {
+                captionRow?.Remove();
+                markerRow.Remove();
+                replacements[placeholder] = string.Empty;
+                return;
+            }
+
+            replacements[placeholder] = FormatExecutorName(visibleExecutors[0]);
+            if (markerRow.Parent == null)
+                return;
+
+            OpenXmlElement parent = markerRow.Parent;
+            OpenXmlElement insertAfter = captionRow ?? markerRow;
+            for (int i = 1; i < visibleExecutors.Count; i++)
+            {
+                var signatureRow = (TableRow)markerRow.CloneNode(deep: true);
+                ReplacePlaceholders(
+                    signatureRow,
+                    new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        [placeholder] = FormatExecutorName(visibleExecutors[i])
+                    });
+                parent.InsertAfter(signatureRow, insertAfter);
+                insertAfter = signatureRow;
+
+                if (captionRow == null)
+                    continue;
+
+                var signatureCaptionRow = (TableRow)captionRow.CloneNode(deep: true);
+                parent.InsertAfter(signatureCaptionRow, insertAfter);
+                insertAfter = signatureCaptionRow;
             }
         }
 

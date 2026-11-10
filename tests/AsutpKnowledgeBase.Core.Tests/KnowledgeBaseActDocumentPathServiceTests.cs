@@ -51,6 +51,56 @@ public class KnowledgeBaseActDocumentPathServiceTests
     }
 
     [Fact]
+    public void BuildDocumentFileName_ForInspectionWork_UsesNumberRequestAndEquipment()
+    {
+        KbAct act = CreateAct();
+        act.ActType = KbActType.InspectionWork;
+        act.EquipmentName = string.Empty;
+        act.RequestDocument = "12345";
+        act.EquipmentSnapshot.Model = "SIMATIC S7-300";
+
+        string fileName = KnowledgeBaseActDocumentPathService.BuildDocumentFileName(act);
+
+        Assert.Equal("2026-0001_12345_SIMATIC_S7-300.docx", fileName);
+        Assert.DoesNotContain("Заявка", fileName, StringComparison.Ordinal);
+        Assert.DoesNotContain("Осмотр", fileName, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildDocumentFileName_ForInspectionWork_OmitsDefaultEquipmentWhenEquipmentIsEmpty()
+    {
+        KbAct act = CreateAct();
+        act.ActType = KbActType.InspectionWork;
+        act.EquipmentName = string.Empty;
+        act.RequestDocument = "сз 0400-1000 ОА-4055";
+        act.EquipmentSnapshot.Model = string.Empty;
+        act.EquipmentSnapshot.OrderNumber = string.Empty;
+
+        string fileName = KnowledgeBaseActDocumentPathService.BuildDocumentFileName(act);
+
+        Assert.Equal("2026-0001_сз_0400-1000_ОА-4055.docx", fileName);
+        Assert.DoesNotContain("Оборудование", fileName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildDocumentFileName_ForInspectionWork_SanitizesEnteredRequestText()
+    {
+        KbAct act = CreateAct();
+        act.ActType = KbActType.InspectionWork;
+        act.RequestDocument = "Заявка: 12/34?";
+
+        string fileName = KnowledgeBaseActDocumentPathService.BuildDocumentFileName(act);
+
+        Assert.StartsWith(
+            "2026-0001_Заявка_12_34_",
+            fileName,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(":", fileName, StringComparison.Ordinal);
+        Assert.DoesNotContain("/", fileName, StringComparison.Ordinal);
+        Assert.DoesNotContain("?", fileName, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PrepareDocumentPath_UsesSelectedPathAndStoresLastDirectory()
     {
         string baseDirectory = Path.Combine(Path.GetTempPath(), $"akb5-act-docs-{Guid.NewGuid():N}");

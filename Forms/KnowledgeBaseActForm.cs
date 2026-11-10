@@ -44,8 +44,8 @@ namespace AsutpKnowledgeBase
         private HistoryInputControl _cmbCustomerPosition = null!;
         private HistoryInputControl _txtApproverName = null!;
         private HistoryInputControl _cmbApproverPosition = null!;
-        private HistoryInputControl _txtExecutorName = null!;
-        private HistoryInputControl _cmbExecutorPosition = null!;
+        private HistoryInputControl[] _txtExecutorNames = [];
+        private HistoryInputControl[] _cmbExecutorPositions = [];
 
         public KnowledgeBaseActForm(
             KbAct draft,
@@ -204,10 +204,13 @@ namespace AsutpKnowledgeBase
         private TabPage CreateAdditionalTab()
         {
             var page = new TabPage("Дополнительно");
-            var layout = CreateFormLayout(rowCount: 10);
-            KbActExecutor? firstExecutor = _draftExecutors
+            int executorSlotCount = _draft.ActType == KbActType.InspectionWork ? 3 : 1;
+            var layout = CreateFormLayout(rowCount: 8 + executorSlotCount * 2);
+            List<KbActExecutor> orderedExecutors = _draftExecutors
                 .OrderBy(static executor => executor.SortOrder)
-                .FirstOrDefault();
+                .ThenBy(static executor => executor.ExecutorId, StringComparer.Ordinal)
+                .Take(executorSlotCount)
+                .ToList();
 
             _dtpFailureDate = CreateOptionalDatePicker(_draft.FailureDate ?? _draft.ActDate ?? DateTime.Today);
             _dtpFailureDate.Checked = _draft.FailureDate.HasValue || _draft.ActDate.HasValue;
@@ -229,12 +232,18 @@ namespace AsutpKnowledgeBase
             _cmbApproverPosition = CreateHistoryInput(
                 KbActInputHistoryField.ApproverPosition,
                 _draft.ApproverPosition);
-            _txtExecutorName = CreateHistoryInput(
-                KbActInputHistoryField.ExecutorName,
-                FormatExecutorName(firstExecutor));
-            _cmbExecutorPosition = CreateHistoryInput(
-                KbActInputHistoryField.ExecutorPosition,
-                firstExecutor?.Position);
+            _txtExecutorNames = new HistoryInputControl[executorSlotCount];
+            _cmbExecutorPositions = new HistoryInputControl[executorSlotCount];
+            for (int i = 0; i < executorSlotCount; i++)
+            {
+                KbActExecutor? executor = i < orderedExecutors.Count ? orderedExecutors[i] : null;
+                _txtExecutorNames[i] = CreateHistoryInput(
+                    KbActInputHistoryField.ExecutorName,
+                    FormatExecutorName(executor));
+                _cmbExecutorPositions[i] = CreateHistoryInput(
+                    KbActInputHistoryField.ExecutorPosition,
+                    executor?.Position);
+            }
 
             AddRow(layout, 0, "Дата отказа", _dtpFailureDate);
             AddRow(layout, 1, "Критерий неисправности", _cmbFaultCriterion);
@@ -244,8 +253,16 @@ namespace AsutpKnowledgeBase
             AddRow(layout, 5, "Должность утверждающего", _cmbApproverPosition);
             AddRow(layout, 6, "Представитель цеха", _txtCustomerName);
             AddRow(layout, 7, "Должность представителя", _cmbCustomerPosition);
-            AddRow(layout, 8, "Исполнитель", _txtExecutorName);
-            AddRow(layout, 9, "Должность исполнителя", _cmbExecutorPosition);
+            for (int i = 0; i < executorSlotCount; i++)
+            {
+                string suffix = executorSlotCount == 1 ? string.Empty : $" {i + 1}";
+                AddRow(layout, 8 + i * 2, $"Исполнитель{suffix}", _txtExecutorNames[i]);
+                AddRow(
+                    layout,
+                    9 + i * 2,
+                    $"Должность исполнителя{suffix}",
+                    _cmbExecutorPositions[i]);
+            }
 
             page.Controls.Add(layout);
             return page;
@@ -344,27 +361,35 @@ namespace AsutpKnowledgeBase
         private List<KbActExecutor> BuildExecutors(string actId)
         {
             var executors = new List<KbActExecutor>();
-            string executorName = _txtExecutorName.Value.Trim();
-            string executorPosition = _cmbExecutorPosition.Value.Trim();
-            if (string.IsNullOrWhiteSpace(executorName) &&
-                string.IsNullOrWhiteSpace(executorPosition))
-            {
-                return executors;
-            }
+            List<KbActExecutor> orderedDraftExecutors = _draftExecutors
+                .OrderBy(static executor => executor.SortOrder)
+                .ThenBy(static executor => executor.ExecutorId, StringComparer.Ordinal)
+                .ToList();
 
-            (string lastName, string firstName, string middleName) = SplitPersonName(executorName);
-            executors.Add(new KbActExecutor
+            for (int i = 0; i < _txtExecutorNames.Length; i++)
             {
-                ExecutorId = _draftExecutors
-                    .OrderBy(static executor => executor.SortOrder)
-                    .FirstOrDefault()?.ExecutorId ?? string.Empty,
-                ActId = actId,
-                SortOrder = 0,
-                LastName = lastName,
-                FirstName = firstName,
-                MiddleName = middleName,
-                Position = executorPosition
-            });
+                string executorName = _txtExecutorNames[i].Value.Trim();
+                string executorPosition = _cmbExecutorPositions[i].Value.Trim();
+                if (string.IsNullOrWhiteSpace(executorName) &&
+                    string.IsNullOrWhiteSpace(executorPosition))
+                {
+                    continue;
+                }
+
+                (string lastName, string firstName, string middleName) = SplitPersonName(executorName);
+                executors.Add(new KbActExecutor
+                {
+                    ExecutorId = i < orderedDraftExecutors.Count
+                        ? orderedDraftExecutors[i].ExecutorId
+                        : string.Empty,
+                    ActId = actId,
+                    SortOrder = i,
+                    LastName = lastName,
+                    FirstName = firstName,
+                    MiddleName = middleName,
+                    Position = executorPosition
+                });
+            }
 
             return executors;
         }

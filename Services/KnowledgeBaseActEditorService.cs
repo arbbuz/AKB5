@@ -160,6 +160,9 @@ namespace AsutpKnowledgeBase.Services
             if (normalized.Count == 0)
                 return "Укажите исполнителя.";
 
+            if (!normalized.Any(static executor => executor.SortOrder == 0))
+                return "Укажите исполнителя 1.";
+
             foreach (KbActExecutor executor in normalized)
             {
                 bool hasName = !string.IsNullOrWhiteSpace(executor.LastName) ||

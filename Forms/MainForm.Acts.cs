@@ -1050,13 +1050,26 @@ namespace AsutpKnowledgeBase
         private void ShowActGeneratedMessage(string outputPath, IWin32Window? owner = null)
         {
             string message = $"DOCX акта сформирован: {outputPath}";
-            MessageBox.Show(
-                owner ?? this,
-                message,
-                "Акт",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
+            var openButton = new TaskDialogButton("Открыть DOCX");
+            var okButton = new TaskDialogButton("OK");
+            var page = new TaskDialogPage
+            {
+                Caption = "Акт",
+                Heading = "DOCX акта сформирован",
+                Text = outputPath,
+                Icon = TaskDialogIcon.Information,
+                AllowCancel = true,
+                SizeToContent = true,
+                Buttons =
+                {
+                    openButton,
+                    okButton
+                }
+            };
+            TaskDialogButton selectedButton = TaskDialog.ShowDialog(owner ?? this, page);
             SetLastActionText(message);
+            if (ReferenceEquals(selectedButton, openButton))
+                OpenActDocumentPath(outputPath, owner);
         }
 
         private void ShowActGenerationError(string errorMessage, IWin32Window? owner = null)

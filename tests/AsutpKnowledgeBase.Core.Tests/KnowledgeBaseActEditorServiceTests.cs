@@ -270,6 +270,42 @@ public class KnowledgeBaseActEditorServiceTests
     }
 
     [Fact]
+    public void ValidateExecutorsForSave_RequiresFirstExecutorWhenOnlySecondIsFilled()
+    {
+        string? result = KnowledgeBaseActEditorService.ValidateExecutorsForSave(
+            new[]
+            {
+                new KbActExecutor
+                {
+                    ActId = "act-1",
+                    SortOrder = 1,
+                    LastName = "Петров",
+                    Position = "инженер"
+                }
+            });
+
+        Assert.Equal("Укажите исполнителя 1.", result);
+    }
+
+    [Fact]
+    public void ValidateExecutorsForSave_AcceptsThreeCompleteExecutors()
+    {
+        KbActExecutor[] executors = Enumerable.Range(0, 3)
+            .Select(index => new KbActExecutor
+            {
+                ActId = "act-1",
+                SortOrder = index,
+                LastName = $"Исполнитель{index + 1}",
+                Position = $"Должность{index + 1}"
+            })
+            .ToArray();
+
+        string? result = KnowledgeBaseActEditorService.ValidateExecutorsForSave(executors);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
     public void ValidateExecutorsForSave_AcceptsNamedExecutorWithPosition()
     {
         string? result = KnowledgeBaseActEditorService.ValidateExecutorsForSave(
